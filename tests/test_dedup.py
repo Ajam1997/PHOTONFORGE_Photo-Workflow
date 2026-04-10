@@ -34,7 +34,7 @@ def test_duplicate_flagged_within_session() -> None:
     """Near-identical hashes in the same session → second is a duplicate."""
     records = [_make_record("orig"), _make_record("dup")]
     base_hash = 0xABCDABCDABCDABCD
-    near_hash = base_hash ^ 0b111  # Hamming distance = 3 < threshold
+    near_hash = base_hash ^ 0b11  # Hamming distance = 2 <= DHASH_THRESHOLD
 
     with patch("photo_workflow.dedup._dhash", side_effect=[base_hash, near_hash]):
         result = deduplicate(records)

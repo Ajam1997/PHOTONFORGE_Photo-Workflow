@@ -36,11 +36,11 @@ def test_records_within_gap_share_session() -> None:
 
 def test_records_across_gap_get_different_sessions() -> None:
     """Two records > SESSION_GAP_MINUTES apart get different session IDs."""
+    from datetime import timedelta
+
     records = [_rec("morning"), _rec("evening")]
-    dts = [
-        datetime(2026, 4, 10, 9, 0, 0),
-        datetime(2026, 4, 10, 9, 0, 0 + SESSION_GAP_MINUTES * 60 + 1),
-    ]
+    base = datetime(2026, 4, 10, 9, 0, 0)
+    dts = [base, base + timedelta(minutes=SESSION_GAP_MINUTES + 1)]
     with patch("photo_workflow.grouping._read_exif_datetime", side_effect=dts):
         result = cluster_sessions(records)
     assert result[0].session_id != result[1].session_id

@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
-from photo_workflow.composition import score_composition
+from photo_workflow.composition import score_composition, _rule_of_thirds_score
 
 
 def test_missing_image_returns_zero() -> None:
@@ -23,25 +23,19 @@ def test_score_is_normalized() -> None:
     fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
     fake_saliency = np.ones((100, 100), dtype=np.float32) * 0.5
 
-    saliency_obj = MagicMock()
-    saliency_obj.computeSaliency.return_value = (True, fake_saliency)
-
     with patch("cv2.imread", return_value=fake_img), \
-         patch("cv2.saliency.StaticSaliencySpectralResidual_create", return_value=saliency_obj):
+         patch("photo_workflow.composition._compute_saliency", return_value=fake_saliency):
         score = score_composition(Path("/fake/image.jpg"))
 
     assert 0.0 <= score <= 1.0
 
 
 def test_saliency_failure_returns_zero() -> None:
-    """If saliency computation fails, score is 0.0."""
+    """If saliency computation raises, score is 0.0."""
     fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
 
-    saliency_obj = MagicMock()
-    saliency_obj.computeSaliency.return_value = (False, None)
-
     with patch("cv2.imread", return_value=fake_img), \
-         patch("cv2.saliency.StaticSaliencySpectralResidual_create", return_value=saliency_obj):
+         patch("photo_workflow.composition._compute_saliency", side_effect=RuntimeError("fail")):
         score = score_composition(Path("/fake/image.jpg"))
 
     assert score == 0.0
@@ -53,11 +47,16 @@ def test_uniform_saliency_returns_nonzero() -> None:
     # All saliency equal → power points have same density as everywhere else
     fake_saliency = np.ones((300, 300), dtype=np.float32)
 
-    saliency_obj = MagicMock()
-    saliency_obj.computeSaliency.return_value = (True, fake_saliency)
-
     with patch("cv2.imread", return_value=fake_img), \
-         patch("cv2.saliency.StaticSaliencySpectralResidual_create", return_value=saliency_obj):
+         patch("photo_workflow.composition._compute_saliency", return_value=fake_saliency):
         score = score_composition(Path("/fake/image.jpg"))
 
     assert score > 0.0
+
+
+def test_rule_of_thirds_score_range() -> None:
+    """_rule_of_thirds_score always returns a value in [0.0, 1.0]."""
+    for _ in range(10):
+        saliency_map = np.random.rand(200, 300).astype(np.float32)
+        score = _rule_of_thirds_score(saliency_map)
+        assert 0.0 <= score <= 1.0
