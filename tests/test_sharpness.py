@@ -8,7 +8,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from photo_workflow.sharpness import score_sharpness, BLUR_THRESHOLD
+from photo_workflow.sharpness import score_sharpness
 
 
 def test_sharp_image_scores_high() -> None:
@@ -17,7 +17,7 @@ def test_sharp_image_scores_high() -> None:
     fake_lap = np.random.randn(100, 100) * 50.0  # variance ~2500
 
     with patch("cv2.imread", return_value=np.zeros((100, 100), dtype=np.uint8)), \
-         patch("cv2.Laplacian", return_value=fake_lap):
+         patch("photo_workflow.sharpness.laplace", return_value=fake_lap):
         score = score_sharpness(Path("/fake/sharp.jpg"))
 
     assert score == 1.0  # Should saturate at max
@@ -28,7 +28,7 @@ def test_blurry_image_scores_low() -> None:
     fake_lap = np.ones((100, 100)) * 0.1  # variance near 0
 
     with patch("cv2.imread", return_value=np.zeros((100, 100), dtype=np.uint8)), \
-         patch("cv2.Laplacian", return_value=fake_lap):
+         patch("photo_workflow.sharpness.laplace", return_value=fake_lap):
         score = score_sharpness(Path("/fake/blurry.jpg"))
 
     assert score < 0.1
@@ -46,7 +46,44 @@ def test_score_is_normalized() -> None:
     fake_lap = np.random.randn(200, 200) * 1000.0  # extreme variance
 
     with patch("cv2.imread", return_value=np.zeros((200, 200), dtype=np.uint8)), \
-         patch("cv2.Laplacian", return_value=fake_lap):
+         patch("photo_workflow.sharpness.laplace", return_value=fake_lap):
         score = score_sharpness(Path("/fake/extreme.jpg"))
 
     assert 0.0 <= score <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# Fixture-backed tests (real synthetic images, no mocks)
+# ---------------------------------------------------------------------------
+
+def test_fixture_sharp_scores_high(sharp_image: Path) -> None:
+    """Checkerboard PNG (high-frequency) scores > 0.5."""
+    score = score_sharpness(sharp_image)
+    assert score > 0.5, f"Expected sharp score > 0.5, got {score}"
+
+
+def test_fixture_blurry_scores_low(blurry_image: Path) -> None:
+    """Solid-gray PNG (no edges) scores < 0.05."""
+    score = score_sharpness(blurry_image)
+    assert score < 0.05, f"Expected blurry score < 0.05, got {score}"
+
+
+@pytest.mark.slow
+def test_batch_memory_under_500mb(sharp_image: Path, tmp_path: Path) -> None:
+    """KPM guard: RSS delta for 50-image batch must stay below 500 MB."""
+    import shutil
+    from memory_profiler import memory_usage  # type: ignore[import-untyped]
+
+    paths = []
+    for i in range(50):
+        dst = tmp_path / f"img_{i:03d}.png"
+        shutil.copy(sharp_image, dst)
+        paths.append(dst)
+
+    def run_batch() -> None:
+        for p in paths:
+            score_sharpness(p)
+
+    mem: list[float] = memory_usage(run_batch, interval=0.05, retval=False)  # type: ignore[assignment]
+    peak_delta_mb = max(mem) - min(mem)
+    assert peak_delta_mb < 500, f"Batch RSS delta {peak_delta_mb:.1f} MB >= 500 MB"

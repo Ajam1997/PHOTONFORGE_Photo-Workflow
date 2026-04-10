@@ -1,0 +1,44 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Pipeline (dry-run)",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m", "photo_workflow.pipeline",
+        "--source", "/mnt/photon",
+        "--output", "/tmp/photon-out",
+        "--db", "/tmp/library.db",
+        "--dry-run"
+      ],
+      "port": 0
+    },
+    {
+      "name": "Docker Compose",
+      "runtimeExecutable": "docker",
+      "runtimeArgs": [
+        "compose",
+        "-f", "deploy/docker-compose.yml",
+        "up", "--build"
+      ],
+      "port": 0
+    },
+    {
+      "name": "pytest",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m", "pytest", "tests/", "-v", "--tb=short"
+      ],
+      "port": 0
+    },
+    {
+      "name": "Sharpness CLI",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m", "photo_workflow.sharpness",
+        "."
+      ],
+      "port": 0
+    }
+  ]
+}

@@ -5,10 +5,17 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import click
 import cv2
 import numpy as np
+from scipy.ndimage import laplace
 
 logger = logging.getLogger(__name__)
+
+_SUPPORTED_EXTS = {
+    ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".raw",
+    ".cr2", ".cr3", ".nef", ".arw", ".dng",
+}
 
 # Variance below this is considered blurry (tune per sensor/resolution)
 BLUR_THRESHOLD = 100.0
@@ -24,7 +31,35 @@ def score_sharpness(path: Path) -> float:
         logger.warning("Could not load image for sharpness: %s", path)
         return 0.0
 
-    variance = float(cv2.Laplacian(img, cv2.CV_64F).var())
+    lap = laplace(img.astype(np.float64))
+    variance = float(lap.var())
     # Soft-normalize: score saturates near 1.0 at ~10× the blur threshold
     score = min(variance / (BLUR_THRESHOLD * 10.0), 1.0)
     return round(score, 4)
+
+
+@click.command("sharpness")
+@click.argument("path", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--threshold",
+    default=BLUR_THRESHOLD,
+    show_default=True,
+    help="Blur threshold for normalization (variance units).",
+)
+def main(path: Path, threshold: float) -> None:
+    """Score sharpness for PATH (file or directory of images).
+
+    Prints one line per image: '<path>: <score>'
+    Score is in [0.0, 1.0]; values below 0.1 typically indicate blur.
+    """
+    targets = sorted(path.iterdir()) if path.is_dir() else [path]
+    for p in targets:
+        if not (p.is_file() and p.suffix.lower() in _SUPPORTED_EXTS):
+            continue
+        img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            click.echo(f"{p}: unreadable")
+            continue
+        variance = float(laplace(img.astype(np.float64)).var())
+        score = round(min(variance / (threshold * 10.0), 1.0), 4)
+        click.echo(f"{p}: {score:.4f}")
