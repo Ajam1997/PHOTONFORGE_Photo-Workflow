@@ -1,0 +1,32 @@
+services:
+  photo-workflow:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: photonforge/photo-workflow:latest
+    container_name: photonforge-pipeline
+
+    # Mount the SSD/SD source and Darktable library
+    volumes:
+      - "${PHOTON_MOUNT:-/mnt/photon}:/media/source:ro"
+      - "${DARKTABLE_OUTPUT:-/var/lib/photonforge/output}:/output"
+      - "${DARKTABLE_DB_DIR:-${HOME}/.config/darktable}:/darktable:rw"
+
+    # Pass the block device for direct access if needed
+    # devices:
+    #   - "${PHOTON_DEVICE:-/dev/null}:/dev/photon_ssd"
+
+    environment:
+      PHOTON_SOURCE: /media/source
+      PHOTON_OUTPUT: /output
+      DARKTABLE_DB: /darktable/library.db
+      PYTHONUNBUFFERED: "1"
+
+    command:
+      - "--source=/media/source"
+      - "--output=/output"
+      - "--db=/darktable/library.db"
+
+    restart: "no"
+    mem_limit: 1536m   # KPM-1.3: analyzer container <= 1.5 GB RSS
+    cpuset: "0-3"

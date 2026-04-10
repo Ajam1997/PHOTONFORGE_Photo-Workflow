@@ -1,0 +1,12 @@
+# PHOTONForge: Trigger pipeline when an SD card is inserted.
+# Matches SD/MMC block devices regardless of label.
+# Install to /etc/udev/rules.d/ via scripts/install_udev.sh
+
+ACTION=="add", SUBSYSTEM=="block", \
+    ENV{ID_DRIVE_FLASH_SD}=="1", \
+    ENV{DEVTYPE}=="partition", \
+    RUN+="/bin/sh -c 'mkdir -p /mnt/photon_sd && mount /dev/%k /mnt/photon_sd && /opt/photonforge/scripts/manage_ssd.sh /dev/%k /mnt/photon_sd >> /var/log/photonforge.log 2>&1'"
+
+ACTION=="remove", SUBSYSTEM=="block", \
+    ENV{ID_DRIVE_FLASH_SD}=="1", \
+    RUN+="/bin/sh -c '/opt/photonforge/scripts/safe_eject.sh /mnt/photon_sd >> /var/log/photonforge.log 2>&1'"

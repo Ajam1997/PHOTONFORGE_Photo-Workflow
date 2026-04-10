@@ -1,0 +1,12 @@
+# PHOTONForge: Trigger pipeline when a PHOTON-labeled SSD is mounted.
+# Install to /etc/udev/rules.d/ via scripts/install_udev.sh
+
+# Match USB mass storage devices with PHOTON label
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="PHOTON*", \
+    ENV{ID_BUS}=="usb", \
+    ENV{DEVTYPE}=="partition", \
+    RUN+="/bin/sh -c 'mount /dev/%k /mnt/photon_ssd && /opt/photonforge/scripts/manage_ssd.sh /dev/%k /mnt/photon_ssd >> /var/log/photonforge.log 2>&1'"
+
+ACTION=="remove", SUBSYSTEM=="block", ENV{ID_FS_LABEL}=="PHOTON*", \
+    ENV{ID_BUS}=="usb", \
+    RUN+="/bin/sh -c '/opt/photonforge/scripts/safe_eject.sh /mnt/photon_ssd >> /var/log/photonforge.log 2>&1'"

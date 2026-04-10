@@ -1,0 +1,13 @@
+{
+  "projectName": "PHOTONForge Photo Workflow",
+  "permissions": {
+    "allow": [
+      "Bash(pytest:*)",
+      "Bash(python:*)",
+      "Bash(ruff:*)",
+      "Bash(mypy:*)",
+      "Bash(docker:*)",
+      "Bash(docker-compose:*)"
+    ]
+  }
+}
