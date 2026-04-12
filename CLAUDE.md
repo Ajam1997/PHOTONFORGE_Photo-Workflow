@@ -57,4 +57,4 @@ models/    -- florence2_int8/ (vendored, not downloaded)
 5. Scaling + UI (@devops): Selkies 4K 200% scaling, zenity prompts
 6. Integration (lead + @architect): wire pipeline.py, end-to-end test on Yoga 920
 
-Full spec: docs/photo-workflow-architecture-v3.docx
+Full spec: docs/photo-workflow-architecture-v4.docx
