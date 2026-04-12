@@ -1,16 +1,21 @@
 # PHOTONForge: Trigger rsync ingest when an SD card is inserted.
-# Hardware: Yoga 920 right USB-A (usb-0:3), usb-storage driver, VID 05e3 (Genesys Logic).
-# ID_DRIVE_FLASH_SD is NOT set by the kernel for USB card readers — match on vendor/port instead.
+# Hardware: Yoga 920 right USB-A (usb-0:3), Genesys Logic GL3227E multi-slot reader (05e3:0749).
+# Reader exposes two LUNs: LUN 0:0 (active card slot, sdb) and LUN 0:1 (empty, sdc).
+# ID_FS_USAGE=="filesystem" skips the empty LUN which has no filesystem.
+# ID_DRIVE_FLASH_SD is NOT set by the kernel for USB card readers.
 # Install to /etc/udev/rules.d/ via scripts/install_udev.sh
 
 ACTION=="add", SUBSYSTEM=="block", DEVTYPE=="partition", \
     ENV{ID_USB_DRIVER}=="usb-storage", \
     ENV{ID_VENDOR_ID}=="05e3", \
+    ENV{ID_MODEL_ID}=="0749", \
     ENV{ID_PATH}=="*usb-0:3*", \
-    RUN+="/bin/sh -c 'echo \"[$(date -Iseconds)] [udev] SD add: /dev/%k\" >> /var/log/photonforge.log && mkdir -p /mnt/photon_sd && mount /dev/%k /mnt/photon_sd && /opt/photonforge/scripts/ingest_sd.sh /dev/%k /mnt/photon_sd >> /var/log/photonforge.log 2>&1'"
+    ENV{ID_FS_USAGE}=="filesystem", \
+    RUN+="/bin/sh -c 'touch /var/log/photonforge.log 2>/dev/null; echo \"[$(date -Iseconds)] [udev] SD add: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && mkdir -p /mnt/photon_sd && mount /dev/%k /mnt/photon_sd && /opt/photonforge/scripts/ingest_sd.sh /dev/%k /mnt/photon_sd >> /var/log/photonforge.log 2>&1'"
 
 ACTION=="remove", SUBSYSTEM=="block", DEVTYPE=="partition", \
     ENV{ID_USB_DRIVER}=="usb-storage", \
     ENV{ID_VENDOR_ID}=="05e3", \
+    ENV{ID_MODEL_ID}=="0749", \
     ENV{ID_PATH}=="*usb-0:3*", \
-    RUN+="/bin/sh -c 'echo \"[$(date -Iseconds)] [udev] SD remove: /dev/%k\" >> /var/log/photonforge.log && /opt/photonforge/scripts/safe_eject.sh /mnt/photon_sd >> /var/log/photonforge.log 2>&1'"
+    RUN+="/bin/sh -c 'touch /var/log/photonforge.log 2>/dev/null; echo \"[$(date -Iseconds)] [udev] SD remove: /dev/%k\" >> /var/log/photonforge.log && /opt/photonforge/scripts/safe_eject.sh /mnt/photon_sd >> /var/log/photonforge.log 2>&1'"
