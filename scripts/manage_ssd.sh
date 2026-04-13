@@ -1,8 +1,5 @@
 #!/bin/sh
 # PHOTONForge: Mount and ingest a PHOTON-* ext4 cartridge.
-# Triggered by udev when a partition with label matching PHOTON-* is added.
-# Cartridge ID is extracted from the label (PHOTON-001 -> 001) and used as
-# the mount subdirectory, so multiple cartridges can coexist under /mnt/photon_ssd/.
 # Usage: manage_ssd.sh <device> <label>
 set -euo pipefail
 
@@ -19,14 +16,22 @@ log() { printf '[%s] [manage_ssd] %s\n' "$(date -Iseconds)" "$*"; }
 
 log "Cartridge $LABEL ($CARTRIDGE_ID) detected at $DEVICE"
 
+# Guard: ensure this is actually a block device before proceeding
+[ -b "$DEVICE" ] || { log "ERROR: $DEVICE is not a block device"; exit 1; }
+
 mkdir -p "$MOUNT_POINT"
-mount "$DEVICE" "$MOUNT_POINT"
+mount "$DEVICE" "$MOUNT_POINT" || { rmdir "$MOUNT_POINT" 2>/dev/null; exit 1; }
 log "Mounted $DEVICE at $MOUNT_POINT"
+
+# Unmount on any exit (success or failure) after this point
+trap 'log "Cleanup: unmounting $MOUNT_POINT"; umount "$MOUNT_POINT" 2>/dev/null || true' EXIT
+
+# Export so docker compose resolves the volume binding ${PHOTON_MOUNT}:/media/source
+export PHOTON_MOUNT="$MOUNT_POINT"
 
 log "Starting pipeline container"
 docker compose -f "$COMPOSE_FILE" run --rm \
     -e PHOTON_SOURCE="$MOUNT_POINT" \
-    --device "$DEVICE" \
     "$SERVICE"
 
 log "Pipeline complete for $LABEL"

@@ -1,12 +1,12 @@
 #!/bin/sh
-# FR-1.10: Flush Darktable SQLite WAL and safely unmount a volume.
+# PHOTONForge: Flush Darktable SQLite WAL and safely unmount a volume.
 # Usage: safe_eject.sh <mount_point> [darktable_db_path]
 set -euo pipefail
 
 MOUNT_POINT="${1:?Usage: safe_eject.sh <mount_point> [darktable_db_path]}"
 DARKTABLE_DB="${2:-}"
 
-log() { printf '[safe_eject] %s\n' "$*" >&2; }
+log() { printf '[%s] [safe_eject] %s\n' "$(date -Iseconds)" "$*"; }
 
 # 1. Flush Darktable SQLite WAL if DB path provided
 if [ -n "$DARKTABLE_DB" ] && [ -f "$DARKTABLE_DB" ]; then

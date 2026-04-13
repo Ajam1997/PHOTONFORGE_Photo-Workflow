@@ -3,13 +3,18 @@
 # Any USB enclosure on any port will match; label PHOTON-XXX mounts at
 # /mnt/photon_ssd/XXX so multiple cartridges can coexist via a hub.
 # Install to /etc/udev/rules.d/ via scripts/install_udev.sh
+#
+# Ubuntu 24.04 note: ENV{DEVTYPE} is required — bare DEVTYPE is not reliable
+# with systemd-udevd >= 252 on synthetic/replayed events.
 
-ACTION=="add", SUBSYSTEM=="block", DEVTYPE=="partition", \
+ACTION=="add", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
     ENV{ID_FS_LABEL}=="PHOTON-*", \
     ENV{ID_FS_TYPE}=="ext4", \
-    RUN+="/bin/sh -c 'touch /var/log/photonforge.log 2>/dev/null; echo \"[$(date -Iseconds)] [udev] SSD add: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/manage_ssd.sh /dev/%k %E{ID_FS_LABEL} >> /var/log/photonforge.log 2>&1'"
+    RUN+="/bin/sh -c 'echo \"[$(date -Iseconds)] [udev] SSD add: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/manage_ssd.sh /dev/%k %E{ID_FS_LABEL} >> /var/log/photonforge.log 2>&1'"
 
-ACTION=="remove", SUBSYSTEM=="block", DEVTYPE=="partition", \
+# The sed strips PHOTON- prefix inside the shell -c string after udev has
+# already substituted %E{ID_FS_LABEL} to its literal value (e.g. PHOTON-001).
+ACTION=="remove", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
     ENV{ID_FS_LABEL}=="PHOTON-*", \
     ENV{ID_FS_TYPE}=="ext4", \
-    RUN+="/bin/sh -c 'touch /var/log/photonforge.log 2>/dev/null; echo \"[$(date -Iseconds)] [udev] SSD remove: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/safe_eject.sh \"/mnt/photon_ssd/$(echo %E{ID_FS_LABEL} | sed s/^PHOTON-//)\" >> /var/log/photonforge.log 2>&1'"
+    RUN+="/bin/sh -c 'echo \"[$(date -Iseconds)] [udev] SSD remove: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/safe_eject.sh \"/mnt/photon_ssd/$(echo %E{ID_FS_LABEL} | sed s/^PHOTON-//)\" >> /var/log/photonforge.log 2>&1'"
