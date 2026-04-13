@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # FR-1.10: Flush Darktable SQLite WAL and safely unmount a volume.
 # Usage: safe_eject.sh <mount_point> [darktable_db_path]
 set -euo pipefail
