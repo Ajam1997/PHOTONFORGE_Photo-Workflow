@@ -1,18 +1,15 @@
-# PHOTONForge: Trigger pipeline when the PHOTON SSD is inserted.
-# Hardware: Yoga 920 front-left USB-C (usb-0:1), JMicron JMS583 enclosure (152d:0581), UAS driver.
-# Port-path match excludes rear USB 2.0 port. No label requirement (drive is labeled "rpool").
+# PHOTONForge: Trigger pipeline when any PHOTON-* ext4 cartridge is inserted.
+# Cartridge identity is carried by the filesystem label, not the enclosure.
+# Any USB enclosure on any port will match; label PHOTON-XXX mounts at
+# /mnt/photon_ssd/XXX so multiple cartridges can coexist via a hub.
 # Install to /etc/udev/rules.d/ via scripts/install_udev.sh
 
 ACTION=="add", SUBSYSTEM=="block", DEVTYPE=="partition", \
-    ENV{ID_USB_DRIVER}=="uas", \
-    ENV{ID_VENDOR_ID}=="152d", \
-    ENV{ID_MODEL_ID}=="0581", \
-    ENV{ID_PATH}=="*usb-0:1*", \
-    RUN+="/bin/sh -c 'touch /var/log/photonforge.log 2>/dev/null; echo \"[$(date -Iseconds)] [udev] SSD add: /dev/%k\" >> /var/log/photonforge.log && mkdir -p /mnt/photon_ssd && mount /dev/%k /mnt/photon_ssd && /opt/photonforge/scripts/manage_ssd.sh /dev/%k /mnt/photon_ssd >> /var/log/photonforge.log 2>&1'"
+    ENV{ID_FS_LABEL}=="PHOTON-*", \
+    ENV{ID_FS_TYPE}=="ext4", \
+    RUN+="/bin/sh -c 'touch /var/log/photonforge.log 2>/dev/null; echo \"[$(date -Iseconds)] [udev] SSD add: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/manage_ssd.sh /dev/%k %E{ID_FS_LABEL} >> /var/log/photonforge.log 2>&1'"
 
 ACTION=="remove", SUBSYSTEM=="block", DEVTYPE=="partition", \
-    ENV{ID_USB_DRIVER}=="uas", \
-    ENV{ID_VENDOR_ID}=="152d", \
-    ENV{ID_MODEL_ID}=="0581", \
-    ENV{ID_PATH}=="*usb-0:1*", \
-    RUN+="/bin/sh -c 'touch /var/log/photonforge.log 2>/dev/null; echo \"[$(date -Iseconds)] [udev] SSD remove: /dev/%k\" >> /var/log/photonforge.log && /opt/photonforge/scripts/safe_eject.sh /mnt/photon_ssd >> /var/log/photonforge.log 2>&1'"
+    ENV{ID_FS_LABEL}=="PHOTON-*", \
+    ENV{ID_FS_TYPE}=="ext4", \
+    RUN+="/bin/sh -c 'touch /var/log/photonforge.log 2>/dev/null; echo \"[$(date -Iseconds)] [udev] SSD remove: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/safe_eject.sh \"/mnt/photon_ssd/$(echo %E{ID_FS_LABEL} | sed s/^PHOTON-//)\" >> /var/log/photonforge.log 2>&1'"
