@@ -50,11 +50,11 @@ tests/     -- fixtures/, test_*.py
 models/    -- florence2_int8/ (vendored, not downloaded)
 
 ## Build Sequence
-1. Scaffold (@architect): pyproject.toml, directory structure, empty modules
-2. Core Engine (@engineer): grouping, dedup, sharpness, composition, exposure + tests
-3. Inference + Bridge (@engineer): Florence-2-base-ft naming + Darktable SQLite/XMP
-4. Host Integration (@devops): udev rules, SSD cartridge scripts, Dockerfile
+1. Scaffold (@architect): pyproject.toml, directory structure, empty modules ✓
+2. Core Engine (@engineer): grouping, dedup, sharpness, composition, exposure + tests ✓
+3. Inference + Bridge (@engineer): Florence-2-base-ft naming + Darktable SQLite/XMP ✓
+4. Host Integration (@devops): udev rules, SSD cartridge scripts, Dockerfile ✓
 5. Scaling + UI (@devops): Selkies 4K 200% scaling, zenity prompts
-6. Integration (lead + @architect): wire pipeline.py, end-to-end test on Yoga 920
+6. Integration (@engineer + @architect): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
 
 Full spec: docs/photo-workflow-architecture-v4.docx

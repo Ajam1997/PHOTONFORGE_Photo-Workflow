@@ -29,10 +29,8 @@ def cluster_sessions(records: list) -> list:
     Assign session_id to each PhotoRecord based on temporal proximity.
     Records without EXIF timestamps are assigned to a fallback session.
     """
-    from .pipeline import PhotoRecord
-
-    timed: list[tuple[datetime, PhotoRecord]] = []
-    untimed: list[PhotoRecord] = []
+    timed: list[tuple[datetime, object]] = []
+    untimed: list[object] = []
 
     for rec in records:
         dt = _read_exif_datetime(rec.path)

@@ -40,6 +40,7 @@ testpaths = ["tests"]
 addopts = "-v --tb=short"
 markers = [
     "slow: marks tests that require hardware or long runtimes (deselect with -m 'not slow')",
+    "integration: end-to-end pipeline tests with fixture images (deselect with -m 'not integration')",
 ]
 
 [tool.ruff]

@@ -26,3 +26,30 @@ def blurry_image(tmp_path_factory: pytest.TempPathFactory) -> Path:
     arr = np.full((256, 256), 128, dtype=np.uint8)
     Image.fromarray(arr, mode="L").save(p)
     return p
+
+
+def make_darktable_db(path: Path) -> None:
+    """Create a minimal Darktable-compatible SQLite DB at path."""
+    import sqlite3
+    with sqlite3.connect(path) as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS images (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT NOT NULL,
+                folder   TEXT NOT NULL DEFAULT '',
+                flags    INTEGER DEFAULT 0,
+                caption  TEXT DEFAULT '',
+                UNIQUE(filename, folder)
+            );
+            CREATE TABLE IF NOT EXISTS tags (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                name     TEXT UNIQUE,
+                synonyms TEXT DEFAULT '',
+                flags    INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS tagged_images (
+                imgid  INTEGER,
+                tagid  INTEGER,
+                UNIQUE(imgid, tagid)
+            );
+        """)

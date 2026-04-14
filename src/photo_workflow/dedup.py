@@ -14,8 +14,16 @@ def _dhash(path: Path) -> int | None:
     try:
         from PIL import Image
         import imagehash
+        import numpy as np
         with Image.open(path) as img:
-            return int(imagehash.dhash(img))
+            h = imagehash.dhash(img)
+            # Convert the 8x8 bool array to a 64-bit integer for XOR-based Hamming distance
+            flat = h.hash.flatten().astype(np.uint8)
+            # Pack 64 bits into a single integer
+            result = 0
+            for bit in flat:
+                result = (result << 1) | int(bit)
+            return result
     except Exception as e:
         logger.warning("dHash failed for %s: %s", path, e)
         return None

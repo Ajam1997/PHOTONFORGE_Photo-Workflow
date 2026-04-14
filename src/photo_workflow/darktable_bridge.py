@@ -126,7 +126,7 @@ def _upsert_tags(conn: sqlite3.Connection, record: "PhotoRecord", img_id: int) -
     )
 
 
-def sync_to_darktable(records: list["PhotoRecord"], db_path: Path) -> None:
+def sync_to_darktable(records: list["PhotoRecord"], db_path: Path) -> tuple[int, int]:
     """
     Write XMP sidecars for all non-duplicate records and upsert into Darktable SQLite.
     Ratings (star score) and session tags are written alongside each record.
@@ -168,6 +168,7 @@ def sync_to_darktable(records: list["PhotoRecord"], db_path: Path) -> None:
         logger.warning("Darktable library.db not found at %s — skipping DB sync", db_path)
 
     logger.info("Darktable sync: %d XMP written, %d DB rows upserted", xmp_count, db_count)
+    return xmp_count, db_count
 
 
 @click.command("darktable-sync")
