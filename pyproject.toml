@@ -31,6 +31,7 @@ dev = [
 
 [project.scripts]
 photo-workflow = "photo_workflow.pipeline:main"
+photo-cartridge = "photo_workflow.cartridge:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

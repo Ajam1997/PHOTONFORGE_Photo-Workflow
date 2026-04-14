@@ -16,7 +16,7 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 - onnxruntime CPU provider only. No GPU paths.
 
 ## Constraints
-- NFR-2.1: 100% offline. No network calls anywhere.
+- NFR-2.1: 100% offline at runtime. No network calls during pipeline execution. Initial machine provisioning (OS, packages, model downloads, quantization) may use the internet — see scripts/provision_models.sh.
 - NFR-2.2: Total RSS <= 2 GB; CPU affinity capped at 80%.
 - NFR-2.3: library.db + user config live on external SSD, not host.
 - NFR-2.4: zenity dialog when SD inserted without SSD connected.

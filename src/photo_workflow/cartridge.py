@@ -70,3 +70,51 @@ def manage_cartridge(cartridge: Cartridge, pipeline_fn) -> None:
     """Run the pipeline against a detected cartridge's mount point."""
     logger.info("Processing cartridge: %s at %s", cartridge.label, cartridge.mount_point)
     pipeline_fn(cartridge.mount_point)
+
+
+import click
+
+
+@click.group()
+def main() -> None:
+    """PHOTONForge cartridge management."""
+
+
+@main.command("init")
+@click.argument("mount_path", type=click.Path(path_type=Path))
+def init_cartridge(mount_path: Path) -> None:
+    """Provision a new PHOTON cartridge with the correct directory structure."""
+    import sqlite3
+    mount_path = mount_path.resolve()
+    (mount_path / "darktable").mkdir(parents=True, exist_ok=True)
+    (mount_path / "photos").mkdir(parents=True, exist_ok=True)
+    db_path = mount_path / "darktable" / "library.db"
+    with sqlite3.connect(db_path) as conn:
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS images (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT NOT NULL,
+                folder   TEXT NOT NULL DEFAULT '',
+                flags    INTEGER DEFAULT 0,
+                caption  TEXT DEFAULT '',
+                UNIQUE(filename, folder)
+            );
+            CREATE TABLE IF NOT EXISTS tags (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                name     TEXT UNIQUE,
+                synonyms TEXT DEFAULT '',
+                flags    INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS tagged_images (
+                imgid  INTEGER,
+                tagid  INTEGER,
+                UNIQUE(imgid, tagid)
+            );
+        """)
+    click.echo(f"Cartridge initialized at {mount_path}")
+    click.echo(f"  {mount_path}/darktable/  (library.db created)")
+    click.echo(f"  {mount_path}/photos/")
+
+
+if __name__ == "__main__":
+    main()

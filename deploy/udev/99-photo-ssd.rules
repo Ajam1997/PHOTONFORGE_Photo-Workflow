@@ -4,17 +4,20 @@
 # /mnt/photon_ssd/XXX so multiple cartridges can coexist via a hub.
 # Install to /etc/udev/rules.d/ via scripts/install_udev.sh
 #
-# Ubuntu 24.04 note: ENV{DEVTYPE} is required — bare DEVTYPE is not reliable
-# with systemd-udevd >= 252 on synthetic/replayed events.
+# *** UDEV CONSTRAINTS — DO NOT REGRESS ***
+# (a) Always use ENV{DEVTYPE}, never bare DEVTYPE.
+#     Ubuntu 24.04 systemd-udevd >= 252 rejects bare DEVTYPE on
+#     synthetic/replayed events — the rule silently never fires.
+# (b) RUN+= values must call a single wrapper script with no inline shell.
+#     udev rejects $() substitution and nested quotes in RUN values.
+#     All logging, mounts, and logic must live inside the wrapper script.
 
 ACTION=="add", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
     ENV{ID_FS_LABEL}=="PHOTON-*", \
     ENV{ID_FS_TYPE}=="ext4", \
-    RUN+="/bin/sh -c 'echo \"[$(date -Iseconds)] [udev] SSD add: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/manage_ssd.sh /dev/%k %E{ID_FS_LABEL} >> /var/log/photonforge.log 2>&1'"
+    RUN+="/opt/photonforge/scripts/on_ssd_add.sh /dev/%k %E{ID_FS_LABEL}"
 
-# The sed strips PHOTON- prefix inside the shell -c string after udev has
-# already substituted %E{ID_FS_LABEL} to its literal value (e.g. PHOTON-001).
 ACTION=="remove", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
     ENV{ID_FS_LABEL}=="PHOTON-*", \
     ENV{ID_FS_TYPE}=="ext4", \
-    RUN+="/bin/sh -c 'echo \"[$(date -Iseconds)] [udev] SSD remove: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/safe_eject.sh \"/mnt/photon_ssd/$(echo %E{ID_FS_LABEL} | sed s/^PHOTON-//)\" >> /var/log/photonforge.log 2>&1'"
+    RUN+="/opt/photonforge/scripts/on_ssd_remove.sh /dev/%k %E{ID_FS_LABEL}"

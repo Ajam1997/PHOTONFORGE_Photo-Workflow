@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # PHOTONForge: Mount and ingest a PHOTON-* ext4 cartridge.
 # Usage: manage_ssd.sh <device> <label>
 set -euo pipefail

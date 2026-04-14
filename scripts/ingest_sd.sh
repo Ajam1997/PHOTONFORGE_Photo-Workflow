@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # PHOTONForge: Mount and rsync-ingest an SD card insertion (usb-0:3, VID 05e3).
 # Usage: ingest_sd.sh <device>
 set -euo pipefail

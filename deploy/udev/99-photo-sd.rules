@@ -5,8 +5,13 @@
 # Hardware VID/PID/path matching is intentional — SD card labels are unpredictable.
 # Install to /etc/udev/rules.d/ via scripts/install_udev.sh
 #
-# Ubuntu 24.04 note: ENV{DEVTYPE} is required — bare DEVTYPE is not reliable
-# with systemd-udevd >= 252 on synthetic/replayed events.
+# *** UDEV CONSTRAINTS — DO NOT REGRESS ***
+# (a) Always use ENV{DEVTYPE}, never bare DEVTYPE.
+#     Ubuntu 24.04 systemd-udevd >= 252 rejects bare DEVTYPE on
+#     synthetic/replayed events — the rule silently never fires.
+# (b) RUN+= values must call a single wrapper script with no inline shell.
+#     udev rejects $() substitution and nested quotes in RUN values.
+#     All logging, mounts, and logic must live inside the wrapper script.
 
 ACTION=="add", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
     ENV{ID_USB_DRIVER}=="usb-storage", \
@@ -14,11 +19,11 @@ ACTION=="add", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
     ENV{ID_MODEL_ID}=="0749", \
     ENV{ID_PATH}=="*usb-0:3*", \
     ENV{ID_FS_USAGE}=="filesystem", \
-    RUN+="/bin/sh -c 'echo \"[$(date -Iseconds)] [udev] SD add: /dev/%k label=%E{ID_FS_LABEL}\" >> /var/log/photonforge.log && /opt/photonforge/scripts/ingest_sd.sh /dev/%k >> /var/log/photonforge.log 2>&1'"
+    RUN+="/opt/photonforge/scripts/on_sd_add.sh /dev/%k"
 
 ACTION=="remove", SUBSYSTEM=="block", ENV{DEVTYPE}=="partition", \
     ENV{ID_USB_DRIVER}=="usb-storage", \
     ENV{ID_VENDOR_ID}=="05e3", \
     ENV{ID_MODEL_ID}=="0749", \
     ENV{ID_PATH}=="*usb-0:3*", \
-    RUN+="/bin/sh -c 'echo \"[$(date -Iseconds)] [udev] SD remove: /dev/%k\" >> /var/log/photonforge.log && /opt/photonforge/scripts/safe_eject.sh /mnt/photon_sd >> /var/log/photonforge.log 2>&1'"
+    RUN+="/opt/photonforge/scripts/on_sd_remove.sh /dev/%k"
