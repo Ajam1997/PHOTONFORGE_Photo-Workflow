@@ -13,7 +13,6 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-MODEL_SUBDIR = "florence2_int8"
 ONNX_SUBDIR = "onnx"
 MAX_WORDS = 5
 MAX_NEW_TOKENS = 32
@@ -54,8 +53,7 @@ def _make_ort_session(path: Path) -> object:
 
 def _load_sessions(model_dir: Path) -> _Sessions:
     """Load all three Florence-2 ONNX sessions and the tokenizer."""
-    base = model_dir / MODEL_SUBDIR
-    onnx_dir = base / ONNX_SUBDIR
+    onnx_dir = model_dir / ONNX_SUBDIR
 
     embed_path = onnx_dir / "embed_tokens_int8.onnx"
     encoder_path = onnx_dir / "encoder_model_q4.onnx"
@@ -66,7 +64,7 @@ def _load_sessions(model_dir: Path) -> _Sessions:
             raise FileNotFoundError(f"Florence-2 model file not found: {p}")
 
     tokenizer = None
-    tok_json = base / "tokenizer.json"
+    tok_json = model_dir / "tokenizer.json"
     if tok_json.exists():
         try:
             from tokenizers import Tokenizer  # type: ignore[import]
@@ -208,7 +206,7 @@ def _caption_to_slug(caption: str, stem_fallback: str) -> str:
     return slug
 
 
-def generate_name(path: Path, model_dir: Path = Path("models")) -> str:
+def generate_name(path: Path, model_dir: Path = Path("models/florence2_int8")) -> str:
     """
     Run Florence-2 INT8 caption on the image and return a slug (first 5 words).
     Falls back to the original stem if the model is absent or inference fails.
@@ -248,10 +246,10 @@ def generate_name(path: Path, model_dir: Path = Path("models")) -> str:
 @click.argument("path", type=click.Path(exists=True, path_type=Path))
 @click.option(
     "--model-dir",
-    default="models",
+    default="models/florence2_int8",
     show_default=True,
     type=click.Path(path_type=Path),
-    help="Directory containing the florence2_int8/ model weights.",
+    help="Path to the florence2_int8 model directory (contains onnx/ subdir).",
 )
 def main(path: Path, model_dir: Path) -> None:
     """Generate a 5-word semantic filename slug for PATH using Florence-2 INT8."""

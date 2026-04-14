@@ -16,7 +16,7 @@ class PipelineConfig:
     source_dir: Path
     output_dir: Path
     darktable_db: Path
-    model_dir: Path = Path("models")
+    model_dir: Path = Path("models/florence2_int8")
     dry_run: bool = False
 
 
@@ -113,7 +113,7 @@ def main() -> None:
     @click.option("--output", required=True, type=click.Path(path_type=Path))
     @click.option("--db", required=True, type=click.Path(path_type=Path), help="Darktable library.db path")
     @click.option("--dry-run", is_flag=True)
-    @click.option("--model-dir", default="models", show_default=True, type=click.Path(path_type=Path))
+    @click.option("--model-dir", default="models/florence2_int8", show_default=True, type=click.Path(path_type=Path), help="Path to the florence2_int8 model directory (contains onnx/ subdir).")
     def cli(source: Path, output: Path, db: Path, dry_run: bool, model_dir: Path) -> None:
         """Run the PHOTONForge photo analysis pipeline."""
         config = PipelineConfig(
