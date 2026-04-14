@@ -1,10 +1,11 @@
-"""FR-1.7: Semantic filename generation via Florence-2 INT8 ONNX."""
+"""FR-1.7: Semantic filename generation via Florence-2-base-ft multi-file ONNX."""
 
 from __future__ import annotations
 
 import logging
 import re
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 import click
@@ -13,32 +14,187 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 MODEL_SUBDIR = "florence2_int8"
+ONNX_SUBDIR = "onnx"
 MAX_WORDS = 5
-CAPTION_TASK = "<CAPTION>"
+MAX_NEW_TOKENS = 32
+EOS_TOKEN_ID = 2
 _KPM_INFERENCE_LIMIT = 1.5  # seconds (KPM-1.2)
 
+# Florence-2 image normalisation constants (ImageNet)
+_IMG_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+_IMG_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+_IMG_SIZE = 768
 
-def _load_session(model_dir: Path) -> object:
-    """Load ONNX Runtime session for Florence-2 INT8 (CPU provider only)."""
+
+@dataclass
+class _Sessions:
+    embed_tokens: object  # ort.InferenceSession
+    encoder: object       # ort.InferenceSession
+    decoder: object       # ort.InferenceSession
+    tokenizer: object | None  # tokenizers.Tokenizer or None
+
+
+_session_cache: dict[str, _Sessions] = {}
+
+
+def _make_ort_session(path: Path) -> object:
+    """Create an ONNX Runtime InferenceSession (CPU only)."""
     import onnxruntime as ort
-
-    model_path = model_dir / MODEL_SUBDIR / "model.onnx"
-    if not model_path.exists():
-        raise FileNotFoundError(f"Florence-2 model not found at {model_path}")
 
     opts = ort.SessionOptions()
     opts.inter_op_num_threads = 2
     opts.intra_op_num_threads = 4
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-
     return ort.InferenceSession(
-        str(model_path),
+        str(path),
         sess_options=opts,
         providers=["CPUExecutionProvider"],
     )
 
 
-_session_cache: dict[str, object] = {}
+def _load_sessions(model_dir: Path) -> _Sessions:
+    """Load all three Florence-2 ONNX sessions and the tokenizer."""
+    base = model_dir / MODEL_SUBDIR
+    onnx_dir = base / ONNX_SUBDIR
+
+    embed_path = onnx_dir / "embed_tokens_int8.onnx"
+    encoder_path = onnx_dir / "encoder_model_q4.onnx"
+    decoder_path = onnx_dir / "decoder_model_merged_q4f16.onnx"
+
+    for p in (embed_path, encoder_path, decoder_path):
+        if not p.exists():
+            raise FileNotFoundError(f"Florence-2 model file not found: {p}")
+
+    tokenizer = None
+    tok_json = base / "tokenizer.json"
+    if tok_json.exists():
+        try:
+            from tokenizers import Tokenizer  # type: ignore[import]
+
+            tokenizer = Tokenizer.from_file(str(tok_json))
+        except Exception as e:
+            logger.warning("Could not load tokenizer: %s — will use fallback prompt", e)
+
+    return _Sessions(
+        embed_tokens=_make_ort_session(embed_path),
+        encoder=_make_ort_session(encoder_path),
+        decoder=_make_ort_session(decoder_path),
+        tokenizer=tokenizer,
+    )
+
+
+def _preprocess_image(path: Path) -> np.ndarray:
+    """Load image, resize to 768×768, normalise, return NCHW float32."""
+    import cv2
+
+    img = cv2.imread(str(path))
+    if img is None:
+        raise ValueError(f"Could not read image: {path}")
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_resized = cv2.resize(img_rgb, (_IMG_SIZE, _IMG_SIZE)).astype(np.float32) / 255.0
+    img_norm = (img_resized - _IMG_MEAN) / _IMG_STD
+    return np.transpose(img_norm, (2, 0, 1))[np.newaxis, :]  # (1, 3, 768, 768)
+
+
+def _get_prompt_ids(sessions: _Sessions) -> np.ndarray:
+    """Return token IDs for the <CAPTION> task prompt."""
+    if sessions.tokenizer is not None:
+        enc = sessions.tokenizer.encode("<CAPTION>")
+        return np.array([enc.ids], dtype=np.int64)
+    # Minimal fallback: BOS + known token ID for "<CAPTION>" in Florence-2 vocab
+    return np.array([[0, 50265]], dtype=np.int64)
+
+
+def _decode_ids(sessions: _Sessions, token_ids: list[int]) -> str:
+    if sessions.tokenizer is not None:
+        return sessions.tokenizer.decode(token_ids, skip_special_tokens=True)
+    return ""
+
+
+def _run_inference(sessions: _Sessions, pixel_values: np.ndarray) -> str:
+    """Run the full encode→generate loop and return raw caption text."""
+    # 1. Vision encoder
+    encoder_out = sessions.encoder.run(None, {"pixel_values": pixel_values})  # type: ignore[union-attr]
+    encoder_hidden_states = encoder_out[0]  # (1, seq, hidden)
+
+    # 2. Prompt token embeddings
+    prompt_ids = _get_prompt_ids(sessions)
+    embed_out = sessions.embed_tokens.run(None, {"input_ids": prompt_ids})  # type: ignore[union-attr]
+    inputs_embeds = embed_out[0]  # (1, prompt_len, hidden)
+
+    prompt_len = inputs_embeds.shape[1]
+    attention_mask = np.ones((1, prompt_len), dtype=np.int64)
+
+    # 3. Autoregressive decode loop.
+    # decoder_model_merged handles both prefill (use_cache_branch=False) and
+    # incremental decode (use_cache_branch=True) in a single ONNX graph.
+    generated: list[int] = []
+
+    # Inspect decoder input names to build the feed dict correctly.
+    decoder_input_names = {inp.name for inp in sessions.decoder.get_inputs()}  # type: ignore[union-attr]
+
+    # Prefill step: pass inputs_embeds + encoder_hidden_states
+    feed: dict[str, np.ndarray] = {
+        "inputs_embeds": inputs_embeds,
+        "encoder_hidden_states": encoder_hidden_states,
+        "attention_mask": attention_mask,
+    }
+    if "use_cache_branch" in decoder_input_names:
+        feed["use_cache_branch"] = np.array([False])
+
+    past_key_values: dict[str, np.ndarray] = {}
+
+    dec_out = sessions.decoder.run(None, feed)  # type: ignore[union-attr]
+    dec_output_names = [o.name for o in sessions.decoder.get_outputs()]  # type: ignore[union-attr]
+
+    # Extract logits (first output) and past_key_values (remaining outputs).
+    logits = dec_out[0]  # (1, seq, vocab)
+    next_token = int(np.argmax(logits[0, -1, :]))
+    if next_token != EOS_TOKEN_ID:
+        generated.append(next_token)
+
+    for name, tensor in zip(dec_output_names[1:], dec_out[1:]):
+        past_key_values[name] = tensor
+
+    # Incremental decode
+    for _ in range(MAX_NEW_TOKENS - 1):
+        if next_token == EOS_TOKEN_ID:
+            break
+
+        token_id_arr = np.array([[next_token]], dtype=np.int64)
+        step_embed_out = sessions.embed_tokens.run(None, {"input_ids": token_id_arr})  # type: ignore[union-attr]
+        step_embeds = step_embed_out[0]  # (1, 1, hidden)
+
+        total_len = prompt_len + len(generated)
+        step_mask = np.ones((1, total_len), dtype=np.int64)
+
+        step_feed: dict[str, np.ndarray] = {
+            "inputs_embeds": step_embeds,
+            "encoder_hidden_states": encoder_hidden_states,
+            "attention_mask": step_mask,
+        }
+        if "use_cache_branch" in decoder_input_names:
+            step_feed["use_cache_branch"] = np.array([True])
+
+        # Re-map past_key_value output names → corresponding input names.
+        # Florence-2 decoder uses "past_key_values.N.{encoder,decoder}.{key,value}" naming.
+        for out_name, tensor in past_key_values.items():
+            in_name = out_name.replace("present", "past_key_values")
+            if in_name in decoder_input_names:
+                step_feed[in_name] = tensor
+            elif out_name in decoder_input_names:
+                step_feed[out_name] = tensor
+
+        step_out = sessions.decoder.run(None, step_feed)  # type: ignore[union-attr]
+        logits = step_out[0]
+        next_token = int(np.argmax(logits[0, -1, :]))
+        if next_token != EOS_TOKEN_ID:
+            generated.append(next_token)
+
+        for name, tensor in zip(dec_output_names[1:], step_out[1:]):
+            past_key_values[name] = tensor
+
+    return _decode_ids(sessions, generated)
 
 
 def _caption_to_slug(caption: str, stem_fallback: str) -> str:
@@ -60,38 +216,18 @@ def generate_name(path: Path, model_dir: Path = Path("models")) -> str:
     cache_key = str(model_dir)
     if cache_key not in _session_cache:
         try:
-            _session_cache[cache_key] = _load_session(model_dir)
-        except FileNotFoundError as e:
+            _session_cache[cache_key] = _load_sessions(model_dir)
+        except Exception as e:
             logger.warning("Florence-2 model unavailable: %s — using original name", e)
             return path.stem
 
-    session = _session_cache[cache_key]
+    sessions = _session_cache[cache_key]
 
     try:
-        import cv2
-
-        img = cv2.imread(str(path))
-        if img is None:
-            return path.stem
-
-        # Pre-process: resize to 224×224, normalize to [0, 1], NCHW float32
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img_resized = cv2.resize(img_rgb, (224, 224)).astype(np.float32) / 255.0
-        pixel_values = np.transpose(img_resized, (2, 0, 1))[np.newaxis, :]  # (1, 3, 224, 224)
-
-        # Minimal task-prompt token sequence for <CAPTION>: [BOS, EOS]
-        input_ids = np.array([[0, 2]], dtype=np.int64)
-        attention_mask = np.ones((1, 2), dtype=np.int64)
+        pixel_values = _preprocess_image(path)
 
         t0 = time.perf_counter()
-        outputs = session.run(  # type: ignore[union-attr]
-            None,
-            {
-                "pixel_values": pixel_values,
-                "input_ids": input_ids,
-                "attention_mask": attention_mask,
-            },
-        )
+        caption = _run_inference(sessions, pixel_values)
         elapsed = time.perf_counter() - t0
 
         if elapsed > _KPM_INFERENCE_LIMIT:
@@ -101,8 +237,6 @@ def generate_name(path: Path, model_dir: Path = Path("models")) -> str:
                 path.name,
             )
 
-        raw = outputs[0]
-        caption: str = raw if isinstance(raw, str) else str(raw)
         return _caption_to_slug(caption, path.stem)
 
     except Exception as e:
