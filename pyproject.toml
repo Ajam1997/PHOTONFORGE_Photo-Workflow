@@ -18,6 +18,7 @@ dependencies = [
     "tqdm>=4.66",
     "click>=8.1",
     "scipy>=1.13",
+    "tokenizers>=0.19",
 ]
 
 [project.optional-dependencies]

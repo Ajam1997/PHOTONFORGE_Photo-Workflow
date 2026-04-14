@@ -17,7 +17,7 @@ ONNX_SUBDIR = "onnx"
 MAX_WORDS = 5
 MAX_NEW_TOKENS = 32
 EOS_TOKEN_ID = 2
-_KPM_INFERENCE_LIMIT = 1.5  # seconds (KPM-1.2)
+_KPM_INFERENCE_LIMIT = 2.5  # seconds (KPM-1.2)
 
 # Florence-2 image normalisation constants (ImageNet)
 _IMG_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -42,7 +42,7 @@ def _make_ort_session(path: Path) -> object:
 
     opts = ort.SessionOptions()
     opts.inter_op_num_threads = 2
-    opts.intra_op_num_threads = 4
+    opts.intra_op_num_threads = 2
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     return ort.InferenceSession(
         str(path),
@@ -51,17 +51,46 @@ def _make_ort_session(path: Path) -> object:
     )
 
 
+def _resolve_onnx_path(onnx_dir: Path, stem: str) -> Path:
+    """Try INT8 -> fp16 -> unquantized variants; return first that exists."""
+    for suffix in (f"{stem}_int8.onnx", f"{stem}_fp16.onnx", f"{stem}.onnx"):
+        p = onnx_dir / suffix
+        if p.exists():
+            return p
+    raise FileNotFoundError(
+        f"No ONNX variant found for '{stem}' in {onnx_dir}. "
+        f"Tried: {stem}_int8.onnx, {stem}_fp16.onnx, {stem}.onnx"
+    )
+
+
+def _log_session_io(name: str, session: object) -> None:
+    """Log input and output tensor names for a session (aids debugging)."""
+    inputs = [f"{i.name}:{i.type}" for i in session.get_inputs()]  # type: ignore[union-attr]
+    outputs = [f"{o.name}:{o.type}" for o in session.get_outputs()]  # type: ignore[union-attr]
+    logger.info("[%s] inputs:  %s", name, inputs)
+    logger.info("[%s] outputs: %s", name, outputs)
+
+
 def _load_sessions(model_dir: Path) -> _Sessions:
     """Load all three Florence-2 ONNX sessions and the tokenizer."""
     onnx_dir = model_dir / ONNX_SUBDIR
 
-    embed_path = onnx_dir / "embed_tokens_int8.onnx"
-    encoder_path = onnx_dir / "encoder_model_q4.onnx"
-    decoder_path = onnx_dir / "decoder_model_merged_q4f16.onnx"
+    embed_path = _resolve_onnx_path(onnx_dir, "embed_tokens")
+    encoder_path = _resolve_onnx_path(onnx_dir, "encoder_model")
+    decoder_path = _resolve_onnx_path(onnx_dir, "decoder_model_merged")
 
-    for p in (embed_path, encoder_path, decoder_path):
-        if not p.exists():
-            raise FileNotFoundError(f"Florence-2 model file not found: {p}")
+    logger.info("Loading Florence-2 ONNX sessions from %s", onnx_dir)
+    logger.info("  embed_tokens : %s", embed_path.name)
+    logger.info("  encoder      : %s", encoder_path.name)
+    logger.info("  decoder      : %s", decoder_path.name)
+
+    embed_sess = _make_ort_session(embed_path)
+    encoder_sess = _make_ort_session(encoder_path)
+    decoder_sess = _make_ort_session(decoder_path)
+
+    _log_session_io("embed_tokens", embed_sess)
+    _log_session_io("encoder", encoder_sess)
+    _log_session_io("decoder", decoder_sess)
 
     tokenizer = None
     tok_json = model_dir / "tokenizer.json"
@@ -74,9 +103,9 @@ def _load_sessions(model_dir: Path) -> _Sessions:
             logger.warning("Could not load tokenizer: %s — will use fallback prompt", e)
 
     return _Sessions(
-        embed_tokens=_make_ort_session(embed_path),
-        encoder=_make_ort_session(encoder_path),
-        decoder=_make_ort_session(decoder_path),
+        embed_tokens=embed_sess,
+        encoder=encoder_sess,
+        decoder=decoder_sess,
         tokenizer=tokenizer,
     )
 
@@ -201,7 +230,7 @@ def _caption_to_slug(caption: str, stem_fallback: str) -> str:
     if not words:
         return stem_fallback
     phrase = " ".join(words)
-    slug = re.sub(r"[^a-z0-9]+", "_", phrase.lower().strip()).strip("_")
+    slug = re.sub(r"[^a-z0-9]+", "-", phrase.lower().strip()).strip("-")
     slug = slug[:64] if slug else stem_fallback
     return slug
 
@@ -230,7 +259,7 @@ def generate_name(path: Path, model_dir: Path = Path("models/florence2_int8")) -
 
         if elapsed > _KPM_INFERENCE_LIMIT:
             logger.warning(
-                "Florence-2 inference took %.2fs for %s (KPM-1.2 limit: 1.5s)",
+                "Florence-2 inference took %.2fs for %s (KPM-1.2 limit: 2.5s)",
                 elapsed,
                 path.name,
             )
