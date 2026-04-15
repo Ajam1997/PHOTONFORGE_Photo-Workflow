@@ -15,8 +15,8 @@ KPM: NONE
 Stage: 1
 Status: DEFINED
 
-UN-002: All three primary agents are discoverable by Claude Code.
-Acceptance: claude agents lists @architect, @engineer, @devops.
+UN-002: All five primary agents are discoverable by Claude Code.
+Acceptance: claude agents lists @architect, @engineer, @devops, @verification, @validation.
 KPM: NONE
 Stage: 1
 Status: DEFINED
@@ -27,8 +27,8 @@ KPM: NONE
 Stage: 2
 Status: DEFINED
 
-UN-011: Near-duplicate photos are removed automatically.
-Acceptance: deduplicate() removes images with dHash Hamming <= 2. No false positives.
+UN-011: Near-duplicate photos are archived.
+Acceptance: deduplicate() archives images with dHash Hamming <= 2. No false positives.
 KPM: NONE
 Stage: 2
 Status: DEFINED

@@ -5,7 +5,12 @@
       "Bash(python -m pytest --collect-only -q)",
       "Bash(git -C E:/PHOTONForge/photo-workflow log --since=\"24 hours ago\" --oneline)",
       "Bash(git -C E:/PHOTONForge/photo-workflow log --since=\"24 hours ago\" --oneline --stat)",
-      "Bash(claude agents:*)"
+      "Bash(claude agents:*)",
+      "Bash(ssh -o ConnectTimeout=10 -o BatchMode=yes alex@10.27.27.10 \"echo 'SSH OK' && hostname && uname -a\")",
+      "Read(//c/Users/Alexa/.ssh/**)",
+      "Bash(ssh -o ConnectTimeout=10 alex@10.27.27.10 \"echo 'SSH OK' && hostname && uname -a\")",
+      "Read(//mnt/c/Users/Alexa/**)",
+      "Bash(ssh-add -l)"
     ]
   }
 }
