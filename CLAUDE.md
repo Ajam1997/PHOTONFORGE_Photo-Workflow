@@ -58,3 +58,6 @@ models/    -- florence2_int8/ (vendored, not downloaded)
 6. Integration (@engineer + @architect): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
 
 Full spec: docs/photo-workflow-architecture-v4.docx
+
+## Remote Execution
+Client-side testing runs via SSH to alex@<yoga-ip>. The Yoga 910 hosts the runtime environment with mounted PHOTON cartridges and SD reader. Use scripts/remote_test.sh as the standard entry point. Physical hardware actions (plug/unplug) require human intervention -- agents use prompt-and-wait pattern for these.
