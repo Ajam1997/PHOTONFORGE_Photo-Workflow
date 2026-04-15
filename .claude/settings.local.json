@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(pip install:*)",
-      "Bash(python -m pytest --collect-only -q)"
+      "Bash(python -m pytest --collect-only -q)",
+      "Bash(git -C E:/PHOTONForge/photo-workflow log --since=\"24 hours ago\" --oneline)",
+      "Bash(git -C E:/PHOTONForge/photo-workflow log --since=\"24 hours ago\" --oneline --stat)",
+      "Bash(claude agents:*)"
     ]
   }
 }
