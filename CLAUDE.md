@@ -1,7 +1,7 @@
 # Photo Workflow -- Autonomous Ingest-to-Edit System
 
 ## Context
-Offline photography pipeline for Lenovo Yoga 920 Star Wars Edition (i7-8550U, 16GB RAM).
+Offline photography pipeline for Lenovo Yoga 910 Star Wars Edition (i7-8550U, 16GB RAM).
 Ingests from SD/SSD, analyzes, scores, names, and syncs to Darktable.
 All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / Ubuntu 24.04.
 
