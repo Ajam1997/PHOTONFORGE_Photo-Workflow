@@ -18,6 +18,7 @@ ONNX_SUBDIR = "onnx"
 MAX_WORDS = 5
 MAX_NEW_TOKENS = 20
 EOS_TOKEN_ID = 2
+TASK_TOKEN_CAPTION = 51269  # <cap> token -- Florence-2 captioning task
 DECODER_START_TOKEN_ID = 2   # decoder_start_token_id from generation_config.json
 FORCED_BOS_TOKEN_ID = 0      # forced_bos_token_id: first generated token is always 0
 _KPM_INFERENCE_LIMIT = 2.5  # seconds (KPM-1.2)
@@ -150,12 +151,10 @@ def _run_inference(sessions: _Sessions, pixel_values: np.ndarray) -> str:
     vision_out = sessions.vision_encoder.run(None, {"pixel_values": pixel_values})  # type: ignore[union-attr]
     image_features = vision_out[0]  # (1, img_seq, 768)
 
-    # Step 4: tokenize "<CAPTION>"
-    if sessions.tokenizer is not None:
-        enc = sessions.tokenizer.encode("<CAPTION>")
-        prompt_ids = np.array([enc.ids], dtype=np.int64)
-    else:
-        prompt_ids = np.array([[0, 50265]], dtype=np.int64)
+    # Step 4: build prompt token sequence
+    # Use <cap> (id=51269) as the task token -- <CAPTION> is not a registered
+    # special token and would be decomposed into subwords by the tokenizer.
+    prompt_ids = np.array([[0, TASK_TOKEN_CAPTION, 2]], dtype=np.int64)  # BOS + <cap> + EOS
 
     # Step 5: embed prompt tokens
     embed_out = sessions.embed_tokens.run(None, {"input_ids": prompt_ids})  # type: ignore[union-attr]
