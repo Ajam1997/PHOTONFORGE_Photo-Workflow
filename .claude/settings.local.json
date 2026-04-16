@@ -10,7 +10,17 @@
       "Read(//c/Users/Alexa/.ssh/**)",
       "Bash(ssh -o ConnectTimeout=10 alex@10.27.27.10 \"echo 'SSH OK' && hostname && uname -a\")",
       "Read(//mnt/c/Users/Alexa/**)",
-      "Bash(ssh-add -l)"
+      "Bash(ssh-add -l)",
+      "Bash(ssh -o ConnectTimeout=10 -i ~/.ssh/PhotonForge alex@10.27.27.10 \"echo 'SSH OK' && hostname && uname -a\")",
+      "Bash(echo \"exit: $?\")",
+      "Bash(ssh -o ConnectTimeout=10 -i ~/.ssh/PhotonForge_new alex@10.27.27.10 \"echo 'SSH OK' && hostname && uname -a\")",
+      "Bash(ssh-keygen -y -f ~/.ssh/PhotonForge_new)",
+      "Bash(chmod 600 ~/.ssh/PhotonForge_new)",
+      "Bash(ssh-keygen -y -f ~/.ssh/PhotonForge_new -P \"GHOST\")",
+      "Bash(ssh -o:*)",
+      "Bash(expect -c ':*)",
+      "Bash(SSH_ASKPASS_REQUIRE=force SSH_ASKPASS=/bin/echo DISPLAY=:0 ssh -o ConnectTimeout=10 -o IdentitiesOnly=yes -i ~/.ssh/PhotonForge_new alex@10.27.27.10 \"echo 'SSH OK' && hostname && uname -a\")",
+      "Read(//etc/**)"
     ]
   }
 }
