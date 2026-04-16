@@ -16,11 +16,15 @@ logger = logging.getLogger(__name__)
 
 ONNX_SUBDIR = "onnx"
 MAX_WORDS = 5
-MAX_NEW_TOKENS = 20
+MAX_NEW_TOKENS = 30
 EOS_TOKEN_ID = 2
-TASK_TOKEN_CAPTION = 51269  # <cap> token -- Florence-2 captioning task
 DECODER_START_TOKEN_ID = 2   # decoder_start_token_id from generation_config.json
 FORCED_BOS_TOKEN_ID = 0      # forced_bos_token_id: first generated token is always 0
+# Florence-2 caption task prompt — "What does the image describe?" is the canonical
+# text prompt that activates captioning in the fine-tuned Florence-2-base-ft model.
+# Internal task token <cap> (id=51269) does NOT work as an encoder input — it produces
+# VQA-style non-answers ("answering does not require reading...") instead of captions.
+CAPTION_PROMPT_TEXT = "What does the image describe?"
 _KPM_INFERENCE_LIMIT = 2.5  # seconds (KPM-1.2)
 
 
@@ -29,24 +33,44 @@ class _Sessions:
     vision_encoder: object
     embed_tokens: object
     encoder: object
-    decoder: object          # decoder_model_int8.onnx — used for all decode steps
+    decoder: object          # decoder_model_merged_int8.onnx — KV-cache enabled
     tokenizer: object | None
     img_size: tuple[int, int]   # (height, width)
     img_mean: np.ndarray        # shape (3,) float32
     img_std: np.ndarray         # shape (3,) float32
+    prompt_ids: np.ndarray      # tokenized CAPTION_PROMPT_TEXT, shape (1, seq)
+    decoder_out_names: list[str]  # output names for the decoder session
 
 
 _session_cache: dict[str, _Sessions] = {}
 
 
 def _resolve_onnx_path(onnx_dir: Path, stem: str) -> Path:
-    for suffix in (f"{stem}_int8.onnx", f"{stem}_fp16.onnx", f"{stem}.onnx"):
-        p = onnx_dir / suffix
-        if p.exists():
-            return p
+    """Resolve an ONNX model file by trying common quantization suffixes.
+
+    For the decoder, prefer ``decoder_model_merged_int8.onnx`` (KV-cache enabled)
+    before falling back to the non-merged variants.
+    """
+    # Special-case: merged decoder gets higher priority for KV-cache performance
+    if stem == "decoder_model":
+        for suffix in (
+            "decoder_model_merged_int8.onnx",
+            "decoder_model_merged_fp16.onnx",
+            "decoder_model_merged.onnx",
+            "decoder_model_int8.onnx",
+            "decoder_model_fp16.onnx",
+            "decoder_model.onnx",
+        ):
+            p = onnx_dir / suffix
+            if p.exists():
+                return p
+    else:
+        for suffix in (f"{stem}_int8.onnx", f"{stem}_fp16.onnx", f"{stem}.onnx"):
+            p = onnx_dir / suffix
+            if p.exists():
+                return p
     raise FileNotFoundError(
-        f"No ONNX variant found for '{stem}' in {onnx_dir}. "
-        f"Tried: {stem}_int8.onnx, {stem}_fp16.onnx, {stem}.onnx"
+        f"No ONNX variant found for '{stem}' in {onnx_dir}."
     )
 
 
@@ -69,6 +93,12 @@ def _log_session_io(name: str, session: object) -> None:
     outputs = [f"{o.name}:{o.type}" for o in session.get_outputs()]  # type: ignore[union-attr]
     logger.info("[%s] inputs:  %s", name, inputs)
     logger.info("[%s] outputs: %s", name, outputs)
+
+
+def _is_merged_decoder(session: object) -> bool:
+    """Return True if *session* is the merged (KV-cache) decoder variant."""
+    input_names = {i.name for i in session.get_inputs()}  # type: ignore[union-attr]
+    return "use_cache_branch" in input_names
 
 
 def _load_sessions(model_dir: Path) -> _Sessions:
@@ -113,13 +143,24 @@ def _load_sessions(model_dir: Path) -> _Sessions:
 
     tokenizer = None
     tok_json = model_dir / "tokenizer.json"
+    prompt_ids: np.ndarray = np.array([[0]], dtype=np.int64)  # fallback single BOS
     if tok_json.exists():
         try:
             from tokenizers import Tokenizer  # type: ignore[import]
 
             tokenizer = Tokenizer.from_file(str(tok_json))
+            ids = tokenizer.encode(CAPTION_PROMPT_TEXT).ids
+            prompt_ids = np.array([ids], dtype=np.int64)
+            logger.info(
+                "Caption prompt %r tokenized to %d tokens: %s",
+                CAPTION_PROMPT_TEXT,
+                len(ids),
+                ids,
+            )
         except Exception as e:
             logger.warning("Could not load tokenizer: %s — will use fallback prompt", e)
+
+    decoder_out_names: list[str] = [o.name for o in decoder_sess.get_outputs()]  # type: ignore[union-attr]
 
     return _Sessions(
         vision_encoder=vision_encoder_sess,
@@ -130,6 +171,8 @@ def _load_sessions(model_dir: Path) -> _Sessions:
         img_size=(img_h, img_w),
         img_mean=img_mean,
         img_std=img_std,
+        prompt_ids=prompt_ids,
+        decoder_out_names=decoder_out_names,
     )
 
 
@@ -146,71 +189,172 @@ def _preprocess_image(path: Path, sessions: _Sessions) -> np.ndarray:
     return np.transpose(img_norm, (2, 0, 1))[np.newaxis, :]  # (1, 3, H, W)
 
 
+def _build_empty_past_kv(session: object) -> dict[str, np.ndarray]:
+    """Build zero-filled past_key_values tensors for the first decoder step.
+
+    The merged decoder requires explicit past_key_values inputs.  On step 0
+    (``use_cache_branch=False``) the model recomputes both decoder and encoder
+    attention from scratch, so an empty (seq_len=0) tensor is acceptable for
+    all KV slots.
+
+    Returns a dict mapping each ``past_key_values.*`` input name to a
+    ``np.float32`` zero tensor of shape ``(1, 12, 0, 64)``.
+    """
+    return {
+        inp.name: np.zeros((1, 12, 0, 64), dtype=np.float32)
+        for inp in session.get_inputs()  # type: ignore[union-attr]
+        if inp.name.startswith("past_key_values")
+    }
+
+
 def _run_inference(sessions: _Sessions, pixel_values: np.ndarray) -> str:
-    # Step 3: vision encoder
+    # Step 1: vision encoder
     vision_out = sessions.vision_encoder.run(None, {"pixel_values": pixel_values})  # type: ignore[union-attr]
     image_features = vision_out[0]  # (1, img_seq, 768)
 
-    # Step 4: build prompt token sequence
-    # Use <cap> (id=51269) as the task token -- <CAPTION> is not a registered
-    # special token and would be decomposed into subwords by the tokenizer.
-    prompt_ids = np.array([[0, TASK_TOKEN_CAPTION, 2]], dtype=np.int64)  # BOS + <cap> + EOS
+    # Step 2: embed caption task prompt tokens
+    # CAPTION_PROMPT_TEXT ("What does the image describe?") is pre-tokenized at load time.
+    text_embeds = sessions.embed_tokens.run(None, {"input_ids": sessions.prompt_ids})[0]  # type: ignore[union-attr]
 
-    # Step 5: embed prompt tokens
-    embed_out = sessions.embed_tokens.run(None, {"input_ids": prompt_ids})  # type: ignore[union-attr]
-    text_embeds = embed_out[0]  # (1, txt_seq, 768)
-
-    # Step 6: concatenate image_features + text_embeds
-    combined_embeds = np.concatenate([image_features, text_embeds], axis=1)  # (1, img_seq+txt_seq, 768)
-
-    # Step 7: attention mask over combined sequence
+    # Step 3: concatenate image_features + text_embeds and run encoder
+    combined_embeds = np.concatenate([image_features, text_embeds], axis=1)
     attention_mask = np.ones((1, combined_embeds.shape[1]), dtype=np.int64)
-
-    # Step 8: encoder
     encoder_out = sessions.encoder.run(  # type: ignore[union-attr]
         None,
         {
             "attention_mask": attention_mask,
             "inputs_embeds": combined_embeds,
         },
-    )
-    encoder_hidden_states = encoder_out[0]  # (1, combined_seq, 768)
+    )[0]  # (1, combined_seq, 768)
 
-    # Step 9: greedy decode — no KV cache; decoder_model accepts any sequence length
+    # Step 4: greedy decode
+    use_kv_cache = _is_merged_decoder(sessions.decoder)
+
+    if use_kv_cache:
+        return _decode_with_kv_cache(sessions, encoder_out, attention_mask)
+    else:
+        return _decode_no_cache(sessions, encoder_out, attention_mask)
+
+
+def _decode_with_kv_cache(
+    sessions: _Sessions,
+    encoder_hidden_states: np.ndarray,
+    encoder_attention_mask: np.ndarray,
+) -> str:
+    """Greedy decode using the merged KV-cache decoder (decoder_model_merged_*).
+
+    Step 0 processes the seed tokens [decoder_start=2, forced_bos=0] with
+    ``use_cache_branch=False`` which computes and caches both the decoder and
+    encoder attention states.  Steps 1+ process one token at a time with
+    ``use_cache_branch=True``, reusing the cached encoder KV (which is fixed
+    throughout generation) and accumulating the decoder KV.
+    """
+    out_names = sessions.decoder_out_names
+
+    # --- Step 0: prime the cache ---
+    seed_ids = np.array([[DECODER_START_TOKEN_ID, FORCED_BOS_TOKEN_ID]], dtype=np.int64)
+    seed_embeds = sessions.embed_tokens.run(None, {"input_ids": seed_ids})[0]  # type: ignore[union-attr]
+
+    kv_zero = _build_empty_past_kv(sessions.decoder)
+    feed0: dict[str, np.ndarray] = {
+        "inputs_embeds": seed_embeds,
+        "encoder_hidden_states": encoder_hidden_states,
+        "encoder_attention_mask": encoder_attention_mask,
+        "use_cache_branch": np.array([False]),
+        **kv_zero,
+    }
+    dec_out0 = sessions.decoder.run(None, feed0)  # type: ignore[union-attr]
+    logits = dec_out0[0]
+    present0 = {out_names[i]: dec_out0[i] for i in range(1, len(dec_out0))}
+
+    # Encoder KV is fixed after step 0 (cross-attention cache does not change).
+    # Decoder KV grows by 1 position per step.
+    encoder_kv: dict[str, np.ndarray] = {k: v for k, v in present0.items() if "encoder" in k}
+    decoder_kv: dict[str, np.ndarray] = {k: v for k, v in present0.items() if "decoder" in k}
+
+    next_token = int(np.argmax(logits[0, -1, :]))
+    generated: list[int] = []
+
+    # --- Steps 1+: one token at a time with KV cache ---
+    for _ in range(MAX_NEW_TOKENS):
+        if next_token == EOS_TOKEN_ID:
+            break
+        generated.append(next_token)
+
+        next_ids = np.array([[next_token]], dtype=np.int64)
+        next_emb = sessions.embed_tokens.run(None, {"input_ids": next_ids})[0]  # type: ignore[union-attr]
+
+        # Map present.X.Y.Z -> past_key_values.X.Y.Z; encoder KV is held constant
+        kv_feed: dict[str, np.ndarray] = {}
+        for inp in sessions.decoder.get_inputs():  # type: ignore[union-attr]
+            if not inp.name.startswith("past_key_values"):
+                continue
+            present_name = inp.name.replace("past_key_values", "present")
+            if "encoder" in inp.name:
+                kv_feed[inp.name] = encoder_kv[present_name]
+            else:
+                kv_feed[inp.name] = decoder_kv[present_name]
+
+        feed_n: dict[str, np.ndarray] = {
+            "inputs_embeds": next_emb,
+            "encoder_hidden_states": encoder_hidden_states,
+            "encoder_attention_mask": encoder_attention_mask,
+            "use_cache_branch": np.array([True]),
+            **kv_feed,
+        }
+        dec_out_n = sessions.decoder.run(None, feed_n)  # type: ignore[union-attr]
+        logits = dec_out_n[0]
+        present_n = {out_names[i]: dec_out_n[i] for i in range(1, len(dec_out_n))}
+
+        # Only the decoder KV is updated; encoder KV stays from step 0
+        decoder_kv = {k: v for k, v in present_n.items() if "decoder" in k}
+        next_token = int(np.argmax(logits[0, -1, :]))
+
+    if sessions.tokenizer is not None:
+        return sessions.tokenizer.decode(generated, skip_special_tokens=True)
+    return ""
+
+
+def _decode_no_cache(
+    sessions: _Sessions,
+    encoder_hidden_states: np.ndarray,
+    encoder_attention_mask: np.ndarray,
+) -> str:
+    """Greedy decode using the non-merged decoder (no KV cache).
+
+    Falls back to growing-sequence decode when only ``decoder_model_int8.onnx``
+    is available (no ``use_cache_branch`` input).  Slower than KV-cache but
+    functionally correct.
+    """
     decoder_input_names = {inp.name for inp in sessions.decoder.get_inputs()}  # type: ignore[union-attr]
+
+    seed_ids = np.array([[DECODER_START_TOKEN_ID, FORCED_BOS_TOKEN_ID]], dtype=np.int64)
+    seed_embeds = sessions.embed_tokens.run(None, {"input_ids": seed_ids})[0]  # type: ignore[union-attr]
+    decoder_embeds = seed_embeds
 
     generated: list[int] = []
 
-    # Seed decoder with [decoder_start_token_id, forced_bos_token_id] = [2, 0]
-    # This mirrors Florence-2's generation_config: decoder starts at token 2,
-    # then token 0 (forced_bos) is prepended before content tokens are generated.
-    start_ids = np.array([[DECODER_START_TOKEN_ID, FORCED_BOS_TOKEN_ID]], dtype=np.int64)
-    start_embeds = sessions.embed_tokens.run(None, {"input_ids": start_ids})[0]  # [1, 2, 768]
-    decoder_embeds = start_embeds  # growing buffer
-
-    for step in range(MAX_NEW_TOKENS):
-        feed = {
+    for _ in range(MAX_NEW_TOKENS):
+        feed: dict[str, np.ndarray] = {
             "inputs_embeds": decoder_embeds,
             "encoder_hidden_states": encoder_hidden_states,
-            "encoder_attention_mask": attention_mask,
+            "encoder_attention_mask": encoder_attention_mask,
         }
         feed = {k: v for k, v in feed.items() if k in decoder_input_names}
 
         dec_out = sessions.decoder.run(None, feed)  # type: ignore[union-attr]
-        logits = dec_out[0]                              # [1, seq, 51289]
-        next_token = int(np.argmax(logits[0, -1, :]))    # greedy from last position
+        logits = dec_out[0]
+        next_token = int(np.argmax(logits[0, -1, :]))
 
         if next_token == EOS_TOKEN_ID:
             break
 
         generated.append(next_token)
 
-        # Embed next token and append to sequence
         next_ids = np.array([[next_token]], dtype=np.int64)
-        next_embeds = sessions.embed_tokens.run(None, {"input_ids": next_ids})[0]  # type: ignore[union-attr]  # [1, 1, 768]
-        decoder_embeds = np.concatenate([decoder_embeds, next_embeds], axis=1)       # [1, seq+1, 768]
+        next_emb = sessions.embed_tokens.run(None, {"input_ids": next_ids})[0]  # type: ignore[union-attr]
+        decoder_embeds = np.concatenate([decoder_embeds, next_emb], axis=1)
 
-    # Step 10: decode token ids
     if sessions.tokenizer is not None:
         return sessions.tokenizer.decode(generated, skip_special_tokens=True)
     return ""

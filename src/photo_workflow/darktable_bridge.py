@@ -29,6 +29,7 @@ XMP_TEMPLATE = """\
       <photon:CompositionScore>{composition}</photon:CompositionScore>
       <photon:ExposureScore>{exposure}</photon:ExposureScore>
       <photon:SemanticName>{semantic_name}</photon:SemanticName>
+      <photon:OriginalFilename>{original_filename}</photon:OriginalFilename>
       <photon:SessionID>{session_id}</photon:SessionID>
       <photon:IsDuplicate>{is_duplicate}</photon:IsDuplicate>
     </rdf:Description>
@@ -40,11 +41,13 @@ XMP_TEMPLATE = """\
 
 def _write_xmp(record: "PhotoRecord") -> None:
     xmp_path = record.path.with_suffix(".xmp")
+    original_filename = record.metadata.get("original_filename", record.path.name)
     xmp_content = XMP_TEMPLATE.format(
         sharpness=record.sharpness_score,
         composition=record.composition_score,
         exposure=record.exposure_score,
         semantic_name=record.semantic_name,
+        original_filename=original_filename,
         session_id=record.session_id,
         is_duplicate=str(record.is_duplicate).lower(),
     )
@@ -133,6 +136,12 @@ def sync_to_darktable(records: list["PhotoRecord"], db_path: Path) -> tuple[int,
     """
     xmp_count = 0
     db_count = 0
+
+    dup_count = sum(1 for r in records if r.is_duplicate)
+    logger.info("Skipping %d duplicates for XMP write", dup_count)
+    # NOTE: if dup_count is unexpectedly high (e.g. >50% of records), the
+    # dHash threshold in dedup.py may be over-flagging.  Investigation of
+    # dedup.py is out of scope for this session.
 
     for record in records:
         if record.is_duplicate:

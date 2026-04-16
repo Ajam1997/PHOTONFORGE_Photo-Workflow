@@ -9,20 +9,47 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from photo_workflow.naming import _Sessions, generate_name
+from photo_workflow.naming import (
+    _Sessions,
+    _build_empty_past_kv,
+    _caption_to_slug,
+    generate_name,
+)
 
 
-def _fake_sessions() -> _Sessions:
-    """Return a _Sessions with all-MagicMock internals (never actually called in slug tests)."""
+def _fake_sessions(use_merged_decoder: bool = False) -> _Sessions:
+    """Return a _Sessions with all-MagicMock internals."""
+    decoder_mock = MagicMock()
+    if use_merged_decoder:
+        # Merged decoder exposes 'use_cache_branch' as an input name
+        decoder_mock.get_inputs.return_value = [
+            MagicMock(name="encoder_attention_mask"),
+            MagicMock(name="encoder_hidden_states"),
+            MagicMock(name="inputs_embeds"),
+            MagicMock(name="past_key_values.0.decoder.key"),
+            MagicMock(name="past_key_values.0.decoder.value"),
+            MagicMock(name="past_key_values.0.encoder.key"),
+            MagicMock(name="past_key_values.0.encoder.value"),
+            MagicMock(name="use_cache_branch"),
+        ]
+    else:
+        decoder_mock.get_inputs.return_value = [
+            MagicMock(name="encoder_attention_mask"),
+            MagicMock(name="encoder_hidden_states"),
+            MagicMock(name="inputs_embeds"),
+        ]
+
     return _Sessions(
         vision_encoder=MagicMock(),
         embed_tokens=MagicMock(),
         encoder=MagicMock(),
-        decoder=MagicMock(),
+        decoder=decoder_mock,
         tokenizer=None,
         img_size=(768, 768),
         img_mean=np.zeros(3, dtype=np.float32),
         img_std=np.ones(3, dtype=np.float32),
+        prompt_ids=np.array([[0, 1, 2, 3, 4, 5, 6, 7]], dtype=np.int64),
+        decoder_out_names=["logits"],
     )
 
 
@@ -51,7 +78,7 @@ def test_unloadable_image_falls_back_to_stem(tmp_path: Path) -> None:
 
 
 def test_caption_is_slugified(tmp_path: Path) -> None:
-    """Model caption is lowercased, punctuation removed, first 5 words joined by underscores."""
+    """Model caption is lowercased, punctuation removed, first 5 words joined by hyphens."""
     img_path = tmp_path / "img.jpg"
     img_path.touch()
 
@@ -111,7 +138,7 @@ def test_five_word_slug(tmp_path: Path) -> None:
 def test_slow_inference_logs_warning(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Inference exceeding 1.5s emits a KPM-1.2 warning."""
+    """Inference exceeding 2.5s emits a KPM-1.2 warning."""
     img_path = tmp_path / "img.jpg"
     img_path.touch()
 
@@ -134,3 +161,35 @@ def test_slow_inference_logs_warning(
         generate_name(img_path, model_dir=tmp_path / "models")
 
     assert any("KPM-1.2" in r.message for r in caplog.records)
+
+
+def test_build_empty_past_kv_returns_zero_tensors() -> None:
+    """_build_empty_past_kv returns float32 zero tensors of shape (1, 12, 0, 64)."""
+    session_mock = MagicMock()
+    # Simulate 6-layer merged decoder: each layer has 4 KV slots (dec.key, dec.val, enc.key, enc.val)
+    kv_input_names = [
+        f"past_key_values.{layer}.{side}.{kv}"
+        for layer in range(6)
+        for side in ("decoder", "encoder")
+        for kv in ("key", "value")
+    ]
+    session_mock.get_inputs.return_value = [
+        MagicMock(name=n) for n in kv_input_names
+    ]
+
+    result = _build_empty_past_kv(session_mock)
+
+    assert len(result) == 24  # 6 layers * 2 sides * 2 kv = 24
+    for name, tensor in result.items():
+        assert name.startswith("past_key_values"), f"unexpected key: {name}"
+        assert tensor.dtype == np.float32
+        assert tensor.shape == (1, 12, 0, 64), f"wrong shape for {name}: {tensor.shape}"
+
+
+def test_caption_to_slug_strips_task_prefix() -> None:
+    """Captions starting with a leading task token or angle brackets are still slugified."""
+    # Verify the slug function handles captions from the real model gracefully
+    assert _caption_to_slug("A glowing ring in the dark with a black background.") == \
+        "a-glowing-ring-in-the"
+    assert _caption_to_slug("") == ""
+    assert _caption_to_slug("One") == "one"

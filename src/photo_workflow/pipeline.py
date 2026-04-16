@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterator
+from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    pass
 
 
 @dataclass
@@ -43,6 +47,40 @@ class PipelineSummary:
     elapsed_seconds: float
 
 
+def _rename_photo(record: PhotoRecord) -> None:
+    """Rename *record.path* on disk to use the semantic slug as the filename.
+
+    The new name is ``{semantic_name}{original_suffix}`` (e.g.
+    ``golden-sunset-beach-afternoon-light.jpg``).  If a file with that name
+    already exists in the same directory, ``_2``, ``_3``, … are appended
+    before the suffix to avoid collisions.  ``record.path`` is updated in
+    place after a successful rename.
+    """
+    if not record.semantic_name:
+        return
+
+    directory = record.path.parent
+    suffix = record.path.suffix
+    base_name = record.semantic_name
+
+    candidate = directory / f"{base_name}{suffix}"
+    counter = 2
+    while candidate.exists() and candidate != record.path:
+        candidate = directory / f"{base_name}_{counter}{suffix}"
+        counter += 1
+
+    if candidate == record.path:
+        # Already named correctly — nothing to do
+        return
+
+    try:
+        os.rename(record.path, candidate)
+        logger.info("Renamed %s -> %s", record.path.name, candidate.name)
+        record.path = candidate
+    except OSError as exc:
+        logger.warning("Could not rename %s: %s", record.path, exc)
+
+
 class AnalysisPipeline:
     """Orchestrates ingest → group → dedup → score → name → catalog."""
 
@@ -72,7 +110,12 @@ class AnalysisPipeline:
         logger.info("Pipeline start: source=%s", self.config.source_dir)
 
         paths = ingest_volume(self.config.source_dir, self.config.output_dir, dry_run=self.config.dry_run)
-        records = [PhotoRecord(path=p) for p in paths]
+
+        # Store original filename before any rename so it can be preserved in XMP
+        records = [
+            PhotoRecord(path=p, metadata={"original_filename": p.name})
+            for p in paths
+        ]
 
         records = cluster_sessions(records)
         records = deduplicate(records)
@@ -86,6 +129,13 @@ class AnalysisPipeline:
             record.semantic_name = generate_name(record.path, model_dir=self.config.model_dir)
 
         scored = sum(1 for r in records if not r.is_duplicate)
+
+        # Rename files on disk to the semantic slug (skipped in dry-run mode)
+        if not self.config.dry_run:
+            for record in records:
+                if record.is_duplicate or not record.semantic_name:
+                    continue
+                _rename_photo(record)
 
         if not self.config.dry_run:
             xmp_written, db_upserted = sync_to_darktable(records, db_path=self.config.darktable_db)
