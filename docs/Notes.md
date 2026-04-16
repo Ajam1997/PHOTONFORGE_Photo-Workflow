@@ -46,3 +46,15 @@
 
 KPM-1.2 is a separate performance concern. The no-cache `decoder\_model` loop is O(n²) in sequence length — a KV-cache path using `decoder\_with\_past\_model\_int8.onnx` can cut this dramatically, but that requires resolving the fixed-16-token input dimension. Flag for the next @engineer session when you're ready to tackle the speed budget.
 
+
+See docs/ValidationReports/PhotoWorkFlowTestOutput
+
+This folder contains the output from a test batch of photos i ran, there are several issues, the nameing seams to still be broken and assigns each photo one of three names 
+
+"yes"
+
+"no"
+
+"answering does not require reading"
+
+Additionaly the name is out put to the XMP but the file name is not changed. The orginal file name as well as the new file name should be stored in the XMP and the file should be renamed with the generated name.
