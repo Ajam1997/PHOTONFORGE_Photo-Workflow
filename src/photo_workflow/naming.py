@@ -18,7 +18,8 @@ ONNX_SUBDIR = "onnx"
 MAX_WORDS = 5
 MAX_NEW_TOKENS = 20
 EOS_TOKEN_ID = 2
-BOS_TOKEN_ID = 0
+DECODER_START_TOKEN_ID = 2   # decoder_start_token_id from generation_config.json
+FORCED_BOS_TOKEN_ID = 0      # forced_bos_token_id: first generated token is always 0
 _KPM_INFERENCE_LIMIT = 2.5  # seconds (KPM-1.2)
 
 
@@ -181,10 +182,12 @@ def _run_inference(sessions: _Sessions, pixel_values: np.ndarray) -> str:
 
     generated: list[int] = []
 
-    # Start with BOS embedding [1, 1, 768]
-    bos_ids = np.array([[BOS_TOKEN_ID]], dtype=np.int64)
-    bos_embeds = sessions.embed_tokens.run(None, {"input_ids": bos_ids})[0]  # type: ignore[union-attr]  # [1, 1, 768]
-    decoder_embeds = bos_embeds  # growing buffer: [1, seq, 768]
+    # Seed decoder with [decoder_start_token_id, forced_bos_token_id] = [2, 0]
+    # This mirrors Florence-2's generation_config: decoder starts at token 2,
+    # then token 0 (forced_bos) is prepended before content tokens are generated.
+    start_ids = np.array([[DECODER_START_TOKEN_ID, FORCED_BOS_TOKEN_ID]], dtype=np.int64)
+    start_embeds = sessions.embed_tokens.run(None, {"input_ids": start_ids})[0]  # [1, 2, 768]
+    decoder_embeds = start_embeds  # growing buffer
 
     for step in range(MAX_NEW_TOKENS):
         feed = {
