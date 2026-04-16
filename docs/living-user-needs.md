@@ -86,3 +86,9 @@ Acceptance: rsync 1000 images to SSD per 120 seconds.
 KPM: KPM-1.1
 Stage: 6
 Status: DEFINED
+
+UN-041: The system should automaticaly eject and notify the SD card after transfering photos to the SSD.
+Acceptance: SD card is ejected and the user is notified that the photos have been transfered to the SSD.
+KPM: NONE
+Stage: 7
+Status: DEFINED
