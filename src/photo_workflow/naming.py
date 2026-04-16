@@ -194,6 +194,10 @@ def _run_inference(sessions: _Sessions, pixel_values: np.ndarray) -> str:
         "encoder_attention_mask": attention_mask,
         "use_cache_branch": np.array([False]),
     }
+    # Provide zero-filled past_key_values so the merged decoder passes shape
+    # validation even when use_cache_branch=False (values are not used).
+    empty_past = _build_empty_past_kv(sessions.decoder)
+    feed.update(empty_past)
     # Only include keys that the decoder actually accepts
     feed = {k: v for k, v in feed.items() if k in decoder_input_names}
 
@@ -245,6 +249,27 @@ def _run_inference(sessions: _Sessions, pixel_values: np.ndarray) -> str:
     if sessions.tokenizer is not None:
         return sessions.tokenizer.decode(generated, skip_special_tokens=True)
     return ""
+
+
+def _build_empty_past_kv(decoder_sess: object) -> dict[str, np.ndarray]:  # noqa: ARG001
+    """Return zero-filled past_key_values tensors required by decoder_model_merged.
+
+    The merged decoder requires all 24 past_key_values.* inputs on EVERY step,
+    including the first step where use_cache_branch=False.  When the branch is
+    False the model ignores the values, but ONNX still validates their presence.
+
+    Shape is hardcoded to (1, 12, 0, 64):
+      - batch=1, heads=12, seq_len=0 (empty cache), head_dim=64
+    Florence-2-base-ft has 6 decoder layers × 4 KV tensors = 24 entries.
+    """
+    cache: dict[str, np.ndarray] = {}
+    for i in range(6):
+        for side in ("decoder", "encoder"):
+            for kind in ("key", "value"):
+                cache[f"past_key_values.{i}.{side}.{kind}"] = np.zeros(
+                    (1, 12, 0, 64), dtype=np.float32
+                )
+    return cache
 
 
 def _caption_to_slug(caption: str) -> str:
