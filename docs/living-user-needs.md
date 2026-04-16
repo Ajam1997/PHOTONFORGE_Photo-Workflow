@@ -80,3 +80,9 @@ Acceptance: safe_eject.sh flushes SQLite WAL. Zero corruption over 50 eject cycl
 KPM: KPM-1.4
 Stage: 4
 Status: DEFINED
+
+UN-040: Workflow should move photos from SD card to temporary storage on SSD to allow for safe removal of SD card before processing.
+Acceptance: rsync 1000 images to SSD per 120 seconds.
+KPM: KPM-1.1
+Stage: 6
+Status: DEFINED
