@@ -15,10 +15,14 @@ from photo_workflow.naming import _Sessions, generate_name
 def _fake_sessions() -> _Sessions:
     """Return a _Sessions with all-MagicMock internals (never actually called in slug tests)."""
     return _Sessions(
+        vision_encoder=MagicMock(),
         embed_tokens=MagicMock(),
         encoder=MagicMock(),
         decoder=MagicMock(),
         tokenizer=None,
+        img_size=(768, 768),
+        img_mean=np.zeros(3, dtype=np.float32),
+        img_std=np.ones(3, dtype=np.float32),
     )
 
 
@@ -64,7 +68,7 @@ def test_caption_is_slugified(tmp_path: Path) -> None:
     assert " " not in result
     assert "!" not in result
     assert result == result.lower()
-    assert result == "a_golden_sunset_over_the"
+    assert result == "a-golden-sunset-over-the"
 
 
 def test_slug_max_length(tmp_path: Path) -> None:
@@ -101,7 +105,7 @@ def test_five_word_slug(tmp_path: Path) -> None:
          patch("photo_workflow.naming._run_inference", return_value="red fox jumps over lazy brown dog"):
         result = generate_name(img_path, model_dir=tmp_path / "models")
 
-    assert result == "red_fox_jumps_over_lazy"
+    assert result == "red-fox-jumps-over-lazy"
 
 
 def test_slow_inference_logs_warning(
@@ -120,7 +124,7 @@ def test_slow_inference_logs_warning(
     def fake_counter() -> float:
         nonlocal call_count
         call_count += 1
-        return 0.0 if call_count == 1 else 2.0  # simulates 2s elapsed
+        return 0.0 if call_count == 1 else 3.0  # simulates 3s elapsed (> 2.5s KPM limit)
 
     with patch("photo_workflow.naming._load_sessions", return_value=_fake_sessions()), \
          patch("photo_workflow.naming._preprocess_image", return_value=dummy_pixels), \

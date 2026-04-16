@@ -1,0 +1,407 @@
+# PhotonForge Systems Architecture
+
+**Autonomous Photography Workstation -- Living Document**
+
+Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition)
+
+Revision 6.0 | April 14, 2026 | Development Platform: Claude Code (Multi-Agent)
+
+*Consolidates: architecture-v4, v5-gui-addendum, v5-vv-addendum*
+
+---
+
+## 1. Executive Summary
+
+PhotonForge is an autonomous ingest-to-edit photography system that transforms a Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition) into a purpose-built photography workstation. The system ingests from SD cards, analyzes and scores images, generates semantic filenames, and syncs results to Darktable -- all offline, all local.
+
+The system architecture spans three layers: (1) a Python analysis pipeline for image intelligence, (2) a host integration layer using udev, Docker, and shell scripts, and (3) a Tauri-based GUI that presents the workstation as a kiosk appliance. Development uses Claude Code with a five-agent roster: @architect, @engineer, @devops, @verification, and @validation.
+
+---
+
+## 2. Target Hardware
+
+**Platform:** Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition), 80VG series
+
+| Component | Specification | Constraint / Notes |
+|:---|:---|:---|
+| CPU | Intel Core i7-7500U (2C/4T, 2.7 GHz base, 3.5 GHz turbo) | AVX2 supported. Dual-core limits parallel processing. All benchmarks target this CPU. |
+| RAM | 8 GB DDR4-2133 (soldered) | Not upgradeable. Container RSS limit: 1.5 GB (KPM-1.3). Host OS needs ~2-3 GB. |
+| USB-C Left (rear) | 1x USB 2.0 (charging + data) | Charging port. Not suitable for high-speed SSD. Excluded from udev SSD matching. |
+| USB-C Left (front) | 1x USB 3.1 Gen 1 (5 Gbps) | Primary SSD cartridge port. Single cartridge at a time. |
+| USB-A Right | 1x USB 3.0 Always On (5 Gbps) | SD card reader ingest path. |
+| Display | 13.9" FHD IPS (1920x1080) | No scaling required. Touch-enabled for tablet mode. |
+| Storage | 256 GB M.2 SSD | OS + tools only. All photo libraries on external SSD cartridges. |
+| Wireless | Lenovo 2x2 802.11ac + BT 4.1 | Offline at runtime (NFR-2.1). Wi-Fi for initial setup only. |
+
+### 2.1 Hardware Delta from Original Spec
+
+The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3). Revision 4.0 corrected to the actual Yoga 910. Key impacts: half the CPU cores (2C vs 4C), half the RAM (8 GB vs 16 GB), single USB 3.1 port (vs dual Thunderbolt), FHD display (vs 4K requiring 200% scaling).
+
+### 2.2 Memory Budget (8 GB System)
+
+| Component | Allocation | Notes |
+|:---|:---|:---|
+| Linux kernel + OS | ~1.0 GB | Minimal Ubuntu 24.04 footprint |
+| Docker daemon | ~0.3 GB | Container runtime overhead |
+| Darktable | ~2.0 GB | Largest single consumer |
+| Analyzer container | 1.5 GB (hard limit) | KPM-1.3: Florence-2 INT8 + image buffers |
+| Tauri GUI | ~50 MB | NFR-3.1: WebKitGTK-based, no Chromium |
+| System buffer/cache | ~3.15 GB | Reclaimable under pressure |
+| **TOTAL** | **8.0 GB** | No swap -- zram only (SSD wear concern) |
+
+### 2.3 USB Port Topology
+
+| Port | Location | Speed | Assignment | udev Strategy |
+|:---|:---|:---|:---|:---|
+| USB-C (rear) | Left side, rear | USB 2.0 | Power/charging | Excluded from SSD matching |
+| USB-C (front) | Left side, front | USB 3.1 Gen 1 (5 Gbps) | SSD cartridge | Match by ID_FS_LABEL=PHOTON-*. Mount to /mnt/photon_ssd/XXX |
+| USB-A | Right side | USB 3.0 (5 Gbps) | SD card reader | Match by vendor 05e3:0749. Trigger rsync ingest |
+
+### 2.4 Linux-Specific Considerations
+
+- **Wi-Fi:** Lenovo 2x2 AC may require firmware updates on Ubuntu 24.04 LTS.
+- **Tablet Mode:** Watchband hinge with 360-degree rotation. Kernel modules for auto-rotation TBD.
+- **Display:** FHD at 13.9" -- no scaling needed.
+- **USB-C:** Only front left port is USB 3.1. udev rules use ENV{DEVTYPE}, systemd-mount for mounting, and wrapper scripts (no inline shell in RUN values).
+
+---
+
+## 3. Requirements
+
+### 3.1 Functional Requirements
+
+| ID | Description | Implementation |
+|:---|:---|:---|
+| FR-1.1 | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge |
+| FR-1.2 | Spatio-Temporal Grouping | Cluster if temporal delta < 500ms AND Hamming distance near 0 |
+| FR-1.3 | Perceptual Deduplication | dHash near-duplicate detection (Hamming distance <= 2) |
+| FR-1.4 | Sharpness Scoring | Normalized Laplacian Variance |
+| FR-1.5 | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps |
+| FR-1.6 | Exposure Assessment | 11-zone luminance segmentation; entropy vs. IEA40K threshold |
+| FR-1.7 | Local Semantic Naming | Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs. |
+| FR-1.8 | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation |
+| FR-1.9 | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. |
+| FR-1.10 | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh |
+
+### 3.2 Non-Functional Requirements
+
+| ID | Description | Specification |
+|:---|:---|:---|
+| NFR-2.1 | Internet Independence | 100% offline at runtime. Initial provisioning (OS, packages, models) may use internet. Cloud export (Phase 3) user-opt-in only. |
+| NFR-2.2 | Resource Efficiency | Total container RSS <= 1.5 GB. CPU affinity capped at 80%. Host OS reserved: 2.5 GB minimum. |
+| NFR-2.3 | Database Portability | Darktable library.db + user config on external SSD, not host filesystem. |
+| NFR-2.4 | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected. |
+| NFR-3.1 | GUI Memory Budget | Tauri app idle RSS <= 50 MB. Combined system within 8 GB with >= 500 MB free for cache. |
+| NFR-3.2 | Boot-to-App Time | Power button to interactive PhotonForge UI <= 30 seconds. |
+| NFR-3.3 | Touch Accessibility | All interactive elements >= 44px touch target. Screen rotation via watchband hinge. |
+| NFR-3.4 | Dark Mode | Default and only theme. Photography-focused: muted UI, large previews, minimal chrome. |
+
+### 3.3 Key Performance Measures
+
+| KPM | Metric | Target | Owner | Verified By |
+|:---|:---|:---|:---|:---|
+| KPM-1.1 | Ingest Latency | >= 80% USB 3.0 bandwidth | @devops | @verification |
+| KPM-1.2 | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @engineer | @verification |
+| KPM-1.3 | Memory Stability | RSS <= 1.5 GB for analyzer | @engineer | @verification |
+| KPM-1.4 | Data Integrity | Zero SQLite corruption over 50 eject cycles | @devops | @validation |
+
+NOTE: KPM-1.2 provisionally set at 2.5s pending benchmarking on the i7-7500U. If INT8 inference is faster, tighten toward 1.5s.
+
+---
+
+## 4. Intelligence Engine
+
+The inference subsystem targets the i7-7500U's AVX2 instruction set with a 4-model ONNX pipeline.
+
+- **Runtime:** onnxruntime CPU provider, AVX2 optimized. No CUDA, no OpenVINO.
+- **Model:** Florence-2-base-ft from onnx-community/Florence-2-base-ft.
+- **ONNX Sessions:** vision_encoder_int8.onnx, embed_tokens_int8.onnx, encoder_model_int8.onnx, decoder_model_merged_int8.onnx
+- **Config Files:** tokenizer.json, tokenizer_config.json, preprocessor_config.json, generation_config.json, config.json
+- **Memory Budget:** All 4 sessions + image buffers within 1.5 GB RSS (KPM-1.3).
+- **Threading:** ORT_NUM_THREADS=2 to match physical core count. Avoid oversubscription.
+- **Inference Pipeline:** Image -> vision_encoder (pixel_values -> image_features) -> embed_tokens (prompt IDs -> text_embeds) -> encoder (concat embeds -> hidden state) -> decoder (greedy generation with KV cache, empty past_key_values on first step [1, 12, 0, 64]) -> tokenizer decode -> 5-word slug
+
+---
+
+## 5. Agent Roster
+
+| Agent | Model | Tools | Scope | Memory | Color |
+|:---|:---|:---|:---|:---|:---|
+| @architect | opus | Read, Grep, Glob (read-only) | CLAUDE.md, architecture, interface contracts, dependency decisions | user | blue |
+| @engineer | sonnet | All tools | src/, tests/test_*.py, models/ | project | green |
+| @devops | sonnet | All tools | deploy/, scripts/ | project | orange |
+| @verification | sonnet | All tools | tests/test_*.py, docs/VerificationReports/ | project | yellow |
+| @validation | sonnet | All tools | tests/e2e/, docs/ValidationReports/, living-user-needs.md (by ID) | project | cyan |
+
+### 5.1 @verification (Requirements Enforcer)
+
+**Trigger:** @engineer commit to main
+**Input:** git diff HEAD~1 + @architect handoff brief (requirement IDs only)
+
+- **Unit test generation:** Create/extend pytest cases from diffs. Never modifies src/.
+- **KPM benchmarks:** KPM-1.2 timing, KPM-1.3 RSS, KPM-1.1 bandwidth.
+- **Context rules:** Diff-only reads. Single-failure file read on test failure. No full repo scans.
+- **Writes:** tests/test_*.py (new/extended), docs/VerificationReports/
+- **On failure:** Error report to @engineer. Never rewrites source code.
+
+### 5.2 @validation (User Needs Advocate)
+
+**Trigger:** Merge to main (milestone) or manual invocation
+**Input:** UN-XXX requirement IDs from living-user-needs.md + CLI/pipeline output
+
+- **E2E testing:** SD ingest through Darktable output. Black-box only.
+- **KPM-1.4 soak test:** 50-cycle plug/eject with prompt-and-wait pattern for physical actions.
+- **Edge cases:** Empty SD, no images, SSD unmounted, corrupt EXIF.
+- **Context rules:** UN-ID grep only. Never reads src/ implementation.
+- **Writes:** tests/e2e/, docs/ValidationReports/, soak-test-log.md
+- **On failure:** Escalate to @architect for requirement reassessment.
+- **Hardware-absent:** XFAIL-HARDWARE marker. Never silent skip.
+
+### 5.3 Escalation Paths
+
+| Failure Source | Target | Action |
+|:---|:---|:---|
+| @verification test failure | @engineer | Error report with failing test, diff, requirement ID |
+| @validation E2E failure | @architect | Workflow compliance report with UN-ID mismatch |
+| Hardware-absent test | XFAIL-HARDWARE | Marked, logged in soak-test-log.md for manual execution |
+| KPM regression | @engineer (1.2/1.3) or @devops (1.1/1.4) | Benchmark report with measured vs. target values |
+
+### 5.4 Token Optimization Guardrails
+
+- **Diff-only context:** V&V agents read git diff HEAD~1, not full files.
+- **UN-ID grep:** @validation pulls specific IDs from living-user-needs.md, never the full document.
+- **Test generation vs. execution:** Agents write tests. Tests execute via CLI. LLM analyzes output only on failure.
+- **Cache awareness:** No relevant diff = skip re-run. Report "no changes."
+
+---
+
+## 6. GUI & Appliance Architecture
+
+### 6.1 Product Vision
+
+PhotonForge evolves from a headless pipeline into a full photography workstation. The Yoga 910 boots directly into a photography-focused interface. The recommended path is Tier 1 (kiosk shell) + Tier 2 (Tauri application). Tier 3 (custom OS) is a documented contingency.
+
+### 6.2 Tier Overview
+
+| Tier | Approach | Effort | RAM Overhead | When to Use |
+|:---|:---|:---|:---|:---|
+| Tier 1 | Kiosk Shell | Low (days) | ~0 MB | Immediate. Locks Ubuntu into full-screen app on boot. |
+| Tier 2 | Tauri Application | Medium (weeks) | 30-50 MB idle | Primary target. Custom control surface with Rust backend + web frontend. |
+| Tier 3 | Custom Linux Distro | High (months) | Minimal | Contingency. Only if Tiers 1-2 cannot meet a future requirement. |
+
+### 6.3 Kiosk Shell (Tier 1)
+
+Replace GNOME desktop with a minimal session that auto-launches PhotonForge. Configuration change, not development effort.
+
+- **Auto-login:** GDM auto-login to dedicated 'photonforge' user. No password prompt.
+- **Crash recovery:** Launch script restarts app within 2 seconds on exit.
+- **Admin escape:** SSH for admin user. TTY2 via Ctrl+Alt+F2 for emergency.
+- **Display:** Full-screen, no decorations, no taskbar. FHD native.
+
+### 6.4 Tauri Application (Tier 2)
+
+Custom desktop application using Tauri: system WebKitGTK + Rust backend. 30-50 MB idle RAM vs. Electron's 150-300 MB. Critical for the 8 GB memory budget.
+
+#### 6.4.1 Application Panels
+
+| Panel | Function | Key Interactions |
+|:---|:---|:---|
+| Ingest Dashboard | SD/SSD status, pipeline progress in real-time | Start/stop pipeline, per-image progress, abort |
+| Library Browser | Thumbnail grid with scores, tags, semantic names, stars | Filter by session, sort by score, select for edit/export |
+| Darktable Launcher | Opens Darktable at active cartridge's library.db | Launch, process monitoring, return on exit |
+| Export/Share | Push Darktable output JPGs to destination | Copy to USB, local folder, future: network/cloud |
+| Cartridge Manager | Format, health check, safe eject | mkfs.ext4 -L PHOTON-XXX, integrity check, eject button |
+| Settings | Pipeline config, model selection, scoring thresholds | Adjust dedup/sharpness/composition weights |
+
+#### 6.4.2 Rust Backend
+
+- **USB/mount management:** Monitor udev events. Trigger systemd-mount. Report to frontend via Tauri events.
+- **Pipeline orchestration:** Spawn Python pipeline as subprocess. Stream stdout/stderr for real-time progress.
+- **Darktable integration:** Launch with --library flag. Monitor process. Re-focus on exit.
+- **File watching:** Watch cartridge output directory for new JPG exports.
+- **SQLite reads:** Read library.db for library browser. Thumbnail generation.
+
+#### 6.4.3 Web Frontend
+
+- **Framework:** React or Svelte (decision deferred to Phase 7.1). TypeScript required.
+- **Design:** Dark mode default. Photography-focused. Large thumbnails, muted UI.
+- **State:** Tauri event bus for real-time backend updates. Local state for UI only.
+- **Responsive:** Optimized for 13.9" FHD. Touch-friendly >= 44px targets for tablet mode.
+
+#### 6.4.4 GUI Requirements
+
+| ID | Description | Specification |
+|:---|:---|:---|
+| GUI-1.1 | Boot to app | System boots into PhotonForge UI within 30 seconds. No desktop visible. |
+| GUI-1.2 | Crash recovery | Kiosk script restarts app within 2 seconds. |
+| GUI-1.3 | Admin escape | SSH + TTY2 via key combo. |
+| GUI-1.4 | Display | Full-screen, no decorations, FHD native. |
+| GUI-2.1 | Idle memory | Tauri app idle RSS <= 50 MB. |
+| GUI-2.2 | Pipeline feedback | Real-time progress. Latency stdout to UI <= 500 ms. |
+| GUI-2.3 | Darktable handoff | Launch with --library and --configdir. Detect exit, return focus. |
+| GUI-2.4 | Export | Copy JPGs to USB/local. Progress bar. Cancellable. |
+| GUI-2.5 | Cartridge lifecycle | Format, mount, eject, integrity check from UI. |
+| GUI-2.6 | Touch support | All targets >= 44px for tablet mode. |
+| GUI-2.7 | Offline operation | No network calls. All UI assets bundled. |
+
+### 6.5 Sharing Utility
+
+| Phase | Target | Implementation | Notes |
+|:---|:---|:---|:---|
+| Phase 1 | Local directory | Rust fs copy | Internal SSD or second USB drive |
+| Phase 1 | USB drive | Detect non-PHOTON USB | Must not confuse with cartridges |
+| Phase 2 | Network share | SMB/NFS from Rust | Requires Wi-Fi. One-time credential config. |
+| Phase 3 | Cloud upload | API integration | User opt-in only. Never for pipeline. |
+
+### 6.6 Tier 3: Custom Linux Distribution (Contingency)
+
+Build a purpose-built Linux image (Ubuntu Core, Buildroot, or Yocto) that boots directly into PhotonForge. No desktop, no package manager. Analogous to SteamOS or camera firmware. Documented for reference only -- no implementation unless Tiers 1-2 fail to meet a specific requirement.
+
+- **Triggers:** Boot time < 5s needed, kernel customization, OS footprint < 4 GB, OTA updates for fleet, regulatory certification.
+- **Risks:** Full maintenance burden, Darktable cross-compilation, slow build-test cycles, hardware driver gaps.
+
+---
+
+## 7. Project Structure
+
+```
+photo-workflow/
+  CLAUDE.md                      # Project spec + task sequencing
+  pyproject.toml                 # Package definition, dependencies
+  .claude/agents/
+    architect.md                 # Read-only, opus (blue)
+    engineer.md                  # All tools, sonnet (green)
+    devops.md                    # All tools, sonnet (orange)
+    verification.md              # All tools, sonnet (yellow)
+    validation.md                # All tools, sonnet (cyan)
+  src/photo_workflow/
+    pipeline.py                  # AnalysisPipeline orchestrator
+    ingest.py                    # FR-1.1: rsync trigger
+    grouping.py                  # FR-1.2: spatio-temporal clustering
+    dedup.py                     # FR-1.3: dHash dedup (Hamming <= 2)
+    sharpness.py                 # FR-1.4: Laplacian variance
+    composition.py               # FR-1.5: rule-of-thirds + saliency
+    exposure.py                  # FR-1.6: 11-zone luminance entropy
+    naming.py                    # FR-1.7: Florence-2 INT8 4-model pipeline
+    darktable_bridge.py          # FR-1.8: SQLite + XMP sidecar sync
+    cartridge.py                 # FR-1.9: SSD volume management
+  scripts/
+    safe_eject.sh                # FR-1.10: WAL flush + unmount
+    manage_ssd.sh                # SSD detection + volume remap
+    install_udev.sh              # udev rule + wrapper script installer
+    provision_models.sh          # One-time ONNX download + config fetch
+    remote_test.sh               # Automated test runner (JSON output)
+    on_ssd_add.sh                # udev wrapper: cartridge mount
+    on_ssd_remove.sh             # udev wrapper: cartridge remove log
+    on_sd_add.sh                 # udev wrapper: SD mount/symlink
+    on_sd_remove.sh              # udev wrapper: SD remove log
+  deploy/
+    Dockerfile                   # Container (Ubuntu 24.04)
+    docker-compose.yml           # Service orchestration
+    udev/
+      99-photo-ssd.rules         # PHOTON-* label matching
+      99-photo-sd.rules          # SD reader vendor matching
+  tests/
+    fixtures/                    # Test images, mock library.db
+    test_*.py                    # Unit tests (@verification)
+    e2e/                         # E2E tests (@validation)
+  models/florence2_int8/          # Vendored ONNX + configs (.gitignore'd)
+  docs/
+    living-user-needs.md         # UN-001 through UN-032
+    VerificationReports/         # Per-commit pass/fail (@verification)
+    ValidationReports/           # Per-milestone compliance (@validation)
+      soak-test-log.md           # KPM-1.4 persistent cycle tracker
+  photonforge-gui/               # Tauri application (Stage 7)
+    src-tauri/src/               # Rust backend
+    src/panels/                  # Frontend panels
+    src/components/              # Shared UI components
+```
+
+---
+
+## 8. Execution Roadmap
+
+| Stage | Owner | Scope | Acceptance Criteria | UN-IDs |
+|:---|:---|:---|:---|:---|
+| 1. Scaffold | @architect | Project init, CLAUDE.md, pyproject.toml, agents | pip install -e . succeeds; pytest discovers tests; claude agents lists 5 | UN-001, UN-002 |
+| 2. Core Engine | @engineer | FR-1.2 through FR-1.6 | All tests pass; memory < 500 MB per module | UN-010 to UN-014 |
+| 3. Inference + Bridge | @engineer | FR-1.7 (Florence-2 4-model naming) + FR-1.8 (Darktable SQLite/XMP) | KPM-1.2 <= 2.5s/image; zero DB corruption | UN-020, UN-021 |
+| 4. Host Integration | @devops | FR-1.1, FR-1.9, FR-1.10: udev, cartridge, safe eject, Docker | KPM-1.1 >= 80% BW; KPM-1.4 50 safe removals | UN-030 to UN-032 |
+| 5. Parallel Build | @engineer + @devops | Concurrent Stage 2-4 (agent teams) | All individual stage criteria met | All Stage 2-4 |
+| 6. Integration | @architect (lead) | Full pipeline E2E on Yoga 910 | All KPMs verified; SD-to-Darktable autonomous | All UN-IDs |
+| 7.1 GUI Scaffold | @engineer | Tauri project, panel nav, dark theme, status bar | App launches, panels navigate, cartridge status renders | -- |
+| 7.2 Ingest + Cartridge | @engineer + @devops | Ingest Dashboard, Cartridge Manager, USB events | SD insert shows status. Pipeline from UI. Format/eject from UI. | -- |
+| 7.3 Library Browser | @engineer | Thumbnails, scores, session filtering | Browse 630 images, filter by session, sort by score | -- |
+| 7.4 Darktable Launcher | @engineer | Process management, library handoff | Launch from UI, library.db loads, return on exit | -- |
+| 7.5 Export/Share | @engineer | Phase 1: local directory + USB drive export | Select images, export, verify JPGs on destination | -- |
+| 7.6 Kiosk Mode | @devops | Auto-login, session config, crash recovery | Boot to PhotonForge within 30s, no desktop visible | -- |
+| 7.7 Polish | @engineer + @devops | Touch, tablet mode, performance tuning | Touch >= 44px, rotation works, idle RAM <= 50 MB | -- |
+
+---
+
+## 9. Living User Need Document
+
+The Living User Need Document (docs/living-user-needs.md) is the sole input for @validation compliance checks. Requirements numbered UN-001 through UN-032. The @validation agent pulls only specific UN-IDs relevant to the current milestone via grep.
+
+---
+
+## 10. Decision Log
+
+| Decision | Chosen | Rejected | Rationale |
+|:---|:---|:---|:---|
+| Application framework | Tauri | Electron | 8 GB RAM constraint. Electron 150-300 MB idle is incompatible. Tauri uses 30-50 MB. |
+| Implementation path | Tier 1 + Tier 2 | Tier 3 alone | Tier 3 high cost/maintenance. Tier 1+2 achieves appliance UX on standard Ubuntu. |
+| Frontend framework | Deferred (React or Svelte) | N/A | Decision at Phase 7.1 based on Tauri ecosystem support. |
+| Sharing model | Phased: local first, cloud later | Cloud-only | NFR-2.1 offline mandate. Cloud is opt-in layer. |
+| Darktable integration | Subprocess with --library | Embedded library | Darktable not designed for embedding. Subprocess is simple and reliable. |
+| Tier 3 status | Documented, not implemented | Immediate build | No requirement justifies the cost. Path preserved for future. |
+| V&V execution | SSH to Yoga 910 via Claude Code | Manual copy-paste | Native SSH sessions eliminate manual terminal relay. |
+| SSD cartridge identity | Filesystem label (PHOTON-*) | Hardware serial / vendor ID | Label follows the drive, not the enclosure. Portable across USB adapters. |
+| udev RUN values | Wrapper scripts | Inline shell | Ubuntu 24.04 systemd rejects $() substitution and nested quotes in RUN. |
+| Mount method | systemd-mount | Direct mount | udev namespace restrictions block direct mount on newer systemd. |
+
+---
+
+## 11. Development Workflow
+
+### 11.1 Automated vs. Manual
+
+| Claude Code (Automated) | Manual (Requires Yoga 910) |
+|:---|:---|
+| Python module implementation + tests | udev rule testing on USB topology |
+| Shell script generation | ONNX weight acquisition (provision_models.sh) |
+| Dockerfile + docker-compose | Physical SSD mount/eject cycles |
+| SQLite fixture generation | Wi-Fi driver configuration |
+| Linting, formatting, type checking | Darktable UI verification |
+| pytest execution and iteration | KPM-1.4 soak test (physical plug/unplug) |
+| V&V agent test generation | Hardware-absent test manual execution |
+
+### 11.2 Remote Execution
+
+Client-side testing runs via SSH to alex@10.27.27.10. The Yoga 910 hosts the runtime environment with mounted PHOTON cartridges and SD reader. Use scripts/remote_test.sh as the standard entry point. Physical hardware actions (plug/unplug) require human intervention -- agents use prompt-and-wait pattern for these.
+
+### 11.3 V&V Execution Model
+
+@architect defines requirements -> @engineer implements -> @verification validates implementation against requirements (loop to @engineer on failure) -> merge to main -> @validation validates workflow against user needs (loop to @architect if feature works but misses user need).
+
+Both V&V agents execute via Claude Code SSH sessions against the Yoga 910 for hardware-coupled validation.
+
+---
+
+## 12. References
+
+1. pHash in Python | Hashing and Validation -- SSOJet (accessed April 7, 2026)
+2. Open source image recognition with Luminoth | Opensource.com (accessed April 7, 2026)
+3. Best lightweight Linux distro of 2025 -- TechRadar (accessed April 7, 2026)
+4. How to compact the library? -- darktable -- discuss.pixls.us (accessed April 7, 2026)
+5. Meet BLIP: The Vision-Language Model Powering Image Captioning -- PyImageSearch (accessed April 7, 2026)
+6. Intel Core i7-7500U Specifications -- Intel ARK (accessed April 10, 2026)
+7. Lenovo Yoga 910-13IKB Convertible Review -- NotebookCheck (accessed April 10, 2026)
+8. onnx-community/Florence-2-base-ft -- Hugging Face (accessed April 10, 2026)
+9. Tauri Framework -- https://tauri.app (accessed April 13, 2026)
+10. gnome-kiosk-script-session -- GNOME kiosk session configuration
+11. Ubuntu Frame -- Canonical embedded graphics shell
+12. Buildroot -- https://buildroot.org (Tier 3 contingency)
+13. Cage -- Minimal Wayland compositor for kiosk/single-app use
+14. INCOSE Systems Engineering Handbook, 5th Edition -- V&V framework
+15. Claude Code SSH Documentation -- code.claude.com/docs/en/desktop

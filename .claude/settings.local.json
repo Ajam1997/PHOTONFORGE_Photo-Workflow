@@ -20,7 +20,8 @@
       "Bash(ssh -o:*)",
       "Bash(expect -c ':*)",
       "Bash(SSH_ASKPASS_REQUIRE=force SSH_ASKPASS=/bin/echo DISPLAY=:0 ssh -o ConnectTimeout=10 -o IdentitiesOnly=yes -i ~/.ssh/PhotonForge_new alex@10.27.27.10 \"echo 'SSH OK' && hostname && uname -a\")",
-      "Read(//etc/**)"
+      "Read(//etc/**)",
+      "Bash(SSH_ASKPASS=/bin/cat ssh-add ~/.ssh/PhotonForge_new)"
     ]
   }
 }
