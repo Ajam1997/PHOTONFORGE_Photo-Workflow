@@ -27,7 +27,8 @@ class _Sessions:
     vision_encoder: object
     embed_tokens: object
     encoder: object
-    decoder: object
+    decoder_init: object    # decoder_model_int8.onnx — step 0
+    decoder_past: object    # decoder_with_past_model_int8.onnx — steps 1+
     tokenizer: object | None
     img_size: tuple[int, int]   # (height, width)
     img_mean: np.ndarray        # shape (3,) float32
@@ -75,23 +76,27 @@ def _load_sessions(model_dir: Path) -> _Sessions:
     vision_encoder_path = _resolve_onnx_path(onnx_dir, "vision_encoder")
     embed_path = _resolve_onnx_path(onnx_dir, "embed_tokens")
     encoder_path = _resolve_onnx_path(onnx_dir, "encoder_model")
-    decoder_path = _resolve_onnx_path(onnx_dir, "decoder_model_merged")
+    decoder_init_path = _resolve_onnx_path(onnx_dir, "decoder_model")
+    decoder_past_path = _resolve_onnx_path(onnx_dir, "decoder_with_past_model")
 
     logger.info("Loading Florence-2 ONNX sessions from %s", onnx_dir)
     logger.info("  vision_encoder : %s", vision_encoder_path.name)
     logger.info("  embed_tokens   : %s", embed_path.name)
     logger.info("  encoder        : %s", encoder_path.name)
-    logger.info("  decoder        : %s", decoder_path.name)
+    logger.info("  decoder_init   : %s", decoder_init_path.name)
+    logger.info("  decoder_past   : %s", decoder_past_path.name)
 
     vision_encoder_sess = _make_ort_session(vision_encoder_path)
     embed_sess = _make_ort_session(embed_path)
     encoder_sess = _make_ort_session(encoder_path)
-    decoder_sess = _make_ort_session(decoder_path)
+    decoder_init_sess = _make_ort_session(decoder_init_path)
+    decoder_past_sess = _make_ort_session(decoder_past_path)
 
     _log_session_io("vision_encoder", vision_encoder_sess)
     _log_session_io("embed_tokens", embed_sess)
     _log_session_io("encoder", encoder_sess)
-    _log_session_io("decoder", decoder_sess)
+    _log_session_io("decoder_init", decoder_init_sess)
+    _log_session_io("decoder_past", decoder_past_sess)
 
     # Load preprocessor_config.json
     preproc_path = model_dir / "preprocessor_config.json"
@@ -123,7 +128,8 @@ def _load_sessions(model_dir: Path) -> _Sessions:
         vision_encoder=vision_encoder_sess,
         embed_tokens=embed_sess,
         encoder=encoder_sess,
-        decoder=decoder_sess,
+        decoder_init=decoder_init_sess,
+        decoder_past=decoder_past_sess,
         tokenizer=tokenizer,
         img_size=(img_h, img_w),
         img_mean=img_mean,
@@ -176,100 +182,78 @@ def _run_inference(sessions: _Sessions, pixel_values: np.ndarray) -> str:
     )
     encoder_hidden_states = encoder_out[0]  # (1, combined_seq, 768)
 
-    # Step 9: greedy decode loop
-    decoder_input_names = {inp.name for inp in sessions.decoder.get_inputs()}  # type: ignore[union-attr]
-    dec_output_names = [o.name for o in sessions.decoder.get_outputs()]  # type: ignore[union-attr]
+    # Step 9: greedy decode loop using split decoder_init / decoder_past models
+    past_input_names = {inp.name for inp in sessions.decoder_past.get_inputs()}  # type: ignore[union-attr]
+    init_output_names = [o.name for o in sessions.decoder_init.get_outputs()]  # type: ignore[union-attr]
+    past_output_names = [o.name for o in sessions.decoder_past.get_outputs()]  # type: ignore[union-attr]
 
     generated: list[int] = []
-    past_key_values: dict[str, np.ndarray] = {}
 
-    # Step 9a: first decode step — BOS token embedding, use_cache_branch=False
+    # Step 9a: first step using decoder_init — BOS token embedding, no past KV
     bos_ids = np.array([[BOS_TOKEN_ID]], dtype=np.int64)
     bos_embed_out = sessions.embed_tokens.run(None, {"input_ids": bos_ids})  # type: ignore[union-attr]
     bos_embeds = bos_embed_out[0]  # (1, 1, 768)
 
-    feed: dict[str, np.ndarray] = {
-        "inputs_embeds": bos_embeds,
+    feed_init: dict[str, np.ndarray] = {
         "encoder_hidden_states": encoder_hidden_states,
         "encoder_attention_mask": attention_mask,
-        "use_cache_branch": np.array([False]),
+        "inputs_embeds": bos_embeds,
     }
-    # Provide zero-filled past_key_values so the merged decoder passes shape
-    # validation even when use_cache_branch=False (values are not used).
-    empty_past = _build_empty_past_kv(sessions.decoder)
-    feed.update(empty_past)
-    # Only include keys that the decoder actually accepts
-    feed = {k: v for k, v in feed.items() if k in decoder_input_names}
+    out_init = sessions.decoder_init.run(None, feed_init)  # type: ignore[union-attr]
 
-    dec_out = sessions.decoder.run(None, feed)  # type: ignore[union-attr]
-
-    logits = dec_out[0]  # (1, 1, vocab)
+    # out_init[0] = logits [1, 1, 51289]; out_init[1:] = all 24 present.* tensors
+    logits = out_init[0]  # (1, 1, vocab)
     next_token = int(np.argmax(logits[0, -1, :]))
     if next_token != EOS_TOKEN_ID:
         generated.append(next_token)
 
-    for out_name, tensor in zip(dec_output_names[1:], dec_out[1:]):
-        past_key_values[out_name] = tensor
+    # Build past_kv from step-0 outputs (present.*.decoder.* and present.*.encoder.*)
+    past_kv: dict[str, np.ndarray] = {}
+    for name, tensor in zip(init_output_names[1:], out_init[1:]):
+        past_kv[name] = tensor
 
-    # Step 9b: subsequent steps — use_cache_branch=True, feed back past KV
+    # Step 9b: subsequent steps using decoder_past — inputs_embeds fixed at 16 tokens
     for _ in range(MAX_NEW_TOKENS - 1):
         if next_token == EOS_TOKEN_ID:
             break
 
+        # Embed current token: [1, 1, 768]
         token_id_arr = np.array([[next_token]], dtype=np.int64)
-        step_embed_out = sessions.embed_tokens.run(None, {"input_ids": token_id_arr})  # type: ignore[union-attr]
-        step_embeds = step_embed_out[0]  # (1, 1, 768)
+        token_embed_out = sessions.embed_tokens.run(None, {"input_ids": token_id_arr})  # type: ignore[union-attr]
+        token_embed = token_embed_out[0]  # (1, 1, 768)
+
+        # Pad to [1, 16, 768] with zeros — decoder_past inputs_embeds is fixed at 16
+        pad_len = 16 - 1
+        padded_embeds = np.concatenate(
+            [token_embed, np.zeros((1, pad_len, 768), dtype=np.float32)], axis=1
+        )  # (1, 16, 768)
 
         step_feed: dict[str, np.ndarray] = {
-            "inputs_embeds": step_embeds,
-            "encoder_hidden_states": encoder_hidden_states,
+            "inputs_embeds": padded_embeds,
             "encoder_attention_mask": attention_mask,
-            "use_cache_branch": np.array([True]),
         }
-
         # Map present.* outputs → past_key_values.* inputs
-        for out_name, tensor in past_key_values.items():
-            in_name = out_name.replace("present.", "past_key_values.")
-            if in_name in decoder_input_names:
-                step_feed[in_name] = tensor
+        for pname, tensor in past_kv.items():
+            kv_name = pname.replace("present.", "past_key_values.")
+            if kv_name in past_input_names:
+                step_feed[kv_name] = tensor
 
-        # Only pass inputs the decoder accepts
-        step_feed = {k: v for k, v in step_feed.items() if k in decoder_input_names}
+        step_out = sessions.decoder_past.run(None, step_feed)  # type: ignore[union-attr]
 
-        step_out = sessions.decoder.run(None, step_feed)  # type: ignore[union-attr]
+        # logits shape [1, 16, 51289] — take position 0 (the real token position)
         logits = step_out[0]
-        next_token = int(np.argmax(logits[0, -1, :]))
+        next_token = int(np.argmax(logits[0, 0, :]))
         if next_token != EOS_TOKEN_ID:
             generated.append(next_token)
 
-        for out_name, tensor in zip(dec_output_names[1:], step_out[1:]):
-            past_key_values[out_name] = tensor
+        # Update past_kv from step outputs (only decoder present.*; encoder KV unchanged)
+        for oname, tensor in zip(past_output_names[1:], step_out[1:]):
+            past_kv[oname] = tensor
 
     # Step 10: decode token ids
     if sessions.tokenizer is not None:
         return sessions.tokenizer.decode(generated, skip_special_tokens=True)
     return ""
-
-
-def _build_empty_past_kv(decoder_sess: object) -> dict[str, np.ndarray]:  # noqa: ARG001
-    """Return zero-filled past_key_values tensors required by decoder_model_merged.
-
-    The merged decoder requires all 24 past_key_values.* inputs on EVERY step,
-    including the first step where use_cache_branch=False.  When the branch is
-    False the model ignores the values, but ONNX still validates their presence.
-
-    Shape is hardcoded to (1, 12, 0, 64):
-      - batch=1, heads=12, seq_len=0 (empty cache), head_dim=64
-    Florence-2-base-ft has 6 decoder layers × 4 KV tensors = 24 entries.
-    """
-    cache: dict[str, np.ndarray] = {}
-    for i in range(6):
-        for side in ("decoder", "encoder"):
-            for kind in ("key", "value"):
-                cache[f"past_key_values.{i}.{side}.{kind}"] = np.zeros(
-                    (1, 12, 0, 64), dtype=np.float32
-                )
-    return cache
 
 
 def _caption_to_slug(caption: str) -> str:
