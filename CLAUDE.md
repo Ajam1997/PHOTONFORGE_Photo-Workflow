@@ -1,7 +1,7 @@
 # Photo Workflow -- Autonomous Ingest-to-Edit System
 
 ## Context
-Offline photography pipeline for Lenovo Yoga 910 Star Wars Edition (i7-8550U, 16GB RAM).
+Offline photography pipeline for Lenovo Yoga 910-13IKB Glass (i7-7500U, 8GB RAM).
 Ingests from SD/SSD, analyzes, scores, names, and syncs to Darktable.
 All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / Ubuntu 24.04.
 
@@ -9,6 +9,8 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 - @architect (opus, read-only): architecture, interfaces, CLAUDE.md maintenance
 - @engineer (sonnet): src/, tests/, models/
 - @devops (sonnet): deploy/, scripts/
+- @verification (sonnet): commit-level test enforcement, KPM benchmarks
+- @validation (sonnet): milestone E2E validation, user need compliance
 
 ## Architecture Decisions
 - Composition over inheritance. AnalysisPipeline delegates to module functions.
@@ -17,7 +19,7 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 
 ## Constraints
 - NFR-2.1: 100% offline at runtime. No network calls during pipeline execution. Initial machine provisioning (OS, packages, model downloads, quantization) may use the internet — see scripts/provision_models.sh.
-- NFR-2.2: Total RSS <= 2 GB; CPU affinity capped at 80%.
+- NFR-2.2: Total RSS <= 1.5 GB; CPU affinity capped at 80%.
 - NFR-2.3: library.db + user config live on external SSD, not host.
 - NFR-2.4: zenity dialog when SD inserted without SSD connected.
 - Target CPU: i7-8550U with AVX2. All benchmarks run against this profile.
@@ -29,7 +31,7 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 
 ## KPMs
 - KPM-1.1: Ingest >= 80% USB 3.0 BW (@devops)
-- KPM-1.2: Florence-2 inference <= 1.5s/image on i7-8550U (@engineer)
+- KPM-1.2: Florence-2 inference <= 2.5s/image on i7-7500U (@engineer)
 - KPM-1.3: Analyzer RSS <= 1.5 GB (@engineer)
 - KPM-1.4: Zero SQLite corruption / 50 safe-eject cycles (@devops)
 
@@ -54,8 +56,7 @@ models/    -- florence2_int8/ (vendored, not downloaded)
 2. Core Engine (@engineer): grouping, dedup, sharpness, composition, exposure + tests ✓
 3. Inference + Bridge (@engineer): Florence-2-base-ft naming + Darktable SQLite/XMP ✓
 4. Host Integration (@devops): udev rules, SSD cartridge scripts, Dockerfile ✓
-5. Scaling + UI (@devops): Selkies 4K 200% scaling, zenity prompts
-6. Integration (@engineer + @architect): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
+5. Integration (@engineer + @architect): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
 
 Full spec: docs/photo-workflow-architecture-v4.docx
 

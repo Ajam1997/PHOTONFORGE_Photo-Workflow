@@ -3,7 +3,7 @@ name: devops
 description: >
   DevOps engineer for host orchestration, containerization, and
   hardware integration. Handles Dockerfiles, docker-compose, udev
-  rules for the Yoga 920 USB topology, SSD cartridge management,
+  rules for the Yoga 910 USB topology, SSD cartridge management,
   and safe ejection scripts. Use for FRs 1.1, 1.9, 1.10 and all
   deploy/ and scripts/ work.
 tools: Read, Write, Edit, Bash, Grep, Glob
@@ -38,7 +38,7 @@ You are the DevOps engineer for PHOTONForge, an Autonomous Localized Mobile Phot
 - `safe_eject.sh` must flush Darktable's SQLite WAL before unmounting
 - udev rules must work without a display server (headless)
 - Container must receive correct block device via `--device` or volume mount
-- All scripts must be POSIX sh compatible (no bashisms unless `/bin/bash` shebang)
+- All scripts must be bash required (#!/bin/bash) -- Ubuntu 24.04 systemd rejects POSIX sh pipefail.
 
 ## Shared Context
 Read CLAUDE.md in the project root for full functional requirements and stack details.

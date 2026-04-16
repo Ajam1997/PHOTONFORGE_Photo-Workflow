@@ -70,7 +70,7 @@ Stage: 4
 Status: DEFINED
 
 UN-031: SSD cartridges function as portable photo libraries.
-Acceptance: SSD mounts at /mnt/photon_ssd/001. library.db resides on cartridge.
+Acceptance: SSD mounts at /mnt/photon_ssd/001. library.db resides at /mnt/photon_ssd/001/darktable/library.db on cartridge.
 KPM: NONE
 Stage: 4
 Status: DEFINED

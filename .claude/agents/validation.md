@@ -28,7 +28,7 @@ Living User Need Document.
 
 All execution happens on the Yoga 910 over SSH:
 
-  ssh alex@<yoga-ip> '[command]'
+  ssh alex@10.27.27.10 '[command]'
 
 Key paths on the Yoga 910:
   Repo:       ~/PHOTONFORGE_Photo-Workflow
@@ -36,7 +36,7 @@ Key paths on the Yoga 910:
   SSD mount:  /mnt/photon_ssd/001
   SD mount:   /mnt/photon_sd
   Log:        /var/log/photonforge.log
-  Library DB: /mnt/photon_ssd/001/library.db
+  Library DB: /mnt/photon_ssd/001/darktable/library.db
 
 Living User Need Document:
   ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md
@@ -47,7 +47,7 @@ Living User Need Document:
 
 1. REQUIREMENT PULLS BY ID ONLY: Never read the full Living User Need Document.
    Pull each requirement by targeted grep:
-     ssh alex@<yoga-ip> 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md'
+     ssh alex@10.27.27.10 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md'
 
 2. STAGE-SCOPED LOADING: Load only the UN-IDs that map to the merged stage
    (see Stage-to-Requirement Map). Do not preload all requirements.
@@ -84,13 +84,13 @@ If merge commit does not reference a stage, run full regression (all IDs).
 
 ## Step 0: Identify Merge Scope
 
-  ssh alex@<yoga-ip> 'cd ~/PHOTONFORGE_Photo-Workflow && git log --merges -1 --oneline'
+  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && git log --merges -1 --oneline'
 
 Extract stage number from merge commit message if present.
 Map to UN-IDs via the Stage-to-Requirement Map.
 
 Check if Living User Need Document exists:
-  ssh alex@<yoga-ip> 'test -f ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md && echo EXISTS || echo MISSING'
+  ssh alex@10.27.27.10 'test -f ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md && echo EXISTS || echo MISSING'
 
 If MISSING: write stub (Appendix A) and exit.
 
@@ -99,7 +99,7 @@ If MISSING: write stub (Appendix A) and exit.
 ## Step 1: Pull Requirements
 
 For each UN-ID in scope:
-  ssh alex@<yoga-ip> 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md'
+  ssh alex@10.27.27.10 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md'
 
 Extract per requirement:
 - UN-ID
@@ -115,13 +115,13 @@ Invoke the full pipeline via CLI as a black box. Do not import Python modules
 directly. Do not read pipeline.py.
 
 Full SD-to-Darktable E2E run:
-  ssh alex@<yoga-ip> 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --model-dir models/florence2_int8 --sd-mount /mnt/photon_sd --ssd-mount /mnt/photon_ssd/001 2>&1 | tee /tmp/pipeline_run.log'
+  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --source /mnt/photon_sd/DCIM/100MSDCF --output /mnt/photon_ssd/001/photos --db /mnt/photon_ssd/001/darktable/library.db --model-dir models/florence2_int8 2>&1 | tee /tmp/pipeline_run.log'
 
 Capture exit code:
-  ssh alex@<yoga-ip> 'echo $?'
+  ssh alex@10.27.27.10 'echo $?'
 
 Monitor log for completion or error:
-  ssh alex@<yoga-ip> 'tail -20 /var/log/photonforge.log'
+  ssh alex@10.27.27.10 'tail -20 /var/log/photonforge.log'
 
 ---
 
@@ -131,36 +131,36 @@ For each UN-ID in scope, validate the observable acceptance condition.
 
 ### File System Checks
 Verify photos copied to cartridge:
-  ssh alex@<yoga-ip> 'ls -1 /mnt/photon_ssd/001/photos/ | wc -l'
+  ssh alex@10.27.27.10 'ls -1 /mnt/photon_ssd/001/photos/ | wc -l'
 
 Verify XMP sidecars exist alongside each photo:
-  ssh alex@<yoga-ip> 'for f in /mnt/photon_ssd/001/photos/*.JPG; do test -f "${f%.JPG}.xmp" || echo "MISSING XMP: $f"; done'
+  ssh alex@10.27.27.10 'for f in /mnt/photon_ssd/001/photos/*.JPG; do test -f "${f%.JPG}.xmp" || echo "MISSING XMP: $f"; done'
 
 Verify semantic filenames (not raw DSC names):
-  ssh alex@<yoga-ip> 'ls /mnt/photon_ssd/001/photos/ | grep -c "^DSC" || echo "0 raw names remaining"'
+  ssh alex@10.27.27.10 'ls /mnt/photon_ssd/001/photos/ | grep -c "^DSC" || echo "0 raw names remaining"'
 
 ### SQLite Checks
 Verify library.db populated:
-  ssh alex@<yoga-ip> 'sqlite3 /mnt/photon_ssd/001/library.db "SELECT COUNT(*) FROM images;"'
+  ssh alex@10.27.27.10 'sqlite3 /mnt/photon_ssd/001/darktable/library.db "SELECT COUNT(*) FROM images;"'
 
 Verify ratings written:
-  ssh alex@<yoga-ip> 'sqlite3 /mnt/photon_ssd/001/library.db "SELECT COUNT(*) FROM images WHERE rating > 0;"'
+  ssh alex@10.27.27.10 'sqlite3 /mnt/photon_ssd/001/darktable/library.db "SELECT COUNT(*) FROM images WHERE rating > 0;"'
 
 Verify tags written:
-  ssh alex@<yoga-ip> 'sqlite3 /mnt/photon_ssd/001/library.db "SELECT COUNT(DISTINCT tag_id) FROM tagged_images;"'
+  ssh alex@10.27.27.10 'sqlite3 /mnt/photon_ssd/001/darktable/library.db "SELECT COUNT(DISTINCT tag_id) FROM tagged_images;"'
 
 ### Edge Case Validation
 Run each edge case via CLI with prepared fixture inputs:
 
 Empty SD card:
-  ssh alex@<yoga-ip> 'mkdir -p /tmp/empty_sd && cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --sd-mount /tmp/empty_sd --ssd-mount /mnt/photon_ssd/001 2>&1 | tail -5'
+  ssh alex@10.27.27.10 'mkdir -p /tmp/empty_sd && cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --source /tmp/empty_sd --output /mnt/photon_ssd/001/photos --db /mnt/photon_ssd/001/darktable/library.db --model-dir models/florence2_int8 2>&1 | tail -5'
   Expected: graceful exit, no crash, log entry indicating empty source.
 
 SD with no images (non-image files only):
-  ssh alex@<yoga-ip> 'mkdir -p /tmp/noimg_sd && touch /tmp/noimg_sd/readme.txt && cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --sd-mount /tmp/noimg_sd --ssd-mount /mnt/photon_ssd/001 2>&1 | tail -5'
+  ssh alex@10.27.27.10 'mkdir -p /tmp/noimg_sd && touch /tmp/noimg_sd/readme.txt && cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --source /tmp/noimg_sd --output /mnt/photon_ssd/001/photos --db /mnt/photon_ssd/001/darktable/library.db --model-dir models/florence2_int8 2>&1 | tail -5'
 
 SSD not mounted:
-  ssh alex@<yoga-ip> 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --sd-mount /mnt/photon_sd --ssd-mount /mnt/nonexistent 2>&1 | tail -5'
+  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --source /mnt/photon_sd/DCIM/100MSDCF --output /mnt/nonexistent/photos --db /mnt/nonexistent/darktable/library.db --model-dir models/florence2_int8 2>&1 | tail -5'
   Expected: graceful error with user-readable message, non-zero exit code.
 
 Corrupt EXIF:
@@ -179,27 +179,27 @@ Total cycles: 50 (can be split across sessions -- track cycle count in soak log)
 Soak log: ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/soak-test-log.md
 
 Check current cycle count before starting:
-  ssh alex@<yoga-ip> 'grep "Cycle" ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/soak-test-log.md | tail -1'
+  ssh alex@10.27.27.10 'grep "Cycle" ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/soak-test-log.md | tail -1'
 
 For each cycle:
 
   1. Output to operator: "SOAK TEST -- Cycle [N]/50. Please UNPLUG the SSD cartridge now."
   
   2. Wait for udev unmount event in log:
-     ssh alex@<yoga-ip> 'tail -f /var/log/photonforge.log | grep -m 1 "unmount\|removed\|PHOTON-001"'
+     ssh alex@10.27.27.10 'tail -f /var/log/photonforge.log | grep -m 1 "unmount\|removed\|PHOTON-001"'
   
   3. Output to operator: "SSD removed confirmed. Please REPLUG the SSD cartridge now."
   
   4. Wait for udev mount event:
-     ssh alex@<yoga-ip> 'tail -f /var/log/photonforge.log | grep -m 1 "mounted\|PHOTON-001"'
+     ssh alex@10.27.27.10 'tail -f /var/log/photonforge.log | grep -m 1 "mounted\|PHOTON-001"'
   
   5. Run integrity check immediately after mount:
-     ssh alex@<yoga-ip> 'sqlite3 /mnt/photon_ssd/001/library.db "PRAGMA integrity_check;"'
+     ssh alex@10.27.27.10 'sqlite3 /mnt/photon_ssd/001/darktable/library.db "PRAGMA integrity_check;"'
      Pass: output is "ok"
      Fail: output is anything else -- record and halt soak test
   
   6. Append cycle result to soak log:
-     ssh alex@<yoga-ip> 'echo "Cycle [N]: [PASS|FAIL] -- $(date)" >> ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/soak-test-log.md'
+     ssh alex@10.27.27.10 'echo "Cycle [N]: [PASS|FAIL] -- $(date)" >> ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/soak-test-log.md'
 
 If a FAIL occurs at any cycle: halt, write failure details to soak log,
 escalate to @devops. Do not continue cycling.
@@ -253,7 +253,7 @@ ALL PASS | FAILURES PRESENT | SOAK TEST IN PROGRESS
 If the document does not exist, create it at:
 ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md
 
-  ssh alex@<yoga-ip> 'cat > ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md << "EOF"
+  ssh alex@10.27.27.10 'cat > ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md << "EOF"
 # Living User Need Document -- PHOTONForge
 
 ## Format
@@ -326,7 +326,7 @@ Stage: 4
 Status: DEFINED
 
 UN-031: SSD cartridges function as portable photo libraries.
-Acceptance: SSD mounts at /mnt/photon_ssd/001. library.db resides on cartridge.
+Acceptance: SSD mounts at /mnt/photon_ssd/001. library.db resides at /mnt/photon_ssd/001/darktable/library.db on cartridge.
 KPM: NONE
 Stage: 4
 Status: DEFINED
