@@ -89,6 +89,6 @@ Status: DEFINED
 
 UN-041: The system should automaticaly eject and notify the SD card after transfering photos to the SSD.
 Acceptance: SD card is ejected and the user is notified that the photos have been transfered to the SSD.
-KPM: NONE
+KPM: KPM-1.4/KPM-1.1
 Stage: 7
 Status: DEFINED
