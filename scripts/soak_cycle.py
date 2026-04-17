@@ -69,6 +69,7 @@ def sync_and_unmount(mount_point: Path) -> bool:
                 check=True,
             )
             log(f"Unmounted via udisksctl: {block_dev}")
+            _stop_systemd_mount(mount_point)
             return True
         except subprocess.CalledProcessError as e:
             log(f"udisksctl failed ({e}) — falling back to sudo umount")
@@ -78,6 +79,7 @@ def sync_and_unmount(mount_point: Path) -> bool:
         try:
             subprocess.run(cmd, check=True)
             log(f"Unmounted via {' '.join(cmd[:2])}: {mount_point}")
+            _stop_systemd_mount(mount_point)
             return True
         except subprocess.CalledProcessError:
             continue
@@ -89,6 +91,15 @@ def sync_and_unmount(mount_point: Path) -> bool:
 def shutil_which(cmd: str) -> bool:
     import shutil
     return shutil.which(cmd) is not None
+
+
+def _stop_systemd_mount(mount_point: Path) -> None:
+    """Stop the systemd .mount unit for this path to prevent auto-remount after unmount."""
+    unit = mount_point.as_posix().lstrip("/").replace("/", "-") + ".mount"
+    try:
+        subprocess.run(["sudo", "-n", "systemctl", "stop", unit], check=False, timeout=10)
+    except Exception:
+        pass
 
 
 def _notify_physical(message: str, blocking: bool) -> None:
