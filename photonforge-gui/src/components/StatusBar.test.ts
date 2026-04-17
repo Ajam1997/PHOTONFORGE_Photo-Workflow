@@ -2,11 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/svelte";
 import { writable } from "svelte/store";
 
-const mockDeviceState = writable({
-  ssd_mounted: false,
-  ssd_label: null as string | null,
-  sd_mounted: false,
-});
+const mockDeviceState = vi.hoisted(() =>
+  writable({ ssd_mounted: false, ssd_label: null as string | null, sd_mounted: false })
+);
 
 vi.mock("../stores/devices", () => ({
   deviceState: mockDeviceState,
@@ -29,13 +27,13 @@ describe("StatusBar", () => {
     expect(getByText(/No SD card/)).toBeInTheDocument();
   });
 
-  it("shows SSD label when mounted", async () => {
+  it("shows SSD label when mounted", () => {
     mockDeviceState.set({ ssd_mounted: true, ssd_label: "PHOTON-001", sd_mounted: false });
     const { getByText } = render(StatusBar);
     expect(getByText(/PHOTON-001/)).toBeInTheDocument();
   });
 
-  it("shows 'SD ready' when SD mounted", async () => {
+  it("shows 'SD ready' when SD mounted", () => {
     mockDeviceState.set({ ssd_mounted: false, ssd_label: null, sd_mounted: true });
     const { getByText } = render(StatusBar);
     expect(getByText(/SD ready/)).toBeInTheDocument();
