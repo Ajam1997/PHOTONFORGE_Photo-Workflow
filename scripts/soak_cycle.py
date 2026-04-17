@@ -165,10 +165,11 @@ def wait_for_unmount(mount_point: Path, timeout: int) -> bool:
     return False
 
 
-def wait_for_replug_and_mount(mount_point: Path, timeout: int) -> bool:
+def wait_for_replug_and_mount(mount_point: Path, timeout: int, cycle: int = 0) -> bool:
     """Wait for UUID to disappear (unplug) then reappear (replug), then mount."""
 
     # Step 1: wait for UUID link to disappear (confirms physical unplug)
+    _notify_physical(f"Cycle {cycle} — Unplug the SSD now, then click OK", blocking=True)
     log(f"Unplug the SSD now — waiting for UUID {PHOTON_SSD_UUID} to disappear...")
     deadline = time.monotonic() + timeout
     disappeared = False
@@ -182,6 +183,7 @@ def wait_for_replug_and_mount(mount_point: Path, timeout: int) -> bool:
         log("WARNING: UUID never disappeared — physical unplug may not have occurred")
 
     # Step 2: wait for UUID link to reappear (confirms physical replug)
+    _notify_physical(f"Cycle {cycle} — Plug the SSD back in", blocking=False)
     log(f"Plug the SSD back in — waiting for UUID {PHOTON_SSD_UUID} to reappear...")
     deadline = time.monotonic() + timeout
     dev = None
@@ -294,7 +296,7 @@ def main() -> int:
         return 1
 
     # Phase 3: wait for physical unplug → replug → auto-mount
-    if not wait_for_replug_and_mount(mount, args.timeout):
+    if not wait_for_replug_and_mount(mount, args.timeout, cycle=cycle):
         append_log(log_path, cycle, False)
         return 1
 
