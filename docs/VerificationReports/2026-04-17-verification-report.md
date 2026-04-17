@@ -29,7 +29,7 @@ Triggering commits for this verification pass:
 
 **All remote test execution (Steps 1-3) could not be performed.**
 
-Diagnosis: The SSH public key at `~/.ssh/photonforge_yoga`
+Diagnosis: The SSH public key `~/.ssh/PhotonForge_new`
 (ED25519 SHA256:tALHFuqpCYLTKwZQJBVKkaV4mRIIIC65d/FKDVj7Pls) is offered to
 the Yoga 910 at `10.27.27.10` but rejected with `Permission denied (publickey,password)`.
 
@@ -42,9 +42,9 @@ or `authorized_keys` was modified since the key was provisioned.
 **Key type:** ED25519 (valid, loads cleanly)
 **Auth result:** Server rejects key -- not a passphrase issue, not a local agent issue
 
-Action required before next verification run (now resolved):
-  SSH key has been updated to `photonforge_yoga`.
-  Key is accepted by Yoga 910 SSH server.
+Action required before next verification run:
+  On the Yoga 910: `cat ~/.ssh/authorized_keys` -- confirm PhotonForge_new pubkey is present.
+  If absent: `echo "ssh-ed25519 AAAAC3... PhotonForge_new" >> ~/.ssh/authorized_keys`
   Alternatively, regenerate the key pair and re-provision.
 
 ## Step 0: Diff Analysis (from local git history)
