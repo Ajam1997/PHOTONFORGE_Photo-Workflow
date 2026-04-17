@@ -26,8 +26,8 @@ describe("BottomNav", () => {
 
   it("dispatches select event with tab index on click", async () => {
     const results: number[] = [];
-    const { getByLabelText, component } = render(BottomNav, { props: { activeIdx: 0 } });
-    component.$on("select", (e: CustomEvent<number>) => results.push(e.detail));
+    const { getByLabelText, container } = render(BottomNav, { props: { activeIdx: 0 } });
+    container.addEventListener("select", (e) => results.push((e as CustomEvent<number>).detail));
     await fireEvent.click(getByLabelText("Library"));
     expect(results).toEqual([1]);
   });
