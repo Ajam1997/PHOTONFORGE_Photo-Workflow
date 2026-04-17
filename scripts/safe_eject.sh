@@ -11,9 +11,20 @@ log() { printf '[safe_eject] %s\n' "$*" >&2; }
 # 1. Flush Darktable SQLite WAL if DB path provided
 if [ -n "$DARKTABLE_DB" ] && [ -f "$DARKTABLE_DB" ]; then
     log "Flushing SQLite WAL: $DARKTABLE_DB"
-    sqlite3 "$DARKTABLE_DB" "PRAGMA wal_checkpoint(TRUNCATE);" || {
-        log "WARNING: WAL flush failed — proceeding with eject anyway"
-    }
+    if command -v sqlite3 >/dev/null 2>&1; then
+        sqlite3 "$DARKTABLE_DB" "PRAGMA wal_checkpoint(TRUNCATE);" || \
+            log "WARNING: WAL flush failed — proceeding with eject anyway"
+    else
+        python3 -c "
+import sqlite3, sys
+try:
+    conn = sqlite3.connect(sys.argv[1])
+    conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+    conn.close()
+except Exception as e:
+    print(f'WARNING: WAL flush failed: {e}', file=sys.stderr)
+" "$DARKTABLE_DB" || true
+    fi
 fi
 
 # 2. Sync filesystem buffers
