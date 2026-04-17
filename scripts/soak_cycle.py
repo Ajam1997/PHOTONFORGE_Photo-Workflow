@@ -95,17 +95,18 @@ def is_mounted(mount_point: Path) -> bool:
     return os.path.ismount(str(mount_point))
 
 
-def _block_device_for(mount_point: Path) -> str:
-    """Return the block device currently or last mounted at mount_point."""
-    try:
-        result = subprocess.run(
-            ["findmnt", "-n", "-o", "SOURCE", str(mount_point)],
-            capture_output=True, text=True,
-        )
-        dev = result.stdout.strip()
-        return dev if dev else "/dev/sda1"
-    except Exception:
-        return "/dev/sda1"
+PHOTON_SSD_UUID = "be91145b-d111-440e-86a5-1cdaeb3dc430"
+_UUID_LINK = Path(f"/dev/disk/by-uuid/{PHOTON_SSD_UUID}")
+
+
+def _uuid_device() -> str | None:
+    """Resolve UUID symlink to actual block device path, or None if absent."""
+    if _UUID_LINK.exists():
+        try:
+            return str(_UUID_LINK.resolve())
+        except Exception:
+            pass
+    return None
 
 
 def wait_for_unmount(mount_point: Path, timeout: int) -> bool:
@@ -120,42 +121,48 @@ def wait_for_unmount(mount_point: Path, timeout: int) -> bool:
     return False
 
 
-def wait_for_replug_and_mount(mount_point: Path, block_dev: str, timeout: int) -> bool:
-    """Wait for the block device to disappear then reappear, then mount it."""
-    dev_path = Path(block_dev)
+def wait_for_replug_and_mount(mount_point: Path, timeout: int) -> bool:
+    """Wait for UUID to disappear (unplug) then reappear (replug), then mount."""
 
-    # Step 1: wait for device to disappear (confirms unplug)
-    log(f"Unplug the SSD now — waiting for {block_dev} to disappear...")
+    # Step 1: wait for UUID link to disappear (confirms physical unplug)
+    log(f"Unplug the SSD now — waiting for UUID {PHOTON_SSD_UUID} to disappear...")
     deadline = time.monotonic() + timeout
     disappeared = False
     while time.monotonic() < deadline:
-        if not dev_path.exists():
-            log("Block device gone — unplug detected.")
+        if _uuid_device() is None:
+            log("UUID gone — unplug detected.")
             disappeared = True
             break
         time.sleep(1)
     if not disappeared:
-        log(f"WARNING: {block_dev} never disappeared — physical unplug may not have occurred")
+        log("WARNING: UUID never disappeared — physical unplug may not have occurred")
 
-    # Step 2: wait for device to reappear (confirms replug)
-    log(f"Plug the SSD back in — waiting for {block_dev} to reappear...")
+    # Step 2: wait for UUID link to reappear (confirms physical replug)
+    log(f"Plug the SSD back in — waiting for UUID {PHOTON_SSD_UUID} to reappear...")
     deadline = time.monotonic() + timeout
+    dev = None
     while time.monotonic() < deadline:
-        if dev_path.exists():
-            log("Block device back — replug detected.")
-            time.sleep(1)  # settle
+        dev = _uuid_device()
+        if dev:
+            log(f"UUID back at {dev} — replug detected.")
+            time.sleep(2)  # let kernel finish enumeration
+            dev = _uuid_device()  # re-resolve after settle
             break
         time.sleep(1)
     else:
-        log(f"TIMEOUT: {block_dev} did not reappear within {timeout}s")
+        log(f"TIMEOUT: UUID {PHOTON_SSD_UUID} did not reappear within {timeout}s")
+        return False
+
+    if not dev:
+        log("ERROR: could not resolve UUID to device after replug")
         return False
 
     # Step 3: mount if not already mounted
     if not is_mounted(mount_point):
-        log(f"Mounting {block_dev} -> {mount_point}...")
+        log(f"Mounting {dev} -> {mount_point}...")
         for cmd in (
-            ["sudo", "-n", "mount", block_dev, str(mount_point)],
-            ["mount", block_dev, str(mount_point)],
+            ["sudo", "-n", "mount", dev, str(mount_point)],
+            ["sudo", "-n", "mount", f"UUID={PHOTON_SSD_UUID}", str(mount_point)],
         ):
             try:
                 subprocess.run(cmd, check=True)
@@ -167,7 +174,7 @@ def wait_for_replug_and_mount(mount_point: Path, block_dev: str, timeout: int) -
             log("ERROR: all mount attempts failed")
             return False
 
-    time.sleep(2)  # let filesystem settle
+    time.sleep(1)
     if is_mounted(mount_point):
         log("SSD remounted and verified.")
         return True
@@ -229,8 +236,8 @@ def main() -> int:
     else:
         log(f"WARNING: DB not found at {db} — skipping WAL flush")
 
-    block_dev = _block_device_for(mount)
-    log(f"Block device: {block_dev}")
+    dev = _uuid_device()
+    log(f"Block device (by UUID): {dev or 'not found'}")
 
     if not sync_and_unmount(mount):
         log("ERROR: Could not unmount. Aborting cycle.")
@@ -243,7 +250,7 @@ def main() -> int:
         return 1
 
     # Phase 3: wait for physical unplug → replug → auto-mount
-    if not wait_for_replug_and_mount(mount, block_dev, args.timeout):
+    if not wait_for_replug_and_mount(mount, args.timeout):
         append_log(log_path, cycle, False)
         return 1
 
