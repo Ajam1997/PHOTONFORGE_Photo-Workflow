@@ -8,3 +8,7 @@ __pycache__/
 dist/
 build/
 docs/PlanningBriefs/
+photonforge-gui/node_modules/
+photonforge-gui/dist/
+photonforge-gui/src-tauri/target/
+photonforge-gui/.superpowers/
