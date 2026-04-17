@@ -59,8 +59,9 @@ Florence-2 ONNX sessions (all 4 must be present before inference benchmarks):
 3. NO FULL REPO SCANS: Never use Glob or Grep across the entire repo.
    Scope all searches to files identified in the diff.
 
-4. NO LIVING USER NEED DOCUMENT: Do not read it. That is @validation scope.
-   You operate against KPMs and FR thresholds only.
+4. LIVING USER NEED DOCUMENT: Do not read it for requirement context — that is
+   @validation scope. You may make targeted Status writes (DEFINED → VERIFIED)
+   after all tests pass for a module. See Step 6.
 
 5. SKIP IF CLEAN: If all tests passed on the previous run AND the current
    diff touches no src/ or models/ files, output:
@@ -236,9 +237,54 @@ ALL PASS | FAILURES PRESENT | XFAIL-HARDWARE PENDING
 
 ---
 
+## Step 6: Update Living User Need Document
+
+Only execute if ALL tests in Step 1 passed and Step 4 produced no failures.
+
+Module-to-UN mapping:
+
+| Module | UN-IDs |
+|--------|--------|
+| grouping.py | UN-010 |
+| dedup.py | UN-011 |
+| sharpness.py | UN-012 |
+| composition.py | UN-013 |
+| exposure.py | UN-014 |
+| naming.py | UN-020 |
+| darktable_bridge.py | UN-021 |
+| ingest.py | UN-030 |
+| cartridge.py | UN-031, UN-032 |
+| pipeline.py | all modules present in diff |
+
+For each UN-ID that maps to a changed module whose tests all passed, advance
+`docs/living-user-needs.md` locally. Never downgrade — skip if already VERIFIED
+or VALIDATED.
+
+Run locally (not via SSH):
+
+  python3 -c "
+import re
+path = 'docs/living-user-needs.md'
+ids = ['UN-XXX', 'UN-YYY']  # substitute actual IDs from the mapping above
+content = open(path).read()
+for uid in ids:
+    content = re.sub(
+        rf'({re.escape(uid)}:.*?Status:) DEFINED',
+        r'\1 VERIFIED', content, flags=re.DOTALL
+    )
+open(path, 'w').write(content)
+print('VERIFIED: ' + ', '.join(ids))
+"
+
+Then commit:
+  git add docs/living-user-needs.md
+  git commit -m "verification: advance [UN-IDs] to VERIFIED -- [commit hash]"
+
+---
+
 ## Scope Boundaries
 - src/ and models/ changes only
-- Do not read Living User Need Document
+- Do not read Living User Need Document for requirement context
 - Do not modify src/ implementation code
 - Do not run full repo scans
 - Do not interact with planning briefs or approval flags

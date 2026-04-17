@@ -248,6 +248,32 @@ ALL PASS | FAILURES PRESENT | SOAK TEST IN PROGRESS
 
 ---
 
+## Step 6: Update Living User Need Document
+
+Only execute for UN-IDs that PASSED in Step 3. Do not update failing requirements.
+
+Run locally (not via SSH):
+
+  python3 -c "
+import re
+path = 'docs/living-user-needs.md'
+ids = ['UN-XXX', 'UN-YYY']  # substitute actual passing IDs from Step 3
+content = open(path).read()
+for uid in ids:
+    content = re.sub(
+        rf'({re.escape(uid)}:.*?Status:) (?:DEFINED|VERIFIED)',
+        r'\1 VALIDATED', content, flags=re.DOTALL
+    )
+open(path, 'w').write(content)
+print('VALIDATED: ' + ', '.join(ids))
+"
+
+Then commit:
+  git add docs/living-user-needs.md
+  git commit -m "validation: advance [UN-IDs] to VALIDATED -- Stage [N]"
+
+---
+
 ## Appendix A: Living User Need Document Stub
 
 If the document does not exist, create it at:
@@ -271,8 +297,8 @@ KPM: NONE
 Stage: 1
 Status: DEFINED
 
-UN-002: All three primary agents are discoverable by Claude Code.
-Acceptance: claude agents lists @architect, @engineer, @devops.
+UN-002: All five primary agents are discoverable by Claude Code.
+Acceptance: claude agents lists @architect, @engineer, @devops, @verification, @validation.
 KPM: NONE
 Stage: 1
 Status: DEFINED
@@ -283,8 +309,8 @@ KPM: NONE
 Stage: 2
 Status: DEFINED
 
-UN-011: Near-duplicate photos are removed automatically.
-Acceptance: deduplicate() removes images with dHash Hamming <= 2. No false positives.
+UN-011: Near-duplicate photos are archived.
+Acceptance: deduplicate() archives images with dHash Hamming <= 2. No false positives.
 KPM: NONE
 Stage: 2
 Status: DEFINED
