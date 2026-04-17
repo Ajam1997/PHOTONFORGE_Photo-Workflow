@@ -1,9 +1,7 @@
-"""Unit tests for soak_cycle._notify_physical and wait_for_replug_and_mount."""
+"""Unit tests for soak_cycle._notify_physical."""
 import sys
 from pathlib import Path
-from unittest.mock import patch, call, MagicMock
-
-import pytest
+from unittest.mock import patch
 
 # soak_cycle.py lives in scripts/, not a package — import via sys.path
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
@@ -23,7 +21,7 @@ def test_notify_physical_blocking_calls_zenity():
         assert cmd[0] == "zenity"
         assert "--info" in cmd
         assert any("PHOTONForge Soak Test" in arg for arg in cmd)
-        env = mock_run.call_args[1]["env"]
+        env = mock_run.call_args.kwargs["env"]
         assert env["DISPLAY"] == ":0"
 
 
@@ -48,7 +46,7 @@ def test_notify_physical_nonblocking_calls_notify_send():
         assert cmd[0] == "notify-send"
         assert cmd[1] == "PHOTONForge"
         assert "Plug the SSD back in" in cmd
-        env = mock_run.call_args[1]["env"]
+        env = mock_run.call_args.kwargs["env"]
         assert env["DISPLAY"] == ":0"
 
 
@@ -77,8 +75,26 @@ def test_notify_physical_falls_back_to_wall_when_primary_missing():
         assert "test message" in wall_calls[0][0][0][1]
 
 
-def test_notify_physical_silent_when_all_methods_fail():
-    """If every subprocess call raises, _notify_physical must not propagate the exception."""
+def test_notify_physical_nonblocking_falls_back_to_wall_when_primary_missing():
+    """FileNotFoundError on notify-send must trigger wall fallback."""
+    def raise_fnf_for_primary(cmd, **kwargs):
+        if cmd[0] in ("zenity", "notify-send"):
+            raise FileNotFoundError(f"{cmd[0]} not found")
+
+    with patch("soak_cycle.subprocess.run", side_effect=raise_fnf_for_primary) as mock_run:
+        soak_cycle._notify_physical("test message", blocking=False)
+        wall_calls = [c for c in mock_run.call_args_list if c[0][0][0] == "wall"]
+        assert len(wall_calls) == 1
+        assert "test message" in wall_calls[0][0][0][1]
+
+
+def test_notify_physical_blocking_silent_when_all_fail():
+    """blocking=True: if every subprocess call raises, no exception is propagated."""
     with patch("soak_cycle.subprocess.run", side_effect=FileNotFoundError):
-        soak_cycle._notify_physical("test", blocking=True)   # must not raise
+        soak_cycle._notify_physical("test", blocking=True)  # must not raise
+
+
+def test_notify_physical_nonblocking_silent_when_all_fail():
+    """blocking=False: if every subprocess call raises, no exception is propagated."""
+    with patch("soak_cycle.subprocess.run", side_effect=FileNotFoundError):
         soak_cycle._notify_physical("test", blocking=False)  # must not raise
