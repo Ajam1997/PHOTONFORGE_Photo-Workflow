@@ -74,7 +74,7 @@ def test_notify_physical_falls_back_to_wall_when_primary_missing():
         soak_cycle._notify_physical("test message", blocking=True)
         wall_calls = [c for c in mock_run.call_args_list if c[0][0][0] == "wall"]
         assert len(wall_calls) == 1
-        assert "test message" in wall_calls[0][0][0]
+        assert "test message" in wall_calls[0][0][0][1]
 
 
 def test_notify_physical_silent_when_all_methods_fail():
