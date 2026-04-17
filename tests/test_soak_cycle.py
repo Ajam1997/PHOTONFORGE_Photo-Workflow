@@ -98,3 +98,50 @@ def test_notify_physical_nonblocking_silent_when_all_fail():
     """blocking=False: if every subprocess call raises, no exception is propagated."""
     with patch("soak_cycle.subprocess.run", side_effect=FileNotFoundError):
         soak_cycle._notify_physical("test", blocking=False)  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# wait_for_replug_and_mount — _notify_physical call sites
+# ---------------------------------------------------------------------------
+
+def test_wait_for_replug_calls_blocking_notify_for_unplug():
+    """First _notify_physical call must be blocking=True and include cycle number."""
+    # UUID sequence: None (disappear detected) → "/dev/sda1" (replug) → "/dev/sda1" (settle re-resolve)
+    uuid_seq = iter([None, "/dev/sda1", "/dev/sda1"])
+
+    with patch.object(soak_cycle, "_notify_physical") as mock_notify, \
+         patch.object(soak_cycle, "_uuid_device", side_effect=lambda: next(uuid_seq)), \
+         patch.object(soak_cycle, "is_mounted", return_value=True), \
+         patch("soak_cycle.time.sleep"):
+        soak_cycle.wait_for_replug_and_mount(Path("/mnt/test"), timeout=10, cycle=7)
+
+    assert mock_notify.call_count >= 2
+    first_call_kwargs = mock_notify.call_args_list[0]
+    # Accept positional or keyword arg for blocking
+    blocking_val = (
+        first_call_kwargs[1].get("blocking")
+        if first_call_kwargs[1]
+        else first_call_kwargs[0][1]
+    )
+    assert blocking_val is True
+    message = first_call_kwargs[0][0]
+    assert "7" in message  # cycle number present
+
+
+def test_wait_for_replug_calls_nonblocking_notify_for_replug():
+    """Second _notify_physical call must be blocking=False."""
+    uuid_seq = iter([None, "/dev/sda1", "/dev/sda1"])
+
+    with patch.object(soak_cycle, "_notify_physical") as mock_notify, \
+         patch.object(soak_cycle, "_uuid_device", side_effect=lambda: next(uuid_seq)), \
+         patch.object(soak_cycle, "is_mounted", return_value=True), \
+         patch("soak_cycle.time.sleep"):
+        soak_cycle.wait_for_replug_and_mount(Path("/mnt/test"), timeout=10, cycle=7)
+
+    second_call_kwargs = mock_notify.call_args_list[1]
+    blocking_val = (
+        second_call_kwargs[1].get("blocking")
+        if second_call_kwargs[1]
+        else second_call_kwargs[0][1]
+    )
+    assert blocking_val is False
