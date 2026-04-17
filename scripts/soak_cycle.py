@@ -91,6 +91,50 @@ def shutil_which(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
+def _notify_physical(message: str, blocking: bool) -> None:
+    """Send an action prompt to the Yoga 910 display.
+
+    blocking=True  → zenity dialog (operator must click OK before polling starts)
+    blocking=False → notify-send toast (script polls immediately)
+    Falls back to wall broadcast if the primary binary is missing.
+    """
+    env = {**os.environ, "DISPLAY": ":0"}
+    primary_ok = False
+
+    if blocking:
+        try:
+            subprocess.run(
+                [
+                    "zenity", "--info",
+                    "--title=PHOTONForge Soak Test",
+                    f"--text={message}",
+                ],
+                env=env,
+                check=False,
+                timeout=300,
+            )
+            primary_ok = True
+        except Exception:
+            pass
+    else:
+        try:
+            subprocess.run(
+                ["notify-send", "PHOTONForge", message],
+                env=env,
+                check=False,
+                timeout=10,
+            )
+            primary_ok = True
+        except Exception:
+            pass
+
+    if not primary_ok:
+        try:
+            subprocess.run(["wall", message], check=False, timeout=10)
+        except Exception:
+            pass
+
+
 def is_mounted(mount_point: Path) -> bool:
     return os.path.ismount(str(mount_point))
 
