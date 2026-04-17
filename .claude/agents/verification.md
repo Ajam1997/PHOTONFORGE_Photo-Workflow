@@ -28,7 +28,7 @@ diagnose that specific failure.
 All test execution happens on the Yoga 910 over SSH. Use this pattern for
 every remote command:
 
-  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && [command]'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && [command]'
 
 Key paths on the Yoga 910:
   Repo:       ~/PHOTONFORGE_Photo-Workflow
@@ -75,7 +75,7 @@ Florence-2 ONNX sessions (all 4 must be present before inference benchmarks):
 ## Step 0: Parse Inputs
 
 Retrieve diff from the Yoga 910:
-  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && git diff HEAD~1 HEAD -- src/ models/'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && git diff HEAD~1 HEAD -- src/ models/'
 
 If diff is empty:
   Output: "No src/ or models/ changes in last commit. Exiting."
@@ -93,7 +93,7 @@ From the diff extract:
 ## Step 1: Run Existing Tests
 
 Run only test files corresponding to changed modules:
-  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && pytest tests/test_[module].py -v --tb=short'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && pytest tests/test_[module].py -v --tb=short'
 
 Exception: if pipeline.py is in the diff, run the full suite:
   pytest tests/ -v --tb=short
@@ -109,7 +109,7 @@ Run only benchmarks triggered by the diff mapping in Step 0.
 ### KPM-1.2 -- Inference Speed (<= 2.5s/image)
 Triggered by: naming.py or models/ in diff
 
-  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python3 -c "
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python3 -c "
 import time
 from pathlib import Path
 from photo_workflow.naming import generate_name
@@ -127,7 +127,7 @@ If SSD not mounted, fall back to tests/fixtures/. Note this in the report.
 ### KPM-1.3 -- Memory RSS (<= 1.5 GB)
 Triggered by: pipeline.py in diff
 
-  ssh alex@10.27.27.10 '/usr/bin/time -v sh -c "cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --source tests/fixtures/ --output /tmp/photon_verify_out --db /tmp/photon_verify.db --model-dir models/florence2_int8" 2>&1 | grep "Maximum resident"'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 '/usr/bin/time -v sh -c "cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && python -m photo_workflow.pipeline --source tests/fixtures/ --output /tmp/photon_verify_out --db /tmp/photon_verify.db --model-dir models/florence2_int8" 2>&1 | grep "Maximum resident"'
 
 Parse "Maximum resident set size" (kibibytes). Convert: value / (1024 * 1024) = GB.
 Fail if > 1.5 GB.
@@ -137,7 +137,7 @@ Triggered by: ingest.py in diff
 
 Requires SD and SSD both mounted. If either absent, mark XFAIL-HARDWARE and skip.
 
-  ssh alex@10.27.27.10 'python3 -c "
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'python3 -c "
 import subprocess, time, os
 src = \"/mnt/photon_sd/\"
 dst = \"/mnt/photon_ssd/001/bw_test/\"
@@ -158,10 +158,10 @@ print(f\"Elapsed: {elapsed:.2f}s\")
 If the diff adds a function with no existing test coverage:
 
 Check first:
-  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && grep -r "[function_name]" tests/'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && grep -r "[function_name]" tests/'
 
 If no test exists, generate and write:
-  ssh alex@10.27.27.10 'cat >> ~/PHOTONFORGE_Photo-Workflow/tests/test_[module].py << EOF
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cat >> ~/PHOTONFORGE_Photo-Workflow/tests/test_[module].py << EOF
 [generated test content]
 EOF'
 
@@ -173,7 +173,7 @@ Rules:
 - pipeline.py functions: include KPM-1.3 RSS assertion via psutil
 
 Run the new test immediately after writing:
-  ssh alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && pytest tests/test_[module].py::test_[function] -v --tb=short'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cd ~/PHOTONFORGE_Photo-Workflow && source .venv/bin/activate && pytest tests/test_[module].py::test_[function] -v --tb=short'
 
 ---
 
