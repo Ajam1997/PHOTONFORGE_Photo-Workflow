@@ -95,28 +95,83 @@ def is_mounted(mount_point: Path) -> bool:
     return os.path.ismount(str(mount_point))
 
 
+def _block_device_for(mount_point: Path) -> str:
+    """Return the block device currently or last mounted at mount_point."""
+    try:
+        result = subprocess.run(
+            ["findmnt", "-n", "-o", "SOURCE", str(mount_point)],
+            capture_output=True, text=True,
+        )
+        dev = result.stdout.strip()
+        return dev if dev else "/dev/sda1"
+    except Exception:
+        return "/dev/sda1"
+
+
 def wait_for_unmount(mount_point: Path, timeout: int) -> bool:
-    log(f"Waiting for {mount_point} to unmount (unplug SSD now)...")
+    log(f"Waiting for {mount_point} to unmount...")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if not is_mounted(mount_point):
-            log("SSD unmounted — detected unplug.")
+            log("SSD unmounted.")
             return True
         time.sleep(1)
     log(f"TIMEOUT: {mount_point} still mounted after {timeout}s")
     return False
 
 
-def wait_for_remount(mount_point: Path, timeout: int) -> bool:
-    log(f"Waiting for {mount_point} to remount (plug SSD back in now)...")
+def wait_for_replug_and_mount(mount_point: Path, block_dev: str, timeout: int) -> bool:
+    """Wait for the block device to disappear then reappear, then mount it."""
+    dev_path = Path(block_dev)
+
+    # Step 1: wait for device to disappear (confirms unplug)
+    log(f"Unplug the SSD now — waiting for {block_dev} to disappear...")
+    deadline = time.monotonic() + timeout
+    disappeared = False
+    while time.monotonic() < deadline:
+        if not dev_path.exists():
+            log("Block device gone — unplug detected.")
+            disappeared = True
+            break
+        time.sleep(1)
+    if not disappeared:
+        log(f"WARNING: {block_dev} never disappeared — physical unplug may not have occurred")
+
+    # Step 2: wait for device to reappear (confirms replug)
+    log(f"Plug the SSD back in — waiting for {block_dev} to reappear...")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if is_mounted(mount_point):
-            time.sleep(2)  # let the filesystem settle
-            log("SSD remounted — detected replug.")
-            return True
+        if dev_path.exists():
+            log("Block device back — replug detected.")
+            time.sleep(1)  # settle
+            break
         time.sleep(1)
-    log(f"TIMEOUT: {mount_point} not remounted within {timeout}s")
+    else:
+        log(f"TIMEOUT: {block_dev} did not reappear within {timeout}s")
+        return False
+
+    # Step 3: mount if not already mounted
+    if not is_mounted(mount_point):
+        log(f"Mounting {block_dev} -> {mount_point}...")
+        for cmd in (
+            ["sudo", "-n", "mount", block_dev, str(mount_point)],
+            ["mount", block_dev, str(mount_point)],
+        ):
+            try:
+                subprocess.run(cmd, check=True)
+                log("Mount successful.")
+                break
+            except subprocess.CalledProcessError:
+                continue
+        else:
+            log("ERROR: all mount attempts failed")
+            return False
+
+    time.sleep(2)  # let filesystem settle
+    if is_mounted(mount_point):
+        log("SSD remounted and verified.")
+        return True
+    log("ERROR: mount point not active after mount attempt")
     return False
 
 
@@ -174,18 +229,21 @@ def main() -> int:
     else:
         log(f"WARNING: DB not found at {db} — skipping WAL flush")
 
+    block_dev = _block_device_for(mount)
+    log(f"Block device: {block_dev}")
+
     if not sync_and_unmount(mount):
         log("ERROR: Could not unmount. Aborting cycle.")
         append_log(log_path, cycle, False)
         return 1
 
-    # Phase 2: wait for unplug
+    # Phase 2: wait for unmount confirmation
     if not wait_for_unmount(mount, args.timeout):
         append_log(log_path, cycle, False)
         return 1
 
-    # Phase 3: wait for replug
-    if not wait_for_remount(mount, args.timeout):
+    # Phase 3: wait for physical unplug → replug → auto-mount
+    if not wait_for_replug_and_mount(mount, block_dev, args.timeout):
         append_log(log_path, cycle, False)
         return 1
 
