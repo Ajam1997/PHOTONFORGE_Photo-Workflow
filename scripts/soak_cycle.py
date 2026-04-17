@@ -61,6 +61,7 @@ def sync_and_unmount(mount_point: Path) -> bool:
         log(f"WARNING: could not determine block device for {mount_point}")
         block_dev = ""
 
+    # Try udisksctl first (requires polkit + interactive TTY); fall back to sudo umount.
     if block_dev and shutil_which("udisksctl"):
         try:
             subprocess.run(
@@ -70,15 +71,19 @@ def sync_and_unmount(mount_point: Path) -> bool:
             log(f"Unmounted via udisksctl: {block_dev}")
             return True
         except subprocess.CalledProcessError as e:
-            log(f"udisksctl failed: {e} — trying umount")
+            log(f"udisksctl failed ({e}) — falling back to sudo umount")
 
-    try:
-        subprocess.run(["umount", str(mount_point)], check=True)
-        log(f"Unmounted via umount: {mount_point}")
-        return True
-    except subprocess.CalledProcessError as e:
-        log(f"ERROR: unmount failed: {e}")
-        return False
+    # sudo umount with NOPASSWD rule in /etc/sudoers.d/photonforge-eject
+    for cmd in (["sudo", "-n", "umount", str(mount_point)], ["umount", str(mount_point)]):
+        try:
+            subprocess.run(cmd, check=True)
+            log(f"Unmounted via {' '.join(cmd[:2])}: {mount_point}")
+            return True
+        except subprocess.CalledProcessError:
+            continue
+
+    log(f"ERROR: all unmount methods failed for {mount_point}")
+    return False
 
 
 def shutil_which(cmd: str) -> bool:
