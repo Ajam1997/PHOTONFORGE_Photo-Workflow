@@ -91,11 +91,15 @@ def shutil_which(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
+def is_mounted(mount_point: Path) -> bool:
+    return os.path.ismount(str(mount_point))
+
+
 def wait_for_unmount(mount_point: Path, timeout: int) -> bool:
     log(f"Waiting for {mount_point} to unmount (unplug SSD now)...")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if not mount_point.exists():
+        if not is_mounted(mount_point):
             log("SSD unmounted — detected unplug.")
             return True
         time.sleep(1)
@@ -107,7 +111,7 @@ def wait_for_remount(mount_point: Path, timeout: int) -> bool:
     log(f"Waiting for {mount_point} to remount (plug SSD back in now)...")
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if mount_point.exists():
+        if is_mounted(mount_point):
             time.sleep(2)  # let the filesystem settle
             log("SSD remounted — detected replug.")
             return True
