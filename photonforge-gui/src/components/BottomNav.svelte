@@ -1,9 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher } from "svelte";
-
   export let activeIdx: number = 0;
-
-  const dispatch = createEventDispatcher<{ select: number }>();
 
   const TABS = [
     { label: "Ingest",     icon: "⬇" },
@@ -13,6 +9,14 @@
     { label: "Cartridge",  icon: "▣" },
     { label: "Settings",   icon: "⚙" },
   ];
+
+  function handleClick(node: EventTarget | null, i: number) {
+    if (node) {
+      (node as HTMLElement).dispatchEvent(
+        new CustomEvent("select", { detail: i, bubbles: true })
+      );
+    }
+  }
 </script>
 
 <nav class="bottom-nav">
@@ -20,7 +24,7 @@
     <button
       class="tab"
       class:active={i === activeIdx}
-      on:click={() => dispatch("select", i, { bubbles: true })}
+      onclick={(e) => handleClick(e.currentTarget, i)}
       aria-label={tab.label}
     >
       <span class="tab-icon" aria-hidden="true">{tab.icon}</span>
