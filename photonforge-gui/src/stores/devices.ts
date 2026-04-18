@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 
 export interface DeviceState {
   ssd_mounted: boolean;
@@ -15,8 +16,14 @@ const initial: DeviceState = {
 
 export const deviceState = writable<DeviceState>(initial);
 
-if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+if (typeof window !== "undefined") {
+  // Pull current state immediately via invoke (no race with event timing).
+  invoke<DeviceState>("get_device_state")
+    .then((state) => deviceState.set(state))
+    .catch(() => {});
+
+  // Subscribe to future changes.
   listen<DeviceState>("device-state-changed", (event) => {
     deviceState.set(event.payload);
-  });
+  }).catch(() => {});
 }

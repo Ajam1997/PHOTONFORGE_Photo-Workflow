@@ -19,11 +19,16 @@ pub fn parse_proc_mounts(content: &str) -> DeviceState {
         if parts.len() < 2 {
             continue;
         }
+        let device = parts[0];
         let mount_point = parts[1];
         if mount_point == "/mnt/photon_sd" {
             sd_mounted = true;
         } else if mount_point.starts_with("/mnt/photon_ssd/") {
             ssd_mounted = true;
+        } else if mount_point.starts_with("/media/") && is_removable_block_device(device) {
+            // Fallback for dev environments where udev rules aren't installed and
+            // the SD card auto-mounts via udisks2 to /media/<user>/<label>.
+            sd_mounted = true;
         }
     }
 
@@ -32,6 +37,19 @@ pub fn parse_proc_mounts(content: &str) -> DeviceState {
         ssd_label: if ssd_mounted { read_ssd_label() } else { None },
         sd_mounted,
     }
+}
+
+fn is_removable_block_device(device: &str) -> bool {
+    // Accept /dev/sd* only (Yoga 910 SD reader is USB, shows as /dev/sdX).
+    let name = device.strip_prefix("/dev/").unwrap_or("");
+    if !name.starts_with("sd") {
+        return false;
+    }
+    // "sdb1" → "sdb"
+    let base = name.trim_end_matches(|c: char| c.is_ascii_digit());
+    std::fs::read_to_string(format!("/sys/block/{}/removable", base))
+        .map(|s| s.trim() == "1")
+        .unwrap_or(false)
 }
 
 fn read_ssd_label() -> Option<String> {
@@ -50,6 +68,12 @@ fn read_ssd_label() -> Option<String> {
 }
 
 #[cfg(feature = "tauri")]
+#[tauri::command]
+pub fn get_device_state() -> DeviceState {
+    read_mounts()
+}
+
+#[cfg(feature = "tauri")]
 fn read_mounts() -> DeviceState {
     let content = std::fs::read_to_string("/proc/mounts").unwrap_or_default();
     parse_proc_mounts(&content)
@@ -64,12 +88,18 @@ pub fn run(app: AppHandle) {
     let mut prev = read_mounts();
     let _ = app.emit("device-state-changed", prev.clone());
 
+    // Emit unconditionally for the first 5 polls (~10s) so the WebView has
+    // multiple chances to catch the initial state regardless of load time.
+    let mut force_remaining: u8 = 5;
     loop {
         std::thread::sleep(std::time::Duration::from_secs(2));
         let next = read_mounts();
-        if next != prev {
+        if next != prev || force_remaining > 0 {
             let _ = app.emit("device-state-changed", next.clone());
             prev = next;
+            if force_remaining > 0 {
+                force_remaining -= 1;
+            }
         }
     }
 }
@@ -124,5 +154,13 @@ mod tests {
         let content = "incomplete_line\n/dev/sdb1 /mnt/photon_ssd/001 ext4 rw 0 0\n";
         let state = parse_proc_mounts(content);
         assert!(state.ssd_mounted);
+    }
+
+    #[test]
+    fn nvme_at_media_not_treated_as_sd() {
+        // nvme root is not removable — must not be counted as SD.
+        let content = "/dev/nvme0n1p1 /media/alex/DATA ext4 rw 0 0\n";
+        let state = parse_proc_mounts(content);
+        assert!(!state.sd_mounted);
     }
 }

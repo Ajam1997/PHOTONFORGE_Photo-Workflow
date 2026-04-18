@@ -5,6 +5,7 @@ mod mount_monitor;
 #[cfg(feature = "tauri")]
 fn main() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![mount_monitor::get_device_state])
         .setup(|app| {
             let handle = app.handle().clone();
             std::thread::spawn(move || mount_monitor::run(handle));
