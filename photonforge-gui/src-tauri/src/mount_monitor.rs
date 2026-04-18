@@ -1,7 +1,10 @@
+#[cfg(feature = "tauri")]
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::path::Path;
+#[cfg(feature = "tauri")]
 use std::sync::mpsc;
+#[cfg(feature = "tauri")]
 use tauri::{AppHandle, Emitter};
 
 #[derive(Clone, Serialize, Debug, PartialEq)]
@@ -50,11 +53,13 @@ fn read_ssd_label() -> Option<String> {
     })
 }
 
+#[cfg(feature = "tauri")]
 fn read_mounts() -> DeviceState {
     let content = std::fs::read_to_string("/proc/mounts").unwrap_or_default();
     parse_proc_mounts(&content)
 }
 
+#[cfg(feature = "tauri")]
 pub fn run(app: AppHandle) {
     let initial = read_mounts();
     let _ = app.emit("device-state-changed", initial.clone());

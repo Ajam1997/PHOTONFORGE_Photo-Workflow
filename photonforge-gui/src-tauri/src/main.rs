@@ -2,6 +2,7 @@
 
 mod mount_monitor;
 
+#[cfg(feature = "tauri")]
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -12,3 +13,6 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error running PhotonForge");
 }
+
+#[cfg(not(feature = "tauri"))]
+fn main() {}
