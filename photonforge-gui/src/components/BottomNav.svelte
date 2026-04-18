@@ -24,7 +24,7 @@
     <button
       class="tab"
       class:active={i === activeIdx}
-      on:click={(e) => handleClick(e.currentTarget, i)}
+      onclick={(e) => handleClick(e.currentTarget, i)}
       aria-label={tab.label}
     >
       <span class="tab-icon" aria-hidden="true">{tab.icon}</span>

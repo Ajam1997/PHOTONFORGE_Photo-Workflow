@@ -9,11 +9,10 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [], optional = true }
 serde = { version = "1", features = ["derive"] }
-serde_json = { version = "1", optional = true }
 notify = { version = "6", optional = true }
 
 [features]
-default = ["tauri", "serde_json", "notify"]
+default = ["tauri", "notify"]
 
 [profile.release]
 codegen-units = 1
