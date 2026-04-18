@@ -1,9 +1,5 @@
-#[cfg(feature = "tauri")]
-use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::path::Path;
-#[cfg(feature = "tauri")]
-use std::sync::mpsc;
 #[cfg(feature = "tauri")]
 use tauri::{AppHandle, Emitter};
 
@@ -61,31 +57,19 @@ fn read_mounts() -> DeviceState {
 
 #[cfg(feature = "tauri")]
 pub fn run(app: AppHandle) {
-    let initial = read_mounts();
-    let _ = app.emit("device-state-changed", initial.clone());
+    // Wait for the WebView to load and register its event listener before
+    // emitting the initial state — /proc/mounts doesn't support inotify.
+    std::thread::sleep(std::time::Duration::from_millis(500));
 
-    let (tx, rx) = mpsc::channel::<notify::Result<Event>>();
-    let mut watcher = match RecommendedWatcher::new(tx, Config::default()) {
-        Ok(w) => w,
-        Err(_) => return,
-    };
+    let mut prev = read_mounts();
+    let _ = app.emit("device-state-changed", prev.clone());
 
-    #[cfg(target_os = "linux")]
-    if watcher
-        .watch(Path::new("/proc/mounts"), RecursiveMode::NonRecursive)
-        .is_err()
-    {
-        return;
-    }
-
-    let mut prev = initial;
-    for result in rx {
-        if result.is_ok() {
-            let next = read_mounts();
-            if next != prev {
-                let _ = app.emit("device-state-changed", next.clone());
-                prev = next;
-            }
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        let next = read_mounts();
+        if next != prev {
+            let _ = app.emit("device-state-changed", next.clone());
+            prev = next;
         }
     }
 }
