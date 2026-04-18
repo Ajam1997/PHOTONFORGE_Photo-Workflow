@@ -29,7 +29,9 @@
   {/if}
 </main>
 
-<BottomNav {activeIdx} on:select={(e) => (activeIdx = e.detail)} />
+<div on:select={(e) => (activeIdx = (e as CustomEvent<number>).detail)}>
+  <BottomNav {activeIdx} />
+</div>
 
 <style>
   .panel-area {
