@@ -7,12 +7,16 @@ use tauri::{AppHandle, Emitter};
 pub struct DeviceState {
     pub ssd_mounted: bool,
     pub ssd_label: Option<String>,
+    pub ssd_mount_point: Option<String>,
     pub sd_mounted: bool,
+    pub sd_path: Option<String>,
 }
 
 pub fn parse_proc_mounts(content: &str) -> DeviceState {
     let mut ssd_mounted = false;
+    let mut ssd_mount_point: Option<String> = None;
     let mut sd_mounted = false;
+    let mut sd_path: Option<String> = None;
 
     for line in content.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
@@ -23,19 +27,24 @@ pub fn parse_proc_mounts(content: &str) -> DeviceState {
         let mount_point = parts[1];
         if mount_point == "/mnt/photon_sd" {
             sd_mounted = true;
+            sd_path = Some(mount_point.to_string());
         } else if mount_point.starts_with("/mnt/photon_ssd/") {
             ssd_mounted = true;
+            ssd_mount_point = Some(mount_point.to_string());
         } else if mount_point.starts_with("/media/") && is_removable_block_device(device) {
             // Fallback for dev environments where udev rules aren't installed and
             // the SD card auto-mounts via udisks2 to /media/<user>/<label>.
             sd_mounted = true;
+            sd_path = Some(mount_point.to_string());
         }
     }
 
     DeviceState {
         ssd_mounted,
         ssd_label: if ssd_mounted { read_ssd_label() } else { None },
+        ssd_mount_point,
         sd_mounted,
+        sd_path,
     }
 }
 
@@ -162,5 +171,26 @@ mod tests {
         let content = "/dev/nvme0n1p1 /media/alex/DATA ext4 rw 0 0\n";
         let state = parse_proc_mounts(content);
         assert!(!state.sd_mounted);
+    }
+
+    #[test]
+    fn ssd_mount_point_populated() {
+        let content = "/dev/sdb1 /mnt/photon_ssd/001 ext4 rw 0 0\n";
+        let state = parse_proc_mounts(content);
+        assert_eq!(state.ssd_mount_point, Some("/mnt/photon_ssd/001".to_string()));
+    }
+
+    #[test]
+    fn sd_path_populated_canonical() {
+        let content = "/dev/sda1 /mnt/photon_sd ext4 rw 0 0\n";
+        let state = parse_proc_mounts(content);
+        assert_eq!(state.sd_path, Some("/mnt/photon_sd".to_string()));
+    }
+
+    #[test]
+    fn sd_path_absent_when_not_mounted() {
+        let state = parse_proc_mounts("");
+        assert!(state.sd_path.is_none());
+        assert!(state.ssd_mount_point.is_none());
     }
 }
