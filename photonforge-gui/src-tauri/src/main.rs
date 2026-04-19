@@ -1,10 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod mount_monitor;
+mod sidecar;
 
 #[cfg(feature = "tauri")]
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(tauri::generate_handler![mount_monitor::get_device_state])
         .setup(|app| {
             let handle = app.handle().clone();

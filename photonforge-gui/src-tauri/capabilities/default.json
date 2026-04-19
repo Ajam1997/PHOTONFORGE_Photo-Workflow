@@ -4,6 +4,8 @@
   "description": "Default capabilities for PhotonForge",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "shell:allow-execute",
+    "shell:allow-kill"
   ]
 }
