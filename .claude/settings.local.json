@@ -41,7 +41,20 @@
       "Bash(scp E:/PHOTONForge/photo-workflow/scripts/soak_cycle.py 10.27.27.10:~/PHOTONFORGE_Photo-Workflow/scripts/soak_cycle.py.bak)",
       "Bash(scp E:/PHOTONForge/photo-workflow/scripts/soak_cycle.py 10.27.27.10:~/PHOTONFORGE_Photo-Workflow/scripts/soak_cycle.py)",
       "Bash(python3 -c \"import json; f=open\\('.claude/settings.local.json'\\); json.load\\(f\\); print\\('✓ Valid JSON'\\)\")",
-      "Bash(python3 -c \"import json; f=open\\('.claude/settings.local.json'\\); json.load\\(f\\); print\\('Valid JSON'\\)\")"
+      "Bash(python3 -c \"import json; f=open\\('.claude/settings.local.json'\\); json.load\\(f\\); print\\('Valid JSON'\\)\")",
+      "Bash(\"C:/Users/Alexa/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh\" --project-dir \"E:/PHOTONForge/photo-workflow\")",
+      "Bash(xargs cat *)",
+      "Bash(where node *)",
+      "Read(//c/Program Files/nodejs/**)",
+      "Read(//c/Program Files \\(x86\\)/nodejs/**)",
+      "Bash(scp -i ~/.ssh/photonforge_yoga E:/PHOTONForge/photo-workflow/photonforge-gui/src/stores/devices.ts alex@10.27.27.10:/home/alex/photo-workflow/photonforge-gui/src/stores/devices.ts)",
+      "Bash(scp -i ~/.ssh/photonforge_yoga E:/PHOTONForge/photo-workflow/photonforge-gui/src/stores/devices.ts alex@10.27.27.10:/home/alex/PHOTONFORGE_Photo-Workflow/photonforge-gui/src/stores/devices.ts)",
+      "Bash(scp -i ~/.ssh/photonforge_yoga E:/PHOTONForge/photo-workflow/photonforge-gui/src-tauri/src/mount_monitor.rs alex@10.27.27.10:/home/alex/PHOTONFORGE_Photo-Workflow/photonforge-gui/src-tauri/src/mount_monitor.rs)",
+      "Bash(scp -i ~/.ssh/photonforge_yoga E:/PHOTONForge/photo-workflow/photonforge-gui/src-tauri/src/mount_monitor.rs E:/PHOTONForge/photo-workflow/photonforge-gui/src-tauri/src/main.rs alex@10.27.27.10:/home/alex/PHOTONFORGE_Photo-Workflow/photonforge-gui/src-tauri/src/)",
+      "Bash(scp -i '~/.ssh/photonforge_yoga' E:/PHOTONForge/photo-workflow/photonforge-gui/src-tauri/src/mount_monitor.rs E:/PHOTONForge/photo-workflow/photonforge-gui/src-tauri/src/main.rs alex@10.27.27.10:/home/alex/PHOTONFORGE_Photo-Workflow/photonforge-gui/src-tauri/src/)",
+      "Bash(scp -i '~/.ssh/photonforge_yoga' E:/PHOTONForge/photo-workflow/photonforge-gui/src-tauri/capabilities/default.json alex@10.27.27.10:/home/alex/PHOTONFORGE_Photo-Workflow/photonforge-gui/src-tauri/capabilities/default.json)",
+      "Bash(scp -i '~/.ssh/photonforge_yoga' alex@10.27.27.10:/home/alex/PHOTONFORGE_Photo-Workflow/docs/VerificationReports/2026-04-18-14-00-verification.md alex@10.27.27.10:/home/alex/PHOTONFORGE_Photo-Workflow/docs/VerificationReports/2026-04-18-failure-843e109.md E:/PHOTONForge/photo-workflow/docs/VerificationReports/)",
+      "Bash(scp -i '~/.ssh/photonforge_yoga' alex@10.27.27.10:/home/alex/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/2026-04-18-stage7.1-validation.md E:/PHOTONForge/photo-workflow/docs/ValidationReports/)"
     ]
   }
 }
