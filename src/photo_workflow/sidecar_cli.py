@@ -9,18 +9,17 @@ from pathlib import Path
 
 import click
 
-from photo_workflow.ingest import ingest_volume
 from photo_workflow.cartridge import detect_cartridges
+
+PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".dng"}
 
 
 def emit(obj: dict) -> None:
-    """Emit a JSON-line event to stdout."""
     print(json.dumps(obj), flush=True)
 
 
 @click.group()
 def cli() -> None:
-    """PHOTONForge sidecar CLI for Tauri integration."""
     pass
 
 
@@ -37,16 +36,49 @@ def ingest(source: str, output: str, db: str) -> None:
 
     try:
         start = time.monotonic()
-        emit({"type": "progress", "step": "copying", "current": 0, "total": 0, "message": ""})
-        files = ingest_volume(source_path, output_path)
-        total = len(files)
-        emit({"type": "progress", "step": "copying", "current": total, "total": total, "message": ""})
+
+        # Scan source for photo files to know the total upfront.
+        emit({"type": "progress", "step": "copying", "current": 0, "total": 0, "message": "Scanning…"})
+        all_photos = [
+            f for f in source_path.rglob("*")
+            if f.is_file() and f.suffix.lower() in PHOTO_EXTS
+        ]
+        total = len(all_photos)
+        emit({"type": "progress", "step": "copying", "current": 0, "total": total, "message": f"Found {total} photos"})
+
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # Build rsync command with --itemize-changes so each transferred file
+        # prints one line of output we can count for live progress.
+        cmd = [
+            "rsync", "--archive", "--checksum", "--itemize-changes",
+            "--include=*/",
+        ]
+        for ext in PHOTO_EXTS:
+            cmd += [f"--include=*{ext}", f"--include=*{ext.upper()}"]
+        cmd += ["--exclude=*", "--", str(source_path) + "/", str(output_path) + "/"]
+
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        current = 0
+        for line in proc.stdout:  # type: ignore[union-attr]
+            line = line.rstrip()
+            # itemize-changes lines start with status flags then filename, e.g. ">f+++++++++ DSC_0001.ARW"
+            if line and not line.startswith("cd"):
+                current += 1
+                fname = line[10:].strip() if len(line) > 10 else line
+                emit({"type": "progress", "step": "copying", "current": current, "total": total, "message": fname})
+
+        proc.wait()
+        if proc.returncode != 0:
+            stderr = proc.stderr.read() if proc.stderr else ""  # type: ignore[union-attr]
+            raise RuntimeError(stderr.strip() or f"rsync exited {proc.returncode}")
+
         elapsed = time.monotonic() - start
         emit({
             "type": "done",
             "summary": {
-                "total": total,
-                "duplicates_skipped": 0,
+                "total": current if current > 0 else total,
+                "duplicates_skipped": max(0, total - current),
                 "scored": 0,
                 "xmp_written": 0,
                 "db_upserted": 0,
