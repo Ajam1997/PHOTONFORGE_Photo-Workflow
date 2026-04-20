@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { deviceState } from "../stores/devices";
   import { listCartridges, reformatCartridge, type CartridgeInfo, type SidecarEvent } from "../lib/sidecar";
 
@@ -22,9 +21,7 @@
     }
   }
 
-  onMount(fetchCartridges);
-
-  // Re-fetch when devices change
+  // Re-fetch on mount and whenever device state changes (e.g. cartridge plug/unplug).
   $: if ($deviceState) fetchCartridges();
 
   function formatBytes(bytes: number): string {

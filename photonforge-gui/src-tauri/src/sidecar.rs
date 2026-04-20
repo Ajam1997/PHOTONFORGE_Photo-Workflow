@@ -1,3 +1,7 @@
+// Protocol types for the Python sidecar JSON-lines protocol.
+// parse_event is scaffolding for future Tauri-side event forwarding;
+// in Stage 7.2 the JS plugin layer handles parsing directly.
+#![allow(dead_code)]
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]

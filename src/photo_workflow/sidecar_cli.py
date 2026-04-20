@@ -30,6 +30,8 @@ def cli() -> None:
 @click.option("--db", required=True, help="Path to library.db on SSD")
 def ingest(source: str, output: str, db: str) -> None:
     """Ingest photos from SD to SSD, streaming progress events."""
+    # NOTE: db is accepted for interface completeness but the darktable bridge
+    # wiring is deferred to a later stage. db_upserted will be 0 until then.
     source_path = Path(source)
     output_path = Path(output)
 
