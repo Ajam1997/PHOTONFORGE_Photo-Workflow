@@ -264,8 +264,8 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    padding: 2rem;
-    gap: 1rem;
+    padding: 2.5rem 3rem;
+    gap: 1.25rem;
   }
   .panel-header { display: flex; justify-content: space-between; align-items: center; }
   h2 { color: var(--text-primary, #fff); margin: 0; }

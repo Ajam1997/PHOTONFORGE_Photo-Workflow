@@ -24,7 +24,7 @@ class DeviceAnalysis:
 def analyze_device(device: str) -> DeviceAnalysis:
     """Use lsblk to check partition status and existing label."""
     result = subprocess.run(
-        ["lsblk", "--json", "--output", "NAME,SIZE,LABEL,TYPE"],
+        ["lsblk", "--json", "--bytes", "--output", "NAME,SIZE,LABEL,TYPE"],
         capture_output=True,
         text=True,
         check=True,

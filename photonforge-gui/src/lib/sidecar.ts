@@ -154,17 +154,32 @@ export async function provisionCartridge(
   const cmd = Command.sidecar("binaries/photo-workflow-sidecar", args);
 
   let buffer = "";
+  let done = false;
+
   cmd.stdout.on("data", (chunk: string) => {
     buffer += chunk;
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
     for (const line of lines) {
       const event = parseLine(line.trim());
-      if (event) onEvent(event as ProvisionEvent);
+      if (event) {
+        if (event.type === "provision_done") done = true;
+        onEvent(event as ProvisionEvent);
+      }
     }
   });
   cmd.stderr.on("data", (line: string) => {
     console.error("provision stderr:", line);
+  });
+  cmd.on("close", (data) => {
+    // Flush any remaining buffered line
+    if (buffer.trim()) {
+      const event = parseLine(buffer.trim());
+      if (event) onEvent(event as ProvisionEvent);
+    }
+    if (!done && data.code !== 0) {
+      onEvent({ type: "error", message: `Sidecar exited with code ${data.code}` });
+    }
   });
 
   await cmd.spawn();
