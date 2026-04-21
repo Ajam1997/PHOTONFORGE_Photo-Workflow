@@ -6,9 +6,8 @@
   let loading = false;
 
   // Provision state
-  let availableDrives: { device: string; size: string; status: string }[] = [];
   let showProvisionSheet = false;
-  let provisionTarget: { device: string; size: string } | null = null;
+  let provisionDevice = "";
   let provisionLabel = "";
   let provisionForceRepartition = false;
   let provisionDryRun = false;
@@ -31,8 +30,8 @@
     return "PHOTON-999";
   }
 
-  function openProvision(drive: { device: string; size: string }) {
-    provisionTarget = drive;
+  function openProvision() {
+    provisionDevice = "";
     provisionLabel = nextId;
     provisionForceRepartition = false;
     provisionDryRun = false;
@@ -42,20 +41,19 @@
 
   function closeProvision() {
     showProvisionSheet = false;
-    provisionTarget = null;
     provisionRunning = false;
     provisionStep = "";
     provisionError = "";
   }
 
   async function confirmProvision() {
-    if (!provisionTarget) return;
+    if (!provisionDevice || !provisionLabel) return;
     provisionRunning = true;
     provisionError = "";
 
     try {
       await provisionCartridge(
-        provisionTarget.device,
+        provisionDevice,
         provisionLabel,
         provisionForceRepartition,
         provisionDryRun,
@@ -148,7 +146,10 @@
 </script>
 
 <div class="cartridge-panel">
-  <h2>Cartridge Manager</h2>
+  <div class="panel-header">
+    <h2>Cartridge Manager</h2>
+    <button class="provision-new-btn" on:click={openProvision}>+ Provision New</button>
+  </div>
 
   {#if loading}
     <p class="muted">Loading cartridges…</p>
@@ -178,26 +179,6 @@
     </div>
   {/if}
 
-  {#if availableDrives.length > 0}
-    <div class="available-drives-section">
-      <h3>Available Drives</h3>
-      <div class="drive-list">
-        {#each availableDrives as drive}
-          <div class="drive-card">
-            <div class="drive-info">
-              <span class="device-path">{drive.device}</span>
-              <span class="drive-size">{drive.size}</span>
-              <span class="drive-status">{drive.status}</span>
-            </div>
-            <button class="provision-btn" on:click={() => openProvision(drive)}>
-              Provision as {nextId}
-            </button>
-          </div>
-        {/each}
-      </div>
-    </div>
-  {/if}
-
   {#if showProvisionSheet}
     <div class="sheet-overlay" role="dialog" aria-modal="true">
       <div class="sheet">
@@ -211,13 +192,13 @@
           <button class="cancel-btn" on:click={closeProvision}>Cancel</button>
         {:else}
           <h3>Provision New Cartridge</h3>
-          {#if provisionTarget}
-            <p>Device: <code>{provisionTarget.device}</code></p>
-            <p>Size: {provisionTarget.size}</p>
-          {/if}
           {#if provisionError}
             <p class="error">{provisionError}</p>
           {/if}
+          <div class="form-group">
+            <label for="provision-device">Device (e.g. /dev/sdb):</label>
+            <input id="provision-device" bind:value={provisionDevice} placeholder="/dev/sdb" autocomplete="off" />
+          </div>
           <div class="form-group">
             <label for="provision-label">Label:</label>
             <input id="provision-label" bind:value={provisionLabel} placeholder="PHOTON-001" />
@@ -236,7 +217,7 @@
           </div>
           <div class="sheet-actions">
             <button class="cancel-btn" on:click={closeProvision}>Cancel</button>
-            <button class="primary-btn" on:click={confirmProvision}>Start Provisioning</button>
+            <button class="primary-btn" disabled={!provisionDevice || !provisionLabel} on:click={confirmProvision}>Start Provisioning</button>
           </div>
         {/if}
       </div>
@@ -286,7 +267,13 @@
     padding: 2rem;
     gap: 1rem;
   }
+  .panel-header { display: flex; justify-content: space-between; align-items: center; }
   h2 { color: var(--text-primary, #fff); margin: 0; }
+  .provision-new-btn {
+    padding: 0.5rem 1rem;
+    background: var(--accent, #6366f1); color: #fff;
+    border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.9rem;
+  }
   .muted { color: var(--text-muted, #888); }
   .cartridge-list { display: flex; flex-direction: column; gap: 1rem; }
   .cartridge-card {
@@ -355,27 +342,6 @@
     flex: 1; padding: 0.75rem;
     background: var(--accent, #6366f1); color: #fff;
     border: none; border-radius: 0.375rem; cursor: pointer;
-  }
-  .available-drives-section {
-    margin-top: 2rem;
-    border-top: 1px solid var(--border, #333);
-    padding-top: 1rem;
-  }
-  .available-drives-section h3 { color: var(--text-primary, #fff); margin: 0 0 1rem 0; }
-  .drive-list { display: flex; flex-direction: column; gap: 0.75rem; }
-  .drive-card {
-    background: var(--surface, #1a1a1a);
-    border-radius: 0.5rem; padding: 1rem;
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .drive-info { display: flex; flex-direction: column; gap: 0.25rem; }
-  .device-path { color: var(--text-primary, #fff); font-family: monospace; font-size: 0.9rem; }
-  .drive-size { color: var(--text-muted, #888); font-size: 0.85rem; }
-  .drive-status { color: var(--warning, #f59e0b); font-size: 0.8rem; }
-  .provision-btn {
-    padding: 0.5rem 1rem;
-    background: var(--accent, #6366f1); color: #fff;
-    border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.9rem;
   }
   .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
   .form-group label { color: var(--text-muted, #888); font-size: 0.9rem; }
