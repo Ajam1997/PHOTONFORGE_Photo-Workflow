@@ -36,6 +36,17 @@ export interface ReformatDoneEvent {
   mount_point: string;
 }
 
+export interface ProvisionDoneEvent {
+  type: "provision_done";
+  label: string;
+  device: string;
+  mount_point: string;
+  created_partition: boolean;
+  wiped_signatures: boolean;
+}
+
+export type ProvisionEvent = ProgressEvent | ProvisionDoneEvent | ErrorEvent;
+
 export interface CartridgeInfo {
   label: string;
   mount_point: string;
@@ -48,7 +59,8 @@ export type SidecarEvent =
   | DoneEvent
   | ErrorEvent
   | CartridgesEvent
-  | ReformatDoneEvent;
+  | ReformatDoneEvent
+  | ProvisionDoneEvent;
 
 function parseLine(line: string): SidecarEvent | null {
   try {
@@ -122,6 +134,37 @@ export async function reformatCartridge(
       const event = parseLine(line.trim());
       if (event) onEvent(event);
     }
+  });
+
+  await cmd.spawn();
+  return cmd;
+}
+
+export async function provisionCartridge(
+  device: string,
+  label: string,
+  forceRepartition: boolean,
+  dryRun: boolean,
+  onEvent: (event: ProvisionEvent) => void,
+): Promise<Command<string>> {
+  const args = ["cartridge-provision", "--device", device, "--label", label];
+  if (forceRepartition) args.push("--force-repartition");
+  if (dryRun) args.push("--dry-run");
+
+  const cmd = Command.sidecar("binaries/photo-workflow-sidecar", args);
+
+  let buffer = "";
+  cmd.stdout.on("data", (chunk: string) => {
+    buffer += chunk;
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      const event = parseLine(line.trim());
+      if (event) onEvent(event as ProvisionEvent);
+    }
+  });
+  cmd.stderr.on("data", (line: string) => {
+    console.error("provision stderr:", line);
   });
 
   await cmd.spawn();
