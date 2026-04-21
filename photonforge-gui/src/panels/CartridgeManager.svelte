@@ -1,12 +1,14 @@
 <script lang="ts">
   import { deviceState } from "../stores/devices";
-  import { listCartridges, provisionCartridge, reformatCartridge, type CartridgeInfo, type ProvisionEvent, type SidecarEvent } from "../lib/sidecar";
+  import { listCartridges, listDrives, provisionCartridge, reformatCartridge, type CartridgeInfo, type DriveInfo, type ProvisionEvent, type SidecarEvent } from "../lib/sidecar";
 
   let cartridges: CartridgeInfo[] = [];
   let loading = false;
 
   // Provision state
   let showProvisionSheet = false;
+  let availableDrives: DriveInfo[] = [];
+  let drivesLoading = false;
   let provisionDevice = "";
   let provisionLabel = "";
   let provisionForceRepartition = false;
@@ -18,6 +20,7 @@
   let provisionError = "";
 
   $: nextId = calculateNextId(cartridges);
+  $: selectedDrive = availableDrives.find((d) => d.device === provisionDevice) ?? null;
 
   function calculateNextId(carts: CartridgeInfo[]): string {
     const existing = carts.map((c) => {
@@ -30,13 +33,19 @@
     return "PHOTON-999";
   }
 
-  function openProvision() {
+  async function openProvision() {
     provisionDevice = "";
     provisionLabel = nextId;
     provisionForceRepartition = false;
     provisionDryRun = false;
     provisionError = "";
     showProvisionSheet = true;
+    drivesLoading = true;
+    try {
+      availableDrives = await listDrives();
+    } finally {
+      drivesLoading = false;
+    }
   }
 
   function closeProvision() {
@@ -195,10 +204,38 @@
           {#if provisionError}
             <p class="error">{provisionError}</p>
           {/if}
+
           <div class="form-group">
-            <label for="provision-device">Device (e.g. /dev/sdb):</label>
-            <input id="provision-device" bind:value={provisionDevice} placeholder="/dev/sdb" autocomplete="off" />
+            <label for="provision-device">Drive to provision:</label>
+            {#if drivesLoading}
+              <p class="muted">Scanning for USB drives…</p>
+            {:else if availableDrives.length === 0}
+              <p class="warning">No USB drives detected. Insert a drive and reopen this dialog.</p>
+            {:else}
+              <div class="drive-picker">
+                {#each availableDrives as drive}
+                  <button
+                    class="drive-option"
+                    class:selected={provisionDevice === drive.device}
+                    on:click={() => (provisionDevice = drive.device)}
+                  >
+                    <span class="drive-model">{drive.model}</span>
+                    <span class="drive-meta">{drive.device} · {formatBytes(drive.size_bytes)}</span>
+                    {#if drive.label}
+                      <span class="drive-label-badge">{drive.label}</span>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+            {/if}
           </div>
+
+          {#if selectedDrive}
+            <div class="selected-summary">
+              Formatting <strong>{selectedDrive.device}</strong> ({selectedDrive.model}, {formatBytes(selectedDrive.size_bytes)}) — <span class="warning">all data will be erased</span>
+            </div>
+          {/if}
+
           <div class="form-group">
             <label for="provision-label">Label:</label>
             <input id="provision-label" bind:value={provisionLabel} placeholder="PHOTON-001" />
@@ -303,15 +340,17 @@
   .sheet-overlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.7);
-    display: flex; align-items: flex-end; justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     z-index: 100;
   }
   .sheet {
     background: var(--surface-elevated, #222);
-    border-radius: 1rem 1rem 0 0;
+    border-radius: 1rem;
     padding: 2rem;
-    width: 100%;
-    max-width: 600px;
+    width: 90%;
+    max-width: 560px;
+    max-height: 80vh;
+    overflow-y: auto;
     display: flex; flex-direction: column; gap: 1rem;
   }
   h3 { color: var(--text-primary, #fff); margin: 0; }
@@ -351,4 +390,30 @@
   }
   .progress-fill { height: 100%; background: var(--accent, #6366f1); transition: width 0.3s; }
   .progress-text { color: var(--text-muted, #888); font-size: 0.9rem; text-align: center; }
+  .drive-picker { display: flex; flex-direction: column; gap: 0.5rem; }
+  .drive-option {
+    display: flex; flex-direction: column; gap: 0.2rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface, #1a1a1a);
+    border: 1px solid var(--border, #333);
+    border-radius: 0.5rem;
+    cursor: pointer; text-align: left; width: 100%;
+  }
+  .drive-option:hover { border-color: var(--accent, #6366f1); }
+  .drive-option.selected { border-color: var(--accent, #6366f1); background: rgba(99,102,241,0.1); }
+  .drive-model { color: var(--text-primary, #fff); font-size: 0.95rem; font-weight: 500; }
+  .drive-meta { color: var(--text-muted, #888); font-size: 0.8rem; font-family: monospace; }
+  .drive-label-badge {
+    display: inline-block; font-size: 0.75rem;
+    padding: 0.1rem 0.4rem;
+    background: rgba(245,158,11,0.2); color: var(--warning, #f59e0b);
+    border-radius: 0.25rem;
+  }
+  .selected-summary {
+    font-size: 0.85rem; color: var(--text-muted, #888);
+    padding: 0.5rem 0.75rem;
+    background: rgba(239,68,68,0.08);
+    border-radius: 0.375rem;
+    border-left: 3px solid var(--error, #ef4444);
+  }
 </style>

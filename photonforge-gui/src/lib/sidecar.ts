@@ -54,6 +54,18 @@ export interface CartridgeInfo {
   size_bytes: number;
 }
 
+export interface DriveInfo {
+  device: string;
+  size_bytes: number;
+  model: string;
+  label: string | null;
+}
+
+export interface DrivesEvent {
+  type: "drives";
+  items: DriveInfo[];
+}
+
 export type SidecarEvent =
   | ProgressEvent
   | DoneEvent
@@ -96,6 +108,16 @@ export async function runIngest(
 
   await cmd.spawn();
   return cmd;
+}
+
+export async function listDrives(): Promise<DriveInfo[]> {
+  const cmd = Command.sidecar("binaries/photo-workflow-sidecar", ["list-drives"]);
+  const result = await cmd.execute();
+  for (const line of result.stdout.split("\n")) {
+    const event = parseLine(line.trim());
+    if (event?.type === "drives") return (event as DrivesEvent).items;
+  }
+  return [];
 }
 
 export async function listCartridges(): Promise<CartridgeInfo[]> {

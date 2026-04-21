@@ -156,6 +156,30 @@ def cartridge_reformat(device: str, label: str, dry_run: bool) -> None:
         sys.exit(1)
 
 
+@cli.command("list-drives")
+def list_drives() -> None:
+    """List USB block devices available for provisioning."""
+    try:
+        result = subprocess.run(
+            ["lsblk", "--json", "--bytes", "--output", "NAME,SIZE,MODEL,TYPE,TRAN,LABEL,MOUNTPOINT"],
+            capture_output=True, text=True, check=True,
+        )
+        data = json.loads(result.stdout)
+        drives = []
+        for dev in data.get("blockdevices", []):
+            if dev.get("type") == "disk" and dev.get("tran") == "usb":
+                drives.append({
+                    "device": f"/dev/{dev['name']}",
+                    "size_bytes": int(dev.get("size") or 0),
+                    "model": (dev.get("model") or "Unknown USB Drive").strip(),
+                    "label": dev.get("label"),
+                })
+        emit({"type": "drives", "items": drives})
+    except Exception as exc:  # noqa: BLE001
+        emit({"type": "error", "message": str(exc)})
+        sys.exit(1)
+
+
 @cli.command("cartridge-provision")
 @click.option("--device", required=True, help="Block device path, e.g. /dev/sdb")
 @click.option("--label", required=True, help="New label, e.g. PHOTON-002")
