@@ -135,6 +135,18 @@ def provision_cartridge(
     _emit("wiping", 1, 5)
     wiped = False
     if not dry_run:
+        # Unmount device and all partitions before wiping
+        real_device = str(Path(device).resolve())
+        for line in Path("/proc/mounts").read_text().splitlines():
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    resolved = str(Path(parts[0]).resolve())
+                    if resolved == real_device or resolved.startswith(real_device):
+                        subprocess.run(["sudo", "-n", "umount", parts[1]], check=False)
+                except (OSError, ValueError):
+                    pass
+
         subprocess.run(["sudo", "-n", "wipefs", "-a", device], check=False)
         if analysis.partition_device and Path(analysis.partition_device).exists():
             subprocess.run(["sudo", "-n", "wipefs", "-a", analysis.partition_device], check=False)
