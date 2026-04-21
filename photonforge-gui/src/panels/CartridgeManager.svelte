@@ -1,9 +1,84 @@
 <script lang="ts">
   import { deviceState } from "../stores/devices";
-  import { listCartridges, reformatCartridge, type CartridgeInfo, type SidecarEvent } from "../lib/sidecar";
+  import { listCartridges, provisionCartridge, reformatCartridge, type CartridgeInfo, type ProvisionEvent, type SidecarEvent } from "../lib/sidecar";
 
   let cartridges: CartridgeInfo[] = [];
   let loading = false;
+
+  // Provision state
+  let availableDrives: { device: string; size: string; status: string }[] = [];
+  let showProvisionSheet = false;
+  let provisionTarget: { device: string; size: string } | null = null;
+  let provisionLabel = "";
+  let provisionForceRepartition = false;
+  let provisionDryRun = false;
+  let provisionRunning = false;
+  let provisionStep = "";
+  let provisionCurrent = 0;
+  let provisionTotal = 5;
+  let provisionError = "";
+
+  $: nextId = calculateNextId(cartridges);
+
+  function calculateNextId(carts: CartridgeInfo[]): string {
+    const existing = carts.map((c) => {
+      const match = c.label.match(/PHOTON-(\d{3})/);
+      return match ? parseInt(match[1], 10) : 0;
+    });
+    for (let i = 1; i < 1000; i++) {
+      if (!existing.includes(i)) return `PHOTON-${String(i).padStart(3, "0")}`;
+    }
+    return "PHOTON-999";
+  }
+
+  function openProvision(drive: { device: string; size: string }) {
+    provisionTarget = drive;
+    provisionLabel = nextId;
+    provisionForceRepartition = false;
+    provisionDryRun = false;
+    provisionError = "";
+    showProvisionSheet = true;
+  }
+
+  function closeProvision() {
+    showProvisionSheet = false;
+    provisionTarget = null;
+    provisionRunning = false;
+    provisionStep = "";
+    provisionError = "";
+  }
+
+  async function confirmProvision() {
+    if (!provisionTarget) return;
+    provisionRunning = true;
+    provisionError = "";
+
+    try {
+      await provisionCartridge(
+        provisionTarget.device,
+        provisionLabel,
+        provisionForceRepartition,
+        provisionDryRun,
+        (event: ProvisionEvent) => {
+          if (event.type === "progress") {
+            provisionStep = event.step;
+            provisionCurrent = event.current;
+            provisionTotal = event.total;
+          } else if (event.type === "provision_done") {
+            provisionRunning = false;
+            closeProvision();
+            fetchCartridges();
+          } else if (event.type === "error") {
+            provisionError = event.message;
+            provisionRunning = false;
+          }
+        },
+      );
+    } catch (err) {
+      provisionError = err instanceof Error ? err.message : String(err);
+      provisionRunning = false;
+    }
+  }
 
   // Reformat state
   let reformatTarget: CartridgeInfo | null = null;
@@ -100,6 +175,71 @@
           </button>
         </div>
       {/each}
+    </div>
+  {/if}
+
+  {#if availableDrives.length > 0}
+    <div class="available-drives-section">
+      <h3>Available Drives</h3>
+      <div class="drive-list">
+        {#each availableDrives as drive}
+          <div class="drive-card">
+            <div class="drive-info">
+              <span class="device-path">{drive.device}</span>
+              <span class="drive-size">{drive.size}</span>
+              <span class="drive-status">{drive.status}</span>
+            </div>
+            <button class="provision-btn" on:click={() => openProvision(drive)}>
+              Provision as {nextId}
+            </button>
+          </div>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  {#if showProvisionSheet}
+    <div class="sheet-overlay" role="dialog" aria-modal="true">
+      <div class="sheet">
+        {#if provisionRunning}
+          <h3>Provisioning {provisionLabel}…</h3>
+          <p class="muted">{provisionStep}</p>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: {(provisionCurrent / provisionTotal) * 100}%"></div>
+          </div>
+          <p class="progress-text">{provisionCurrent} / {provisionTotal}</p>
+          <button class="cancel-btn" on:click={closeProvision}>Cancel</button>
+        {:else}
+          <h3>Provision New Cartridge</h3>
+          {#if provisionTarget}
+            <p>Device: <code>{provisionTarget.device}</code></p>
+            <p>Size: {provisionTarget.size}</p>
+          {/if}
+          {#if provisionError}
+            <p class="error">{provisionError}</p>
+          {/if}
+          <div class="form-group">
+            <label for="provision-label">Label:</label>
+            <input id="provision-label" bind:value={provisionLabel} placeholder="PHOTON-001" />
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" bind:checked={provisionForceRepartition} />
+              Force repartition (erase existing data)
+            </label>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" bind:checked={provisionDryRun} />
+              Dry run (simulate without touching disk)
+            </label>
+          </div>
+          <div class="sheet-actions">
+            <button class="cancel-btn" on:click={closeProvision}>Cancel</button>
+            <button class="primary-btn" on:click={confirmProvision}>Start Provisioning</button>
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 
@@ -211,4 +351,38 @@
     border: none; border-radius: 0.375rem; cursor: pointer;
   }
   .danger-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .primary-btn {
+    flex: 1; padding: 0.75rem;
+    background: var(--accent, #6366f1); color: #fff;
+    border: none; border-radius: 0.375rem; cursor: pointer;
+  }
+  .available-drives-section {
+    margin-top: 2rem;
+    border-top: 1px solid var(--border, #333);
+    padding-top: 1rem;
+  }
+  .available-drives-section h3 { color: var(--text-primary, #fff); margin: 0 0 1rem 0; }
+  .drive-list { display: flex; flex-direction: column; gap: 0.75rem; }
+  .drive-card {
+    background: var(--surface, #1a1a1a);
+    border-radius: 0.5rem; padding: 1rem;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .drive-info { display: flex; flex-direction: column; gap: 0.25rem; }
+  .device-path { color: var(--text-primary, #fff); font-family: monospace; font-size: 0.9rem; }
+  .drive-size { color: var(--text-muted, #888); font-size: 0.85rem; }
+  .drive-status { color: var(--warning, #f59e0b); font-size: 0.8rem; }
+  .provision-btn {
+    padding: 0.5rem 1rem;
+    background: var(--accent, #6366f1); color: #fff;
+    border: none; border-radius: 0.375rem; cursor: pointer; font-size: 0.9rem;
+  }
+  .form-group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .form-group label { color: var(--text-muted, #888); font-size: 0.9rem; }
+  .form-group input[type="checkbox"] { margin-right: 0.5rem; }
+  .progress-bar {
+    height: 6px; background: var(--border, #333); border-radius: 3px; overflow: hidden;
+  }
+  .progress-fill { height: 100%; background: var(--accent, #6366f1); transition: width 0.3s; }
+  .progress-text { color: var(--text-muted, #888); font-size: 0.9rem; text-align: center; }
 </style>
