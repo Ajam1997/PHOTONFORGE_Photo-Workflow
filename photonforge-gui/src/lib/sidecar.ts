@@ -90,23 +90,12 @@ export async function listCartridges(): Promise<CartridgeInfo[]> {
   const cmd = Command.sidecar("binaries/photo-workflow-sidecar", [
     "cartridge-list",
   ]);
-
-  return new Promise((resolve, reject) => {
-    let output = "";
-    cmd.stdout.on("data", (chunk: string) => { output += chunk; });
-    cmd.on("close", () => {
-      for (const line of output.split("\n")) {
-        const event = parseLine(line.trim());
-        if (event?.type === "cartridges") {
-          resolve(event.items);
-          return;
-        }
-      }
-      resolve([]);
-    });
-    cmd.on("error", reject);
-    cmd.spawn().catch(reject);
-  });
+  const result = await cmd.execute();
+  for (const line of result.stdout.split("\n")) {
+    const event = parseLine(line.trim());
+    if (event?.type === "cartridges") return event.items;
+  }
+  return [];
 }
 
 export async function reformatCartridge(

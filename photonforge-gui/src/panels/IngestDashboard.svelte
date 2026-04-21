@@ -1,17 +1,11 @@
 <script lang="ts">
   import { deviceState } from "../stores/devices";
-  import { runIngest, type SidecarEvent, type DoneEvent } from "../lib/sidecar";
-  import type { Command } from "@tauri-apps/plugin-shell";
+  import { ingestState, resetIngest } from "../stores/ingest";
+  import { runIngest, type SidecarEvent } from "../lib/sidecar";
 
-  type IngestState = "idle" | "running" | "done";
-
-  let state: IngestState = "idle";
-  let step = "";
-  let current = 0;
-  let total = 0;
-  let summary: DoneEvent["summary"] | null = null;
-  let activeCmd: Command<string> | null = null;
-  let errorMsg = "";
+  $: canStart = $deviceState.sd_mounted && $deviceState.ssd_mounted;
+  $: sourceLabel = $deviceState.sd_path ?? "No SD card";
+  $: destLabel = $deviceState.ssd_label ?? "No cartridge";
 
   const STEP_LABELS: Record<string, string> = {
     copying: "Copying files",
@@ -21,55 +15,48 @@
     formatting: "Formatting cartridge",
   };
 
-  $: canStart = $deviceState.sd_mounted && $deviceState.ssd_mounted;
-  $: sourceLabel = $deviceState.sd_path ?? "No SD card";
-  $: destLabel = $deviceState.ssd_label ?? "No cartridge";
-
   async function startIngest() {
     if (!canStart) return;
     const sd = $deviceState.sd_path!;
     const ssd = $deviceState.ssd_mount_point!;
     const db = `${ssd}/library.db`;
 
-    state = "running";
-    step = "copying";
-    current = 0;
-    total = 0;
-    errorMsg = "";
-    summary = null;
+    ingestState.update(s => ({
+      ...s,
+      phase: "running",
+      step: "copying",
+      current: 0,
+      total: 0,
+      errorMsg: "",
+      summary: null,
+      activeCmd: null,
+    }));
 
-    activeCmd = await runIngest(sd, ssd, db, (event: SidecarEvent) => {
-      if (event.type === "progress") {
-        step = event.step;
-        current = event.current;
-        total = event.total;
-      } else if (event.type === "done") {
-        summary = event.summary;
-        state = "done";
-        activeCmd = null;
-      } else if (event.type === "error") {
-        errorMsg = event.message;
-        state = "idle";
-        activeCmd = null;
-      }
-    });
+    try {
+      const cmd = await runIngest(sd, ssd, db, (event: SidecarEvent) => {
+        if (event.type === "progress") {
+          ingestState.update(s => ({ ...s, step: event.step, current: event.current, total: event.total }));
+        } else if (event.type === "done") {
+          ingestState.update(s => ({ ...s, phase: "done", summary: event.summary, activeCmd: null }));
+        } else if (event.type === "error") {
+          ingestState.update(s => ({ ...s, phase: "idle", errorMsg: event.message, activeCmd: null }));
+        }
+      });
+      ingestState.update(s => ({ ...s, activeCmd: cmd }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      ingestState.update(s => ({ ...s, phase: "idle", errorMsg: `Failed to start: ${msg}`, activeCmd: null }));
+    }
   }
 
   function cancelIngest() {
-    activeCmd?.kill().catch(() => {});
-    activeCmd = null;
-    state = "idle";
-  }
-
-  function reset() {
-    state = "idle";
-    summary = null;
-    errorMsg = "";
+    $ingestState.activeCmd?.kill().catch(() => {});
+    ingestState.update(s => ({ ...s, phase: "idle", activeCmd: null }));
   }
 </script>
 
 <div class="ingest-panel">
-  {#if state === "idle"}
+  {#if $ingestState.phase === "idle"}
     <div class="idle-view">
       <h2>Ingest Photos</h2>
       <div class="device-row">
@@ -84,37 +71,37 @@
           {$deviceState.ssd_mounted ? destLabel : "No cartridge mounted"}
         </span>
       </div>
-      {#if errorMsg}
-        <p class="error">{errorMsg}</p>
+      {#if $ingestState.errorMsg}
+        <p class="error">{$ingestState.errorMsg}</p>
       {/if}
       <button class="primary-btn" disabled={!canStart} on:click={startIngest}>
         Start Ingest
       </button>
     </div>
 
-  {:else if state === "running"}
+  {:else if $ingestState.phase === "running"}
     <div class="running-view">
-      <h2>{STEP_LABELS[step] ?? step}…</h2>
-      <p class="progress-numbers">{current} / {total}</p>
+      <h2>{STEP_LABELS[$ingestState.step] ?? $ingestState.step}…</h2>
+      <p class="progress-numbers">{$ingestState.current} / {$ingestState.total}</p>
       <div class="progress-bar">
         <div
           class="progress-fill"
-          style="width: {total > 0 ? (current / total) * 100 : 0}%"
+          style="width: {$ingestState.total > 0 ? ($ingestState.current / $ingestState.total) * 100 : 0}%"
         ></div>
       </div>
       <button class="cancel-btn" on:click={cancelIngest}>Cancel</button>
     </div>
 
-  {:else if state === "done" && summary}
+  {:else if $ingestState.phase === "done" && $ingestState.summary}
     <div class="done-view">
       <h2>Ingest Complete</h2>
       <div class="summary-card">
-        <div class="summary-row"><span>Total files</span><strong>{summary.total}</strong></div>
-        <div class="summary-row"><span>Duplicates skipped</span><strong>{summary.duplicates_skipped}</strong></div>
-        <div class="summary-row"><span>Images scored</span><strong>{summary.scored}</strong></div>
-        <div class="summary-row"><span>Elapsed</span><strong>{summary.elapsed_seconds.toFixed(1)}s</strong></div>
+        <div class="summary-row"><span>Total files</span><strong>{$ingestState.summary.total}</strong></div>
+        <div class="summary-row"><span>Duplicates skipped</span><strong>{$ingestState.summary.duplicates_skipped}</strong></div>
+        <div class="summary-row"><span>Images scored</span><strong>{$ingestState.summary.scored}</strong></div>
+        <div class="summary-row"><span>Elapsed</span><strong>{$ingestState.summary.elapsed_seconds.toFixed(1)}s</strong></div>
       </div>
-      <button class="primary-btn" on:click={reset}>New Ingest</button>
+      <button class="primary-btn" on:click={resetIngest}>New Ingest</button>
     </div>
   {/if}
 </div>

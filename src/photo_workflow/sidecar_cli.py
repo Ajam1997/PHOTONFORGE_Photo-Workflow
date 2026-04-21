@@ -11,7 +11,7 @@ import click
 
 from photo_workflow.cartridge import detect_cartridges
 
-PHOTO_EXTS = {".jpg", ".jpeg", ".png", ".tiff", ".tif", ".raw", ".cr2", ".cr3", ".nef", ".arw", ".dng"}
+RAW_EXTS = {".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf", ".rw2", ".orf", ".pef", ".srw", ".3fr", ".mef"}
 
 
 def emit(obj: dict) -> None:
@@ -37,26 +37,32 @@ def ingest(source: str, output: str, db: str) -> None:
     try:
         start = time.monotonic()
 
-        # Scan source for photo files to know the total upfront.
+        # Scan source for RAW files. Look inside DCIM/ first (camera card standard).
         emit({"type": "progress", "step": "copying", "current": 0, "total": 0, "message": "Scanning…"})
-        all_photos = [
-            f for f in source_path.rglob("*")
-            if f.is_file() and f.suffix.lower() in PHOTO_EXTS
+        dcim_path = source_path / "DCIM"
+        scan_root = dcim_path if dcim_path.is_dir() else source_path
+        all_raws = [
+            f for f in scan_root.rglob("*")
+            if f.is_file() and f.suffix.lower() in RAW_EXTS
         ]
-        total = len(all_photos)
-        emit({"type": "progress", "step": "copying", "current": 0, "total": total, "message": f"Found {total} photos"})
+        total = len(all_raws)
+        emit({"type": "progress", "step": "copying", "current": 0, "total": total, "message": f"Found {total} RAW files"})
+
+        if total == 0:
+            elapsed = time.monotonic() - start
+            emit({"type": "done", "summary": {"total": 0, "duplicates_skipped": 0, "scored": 0, "xmp_written": 0, "db_upserted": 0, "elapsed_seconds": round(elapsed, 2)}})
+            return
 
         output_path.mkdir(parents=True, exist_ok=True)
 
-        # Build rsync command with --itemize-changes so each transferred file
-        # prints one line of output we can count for live progress.
+        # rsync with --itemize-changes for per-file progress, RAW extensions only.
         cmd = [
-            "rsync", "--archive", "--checksum", "--itemize-changes",
+            "rsync", "--archive", "--itemize-changes",
             "--include=*/",
         ]
-        for ext in PHOTO_EXTS:
+        for ext in RAW_EXTS:
             cmd += [f"--include=*{ext}", f"--include=*{ext.upper()}"]
-        cmd += ["--exclude=*", "--", str(source_path) + "/", str(output_path) + "/"]
+        cmd += ["--exclude=*", "--", str(scan_root) + "/", str(output_path) + "/"]
 
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         current = 0
@@ -121,8 +127,16 @@ def cartridge_reformat(device: str, label: str, dry_run: bool) -> None:
     try:
         emit({"type": "progress", "step": "formatting", "current": 0, "total": 1, "message": device})
         if not dry_run:
+            # Resolve symlink (e.g. /dev/disk/by-label/PHOTON-001 → /dev/sdc1).
+            real_device = str(Path(device).resolve())
+            # Unmount every mount point that uses this device (requires root via sudo).
+            for line in Path("/proc/mounts").read_text().splitlines():
+                parts = line.split()
+                if len(parts) >= 2 and str(Path(parts[0]).resolve()) == real_device:
+                    subprocess.run(["sudo", "-n", "umount", parts[1]], check=False)
+
             result = subprocess.run(
-                ["mkfs.ext4", "-L", label, "-F", device],
+                ["sudo", "-n", "mkfs.ext4", "-L", label, "-F", real_device],
                 capture_output=True,
                 text=True,
                 check=False,

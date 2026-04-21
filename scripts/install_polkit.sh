@@ -11,10 +11,13 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 cat > "$POLKIT_RULE" << 'EOF'
-// Allow photo-workflow-sidecar to run mkfs.ext4 without a password.
+// Allow photo-workflow-sidecar to reformat cartridges without a password.
+// Covers: unmount (to clear existing mounts) and mkfs.ext4 (to reformat).
 polkit.addRule(function(action, subject) {
     if (action.id === "org.freedesktop.policykit.exec" &&
-        action.lookup("program") === "/sbin/mkfs.ext4" &&
+        (action.lookup("program") === "/sbin/mkfs.ext4" ||
+         action.lookup("program") === "/bin/umount" ||
+         action.lookup("program") === "/usr/bin/umount") &&
         subject.user === "alex") {
         return polkit.Result.YES;
     }
