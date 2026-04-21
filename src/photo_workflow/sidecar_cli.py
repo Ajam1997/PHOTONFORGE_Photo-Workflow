@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -20,6 +21,23 @@ RAW_EXTS = {".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf", ".rw2", ".orf", ".pe
 
 def emit(obj: dict) -> None:
     print(json.dumps(obj), flush=True)
+
+
+def _eject_sd(mount_point: str) -> None:
+    """Resolve SD card block device from mount point and power it off. Non-fatal."""
+    try:
+        device = None
+        for line in Path("/proc/mounts").read_text().splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[1] == mount_point:
+                device = parts[0]
+                break
+        if not device:
+            return
+        disk = re.sub(r"p?\d+$", "", device)
+        subprocess.run(["udisksctl", "power-off", "-b", disk], check=False)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 @click.group()
