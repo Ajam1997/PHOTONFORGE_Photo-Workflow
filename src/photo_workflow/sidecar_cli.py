@@ -15,6 +15,14 @@ from photo_workflow.provision import (
     next_available_cartridge_id,
     provision_cartridge,
 )
+from photo_workflow.grouping import cluster_sessions
+from photo_workflow.dedup import deduplicate
+from photo_workflow.sharpness import score_sharpness
+from photo_workflow.composition import score_composition
+from photo_workflow.exposure import score_exposure
+from photo_workflow.naming import generate_name
+from photo_workflow.darktable_bridge import sync_to_darktable
+from photo_workflow.pipeline import PhotoRecord
 
 RAW_EXTS = {".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf", ".rw2", ".orf", ".pef", ".srw", ".3fr", ".mef"}
 
@@ -49,67 +57,123 @@ def cli() -> None:
 @click.option("--source", required=True, help="Source mount path (SD card)")
 @click.option("--output", required=True, help="Destination mount path (SSD)")
 @click.option("--db", required=True, help="Path to library.db on SSD")
-def ingest(source: str, output: str, db: str) -> None:
-    """Ingest photos from SD to SSD, streaming progress events."""
-    # NOTE: db is accepted for interface completeness but the darktable bridge
-    # wiring is deferred to a later stage. db_upserted will be 0 until then.
+@click.option("--model-dir", default="models/florence2_int8", show_default=True, help="Florence-2 model directory")
+@click.option("--skip-dedup", is_flag=True, default=False)
+@click.option("--skip-scoring", is_flag=True, default=False)
+@click.option("--skip-naming", is_flag=True, default=False)
+@click.option("--skip-darktable", is_flag=True, default=False)
+def ingest(
+    source: str,
+    output: str,
+    db: str,
+    model_dir: str,
+    skip_dedup: bool,
+    skip_scoring: bool,
+    skip_naming: bool,
+    skip_darktable: bool,
+) -> None:
+    """Ingest photos from SD to SSD and run the full analysis pipeline."""
     source_path = Path(source)
     output_path = Path(output)
 
     try:
         start = time.monotonic()
 
-        # Scan source for RAW files. Look inside DCIM/ first (camera card standard).
+        # ── Copy ──────────────────────────────────────────────────────────────
         emit({"type": "progress", "step": "copying", "current": 0, "total": 0, "message": "Scanning…"})
         dcim_path = source_path / "DCIM"
         scan_root = dcim_path if dcim_path.is_dir() else source_path
-        all_raws = [
-            f for f in scan_root.rglob("*")
-            if f.is_file() and f.suffix.lower() in RAW_EXTS
-        ]
+        all_raws = [f for f in scan_root.rglob("*") if f.is_file() and f.suffix.lower() in RAW_EXTS]
         total = len(all_raws)
         emit({"type": "progress", "step": "copying", "current": 0, "total": total, "message": f"Found {total} RAW files"})
 
-        if total == 0:
+        copied_paths: list[Path] = []
+
+        if total > 0:
+            output_path.mkdir(parents=True, exist_ok=True)
+            cmd = ["rsync", "--archive", "--itemize-changes", "--include=*/"]
+            for ext in RAW_EXTS:
+                cmd += [f"--include=*{ext}", f"--include=*{ext.upper()}"]
+            cmd += ["--exclude=*", "--", str(scan_root) + "/", str(output_path) + "/"]
+
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for line in proc.stdout:  # type: ignore[union-attr]
+                line = line.rstrip()
+                if line and not line.startswith("cd"):
+                    fname = line[10:].strip() if len(line) > 10 else line
+                    dest = output_path / fname
+                    if dest.suffix.lower() in RAW_EXTS:
+                        copied_paths.append(dest)
+                    emit({"type": "progress", "step": "copying", "current": len(copied_paths), "total": total, "message": fname})
+            proc.wait()
+            if proc.returncode != 0:
+                stderr = proc.stderr.read() if proc.stderr else ""  # type: ignore[union-attr]
+                raise RuntimeError(stderr.strip() or f"rsync exited {proc.returncode}")
+
+        emit({"type": "stage_done", "stage": "copy", "copied": len(copied_paths)})
+
+        # Eject SD immediately — non-blocking, non-fatal
+        _eject_sd(source)
+        emit({"type": "sd_ejected"})
+
+        if not copied_paths:
             elapsed = time.monotonic() - start
-            emit({"type": "done", "summary": {"total": 0, "duplicates_skipped": 0, "scored": 0, "xmp_written": 0, "db_upserted": 0, "elapsed_seconds": round(elapsed, 2)}})
+            emit({"type": "done", "summary": {"total": 0, "duplicates_skipped": 0, "scored": 0, "named": 0, "xmp_written": 0, "db_upserted": 0, "elapsed_seconds": round(elapsed, 2)}})
             return
 
-        output_path.mkdir(parents=True, exist_ok=True)
+        records = [PhotoRecord(path=p, metadata={"original_filename": p.name}) for p in copied_paths]
 
-        # rsync with --itemize-changes for per-file progress, RAW extensions only.
-        cmd = [
-            "rsync", "--archive", "--itemize-changes",
-            "--include=*/",
-        ]
-        for ext in RAW_EXTS:
-            cmd += [f"--include=*{ext}", f"--include=*{ext.upper()}"]
-        cmd += ["--exclude=*", "--", str(scan_root) + "/", str(output_path) + "/"]
+        # Session grouping always runs (prereq for dedup, fast)
+        records = cluster_sessions(records)
 
-        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        current = 0
-        for line in proc.stdout:  # type: ignore[union-attr]
-            line = line.rstrip()
-            # itemize-changes lines start with status flags then filename, e.g. ">f+++++++++ DSC_0001.ARW"
-            if line and not line.startswith("cd"):
-                current += 1
-                fname = line[10:].strip() if len(line) > 10 else line
-                emit({"type": "progress", "step": "copying", "current": current, "total": total, "message": fname})
+        # ── Dedup ─────────────────────────────────────────────────────────────
+        dupes_found = 0
+        if not skip_dedup:
+            emit({"type": "progress", "step": "dedup", "current": 0, "total": len(records), "message": f"Analysing {len(records)} files…"})
+            records = deduplicate(records)
+            dupes_found = sum(1 for r in records if r.is_duplicate)
+            emit({"type": "stage_done", "stage": "dedup", "dupes_found": dupes_found})
 
-        proc.wait()
-        if proc.returncode != 0:
-            stderr = proc.stderr.read() if proc.stderr else ""  # type: ignore[union-attr]
-            raise RuntimeError(stderr.strip() or f"rsync exited {proc.returncode}")
+        active = [r for r in records if not r.is_duplicate]
+
+        # ── Scoring ───────────────────────────────────────────────────────────
+        scored = 0
+        if not skip_scoring:
+            for i, record in enumerate(active):
+                record.sharpness_score = score_sharpness(record.path)
+                record.composition_score = score_composition(record.path)
+                record.exposure_score = score_exposure(record.path)
+                scored += 1
+                emit({"type": "progress", "step": "scoring", "current": i + 1, "total": len(active), "message": record.path.name})
+            emit({"type": "stage_done", "stage": "scoring", "scored": scored})
+
+        # ── Naming ────────────────────────────────────────────────────────────
+        named = 0
+        if not skip_naming:
+            model_path = Path(model_dir)
+            for i, record in enumerate(active):
+                record.semantic_name = generate_name(record.path, model_dir=model_path)
+                named += 1
+                emit({"type": "progress", "step": "naming", "current": i + 1, "total": len(active), "message": record.path.name})
+            emit({"type": "stage_done", "stage": "naming", "named": named})
+
+        # ── Darktable sync ────────────────────────────────────────────────────
+        xmp_written = 0
+        db_upserted = 0
+        if not skip_darktable:
+            xmp_written, db_upserted = sync_to_darktable(records, db_path=Path(db))
+            emit({"type": "stage_done", "stage": "darktable", "xmp_written": xmp_written, "db_upserted": db_upserted})
 
         elapsed = time.monotonic() - start
         emit({
             "type": "done",
             "summary": {
-                "total": current if current > 0 else total,
-                "duplicates_skipped": max(0, total - current),
-                "scored": 0,
-                "xmp_written": 0,
-                "db_upserted": 0,
+                "total": len(records),
+                "duplicates_skipped": dupes_found,
+                "scored": scored,
+                "named": named,
+                "xmp_written": xmp_written,
+                "db_upserted": db_upserted,
                 "elapsed_seconds": round(elapsed, 2),
             },
         })

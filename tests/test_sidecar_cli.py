@@ -52,9 +52,24 @@ def test_cartridge_list_emits_cartridges_event_and_exits_zero() -> None:
 
 def test_ingest_emits_progress_and_done_events(tmp_path: Path) -> None:
     """ingest streams progress and done events, exits 0."""
-    fake_files = [tmp_path / "DSC_0001.ARW", tmp_path / "DSC_0002.ARW"]
+    fake_paths = [tmp_path / "DSC_0001.ARW", tmp_path / "DSC_0002.ARW"]
+    for p in fake_paths:
+        p.write_bytes(b"x")
+    records = _fake_records(fake_paths)
+
     runner = CliRunner()
-    with patch("photo_workflow.sidecar_cli.ingest_volume", return_value=fake_files):
+    with patch("photo_workflow.sidecar_cli.subprocess.Popen", return_value=_make_mock_popen([
+            ">f+++++++++ DSC_0001.ARW\n",
+            ">f+++++++++ DSC_0002.ARW\n",
+        ])), \
+         patch("photo_workflow.sidecar_cli._eject_sd"), \
+         patch("photo_workflow.sidecar_cli.cluster_sessions", return_value=records), \
+         patch("photo_workflow.sidecar_cli.deduplicate", return_value=records), \
+         patch("photo_workflow.sidecar_cli.score_sharpness", return_value=0.8), \
+         patch("photo_workflow.sidecar_cli.score_composition", return_value=0.7), \
+         patch("photo_workflow.sidecar_cli.score_exposure", return_value=0.9), \
+         patch("photo_workflow.sidecar_cli.generate_name", return_value="slug"), \
+         patch("photo_workflow.sidecar_cli.sync_to_darktable", return_value=(2, 2)):
         result = runner.invoke(cli, [
             "ingest",
             "--source", str(tmp_path),
@@ -62,7 +77,7 @@ def test_ingest_emits_progress_and_done_events(tmp_path: Path) -> None:
             "--db", str(tmp_path / "library.db"),
         ])
 
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     events = parse_events(result.output)
     types = [e["type"] for e in events]
     assert "progress" in types
@@ -117,6 +132,97 @@ def test_eject_sd_is_silent_when_mount_not_found() -> None:
         _eject_sd("/media/alex/NONEXISTENT")
 
     mock_run.assert_not_called()
+
+
+from unittest.mock import MagicMock
+from photo_workflow.pipeline import PhotoRecord
+
+
+def _make_mock_popen(rsync_lines: list[str]) -> MagicMock:
+    """Return a mock subprocess.Popen that yields rsync itemize-changes lines."""
+    mock_proc = MagicMock()
+    mock_proc.stdout = iter(rsync_lines)
+    mock_proc.stderr.read.return_value = ""
+    mock_proc.returncode = 0
+    mock_proc.wait.return_value = 0
+    return mock_proc
+
+
+def _fake_records(paths: list[Path]) -> list[PhotoRecord]:
+    return [PhotoRecord(path=p) for p in paths]
+
+
+def test_ingest_full_pipeline_emits_sd_ejected_and_all_stage_dones(tmp_path: Path) -> None:
+    """Full ingest emits sd_ejected and stage_done for each enabled stage."""
+    fake_paths = [tmp_path / "DSC_0001.ARW", tmp_path / "DSC_0002.ARW"]
+    for p in fake_paths:
+        p.write_bytes(b"x")
+
+    rsync_lines = [
+        ">f+++++++++ DSC_0001.ARW\n",
+        ">f+++++++++ DSC_0002.ARW\n",
+    ]
+    records = _fake_records(fake_paths)
+
+    runner = CliRunner()
+    with patch("photo_workflow.sidecar_cli.subprocess.Popen", return_value=_make_mock_popen(rsync_lines)), \
+         patch("photo_workflow.sidecar_cli._eject_sd"), \
+         patch("photo_workflow.sidecar_cli.cluster_sessions", return_value=records), \
+         patch("photo_workflow.sidecar_cli.deduplicate", return_value=records), \
+         patch("photo_workflow.sidecar_cli.score_sharpness", return_value=0.8), \
+         patch("photo_workflow.sidecar_cli.score_composition", return_value=0.7), \
+         patch("photo_workflow.sidecar_cli.score_exposure", return_value=0.9), \
+         patch("photo_workflow.sidecar_cli.generate_name", return_value="golden-sunset"), \
+         patch("photo_workflow.sidecar_cli.sync_to_darktable", return_value=(2, 2)):
+        result = runner.invoke(cli, [
+            "ingest",
+            "--source", str(tmp_path),
+            "--output", str(tmp_path),
+            "--db", str(tmp_path / "library.db"),
+        ])
+
+    assert result.exit_code == 0, result.output
+    events = parse_events(result.output)
+    types = [e["type"] for e in events]
+    assert "sd_ejected" in types
+    stage_dones = {e["stage"] for e in events if e["type"] == "stage_done"}
+    assert stage_dones == {"copy", "dedup", "scoring", "naming", "darktable"}
+    done = next(e for e in events if e["type"] == "done")
+    assert done["summary"]["total"] == 2
+    assert done["summary"]["named"] == 2
+    assert done["summary"]["xmp_written"] == 2
+
+
+def test_ingest_skip_naming_and_darktable_omits_those_stage_dones(tmp_path: Path) -> None:
+    """--skip-naming --skip-darktable produces no naming/darktable stage_done events."""
+    fake_paths = [tmp_path / "DSC_0001.ARW"]
+    fake_paths[0].write_bytes(b"x")
+    records = _fake_records(fake_paths)
+
+    runner = CliRunner()
+    with patch("photo_workflow.sidecar_cli.subprocess.Popen", return_value=_make_mock_popen([">f+++++++++ DSC_0001.ARW\n"])), \
+         patch("photo_workflow.sidecar_cli._eject_sd"), \
+         patch("photo_workflow.sidecar_cli.cluster_sessions", return_value=records), \
+         patch("photo_workflow.sidecar_cli.deduplicate", return_value=records), \
+         patch("photo_workflow.sidecar_cli.score_sharpness", return_value=0.8), \
+         patch("photo_workflow.sidecar_cli.score_composition", return_value=0.7), \
+         patch("photo_workflow.sidecar_cli.score_exposure", return_value=0.9):
+        result = runner.invoke(cli, [
+            "ingest",
+            "--source", str(tmp_path),
+            "--output", str(tmp_path),
+            "--db", str(tmp_path / "library.db"),
+            "--skip-naming",
+            "--skip-darktable",
+        ])
+
+    assert result.exit_code == 0, result.output
+    events = parse_events(result.output)
+    stage_dones = {e["stage"] for e in events if e["type"] == "stage_done"}
+    assert "naming" not in stage_dones
+    assert "darktable" not in stage_dones
+    assert "copy" in stage_dones
+    assert "scoring" in stage_dones
 
 
 def test_cartridge_reformat_dry_run_emits_reformat_done_without_mkfs(tmp_path: Path) -> None:
