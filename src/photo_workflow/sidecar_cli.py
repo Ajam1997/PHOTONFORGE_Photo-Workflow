@@ -10,6 +10,10 @@ from pathlib import Path
 import click
 
 from photo_workflow.cartridge import detect_cartridges
+from photo_workflow.provision import (
+    next_available_cartridge_id,
+    provision_cartridge,
+)
 
 RAW_EXTS = {".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf", ".rw2", ".orf", ".pef", ".srw", ".3fr", ".mef"}
 
@@ -147,6 +151,38 @@ def cartridge_reformat(device: str, label: str, dry_run: bool) -> None:
         mount_point = f"/mnt/photon_ssd/{suffix}"
         emit({"type": "progress", "step": "formatting", "current": 1, "total": 1, "message": ""})
         emit({"type": "reformat_done", "label": label, "mount_point": mount_point})
+    except Exception as exc:  # noqa: BLE001
+        emit({"type": "error", "message": str(exc)})
+        sys.exit(1)
+
+
+@cli.command("cartridge-provision")
+@click.option("--device", required=True, help="Block device path, e.g. /dev/sdb")
+@click.option("--label", required=True, help="New label, e.g. PHOTON-002")
+@click.option("--force-repartition", is_flag=True, default=False, help="Force repartition even if partitions exist")
+@click.option("--dry-run", is_flag=True, default=False, help="Simulate without touching disk")
+def cartridge_provision(device: str, label: str, force_repartition: bool, dry_run: bool) -> None:
+    """Provision a new PHOTON cartridge with partition, format, and init."""
+    try:
+        def progress_cb(step: str, current: int, total: int) -> None:
+            emit({"type": "progress", "step": step, "current": current, "total": total, "message": step})
+
+        result = provision_cartridge(
+            device=device,
+            label=label,
+            force_repartition=force_repartition,
+            dry_run=dry_run,
+            progress_cb=progress_cb,
+        )
+
+        emit({
+            "type": "provision_done",
+            "label": result.label,
+            "device": result.device,
+            "mount_point": result.mount_point,
+            "created_partition": result.created_partition,
+            "wiped_signatures": result.wiped_signatures,
+        })
     except Exception as exc:  # noqa: BLE001
         emit({"type": "error", "message": str(exc)})
         sys.exit(1)
