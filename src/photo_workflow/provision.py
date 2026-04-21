@@ -143,7 +143,7 @@ def provision_cartridge(
                 try:
                     resolved = str(Path(parts[0]).resolve())
                     if resolved == real_device or resolved.startswith(real_device):
-                        subprocess.run(["sudo", "-n", "umount", parts[1]], check=False)
+                        subprocess.run(["sudo", "-n", "umount", "-l", parts[1]], check=False)
                 except (OSError, ValueError):
                     pass
 
