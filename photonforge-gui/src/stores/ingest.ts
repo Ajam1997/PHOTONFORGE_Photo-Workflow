@@ -12,6 +12,8 @@ export interface IngestState {
   summary: DoneEvent["summary"] | null;
   errorMsg: string;
   activeCmd: Command<string> | null;
+  stageDone: Record<string, Record<string, unknown>>;
+  sdEjected: boolean;
 }
 
 const initial: IngestState = {
@@ -22,6 +24,8 @@ const initial: IngestState = {
   summary: null,
   errorMsg: "",
   activeCmd: null,
+  stageDone: {},
+  sdEjected: false,
 };
 
 export const ingestState = writable<IngestState>({ ...initial });

@@ -14,6 +14,7 @@ export interface DoneEvent {
     total: number;
     duplicates_skipped: number;
     scored: number;
+    named: number;
     xmp_written: number;
     db_upserted: number;
     elapsed_seconds: number;
@@ -34,6 +35,21 @@ export interface ReformatDoneEvent {
   type: "reformat_done";
   label: string;
   mount_point: string;
+}
+
+export interface StageDoneEvent {
+  type: "stage_done";
+  stage: "copy" | "dedup" | "scoring" | "naming" | "darktable";
+  copied?: number;
+  dupes_found?: number;
+  scored?: number;
+  named?: number;
+  xmp_written?: number;
+  db_upserted?: number;
+}
+
+export interface SdEjectedEvent {
+  type: "sd_ejected";
 }
 
 export interface ProvisionDoneEvent {
@@ -72,7 +88,9 @@ export type SidecarEvent =
   | ErrorEvent
   | CartridgesEvent
   | ReformatDoneEvent
-  | ProvisionDoneEvent;
+  | ProvisionDoneEvent
+  | StageDoneEvent
+  | SdEjectedEvent;
 
 function parseLine(line: string): SidecarEvent | null {
   try {
@@ -87,13 +105,22 @@ export async function runIngest(
   output: string,
   db: string,
   onEvent: (event: SidecarEvent) => void,
+  options: {
+    skipDedup?: boolean;
+    skipScoring?: boolean;
+    skipNaming?: boolean;
+    skipDarktable?: boolean;
+    modelDir?: string;
+  } = {},
 ): Promise<Command<string>> {
-  const cmd = Command.sidecar("binaries/photo-workflow-sidecar", [
-    "ingest",
-    "--source", source,
-    "--output", output,
-    "--db", db,
-  ]);
+  const args = ["ingest", "--source", source, "--output", output, "--db", db];
+  if (options.modelDir) args.push("--model-dir", options.modelDir);
+  if (options.skipDedup) args.push("--skip-dedup");
+  if (options.skipScoring) args.push("--skip-scoring");
+  if (options.skipNaming) args.push("--skip-naming");
+  if (options.skipDarktable) args.push("--skip-darktable");
+
+  const cmd = Command.sidecar("binaries/photo-workflow-sidecar", args);
 
   let buffer = "";
   cmd.stdout.on("data", (chunk: string) => {
