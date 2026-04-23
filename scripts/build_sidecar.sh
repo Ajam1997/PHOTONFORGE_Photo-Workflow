@@ -12,6 +12,12 @@ BINARY_NAME="photo-workflow-sidecar-x86_64-unknown-linux-gnu"
 
 cd "$REPO_ROOT"
 
+# Activate venv if present; otherwise rely on PATH having the right pip/pyinstaller
+if [ -f ".venv/bin/activate" ]; then
+  # shellcheck source=/dev/null
+  source .venv/bin/activate
+fi
+
 echo "Installing build dependencies..."
 pip install pyinstaller --quiet
 
