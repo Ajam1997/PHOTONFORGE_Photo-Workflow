@@ -18,7 +18,7 @@ export interface IngestState {
 
 const initial: IngestState = {
   phase: "idle",
-  step: "copying",
+  step: "copy",
   current: 0,
   total: 0,
   summary: null,

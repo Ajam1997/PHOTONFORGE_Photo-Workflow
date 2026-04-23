@@ -10,7 +10,7 @@
 
   // Stage definitions — order matches execution order
   const STAGE_DEFS = [
-    { key: "copying",   label: "Copy",           required: true  },
+    { key: "copy",      label: "Copy",           required: true  },
     { key: "dedup",     label: "Deduplication",  required: false },
     { key: "scoring",   label: "Scoring",        required: false },
     { key: "naming",    label: "AI Naming",      required: false },
@@ -31,7 +31,7 @@
   }
 
   function isEnabled(key: StageKey): boolean {
-    if (key === "copying") return true;
+    if (key === "copy") return true;
     return $pipelineSettings[key as keyof typeof $pipelineSettings] as boolean;
   }
 
@@ -53,7 +53,7 @@
   function stageMeta(entry: StageEntry): string {
     if (!entry.meta) return "";
     const m = entry.meta;
-    if (entry.key === "copying")   return `${m.copied ?? 0} files`;
+    if (entry.key === "copy")      return `${m.copied ?? 0} files`;
     if (entry.key === "dedup")     return `${m.dupes_found ?? 0} dupes removed`;
     if (entry.key === "scoring")   return `${m.scored ?? 0} scored`;
     if (entry.key === "naming")    return `${m.named ?? 0} named`;
@@ -77,7 +77,7 @@
     ingestState.update(s => ({
       ...s,
       phase: "running",
-      step: "copying",
+      step: "copy",
       current: 0,
       total: 0,
       errorMsg: "",

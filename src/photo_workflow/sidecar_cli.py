@@ -80,12 +80,12 @@ def ingest(
         start = time.monotonic()
 
         # ── Copy ──────────────────────────────────────────────────────────────
-        emit({"type": "progress", "step": "copying", "current": 0, "total": 0, "message": "Scanning…"})
+        emit({"type": "progress", "step": "copy", "current": 0, "total": 0, "message": "Scanning…"})
         dcim_path = source_path / "DCIM"
         scan_root = dcim_path if dcim_path.is_dir() else source_path
         all_raws = [f for f in scan_root.rglob("*") if f.is_file() and f.suffix.lower() in RAW_EXTS]
         total = len(all_raws)
-        emit({"type": "progress", "step": "copying", "current": 0, "total": total, "message": f"Found {total} RAW files"})
+        emit({"type": "progress", "step": "copy", "current": 0, "total": total, "message": f"Found {total} RAW files"})
 
         copied_paths: list[Path] = []
 
@@ -104,7 +104,7 @@ def ingest(
                     dest = output_path / fname
                     if dest.suffix.lower() in RAW_EXTS:
                         copied_paths.append(dest)
-                    emit({"type": "progress", "step": "copying", "current": len(copied_paths), "total": total, "message": fname})
+                    emit({"type": "progress", "step": "copy", "current": len(copied_paths), "total": total, "message": fname})
             proc.wait()
             if proc.returncode != 0:
                 stderr = proc.stderr.read() if proc.stderr else ""  # type: ignore[union-attr]
