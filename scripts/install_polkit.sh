@@ -1,29 +1,28 @@
 #!/usr/bin/env bash
-# One-time install: grant the sidecar binary passwordless permission to run mkfs.ext4.
+# One-time install: grant the sidecar passwordless sudo for disk operations.
 # Must be run as root (or via sudo) on the Yoga 910.
 set -euo pipefail
 
-POLKIT_RULE="/etc/polkit-1/rules.d/50-photonforge-reformat.rules"
+SUDOERS_FILE="/etc/sudoers.d/photonforge"
+SUDOERS_USER="${SUDO_USER:-alex}"
 
 if [[ $EUID -ne 0 ]]; then
   echo "Run this script as root: sudo bash scripts/install_polkit.sh" >&2
   exit 1
 fi
 
-cat > "$POLKIT_RULE" << 'EOF'
-// Allow photo-workflow-sidecar to reformat cartridges without a password.
-// Covers: unmount (to clear existing mounts) and mkfs.ext4 (to reformat).
-polkit.addRule(function(action, subject) {
-    if (action.id === "org.freedesktop.policykit.exec" &&
-        (action.lookup("program") === "/sbin/mkfs.ext4" ||
-         action.lookup("program") === "/bin/umount" ||
-         action.lookup("program") === "/usr/bin/umount") &&
-        subject.user === "alex") {
-        return polkit.Result.YES;
-    }
-});
-EOF
+# Write all commands on a single line — multi-line sudoers entries require \
+# continuation and are easy to get wrong.
+echo "${SUDOERS_USER} ALL=(ALL) NOPASSWD: /usr/sbin/parted *, /usr/sbin/wipefs *, /usr/sbin/mkfs.ext4 *, /usr/bin/udevadm *, /usr/bin/umount *" \
+  > "$SUDOERS_FILE"
+chmod 440 "$SUDOERS_FILE"
 
-chmod 644 "$POLKIT_RULE"
-echo "Polkit rule installed at $POLKIT_RULE"
-echo "Restart polkit to apply: systemctl restart polkit"
+# Validate before leaving — visudo -c exits non-zero if syntax is bad.
+if ! visudo -c -f "$SUDOERS_FILE"; then
+  echo "ERROR: sudoers syntax check failed — removing bad file" >&2
+  rm -f "$SUDOERS_FILE"
+  exit 1
+fi
+
+echo "Sudoers rule installed at $SUDOERS_FILE"
+echo "Test with: sudo -n mkfs.ext4 --help"
