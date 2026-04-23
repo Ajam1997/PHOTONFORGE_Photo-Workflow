@@ -22,4 +22,8 @@ MOUNT_POINT="/mnt/photon_ssd/${CARTRIDGE_ID}"
 DB_PATH="${MOUNT_POINT}/darktable/library.db"
 
 "$SCRIPT_DIR/safe_eject.sh" "$MOUNT_POINT" "$DB_PATH" >> "$LOG" 2>&1 || true
+
+# Remove the now-empty mount point so stale numbered dirs don't accumulate
+# in /mnt/photon_ssd/ when a drive is relabelled between provisions.
+rmdir "$MOUNT_POINT" 2>/dev/null || true
 log "SSD eject complete: $LABEL"
