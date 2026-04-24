@@ -6,7 +6,7 @@ description: >
   and Darktable SQLite bridge. Use for implementing FRs 1.2-1.8,
   writing tests, and optimizing for the i7-8550U AVX2 target.
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: sonnet
+model: haiku
 memory: project
 color: green
 ---
