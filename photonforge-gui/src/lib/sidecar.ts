@@ -90,7 +90,8 @@ export type SidecarEvent =
   | ReformatDoneEvent
   | ProvisionDoneEvent
   | StageDoneEvent
-  | SdEjectedEvent;
+  | SdEjectedEvent
+  | DrivesEvent;
 
 function parseLine(line: string): SidecarEvent | null {
   try {

@@ -95,7 +95,7 @@ describe("IngestDashboard", () => {
     vi.mocked(runIngest).mockImplementation(async (_s, _o, _d, cb) => {
       setTimeout(() => cb({
         type: "done",
-        summary: { total: 150, duplicates_skipped: 8, scored: 142, xmp_written: 142, db_upserted: 142, elapsed_seconds: 47.2 },
+        summary: { total: 150, duplicates_skipped: 8, scored: 142, named: 142, xmp_written: 142, db_upserted: 142, elapsed_seconds: 47.2 },
       }), 0);
       return { kill: vi.fn() } as any;
     });

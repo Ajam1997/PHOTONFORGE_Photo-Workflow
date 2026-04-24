@@ -33,7 +33,7 @@ describe("deviceState store", () => {
 
   it("can be set to mounted state", async () => {
     const { deviceState } = await import("./devices");
-    deviceState.set({ ssd_mounted: true, ssd_label: "PHOTON-001", sd_mounted: true });
+    deviceState.set({ ssd_mounted: true, ssd_label: "PHOTON-001", ssd_mount_point: "/media/alex/PHOTON-001", sd_mounted: true, sd_path: "/media/alex/SD" });
     const state = get(deviceState);
     expect(state.ssd_mounted).toBe(true);
     expect(state.ssd_label).toBe("PHOTON-001");
