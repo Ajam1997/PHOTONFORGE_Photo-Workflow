@@ -13,7 +13,7 @@ from PIL import Image
 
 from photo_workflow.darktable_bridge import validate_xmp
 from photo_workflow.pipeline import AnalysisPipeline, PipelineConfig, PipelineSummary
-from tests.conftest import make_darktable_db
+from conftest import make_darktable_db
 
 
 # ---------------------------------------------------------------------------
