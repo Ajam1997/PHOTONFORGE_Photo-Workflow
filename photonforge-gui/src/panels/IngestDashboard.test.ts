@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/svelte";
 import IngestDashboard from "./IngestDashboard.svelte";
 import { deviceState } from "../stores/devices";
 import type { DeviceState } from "../stores/devices";
+import { resetIngest } from "../stores/ingest";
 
 vi.mock("../lib/sidecar", () => ({
   runIngest: vi.fn(),
@@ -24,6 +25,7 @@ function setDeviceState(state: Partial<DeviceState>) {
 describe("IngestDashboard", () => {
   beforeEach(() => {
     setDeviceState({});
+    resetIngest();
     vi.clearAllMocks();
   });
 
