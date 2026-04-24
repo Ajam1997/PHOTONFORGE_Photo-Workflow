@@ -115,4 +115,50 @@ describe("IngestDashboard", () => {
     });
     expect(screen.getByRole("button", { name: /new ingest/i })).toBeInTheDocument();
   });
+
+  it("stage_done event transitions Copy row to done with meta text", async () => {
+    setDeviceState({
+      sd_mounted: true, sd_path: "/media/alex/SD",
+      ssd_mounted: true, ssd_mount_point: "/mnt/photon_ssd/001",
+    });
+
+    let capturedCallback: ((e: any) => void) | null = null;
+    vi.mocked(runIngest).mockImplementation(async (_s, _o, _d, cb) => {
+      capturedCallback = cb;
+      return { kill: vi.fn() } as any;
+    });
+
+    render(IngestDashboard);
+    fireEvent.click(screen.getByRole("button", { name: /start ingest/i }));
+    await waitFor(() => expect(capturedCallback).not.toBeNull());
+
+    capturedCallback!({ type: "stage_done", stage: "copy", copied: 12 });
+
+    await waitFor(() => {
+      expect(screen.getByText("12 files")).toBeInTheDocument();
+    });
+  });
+
+  it("sd_ejected event shows 'SD card ejected' row", async () => {
+    setDeviceState({
+      sd_mounted: true, sd_path: "/media/alex/SD",
+      ssd_mounted: true, ssd_mount_point: "/mnt/photon_ssd/001",
+    });
+
+    let capturedCallback: ((e: any) => void) | null = null;
+    vi.mocked(runIngest).mockImplementation(async (_s, _o, _d, cb) => {
+      capturedCallback = cb;
+      return { kill: vi.fn() } as any;
+    });
+
+    render(IngestDashboard);
+    fireEvent.click(screen.getByRole("button", { name: /start ingest/i }));
+    await waitFor(() => expect(capturedCallback).not.toBeNull());
+
+    capturedCallback!({ type: "sd_ejected" });
+
+    await waitFor(() => {
+      expect(screen.getByText(/sd card ejected/i)).toBeInTheDocument();
+    });
+  });
 });

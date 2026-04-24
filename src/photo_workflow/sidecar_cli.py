@@ -31,11 +31,16 @@ def emit(obj: dict) -> None:
     print(json.dumps(obj), flush=True)
 
 
+def _read_proc_mounts() -> str:
+    """Return the contents of /proc/mounts as a string."""
+    return Path("/proc/mounts").read_text()
+
+
 def _eject_sd(mount_point: str) -> None:
     """Resolve SD card block device from mount point and power it off. Non-fatal."""
     try:
         device = None
-        for line in Path("/proc/mounts").read_text().splitlines():
+        for line in _read_proc_mounts().splitlines():
             parts = line.split()
             if len(parts) >= 2 and parts[1] == mount_point:
                 device = parts[0]

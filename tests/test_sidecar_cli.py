@@ -95,9 +95,8 @@ def test_eject_sd_calls_udisksctl_with_parent_disk(tmp_path: Path) -> None:
     from photo_workflow.sidecar_cli import _eject_sd
 
     fake_mounts = "/dev/mmcblk0p1 /media/alex/SD_CARD vfat rw 0 0\n"
-    with patch("photo_workflow.sidecar_cli.Path") as mock_path_cls, \
+    with patch("photo_workflow.sidecar_cli._read_proc_mounts", return_value=fake_mounts), \
          patch("photo_workflow.sidecar_cli.subprocess.run") as mock_run:
-        mock_path_cls.return_value.read_text.return_value = fake_mounts
         _eject_sd("/media/alex/SD_CARD")
 
     mock_run.assert_called_once_with(
@@ -111,9 +110,8 @@ def test_eject_sd_strips_partition_suffix_for_usb(tmp_path: Path) -> None:
     from photo_workflow.sidecar_cli import _eject_sd
 
     fake_mounts = "/dev/sda1 /media/alex/CARD vfat rw 0 0\n"
-    with patch("photo_workflow.sidecar_cli.Path") as mock_path_cls, \
+    with patch("photo_workflow.sidecar_cli._read_proc_mounts", return_value=fake_mounts), \
          patch("photo_workflow.sidecar_cli.subprocess.run") as mock_run:
-        mock_path_cls.return_value.read_text.return_value = fake_mounts
         _eject_sd("/media/alex/CARD")
 
     mock_run.assert_called_once_with(
@@ -126,9 +124,8 @@ def test_eject_sd_is_silent_when_mount_not_found() -> None:
     """_eject_sd does nothing and does not raise if mount point not in /proc/mounts."""
     from photo_workflow.sidecar_cli import _eject_sd
 
-    with patch("photo_workflow.sidecar_cli.Path") as mock_path_cls, \
+    with patch("photo_workflow.sidecar_cli._read_proc_mounts", return_value=""), \
          patch("photo_workflow.sidecar_cli.subprocess.run") as mock_run:
-        mock_path_cls.return_value.read_text.return_value = ""
         _eject_sd("/media/alex/NONEXISTENT")
 
     mock_run.assert_not_called()
