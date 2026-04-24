@@ -9,7 +9,7 @@ description: >
   Never runs full repo scans. Use for commit-level verification only -- not
   E2E pipeline validation (that is @validation territory).
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: opus
+model: inherit
 memory: project
 color: yellow
 ---

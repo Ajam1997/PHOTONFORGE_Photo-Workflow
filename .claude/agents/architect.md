@@ -6,7 +6,7 @@ description: >
   selection, and CLAUDE.md maintenance. Use for architectural review,
   module boundary decisions, and build sequence planning.
 tools: Read, Grep, Glob
-model: sonnet
+model: inherit
 memory: user
 color: blue
 ---

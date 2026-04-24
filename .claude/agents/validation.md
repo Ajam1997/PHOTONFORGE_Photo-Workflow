@@ -9,7 +9,7 @@ description: >
   for requirement reassessment. Use for stage-completion validation only --
   not commit-level unit verification (that is @verification territory).
 tools: Read, Write, Edit, Bash, Grep, Glob
-model: opus
+model: inherit
 memory: project
 color: cyan
 ---
