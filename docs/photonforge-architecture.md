@@ -356,9 +356,9 @@ The Living User Need Document (docs/living-user-needs.md) is the sole input for 
 | Darktable integration | Subprocess with --library | Embedded library | Darktable not designed for embedding. Subprocess is simple and reliable. |
 | Tier 3 status | Documented, not implemented | Immediate build | No requirement justifies the cost. Path preserved for future. |
 | V&V execution | SSH to Yoga 910 via Claude Code | Manual copy-paste | Native SSH sessions eliminate manual terminal relay. |
-| SSD cartridge identity | Filesystem label (PHOTON-*) | Hardware serial / vendor ID | Label follows the drive, not the enclosure. Portable across USB adapters. |
-| udev RUN values | Wrapper scripts | Inline shell | Ubuntu 24.04 systemd rejects $() substitution and nested quotes in RUN. |
-| Mount method | systemd-mount | Direct mount | udev namespace restrictions block direct mount on newer systemd. |
+| SSD cartridge identity | Hidden metadata file `.photonforge/cartridge.json` | Filesystem label (PHOTON-*) | Label is now cosmetic; identity survives label changes. Detection is mount-path-agnostic, works with udisks2 auto-mount at any path. |
+| Device detection | Metadata file presence + `/proc/mounts` poll | udev label rules | udisks2 won out over custom udev mounting in practice; polling is simpler and reliable. |
+| Multi-cartridge support | Deferred — data model is Vec (ready) | Not in scope | `DeviceState.cartridges` is already an array; destination picker UI deferred until a hub use case is validated. |
 
 ---
 
