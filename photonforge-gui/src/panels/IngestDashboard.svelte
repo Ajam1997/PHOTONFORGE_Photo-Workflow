@@ -27,7 +27,7 @@
     status: StageStatus;
     current: number;
     total: number;
-    meta: Record<string, unknown> | undefined;
+    meta: Record<string, number> | undefined;
   }
 
   function isEnabled(key: StageKey): boolean {
@@ -93,9 +93,16 @@
           ingestState.update(s => ({ ...s, step: event.step, current: event.current, total: event.total }));
         } else if (event.type === "stage_done") {
           const e = event as StageDoneEvent;
+          const meta: Record<string, number> = {};
+          if (e.copied !== undefined) meta.copied = e.copied;
+          if (e.dupes_found !== undefined) meta.dupes_found = e.dupes_found;
+          if (e.scored !== undefined) meta.scored = e.scored;
+          if (e.named !== undefined) meta.named = e.named;
+          if (e.xmp_written !== undefined) meta.xmp_written = e.xmp_written;
+          if (e.db_upserted !== undefined) meta.db_upserted = e.db_upserted;
           ingestState.update(s => ({
             ...s,
-            stageDone: { ...s.stageDone, [e.stage]: e as unknown as Record<string, unknown> },
+            stageDone: { ...s.stageDone, [e.stage]: meta },
           }));
         } else if (event.type === "sd_ejected") {
           ingestState.update(s => ({ ...s, sdEjected: true }));
@@ -118,7 +125,10 @@
   }
 
   function cancelIngest() {
-    $ingestState.activeCmd?.kill().catch(() => {});
+    $ingestState.activeCmd?.kill().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      ingestState.update(s => ({ ...s, errorMsg: `Cancel failed: ${msg}` }));
+    });
     ingestState.update(s => ({ ...s, phase: "idle", activeCmd: null }));
   }
 </script>

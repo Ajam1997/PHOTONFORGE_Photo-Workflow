@@ -4,6 +4,7 @@ import IngestDashboard from "./IngestDashboard.svelte";
 import { deviceState } from "../stores/devices";
 import type { DeviceState } from "../stores/devices";
 import { resetIngest } from "../stores/ingest";
+import { pipelineSettings } from "../stores/pipeline";
 
 vi.mock("../lib/sidecar", () => ({
   runIngest: vi.fn(),
@@ -26,6 +27,8 @@ describe("IngestDashboard", () => {
   beforeEach(() => {
     setDeviceState({});
     resetIngest();
+    pipelineSettings.set({ dedup: true, scoring: true, naming: true, darktable: true });
+    localStorage.clear();
     vi.clearAllMocks();
   });
 
@@ -81,10 +84,11 @@ describe("IngestDashboard", () => {
     fireEvent.click(screen.getByRole("button", { name: /start ingest/i }));
 
     await waitFor(() => expect(capturedCallback).not.toBeNull());
-    capturedCallback!({ type: "progress", step: "copying", current: 42, total: 150, message: "" });
+    capturedCallback!({ type: "progress", step: "copy", current: 42, total: 150, message: "" });
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /cancel/i })).toBeInTheDocument();
+      expect(screen.getByText("42 / 150")).toBeInTheDocument();
     });
   });
 

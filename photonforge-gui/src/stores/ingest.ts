@@ -12,7 +12,7 @@ export interface IngestState {
   summary: DoneEvent["summary"] | null;
   errorMsg: string;
   activeCmd: Command<string> | null;
-  stageDone: Record<string, Record<string, unknown>>;
+  stageDone: Record<string, Record<string, number>>;
   sdEjected: boolean;
 }
 
