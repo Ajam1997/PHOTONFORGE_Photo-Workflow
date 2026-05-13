@@ -195,3 +195,16 @@ def test_sync_writes_xmp_and_db(photo_dir: Path, manifest_path: Path, tmp_path: 
     assert count == len(non_dupes)
 
     assert "sync" in entries[0].stages_completed or entries[0].is_duplicate
+
+
+def test_status_reports_progress(photo_dir: Path, manifest_path: Path) -> None:
+    """status prints a summary of per-stage completion."""
+    runner = CliRunner()
+    runner.invoke(cli, ["scan", "--source", str(photo_dir), "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
+
+    result = runner.invoke(cli, ["status", "--manifest", str(manifest_path)])
+    assert result.exit_code == 0
+    assert "4" in result.output
+    assert "scan" in result.output.lower()
+    assert "dedup" in result.output.lower()

@@ -503,6 +503,34 @@ def sync(manifest_path: Path, db_path: Path, dry_run: bool) -> None:
     click.echo(f"Wrote {xmp_written} XMP sidecars, upserted {db_upserted} DB rows")
 
 
+@cli.command()
+@click.option("--manifest", "manifest_path", required=True,
+              type=click.Path(exists=True, path_type=Path))
+def status(manifest_path: Path) -> None:
+    """Show manifest summary: per-stage completion and error count."""
+    from .manifest import load_manifest
+
+    entries = load_manifest(manifest_path)
+    total = len(entries)
+    dupes = sum(1 for e in entries if e.is_duplicate)
+
+    stage_counts = {}
+    for stage in ("scan", "dedup", "score", "name", "sync"):
+        stage_counts[stage] = sum(1 for e in entries if stage in e.stages_completed)
+
+    error_count = sum(1 for e in entries if e.error)
+
+    click.echo(f"Manifest: {manifest_path}")
+    click.echo(f"  Total photos:  {total}")
+    click.echo(f"  Duplicates:    {dupes}")
+    click.echo(f"  Scan:          {stage_counts['scan']}/{total}")
+    click.echo(f"  Dedup:         {stage_counts['dedup']}/{total}")
+    click.echo(f"  Score:         {stage_counts['score']}/{total - dupes} (non-duplicate)")
+    click.echo(f"  Name:          {stage_counts['name']}/{total - dupes} (non-duplicate)")
+    click.echo(f"  Sync:          {stage_counts['sync']}/{total - dupes} (non-duplicate)")
+    click.echo(f"  Errors:        {error_count}")
+
+
 def main() -> None:
     cli()
 
