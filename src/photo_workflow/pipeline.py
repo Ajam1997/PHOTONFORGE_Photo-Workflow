@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -47,6 +48,21 @@ class PipelineSummary:
     xmp_written: int
     db_upserted: int
     elapsed_seconds: float
+
+
+def emit(
+    step: str,
+    file: str,
+    status: str,
+    json_progress: bool = False,
+    **fields: object,
+) -> None:
+    """Print a progress line — JSON when json_progress=True, human text otherwise."""
+    if json_progress:
+        click.echo(json.dumps({"step": step, "file": file, "status": status, **fields}))
+    else:
+        extras = "  ".join(f"{k}={v}" for k, v in fields.items())
+        click.echo(f"  {step} {file} [{status}]  {extras}")
 
 
 def _rename_photo(record: PhotoRecord) -> None:
