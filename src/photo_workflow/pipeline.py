@@ -251,6 +251,86 @@ def dedup(manifest_path: Path) -> None:
     click.echo(f"Grouped into {sessions} sessions, flagged {dupes} duplicates")
 
 
+@cli.command()
+@click.option("--manifest", "manifest_path", required=True,
+              type=click.Path(exists=True, path_type=Path))
+@click.option("--resume", is_flag=True, default=False,
+              help="Skip photos already scored.")
+@click.option("--force", is_flag=True, default=False,
+              help="Re-score all photos regardless of prior completion.")
+@click.option("--verbose", is_flag=True, default=False)
+@click.option("--quiet", is_flag=True, default=False)
+def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: bool) -> None:
+    """Score photos for sharpness, composition, and exposure."""
+    from .manifest import load_manifest, save_manifest, checkpoint
+    from .progress import ProgressTracker
+    from .sharpness import score_sharpness
+    from .composition import score_composition
+    from .exposure import score_exposure
+
+    entries = load_manifest(manifest_path)
+
+    not_deduped = [e for e in entries if "dedup" not in e.stages_completed]
+    if not_deduped:
+        raise click.ClickException(
+            f"{len(not_deduped)} photos have not been through 'dedup'. "
+            f"Run 'photo-workflow dedup' first."
+        )
+
+    to_score = [
+        e for e in entries
+        if not e.is_duplicate and (force or "score" not in e.stages_completed)
+    ]
+
+    if not to_score and not force:
+        if resume:
+            click.echo("All non-duplicate photos already scored.")
+        else:
+            click.echo("All non-duplicate photos already scored. Use --resume or --force.")
+        return
+
+    if resume and not force:
+        already = sum(1 for e in entries if not e.is_duplicate and "score" in e.stages_completed)
+        if already > 0:
+            click.echo(f"Resuming: {already} already scored, {len(to_score)} remaining")
+
+    tracker = ProgressTracker(stage="score", total=len(to_score))
+    errors = 0
+
+    for i, entry in enumerate(to_score, 1):
+        p = Path(entry.path)
+        try:
+            entry.sharpness = score_sharpness(p)
+            entry.composition = score_composition(p)
+            entry.exposure = score_exposure(p)
+            entry.error = None
+            if "score" not in entry.stages_completed:
+                entry.stages_completed.append("score")
+            if verbose:
+                click.echo(
+                    f"  {p.name}: sharp={entry.sharpness:.4f} "
+                    f"comp={entry.composition:.4f} exp={entry.exposure:.4f}"
+                )
+        except Exception as exc:
+            entry.error = str(exc)
+            errors += 1
+            logger.warning("Score failed for %s: %s", p, exc)
+
+        if not quiet:
+            tracker.update(i)
+
+        if i % 50 == 0:
+            checkpoint(entries, manifest_path)
+
+    if not quiet:
+        tracker.finish()
+
+    save_manifest(entries, manifest_path)
+
+    scored = len(to_score) - errors
+    click.echo(f"Scored {scored}/{len(to_score)} photos. {errors} errors.")
+
+
 def main() -> None:
     cli()
 

@@ -106,3 +106,39 @@ def test_dedup_rejects_without_scan(tmp_path: Path) -> None:
     result = runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
     assert result.exit_code != 0
     assert "scan" in result.output.lower()
+
+
+def test_score_scores_non_duplicates(photo_dir: Path, manifest_path: Path) -> None:
+    """score assigns sharpness/composition/exposure to non-duplicate photos."""
+    runner = CliRunner()
+    runner.invoke(cli, ["scan", "--source", str(photo_dir), "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
+
+    result = runner.invoke(cli, ["score", "--manifest", str(manifest_path)])
+    assert result.exit_code == 0, result.output
+
+    entries = load_manifest(manifest_path)
+    non_dupes = [e for e in entries if not e.is_duplicate]
+    dupes = [e for e in entries if e.is_duplicate]
+
+    for e in non_dupes:
+        assert e.sharpness is not None
+        assert e.composition is not None
+        assert e.exposure is not None
+        assert "score" in e.stages_completed
+
+    for e in dupes:
+        assert e.sharpness is None
+        assert "score" not in e.stages_completed
+
+
+def test_score_resume_skips_completed(photo_dir: Path, manifest_path: Path) -> None:
+    """score --resume skips already-scored photos."""
+    runner = CliRunner()
+    runner.invoke(cli, ["scan", "--source", str(photo_dir), "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["score", "--manifest", str(manifest_path)])
+
+    result = runner.invoke(cli, ["score", "--manifest", str(manifest_path), "--resume"])
+    assert result.exit_code == 0
+    assert "already scored" in result.output.lower()
