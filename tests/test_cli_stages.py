@@ -164,3 +164,34 @@ def test_name_assigns_semantic_names(photo_dir: Path, manifest_path: Path) -> No
         assert e.semantic_name is not None
         assert e.semantic_name != ""
         assert "name" in e.stages_completed
+
+
+def test_sync_writes_xmp_and_db(photo_dir: Path, manifest_path: Path, tmp_path: Path) -> None:
+    """sync writes XMP sidecars and upserts into Darktable DB."""
+    from conftest import make_darktable_db
+    import sqlite3
+
+    db_path = tmp_path / "library.db"
+    make_darktable_db(db_path)
+
+    runner = CliRunner()
+    runner.invoke(cli, ["scan", "--source", str(photo_dir), "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["score", "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["name", "--manifest", str(manifest_path), "--model-dir", "models/nonexistent"])
+
+    result = runner.invoke(cli, ["sync", "--manifest", str(manifest_path), "--db", str(db_path)])
+    assert result.exit_code == 0, result.output
+
+    entries = load_manifest(manifest_path)
+    non_dupes = [e for e in entries if not e.is_duplicate]
+
+    for e in non_dupes:
+        xmp = Path(e.path).with_suffix(".xmp")
+        assert xmp.exists(), f"XMP missing for {e.path}"
+
+    with sqlite3.connect(db_path) as conn:
+        count = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
+    assert count == len(non_dupes)
+
+    assert "sync" in entries[0].stages_completed or entries[0].is_duplicate

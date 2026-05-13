@@ -449,6 +449,60 @@ def name(
     click.echo(f"Named {named}/{len(to_name)} photos. {errors} errors.")
 
 
+@cli.command()
+@click.option("--manifest", "manifest_path", required=True,
+              type=click.Path(exists=True, path_type=Path))
+@click.option("--db", "db_path", required=True,
+              type=click.Path(path_type=Path),
+              help="Path to Darktable library.db.")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Print what would happen without writing.")
+def sync(manifest_path: Path, db_path: Path, dry_run: bool) -> None:
+    """Write XMP sidecars and sync to Darktable library.db."""
+    from .manifest import load_manifest, save_manifest
+    from .darktable_bridge import sync_to_darktable
+
+    entries = load_manifest(manifest_path)
+
+    not_named = [
+        e for e in entries
+        if not e.is_duplicate and "name" not in e.stages_completed
+    ]
+    if not_named:
+        raise click.ClickException(
+            f"{len(not_named)} photos have not been through 'name'. "
+            f"Run 'photo-workflow name' first."
+        )
+
+    records = []
+    for e in entries:
+        rec = PhotoRecord(
+            path=Path(e.path),
+            session_id=e.session_id,
+            is_duplicate=e.is_duplicate,
+            sharpness_score=e.sharpness or 0.0,
+            composition_score=e.composition or 0.0,
+            exposure_score=e.exposure or 0.0,
+            semantic_name=e.semantic_name or "",
+            metadata={"original_filename": Path(e.path).name},
+        )
+        records.append(rec)
+
+    if dry_run:
+        non_dupes = sum(1 for r in records if not r.is_duplicate)
+        click.echo(f"Dry run: would write {non_dupes} XMP sidecars and upsert {non_dupes} DB rows")
+        return
+
+    xmp_written, db_upserted = sync_to_darktable(records, db_path=db_path)
+
+    for entry in entries:
+        if not entry.is_duplicate and "sync" not in entry.stages_completed:
+            entry.stages_completed.append("sync")
+    save_manifest(entries, manifest_path)
+
+    click.echo(f"Wrote {xmp_written} XMP sidecars, upserted {db_upserted} DB rows")
+
+
 def main() -> None:
     cli()
 
