@@ -75,3 +75,34 @@ def test_scan_recursive(photo_dir: Path, manifest_path: Path) -> None:
     assert result.exit_code == 0
     entries = load_manifest(manifest_path)
     assert len(entries) == 5  # 4 original + 1 in subdir
+
+
+def test_dedup_groups_and_flags(photo_dir: Path, manifest_path: Path) -> None:
+    """dedup assigns session IDs and flags duplicates."""
+    runner = CliRunner()
+    runner.invoke(cli, ["scan", "--source", str(photo_dir), "--manifest", str(manifest_path)])
+
+    result = runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
+    assert result.exit_code == 0, result.output
+
+    entries = load_manifest(manifest_path)
+    assert all("dedup" in e.stages_completed for e in entries)
+
+    by_path = {Path(e.path).name: e for e in entries}
+    assert by_path["IMG_0002.jpg"].is_duplicate is True
+    assert by_path["IMG_0001.jpg"].is_duplicate is False
+
+    assert all(e.session_id != "" for e in entries)
+
+
+def test_dedup_rejects_without_scan(tmp_path: Path) -> None:
+    """dedup errors if manifest entries haven't been scanned."""
+    from photo_workflow.manifest import ManifestEntry, save_manifest
+
+    manifest_path = tmp_path / "manifest.jsonl"
+    save_manifest([ManifestEntry(path="/fake.jpg", stages_completed=[])], manifest_path)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
+    assert result.exit_code != 0
+    assert "scan" in result.output.lower()

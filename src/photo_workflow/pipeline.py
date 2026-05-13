@@ -205,6 +205,52 @@ def scan(source: Path, manifest_path: Path, recursive: bool) -> None:
     click.echo(f"Scanned {len(entries)} photos -> {manifest_path}")
 
 
+@cli.command()
+@click.option("--manifest", "manifest_path", required=True,
+              type=click.Path(exists=True, path_type=Path),
+              help="Path to the JSONL manifest file.")
+def dedup(manifest_path: Path) -> None:
+    """Group photos into sessions and flag duplicates."""
+    from .manifest import load_manifest, save_manifest
+
+    entries = load_manifest(manifest_path)
+
+    not_scanned = [e for e in entries if "scan" not in e.stages_completed]
+    if not_scanned:
+        raise click.ClickException(
+            f"{len(not_scanned)} photos have not been through 'scan'. "
+            f"Run 'photo-workflow scan' first."
+        )
+
+    to_process = [e for e in entries if "dedup" not in e.stages_completed]
+    if not to_process:
+        click.echo("All photos already deduped. Use --force to redo.")
+        return
+
+    from .grouping import cluster_sessions
+    from .dedup import deduplicate
+
+    records = [
+        PhotoRecord(path=Path(e.path), session_id=e.session_id)
+        for e in entries
+    ]
+
+    records = cluster_sessions(records)
+    records = deduplicate(records)
+
+    for entry, record in zip(entries, records):
+        entry.session_id = record.session_id
+        entry.is_duplicate = record.is_duplicate
+        if "dedup" not in entry.stages_completed:
+            entry.stages_completed.append("dedup")
+
+    save_manifest(entries, manifest_path)
+
+    sessions = len({e.session_id for e in entries})
+    dupes = sum(1 for e in entries if e.is_duplicate)
+    click.echo(f"Grouped into {sessions} sessions, flagged {dupes} duplicates")
+
+
 def main() -> None:
     cli()
 
