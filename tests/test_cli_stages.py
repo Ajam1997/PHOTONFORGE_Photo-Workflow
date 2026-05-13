@@ -142,3 +142,25 @@ def test_score_resume_skips_completed(photo_dir: Path, manifest_path: Path) -> N
     result = runner.invoke(cli, ["score", "--manifest", str(manifest_path), "--resume"])
     assert result.exit_code == 0
     assert "already scored" in result.output.lower()
+
+
+def test_name_assigns_semantic_names(photo_dir: Path, manifest_path: Path) -> None:
+    """name assigns semantic names and renames files on disk (falls back to stem without model)."""
+    runner = CliRunner()
+    runner.invoke(cli, ["scan", "--source", str(photo_dir), "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
+    runner.invoke(cli, ["score", "--manifest", str(manifest_path)])
+
+    result = runner.invoke(cli, [
+        "name", "--manifest", str(manifest_path),
+        "--model-dir", "models/nonexistent",
+    ])
+    assert result.exit_code == 0, result.output
+
+    entries = load_manifest(manifest_path)
+    non_dupes = [e for e in entries if not e.is_duplicate]
+
+    for e in non_dupes:
+        assert e.semantic_name is not None
+        assert e.semantic_name != ""
+        assert "name" in e.stages_completed

@@ -157,6 +157,28 @@ class AnalysisPipeline:
         return records, summary
 
 
+def _rename_photo_by_slug(path: Path, slug: str) -> Path:
+    """Rename a photo on disk using a semantic slug. Returns the new path."""
+    if not slug:
+        return path
+    directory = path.parent
+    suffix = path.suffix
+    candidate = directory / f"{slug}{suffix}"
+    counter = 2
+    while candidate.exists() and candidate != path:
+        candidate = directory / f"{slug}_{counter}{suffix}"
+        counter += 1
+    if candidate == path:
+        return path
+    try:
+        os.rename(path, candidate)
+        logger.info("Renamed %s -> %s", path.name, candidate.name)
+        return candidate
+    except OSError as exc:
+        logger.warning("Could not rename %s: %s", path, exc)
+        return path
+
+
 # --- Staged CLI -----------------------------------------------------------
 
 # Supported image extensions for scanning (union of RAW + common formats)
@@ -329,6 +351,102 @@ def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: 
 
     scored = len(to_score) - errors
     click.echo(f"Scored {scored}/{len(to_score)} photos. {errors} errors.")
+
+
+@cli.command()
+@click.option("--manifest", "manifest_path", required=True,
+              type=click.Path(exists=True, path_type=Path))
+@click.option("--model-dir", default="models/florence2_int8", show_default=True,
+              type=click.Path(path_type=Path),
+              help="Path to the Florence-2 INT8 ONNX model directory.")
+@click.option("--resume", is_flag=True, default=False,
+              help="Skip photos already named.")
+@click.option("--force", is_flag=True, default=False,
+              help="Re-name all photos regardless of prior completion.")
+@click.option("--verbose", is_flag=True, default=False)
+@click.option("--quiet", is_flag=True, default=False)
+def name(
+    manifest_path: Path,
+    model_dir: Path,
+    resume: bool,
+    force: bool,
+    verbose: bool,
+    quiet: bool,
+) -> None:
+    """Generate semantic filenames via Florence-2 and rename files on disk."""
+    from .manifest import load_manifest, save_manifest, checkpoint
+    from .progress import ProgressTracker
+    from .naming import generate_name
+
+    entries = load_manifest(manifest_path)
+
+    not_scored = [
+        e for e in entries
+        if not e.is_duplicate and "score" not in e.stages_completed
+    ]
+    if not_scored:
+        raise click.ClickException(
+            f"{len(not_scored)} photos have not been through 'score'. "
+            f"Run 'photo-workflow score' first."
+        )
+
+    to_name = [
+        e for e in entries
+        if not e.is_duplicate and (force or "name" not in e.stages_completed)
+    ]
+
+    if not to_name and not force:
+        if resume:
+            click.echo("All non-duplicate photos already named.")
+        else:
+            click.echo("All non-duplicate photos already named. Use --resume or --force.")
+        return
+
+    if resume and not force:
+        already = sum(
+            1 for e in entries
+            if not e.is_duplicate and "name" in e.stages_completed
+        )
+        if already > 0:
+            click.echo(f"Resuming: {already} already named, {len(to_name)} remaining")
+
+    tracker = ProgressTracker(stage="name", total=len(to_name))
+    errors = 0
+
+    for i, entry in enumerate(to_name, 1):
+        p = Path(entry.path)
+        try:
+            slug = generate_name(p, model_dir=model_dir)
+            entry.semantic_name = slug
+
+            new_path = _rename_photo_by_slug(p, slug)
+            if new_path != p:
+                entry.path = str(new_path)
+
+            entry.error = None
+            if "name" not in entry.stages_completed:
+                entry.stages_completed.append("name")
+
+            if verbose:
+                click.echo(f"  {p.name} -> {slug}")
+        except Exception as exc:
+            entry.error = str(exc)
+            errors += 1
+            logger.warning("Name failed for %s: %s", p, exc)
+
+        if not quiet:
+            tracker.update(i)
+
+        if i % 50 == 0:
+            checkpoint(entries, manifest_path)
+
+    if not quiet:
+        tracker.finish()
+
+    save_manifest(entries, manifest_path)
+
+    named = len(to_name) - errors
+    click.echo(f"Named {named}/{len(to_name)} photos. {errors} errors.")
 
 
 def main() -> None:
