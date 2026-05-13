@@ -531,6 +531,31 @@ def status(manifest_path: Path) -> None:
     click.echo(f"  Errors:        {error_count}")
 
 
+@cli.command()
+@click.option("--source", required=True, type=click.Path(exists=True, path_type=Path))
+@click.option("--output", required=True, type=click.Path(path_type=Path))
+@click.option("--db", required=True, type=click.Path(path_type=Path), help="Darktable library.db path")
+@click.option("--dry-run", is_flag=True)
+@click.option("--model-dir", default="models/florence2_int8", show_default=True,
+              type=click.Path(path_type=Path))
+def run(source: Path, output: Path, db: Path, dry_run: bool, model_dir: Path) -> None:
+    """Run the full pipeline in one shot (legacy mode)."""
+    config = PipelineConfig(
+        source_dir=source,
+        output_dir=output,
+        darktable_db=db,
+        model_dir=model_dir,
+        dry_run=dry_run,
+    )
+    pipeline = AnalysisPipeline(config)
+    records, summary = pipeline.run()
+    click.echo(
+        f"Done: {summary.total} total, {summary.duplicates_skipped} dupes, "
+        f"{summary.scored} scored, {summary.xmp_written} XMP, "
+        f"{summary.db_upserted} DB rows, {summary.elapsed_seconds:.1f}s"
+    )
+
+
 def main() -> None:
     cli()
 
