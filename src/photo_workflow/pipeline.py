@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import click
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -155,32 +157,55 @@ class AnalysisPipeline:
         return records, summary
 
 
+# --- Staged CLI -----------------------------------------------------------
+
+# Supported image extensions for scanning (union of RAW + common formats)
+PHOTO_EXTS = {
+    ".jpg", ".jpeg", ".png", ".tiff", ".tif",
+    ".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf",
+    ".rw2", ".orf", ".pef", ".srw", ".3fr", ".mef",
+}
+
+
+@click.group()
+def cli() -> None:
+    """PHOTONForge staged photo analysis pipeline."""
+    pass
+
+
+@cli.command()
+@click.option("--source", required=True, type=click.Path(exists=True, path_type=Path),
+              help="Directory containing photos to process.")
+@click.option("--manifest", "manifest_path", default="manifest.jsonl",
+              type=click.Path(path_type=Path), show_default=True,
+              help="Path to the JSONL manifest file.")
+@click.option("--recursive", is_flag=True, default=False,
+              help="Recurse into subdirectories.")
+def scan(source: Path, manifest_path: Path, recursive: bool) -> None:
+    """Discover photos and create the manifest."""
+    from .grouping import _read_exif_datetime
+    from .manifest import ManifestEntry, save_manifest
+
+    glob_fn = source.rglob if recursive else source.glob
+    photos = sorted(
+        p for p in glob_fn("*")
+        if p.is_file() and p.suffix.lower() in PHOTO_EXTS
+    )
+
+    entries: list[ManifestEntry] = []
+    for p in photos:
+        dt = _read_exif_datetime(p)
+        entries.append(ManifestEntry(
+            path=str(p),
+            exif_timestamp=dt.isoformat() if dt else None,
+            stages_completed=["scan"],
+        ))
+
+    save_manifest(entries, manifest_path)
+    click.echo(f"Scanned {len(entries)} photos -> {manifest_path}")
+
+
 def main() -> None:
-    import click
-
-    @click.command()
-    @click.option("--source", required=True, type=click.Path(exists=True, path_type=Path))
-    @click.option("--output", required=True, type=click.Path(path_type=Path))
-    @click.option("--db", required=True, type=click.Path(path_type=Path), help="Darktable library.db path")
-    @click.option("--dry-run", is_flag=True)
-    @click.option("--model-dir", default="models/florence2_int8", show_default=True, type=click.Path(path_type=Path), help="Path to the florence2_int8 model directory (contains onnx/ subdir).")
-    def cli(source: Path, output: Path, db: Path, dry_run: bool, model_dir: Path) -> None:
-        """Run the PHOTONForge photo analysis pipeline."""
-        config = PipelineConfig(
-            source_dir=source,
-            output_dir=output,
-            darktable_db=db,
-            model_dir=model_dir,
-            dry_run=dry_run,
-        )
-        pipeline = AnalysisPipeline(config)
-        records, summary = pipeline.run()
-        click.echo(
-            f"Done: {summary.total} total, {summary.duplicates_skipped} dupes, "
-            f"{summary.scored} scored, {summary.xmp_written} XMP, "
-            f"{summary.db_upserted} DB rows, {summary.elapsed_seconds:.1f}s"
-        )
-
     cli()
 
 
