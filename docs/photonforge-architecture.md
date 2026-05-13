@@ -275,7 +275,9 @@ photo-workflow/
     verification.md              # All tools, sonnet (yellow)
     validation.md                # All tools, sonnet (cyan)
   src/photo_workflow/
-    pipeline.py                  # AnalysisPipeline orchestrator
+    pipeline.py                  # AnalysisPipeline orchestrator + staged CLI (scan/dedup/score/name/sync/status)
+    manifest.py                  # JSONL manifest read/write/checkpoint for staged pipeline
+    progress.py                  # Terminal progress counter (throughput, ETA, RSS)
     ingest.py                    # FR-1.1: rsync trigger
     grouping.py                  # FR-1.2: spatio-temporal clustering
     dedup.py                     # FR-1.3: dHash dedup (Hamming <= 2)
@@ -328,6 +330,7 @@ photo-workflow/
 | 3. Inference + Bridge | @engineer | FR-1.7 (Florence-2 4-model naming) + FR-1.8 (Darktable SQLite/XMP) | KPM-1.2 <= 2.5s/image; zero DB corruption | UN-020, UN-021 |
 | 4. Host Integration | @devops | FR-1.1, FR-1.9, FR-1.10: udev, cartridge, safe eject, Docker | KPM-1.1 >= 80% BW; KPM-1.4 50 safe removals | UN-030 to UN-032 |
 | 5. Parallel Build | @engineer + @devops | Concurrent Stage 2-4 (agent teams) | All individual stage criteria met | All Stage 2-4 |
+| 5.1 Batch CLI | @engineer | Stage-based CLI (scan/dedup/score/name/sync/status), JSONL manifest, resume/checkpoint, progress display | All subcommands work independently; 7000-photo batch completes with resume | UN-050 to UN-054 |
 | 6. Integration | @architect (lead) | Full pipeline E2E on Yoga 910 | All KPMs verified; SD-to-Darktable autonomous | All UN-IDs |
 | 7.1 GUI Scaffold | @engineer | Tauri project, panel nav, dark theme, status bar | App launches, panels navigate, cartridge status renders | -- |
 | 7.2 Ingest + Cartridge | @engineer + @devops | Ingest Dashboard, Cartridge Manager, USB events | SD insert shows status. Pipeline from UI. Format/eject from UI. | -- |
@@ -341,7 +344,7 @@ photo-workflow/
 
 ## 9. Living User Need Document
 
-The Living User Need Document (docs/living-user-needs.md) is the sole input for @validation compliance checks. Requirements numbered UN-001 through UN-032. The @validation agent pulls only specific UN-IDs relevant to the current milestone via grep.
+The Living User Need Document (docs/living-user-needs.md) is the sole input for @validation compliance checks. Requirements numbered UN-001 through UN-054. The @validation agent pulls only specific UN-IDs relevant to the current milestone via grep.
 
 ---
 
@@ -359,6 +362,7 @@ The Living User Need Document (docs/living-user-needs.md) is the sole input for 
 | SSD cartridge identity | Hidden metadata file `.photonforge/cartridge.json` | Filesystem label (PHOTON-*) | Label is now cosmetic; identity survives label changes. Detection is mount-path-agnostic, works with udisks2 auto-mount at any path. |
 | Device detection | Metadata file presence + `/proc/mounts` poll | udev label rules | udisks2 won out over custom udev mounting in practice; polling is simpler and reliable. |
 | Multi-cartridge support | Deferred — data model is Vec (ready) | Not in scope | `DeviceState.cartridges` is already an array; destination picker UI deferred until a hub use case is validated. |
+| Batch CLI architecture | Stage-based subcommands with JSONL manifest | Monolithic single-command; sidecar wrapper | 7000-photo batches need per-stage resume, independent execution, and crash-safe checkpoints. Sidecar is GUI-coupled. |
 
 ---
 
