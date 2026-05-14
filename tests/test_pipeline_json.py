@@ -81,8 +81,12 @@ def test_scan_json_progress(tmp_path):
     assert result.exit_code == 0
     lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
     assert len(lines) >= 2
-    for line in lines:
-        rec = json.loads(line)
-        if rec["step"] == "scan":
-            assert rec["status"] == "ok"
-            assert rec["file"].endswith(".ARW")
+    scan_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "scan"]
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(scan_lines) == 2
+    for rec in scan_lines:
+        assert rec["status"] == "ok"
+        assert rec["file"].endswith(".ARW")
+    assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 2
+    assert progress_lines[0]["total"] == 2
