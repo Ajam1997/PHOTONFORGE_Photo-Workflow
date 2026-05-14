@@ -156,9 +156,11 @@ class AnalysisPipeline:
                 _rename_photo(record)
 
         if not self.config.dry_run:
-            xmp_written, db_upserted = sync_to_darktable(records, db_path=self.config.darktable_db)
+            xmp_written = sync_to_darktable(records)
+            db_upserted = 0
         else:
-            xmp_written, db_upserted = 0, 0
+            xmp_written = 0
+            db_upserted = 0
 
         logger.info("Pipeline complete: %d records processed", len(records))
 
@@ -334,7 +336,9 @@ def dedup(manifest_path: Path, json_progress: bool) -> None:
               help="Re-score all photos regardless of prior completion.")
 @click.option("--verbose", is_flag=True, default=False)
 @click.option("--quiet", is_flag=True, default=False)
-def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: bool) -> None:
+@click.option("--json-progress", "json_progress", is_flag=True, default=False,
+              help="Emit newline-delimited JSON progress lines.")
+def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: bool, json_progress: bool) -> None:
     """Score photos for sharpness, composition, and exposure."""
     from .manifest import load_manifest, save_manifest, checkpoint
     from .progress import ProgressTracker
@@ -380,7 +384,20 @@ def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: 
             entry.error = None
             if "score" not in entry.stages_completed:
                 entry.stages_completed.append("score")
-            if verbose:
+
+            from .darktable_bridge import compute_color_label
+            mean = (entry.sharpness + entry.composition + entry.exposure) / 3.0
+            stars = min(5, round(mean * 5))
+            color_label = compute_color_label(entry.sharpness, entry.composition, entry.exposure)
+
+            if json_progress:
+                emit("score", p.name, "ok", json_progress=True,
+                     sharpness=round(entry.sharpness, 4),
+                     composition=round(entry.composition, 4),
+                     exposure=round(entry.exposure, 4),
+                     stars=stars,
+                     color_label=color_label)
+            elif verbose:
                 click.echo(
                     f"  {p.name}: sharp={entry.sharpness:.4f} "
                     f"comp={entry.composition:.4f} exp={entry.exposure:.4f}"
@@ -389,20 +406,25 @@ def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: 
             entry.error = str(exc)
             errors += 1
             logger.warning("Score failed for %s: %s", p, exc)
+            if json_progress:
+                emit("score", p.name, "error", json_progress=True, message=str(exc))
 
-        if not quiet:
+        if not (quiet or json_progress):
             tracker.update(i)
 
         if i % 50 == 0:
             checkpoint(entries, manifest_path)
 
-    if not quiet:
+    if not (quiet or json_progress):
         tracker.finish()
 
     save_manifest(entries, manifest_path)
 
-    scored = len(to_score) - errors
-    click.echo(f"Scored {scored}/{len(to_score)} photos. {errors} errors.")
+    if not json_progress:
+        scored = len(to_score) - errors
+        click.echo(f"Scored {scored}/{len(to_score)} photos. {errors} errors.")
+    else:
+        click.echo(json.dumps({"step": "_progress", "done": len(to_score), "total": len(to_score)}))
 
 
 @cli.command()

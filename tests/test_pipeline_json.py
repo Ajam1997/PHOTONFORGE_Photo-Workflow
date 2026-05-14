@@ -120,3 +120,41 @@ def test_dedup_json_progress(tmp_path):
     assert len(progress_lines) == 1
     assert progress_lines[0]["done"] == 2
     assert progress_lines[0]["total"] == 2
+
+
+def test_score_json_progress(tmp_path):
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest
+    import pytest
+    from pathlib import Path
+
+    fixture = Path("tests/fixtures")
+    jpgs = list(fixture.glob("*.jpg")) + list(fixture.glob("*.JPG")) if fixture.exists() else []
+    if not jpgs:
+        pytest.skip("no fixture images available")
+
+    import shutil
+    img = tmp_path / jpgs[0].name
+    shutil.copy(jpgs[0], img)
+
+    manifest = tmp_path / "manifest.jsonl"
+    entries = [ManifestEntry(
+        path=str(img), stages_completed=["scan", "dedup"]
+    )]
+    save_manifest(entries, manifest)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "score", "--manifest", str(manifest), "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    score_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "score"]
+    assert len(score_lines) >= 1
+    rec = score_lines[0]
+    assert rec["status"] == "ok"
+    assert "sharpness" in rec
+    assert "stars" in rec
+    assert "color_label" in rec
+    assert isinstance(rec["color_label"], int)
