@@ -1,0 +1,289 @@
+import json
+from photo_workflow.pipeline import emit
+
+
+def test_emit_json_mode(capsys):
+    emit("score", "DSC001.ARW", "ok", json_progress=True, sharpness=0.82, stars=3)
+    out = capsys.readouterr().out
+    line = json.loads(out.strip())
+    assert line["step"] == "score"
+    assert line["file"] == "DSC001.ARW"
+    assert line["status"] == "ok"
+    assert line["sharpness"] == 0.82
+    assert line["stars"] == 3
+
+
+def test_emit_human_mode(capsys):
+    emit("score", "DSC001.ARW", "ok", json_progress=False, sharpness=0.82, stars=3)
+    out = capsys.readouterr().out
+    assert "DSC001.ARW" in out
+    try:
+        json.loads(out.strip())
+        assert False, "Should not be JSON in human mode"
+    except json.JSONDecodeError:
+        pass
+
+
+def test_emit_error_status(capsys):
+    emit("score", "DSC002.ARW", "error", json_progress=True, message="decode failed")
+    out = capsys.readouterr().out
+    line = json.loads(out.strip())
+    assert line["status"] == "error"
+    assert line["message"] == "decode failed"
+
+
+def test_ingest_json_progress(tmp_path, monkeypatch):
+    """Test ingest command with --json-progress flag."""
+    from pathlib import Path
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+
+    src = tmp_path / "src"
+    src.mkdir()
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    (src / "DSC001.ARW").write_bytes(b"fake")
+
+    # Mock ingest_volume to return the destination file
+    def mock_ingest_volume(source, destination, dry_run=False):
+        result_file = destination / "DSC001.ARW"
+        result_file.write_bytes(b"fake")
+        return [result_file]
+
+    monkeypatch.setattr("photo_workflow.ingest.ingest_volume", mock_ingest_volume)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "ingest", "--source", str(src), "--dest", str(dest), "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    assert len(lines) >= 1
+    rec = json.loads(lines[0])
+    assert rec["step"] == "ingest"
+    assert rec["status"] == "ok"
+    assert "DSC001.ARW" in rec["file"]
+
+
+def test_scan_json_progress(tmp_path):
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+
+    src = tmp_path / "photos"
+    src.mkdir()
+    (src / "DSC001.ARW").write_bytes(b"fake")
+    (src / "DSC002.ARW").write_bytes(b"fake")
+    manifest = tmp_path / "manifest.jsonl"
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "scan", "--source", str(src), "--manifest", str(manifest), "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    assert len(lines) >= 2
+    scan_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "scan"]
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(scan_lines) == 2
+    for rec in scan_lines:
+        assert rec["status"] == "ok"
+        assert rec["file"].endswith(".ARW")
+    assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 2
+    assert progress_lines[0]["total"] == 2
+
+
+def test_dedup_json_progress(tmp_path):
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest
+
+    manifest = tmp_path / "manifest.jsonl"
+    # Create fake image files so ManifestEntry paths point to real files
+    (tmp_path / "DSC001.ARW").write_bytes(b"fake1")
+    (tmp_path / "DSC002.ARW").write_bytes(b"fake2")
+    entries = [
+        ManifestEntry(path=str(tmp_path / "DSC001.ARW"), stages_completed=["scan"]),
+        ManifestEntry(path=str(tmp_path / "DSC002.ARW"), stages_completed=["scan"]),
+    ]
+    save_manifest(entries, manifest)
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "dedup", "--manifest", str(manifest), "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    assert len(lines) >= 2
+    dedup_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "dedup"]
+    statuses = {rec["status"] for rec in dedup_lines}
+    assert statuses <= {"ok", "duplicate"}
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 2
+    assert progress_lines[0]["total"] == 2
+
+
+def test_score_json_progress(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest
+
+    img = tmp_path / "DSC001.ARW"
+    img.write_bytes(b"fake")
+    manifest = tmp_path / "manifest.jsonl"
+    entries = [ManifestEntry(path=str(img), stages_completed=["scan", "dedup"])]
+    save_manifest(entries, manifest)
+
+    monkeypatch.setattr("photo_workflow.sharpness.score_sharpness", lambda p: 0.75)
+    monkeypatch.setattr("photo_workflow.composition.score_composition", lambda p: 0.60)
+    monkeypatch.setattr("photo_workflow.exposure.score_exposure", lambda p: 0.80)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["score", "--manifest", str(manifest), "--json-progress"])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    score_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "score"]
+    assert len(score_lines) == 1
+    rec = score_lines[0]
+    assert rec["status"] == "ok"
+    assert rec["sharpness"] == 0.75
+    assert rec["composition"] == 0.6
+    assert rec["exposure"] == 0.8
+    assert isinstance(rec["stars"], int)
+    assert isinstance(rec["color_label"], int)
+    assert rec["color_label"] == 2  # mean=0.717 >= 0.5 → green
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 1
+    assert progress_lines[0]["total"] == 1
+
+
+def test_name_json_progress_emits_semantic_name(tmp_path, monkeypatch):
+    from pathlib import Path
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest
+
+    monkeypatch.setattr("photo_workflow.naming.generate_name", lambda path, model_dir=Path("models/florence2_int8"): "a-blue-waterfall")
+
+    img = tmp_path / "DSC001.ARW"
+    img.write_bytes(b"fake")
+    manifest = tmp_path / "manifest.jsonl"
+    entries = [ManifestEntry(
+        path=str(img), stages_completed=["scan", "dedup", "score"],
+        sharpness=0.7, composition=0.6, exposure=0.7
+    )]
+    save_manifest(entries, manifest)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "name", "--manifest", str(manifest),
+        "--model-dir", str(tmp_path),
+        "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    name_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "name"]
+    assert len(name_lines) == 1
+    assert name_lines[0]["semantic_name"] == "a-blue-waterfall"
+    assert name_lines[0]["status"] == "ok"
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 1
+    assert progress_lines[0]["total"] == 1
+
+
+def test_sync_json_progress(tmp_path, monkeypatch):
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest
+
+    img = tmp_path / "00001.ARW"
+    img.write_bytes(b"fake")
+    manifest = tmp_path / "manifest.jsonl"
+    entries = [ManifestEntry(
+        path=str(img),
+        stages_completed=["scan", "dedup", "score", "name"],
+        sharpness=0.7, composition=0.6, exposure=0.7,
+        semantic_name="a-blue-waterfall"
+    )]
+    save_manifest(entries, manifest)
+
+    # Mock sync_to_darktable to return 1 (XMP written)
+    monkeypatch.setattr("photo_workflow.darktable_bridge.sync_to_darktable", lambda records, verbose=False: 1)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "sync", "--manifest", str(manifest), "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    sync_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "sync"]
+    assert len(sync_lines) == 1
+    assert sync_lines[0]["status"] == "ok"
+    assert sync_lines[0]["xmp"].endswith(".xmp")
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 1
+    assert progress_lines[0]["total"] == 1
+
+
+def test_name_sequence_numbering(tmp_path, monkeypatch):
+    from pathlib import Path
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest, load_manifest
+
+    monkeypatch.setattr("photo_workflow.naming.generate_name", lambda path, model_dir=None, **kw: "a-blue-waterfall")
+
+    # Existing file with sequence number 00001 already present
+    (tmp_path / "00001.ARW").write_bytes(b"existing")
+    photos = []
+    for i in range(2, 5):
+        p = tmp_path / f"DSC0000{i}.ARW"
+        p.write_bytes(b"fake")
+        photos.append(p)
+
+    manifest = tmp_path / "manifest.jsonl"
+    entries = [ManifestEntry(
+        path=str(p), stages_completed=["scan", "dedup", "score"],
+        sharpness=0.7, composition=0.6, exposure=0.7
+    ) for p in photos]
+    save_manifest(entries, manifest)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["name", "--manifest", str(manifest), "--model-dir", str(tmp_path)])
+    assert result.exit_code == 0, result.output
+
+    updated = load_manifest(manifest)
+    new_names = [Path(e.path).name for e in updated]
+    assert "00002.ARW" in new_names
+    assert "00003.ARW" in new_names
+    assert "00004.ARW" in new_names
+    assert (tmp_path / "00002.ARW").exists()
+    assert not (tmp_path / "DSC00002.ARW").exists()
+
+
+def test_name_sequence_starts_at_1_when_no_existing(tmp_path, monkeypatch):
+    from pathlib import Path
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest, load_manifest
+
+    monkeypatch.setattr("photo_workflow.naming.generate_name", lambda path, model_dir=None, **kw: "slug")
+
+    p = tmp_path / "DSC00001.ARW"
+    p.write_bytes(b"fake")
+    manifest = tmp_path / "manifest.jsonl"
+    entries = [ManifestEntry(
+        path=str(p), stages_completed=["scan", "dedup", "score"],
+        sharpness=0.7, composition=0.6, exposure=0.7
+    )]
+    save_manifest(entries, manifest)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["name", "--manifest", str(manifest), "--model-dir", str(tmp_path)])
+    assert result.exit_code == 0
+
+    updated = load_manifest(manifest)
+    assert Path(updated[0].path).name == "00001.ARW"
+    assert (tmp_path / "00001.ARW").exists()

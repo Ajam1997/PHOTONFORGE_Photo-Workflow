@@ -92,3 +92,33 @@ Acceptance: SD card is ejected and the user is notified that the photos have bee
 KPM: KPM-1.4/KPM-1.1
 Stage: 7
 Status: DEFINED
+
+UN-050: The pipeline CLI supports staged execution of individual processing steps.
+Acceptance: photo-workflow exposes subcommands scan, dedup, score, name, sync, status. Each subcommand runs independently and enforces prerequisite stages.
+KPM: NONE
+Stage: 5
+Status: DEFINED
+
+UN-051: The pipeline tracks per-photo processing state across stages via a manifest file.
+Acceptance: scan creates a JSONL manifest. Each subsequent stage reads and updates it. Manifest records per-photo stages_completed, scores, semantic_name, and errors.
+KPM: NONE
+Stage: 5
+Status: DEFINED
+
+UN-052: Long-running pipeline stages are resumable after interruption.
+Acceptance: score and name stages with --resume skip photos already completed. Checkpoint flush every 50 photos via atomic file replace. On crash, at most 50 photos of progress lost.
+KPM: NONE
+Stage: 5
+Status: DEFINED
+
+UN-053: The pipeline displays real-time progress with throughput and ETA during batch processing.
+Acceptance: score and name stages print in-place progress line showing count/total, percentage, images/sec, ETA, and RSS. --verbose and --quiet flags control detail level.
+KPM: NONE
+Stage: 5
+Status: DEFINED
+
+UN-054: The pipeline gracefully handles per-photo errors without aborting the batch.
+Acceptance: Corrupt files or inference failures log a warning, record error in manifest, and continue. Failed photos are retried on --resume. Final summary reports error count.
+KPM: NONE
+Stage: 5
+Status: DEFINED

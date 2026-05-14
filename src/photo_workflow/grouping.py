@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 SESSION_GAP_MINUTES = 30  # New session if gap between shots exceeds this
 
 
-def _read_exif_datetime(path: Path) -> datetime | None:
+def read_exif_datetime(path: Path) -> datetime | None:
     try:
         import exifread
         with open(path, "rb") as f:
@@ -33,7 +33,7 @@ def cluster_sessions(records: list) -> list:
     untimed: list[object] = []
 
     for rec in records:
-        dt = _read_exif_datetime(rec.path)
+        dt = read_exif_datetime(rec.path)
         if dt:
             timed.append((dt, rec))
         else:
