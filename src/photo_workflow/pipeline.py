@@ -257,7 +257,7 @@ def ingest(source: Path, dest: Path, dry_run: bool, json_progress: bool) -> None
               help="Emit newline-delimited JSON progress lines.")
 def scan(source: Path, manifest_path: Path, recursive: bool, json_progress: bool) -> None:
     """Discover photos and create the manifest."""
-    from .grouping import _read_exif_datetime
+    from .grouping import read_exif_datetime
     from .manifest import ManifestEntry, save_manifest
 
     glob_fn = source.rglob if recursive else source.glob
@@ -268,7 +268,7 @@ def scan(source: Path, manifest_path: Path, recursive: bool, json_progress: bool
 
     entries: list[ManifestEntry] = []
     for p in photos:
-        dt = _read_exif_datetime(p)
+        dt = read_exif_datetime(p)
         entries.append(ManifestEntry(
             path=str(p),
             exif_timestamp=dt.isoformat() if dt else None,
