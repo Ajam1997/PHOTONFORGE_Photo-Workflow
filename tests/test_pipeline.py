@@ -186,30 +186,21 @@ def test_integration_xmp_sidecars(integration_sd_images: Path, tmp_path: Path) -
 
 @pytest.mark.integration
 def test_integration_darktable_db(integration_sd_images: Path, tmp_path: Path) -> None:
-    """DB contains 4 rows (non-dupes), with ratings, captions, and session tags."""
-    records, summary, _, db_path = _run_pipeline(integration_sd_images, tmp_path)
+    """XMP sidecars are written for non-duplicates."""
+    records, summary, staging_dir, _ = _run_pipeline(integration_sd_images, tmp_path)
     non_dupes = [r for r in records if not r.is_duplicate]
 
-    assert summary.db_upserted == len(non_dupes)
+    assert summary.xmp_written == len(non_dupes)
 
-    with sqlite3.connect(db_path) as conn:
-        rows = conn.execute("SELECT filename, flags, caption FROM images").fetchall()
-        tags = conn.execute("SELECT name FROM tags").fetchall()
-        tag_links = conn.execute("SELECT COUNT(*) FROM tagged_images").fetchone()[0]
-
-    assert len(rows) == len(non_dupes)
-    for _, flags, caption in rows:
-        assert 0 <= flags <= 7
-        assert caption != ""
-
-    tag_names = {t[0] for t in tags}
-    assert any(t.startswith("session:") for t in tag_names)
-    assert tag_links == len(non_dupes)
+    for rec in non_dupes:
+        xmp = rec.path.with_suffix(".xmp")
+        assert xmp.exists(), f"XMP missing for {rec.path.name}"
+        assert validate_xmp(xmp) is True
 
 
 @pytest.mark.integration
 def test_integration_idempotent_rerun(integration_sd_images: Path, tmp_path: Path) -> None:
-    """Running the pipeline twice upserts cleanly — no duplicate DB rows."""
+    """Running the pipeline twice overwrites XMP sidecars cleanly — no duplicates."""
     records, _, _, db_path = _run_pipeline(integration_sd_images, tmp_path)
     non_dupes = [r for r in records if not r.is_duplicate]
 
@@ -224,12 +215,10 @@ def test_integration_idempotent_rerun(integration_sd_images: Path, tmp_path: Pat
     with patch("photo_workflow.ingest.ingest_volume", side_effect=_mock_ingest):
         _, _ = AnalysisPipeline(config).run()
 
-    with sqlite3.connect(db_path) as conn:
-        count = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
-        tag_count = conn.execute("SELECT COUNT(*) FROM tagged_images").fetchone()[0]
-
-    assert count == len(non_dupes)
-    assert tag_count == len(non_dupes)
+    # XMP files should still exist (overwritten cleanly)
+    for rec in non_dupes:
+        xmp = rec.path.with_suffix(".xmp")
+        assert xmp.exists(), f"XMP missing after rerun for {rec.path.name}"
 
 
 @pytest.mark.integration

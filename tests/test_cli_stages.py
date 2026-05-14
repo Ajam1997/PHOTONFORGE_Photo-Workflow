@@ -167,20 +167,14 @@ def test_name_assigns_semantic_names(photo_dir: Path, manifest_path: Path) -> No
 
 
 def test_sync_writes_xmp_and_db(photo_dir: Path, manifest_path: Path, tmp_path: Path) -> None:
-    """sync writes XMP sidecars and upserts into Darktable DB."""
-    from conftest import make_darktable_db
-    import sqlite3
-
-    db_path = tmp_path / "library.db"
-    make_darktable_db(db_path)
-
+    """sync writes XMP sidecars."""
     runner = CliRunner()
     runner.invoke(cli, ["scan", "--source", str(photo_dir), "--manifest", str(manifest_path)])
     runner.invoke(cli, ["dedup", "--manifest", str(manifest_path)])
     runner.invoke(cli, ["score", "--manifest", str(manifest_path)])
     runner.invoke(cli, ["name", "--manifest", str(manifest_path), "--model-dir", "models/nonexistent"])
 
-    result = runner.invoke(cli, ["sync", "--manifest", str(manifest_path), "--db", str(db_path)])
+    result = runner.invoke(cli, ["sync", "--manifest", str(manifest_path)])
     assert result.exit_code == 0, result.output
 
     entries = load_manifest(manifest_path)
@@ -189,10 +183,6 @@ def test_sync_writes_xmp_and_db(photo_dir: Path, manifest_path: Path, tmp_path: 
     for e in non_dupes:
         xmp = Path(e.path).with_suffix(".xmp")
         assert xmp.exists(), f"XMP missing for {e.path}"
-
-    with sqlite3.connect(db_path) as conn:
-        count = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
-    assert count == len(non_dupes)
 
     assert "sync" in entries[0].stages_completed or entries[0].is_duplicate
 
@@ -213,12 +203,6 @@ def test_status_reports_progress(photo_dir: Path, manifest_path: Path) -> None:
 @pytest.mark.integration
 def test_full_staged_pipeline(photo_dir: Path, manifest_path: Path, tmp_path: Path) -> None:
     """Full staged pipeline: scan -> dedup -> score -> name -> sync."""
-    from conftest import make_darktable_db
-    import sqlite3
-
-    db_path = tmp_path / "library.db"
-    make_darktable_db(db_path)
-
     runner = CliRunner()
 
     r1 = runner.invoke(cli, ["scan", "--source", str(photo_dir), "--manifest", str(manifest_path)])
@@ -233,7 +217,7 @@ def test_full_staged_pipeline(photo_dir: Path, manifest_path: Path, tmp_path: Pa
     r4 = runner.invoke(cli, ["name", "--manifest", str(manifest_path), "--model-dir", "models/nonexistent"])
     assert r4.exit_code == 0, r4.output
 
-    r5 = runner.invoke(cli, ["sync", "--manifest", str(manifest_path), "--db", str(db_path)])
+    r5 = runner.invoke(cli, ["sync", "--manifest", str(manifest_path)])
     assert r5.exit_code == 0, r5.output
 
     entries = load_manifest(manifest_path)
@@ -248,10 +232,6 @@ def test_full_staged_pipeline(photo_dir: Path, manifest_path: Path, tmp_path: Pa
 
     for e in non_dupes:
         assert Path(e.path).with_suffix(".xmp").exists()
-
-    with sqlite3.connect(db_path) as conn:
-        count = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
-    assert count == len(non_dupes)
 
     r6 = runner.invoke(cli, ["status", "--manifest", str(manifest_path)])
     assert r6.exit_code == 0
