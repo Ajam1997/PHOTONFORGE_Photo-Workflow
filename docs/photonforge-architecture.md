@@ -174,13 +174,13 @@ The inference subsystem targets the i7-7500U's AVX2 instruction set with a 4-mod
 
 ---
 
-## 6. UI Architecture: Darktable Lua Panel
+## 6. UI Architecture: Darktable Lua Plugin
 
 ### 6.1 Product Vision
 
-PhotonForge integrates directly into Darktable as a Lua script that renders a control panel in the lighttable view. There is no separate application process -- Darktable is the host, and PHOTONForge is a plugin. This eliminates the RAM overhead of a standalone GUI, removes the need for process coordination between a GUI and Darktable, and leverages Darktable's existing library browser, export system, and dark theme.
+PhotonForge integrates directly into Darktable as a Lua plugin that renders a collapsible control panel in the lighttable left sidebar. There is no separate application process -- Darktable is the host, and PHOTONForge is a plugin. Lua is pure UI glue: it builds the panel, launches `photo-workflow` subcommands as subprocesses, reads their JSON stdout line-by-line, and applies results to Darktable images via the native Lua API. All computation stays in Python.
 
-### 6.2 Why Lua Panel (Supersedes Tauri)
+### 6.2 Why Lua Plugin (Supersedes Tauri)
 
 | Concern | Tauri (v5 plan) | Darktable Lua (v6) |
 |:---|:---|:---|
@@ -188,42 +188,69 @@ PhotonForge integrates directly into Darktable as a Lua script that renders a co
 | Library browsing | Custom thumbnail grid | Darktable lighttable (native) |
 | Export | Custom Rust copy logic | Darktable export module (native) |
 | Darktable handoff | Subprocess launch + re-focus | No handoff needed -- already inside Darktable |
-| Development effort | Rust backend + web frontend (weeks) | Single Lua script (days) |
-| Maintenance | Two apps to update | One plugin file |
+| DB writes | Custom SQLite upserts | Darktable Lua API (rating, color labels, metadata) |
+| Development effort | Rust backend + web frontend (weeks) | Lua plugin (days) |
+| Maintenance | Two apps to update | One plugin directory |
 
-### 6.3 Panel Tabs
+### 6.3 Plugin File Layout
 
-The PHOTONForge panel appears in the lighttable right-side panel area and contains three tabs. See `docs/mockups/PhotonForgePanel.jsx` for the interactive reference mockup.
+```
+<darktable-lua-dir>/photonforge/
+  main.lua          -- entry point; registers panel with darktable
+  panel.lua         -- sidebar widget tree and event handlers
+  runner.lua        -- subprocess launch + stdout JSON parsing
+  applicator.lua    -- JSON result → darktable.image API calls
+  config.lua        -- load/save settings via darktable.preferences
+```
 
-| Tab | Function | Key Interactions |
-|:---|:---|:---|
-| Ingest | Source/cartridge selection, pipeline trigger, real-time progress, run summary | Source dropdown, cartridge dropdown, Run pipeline / Dry run buttons, progress bar, stage counter |
-| Status | Per-stage checklist (8 stages), warnings for low-scoring images | Stage icons (pending/active/done), warning alerts |
-| Cartridge | PHOTON-XXX volume info, init new cartridge, safe eject with WAL flush | Init new button, Safe eject button with step-by-step feedback |
+One line added to `luarc`: `require "photonforge/main"`
 
-### 6.4 Lua Integration
+See `docs/mockups/PhotonForgePanel.jsx` for the interactive reference mockup.
 
-- **Script location:** `~/.config/darktable/lua/photonforge.lua` (or via Darktable's `luarc` require path).
-- **Panel registration:** `dt.register_lib()` to create a lighttable panel with PHOTONForge controls.
-- **Widget toolkit:** Darktable's `dt.new_widget()` API -- labels, buttons, comboboxes, separators. No HTML/CSS.
-- **Pipeline invocation:** `dt.control.execute()` or `io.popen()` to spawn the Python CLI as a subprocess. Parse JSON/JSONL stdout for progress updates.
-- **Cartridge detection:** Poll `/proc/mounts` or watch for `.photonforge/cartridge.json` on mounted volumes.
-- **Safe eject:** Call `scripts/safe_eject.sh` via subprocess. Report WAL flush / sync / unmount steps.
-- **Library refresh:** After pipeline sync, call `dt.database.import()` or prompt the user to refresh the lighttable collection.
+### 6.4 Panel Layout
 
-### 6.5 Panel Requirements
+Left sidebar, collapsible section labelled **PHOTONForge**:
+
+- **Configuration fields:** SD card path, destination, model dir, manifest path, TZ offset
+- **Step toggles:** Ingest, Dedup, Score, Name, Sync -- each with checkbox and last-run status chip
+- **Run / Stop buttons:** Run executes enabled steps sequentially; Stop kills subprocess, manifest checkpoint preserves progress for resume
+- **Progress bar:** Updated via `_progress` JSON lines from Python subprocess
+- **Live log viewer:** Scrolling log of per-image results
+
+### 6.5 JSON Progress Protocol
+
+Each Python subcommand accepts `--json-progress`. When set, all stdout is newline-delimited JSON. The Lua runner parses these lines and dispatches to the applicator.
+
+Key line types:
+- `status: ok` -- applicator writes results to Darktable API
+- `status: duplicate` -- applicator sets red color label, rating 0
+- `status: error` -- logged to panel log viewer, image skipped
+- `step: _progress` -- updates progress bar (done/total)
+
+### 6.6 Applicator -- JSON to Darktable API
+
+| JSON field | Darktable API call |
+|:---|:---|
+| `stars` | `image.rating = value` |
+| `color_label` (int 0-4) | `darktable.colorlabels` table assignment |
+| `semantic_name` | `image:set_metadata("description", value)` |
+| `status = "duplicate"` | `image.rating = 0` + red color label (0) |
+| Ingest complete | `darktable.films.scan(dest_dir)` -- adds files to library |
+| `step = "name", dest` | `image:move(dest_dir, new_filename)` |
+
+### 6.7 Plugin Requirements
 
 | ID | Description | Specification |
 |:---|:---|:---|
-| LUA-1.1 | Panel location | Lighttable right-side panel, collapsible |
-| LUA-1.2 | Pipeline feedback | Real-time stage progress from Python subprocess stdout |
-| LUA-1.3 | Cartridge lifecycle | Init (mkfs.ext4 -L PHOTON-XXX), safe eject with WAL flush, capacity display |
-| LUA-1.4 | Source selection | Dropdown for SD mount and import directory paths |
-| LUA-1.5 | Dry run | Pipeline dry-run mode that reports counts without writing files |
-| LUA-1.6 | Offline operation | No network calls. Script bundled with Darktable config. |
-| LUA-1.7 | Warning display | Show per-image warnings (low sharpness, exposure issues) in Status tab |
+| LUA-1.1 | Panel location | Lighttable left sidebar, collapsible |
+| LUA-1.2 | Pipeline feedback | Real-time progress via `--json-progress` subprocess stdout |
+| LUA-1.3 | Step toggles | Individual enable/disable per pipeline step with last-run status |
+| LUA-1.4 | Config persistence | All fields saved via `darktable.preferences.register()` under namespace `photonforge` |
+| LUA-1.5 | Stop / Resume | Kill subprocess on Stop; JSONL manifest checkpoint enables resume on next Run |
+| LUA-1.6 | Offline operation | No network calls. Plugin files bundled with Darktable config. |
+| LUA-1.7 | Error display | Per-image errors logged to live log viewer; step marked failed in status chip |
 
-### 6.6 What Darktable Provides Natively
+### 6.8 What Darktable Provides Natively
 
 These features from the old Tauri plan are no longer needed -- Darktable handles them:
 
@@ -232,6 +259,8 @@ These features from the old Tauri plan are no longer needed -- Darktable handles
 - **Dark theme:** Darktable's default theme
 - **Image editing:** Darkroom view
 - **Metadata display:** Image information panel
+
+Full design spec: `docs/superpowers/specs/2026-05-13-darktable-lua-plugin-design.md`
 
 ---
 
@@ -286,8 +315,12 @@ photo-workflow/
     VerificationReports/         # Per-commit pass/fail (@verification)
     ValidationReports/           # Per-milestone compliance (@validation)
       soak-test-log.md           # KPM-1.4 persistent cycle tracker
-  lua/
-    photonforge.lua              # Darktable lighttable panel (Ingest / Status / Cartridge tabs)
+  lua/photonforge/
+    main.lua                     # Plugin entry point; registers panel
+    panel.lua                    # Sidebar widget tree + event handlers
+    runner.lua                   # Subprocess launch + JSON parsing
+    applicator.lua               # JSON result → Darktable API calls
+    config.lua                   # Preferences persistence
   docs/mockups/
     PhotonForgePanel.jsx         # Interactive React reference mockup
 ```
@@ -320,8 +353,10 @@ The Living User Need Document (docs/living-user-needs.md) is the sole input for 
 
 | Decision | Chosen | Rejected | Rationale |
 |:---|:---|:---|:---|
-| UI approach | Darktable Lua panel | Tauri (v5), Electron | Zero RAM overhead. Darktable already running -- no second process. Eliminates library browser, export, dark theme, and Darktable launcher features (all native). Single Lua file vs. Rust+web frontend. |
+| UI approach | Darktable Lua plugin (left sidebar) | Tauri (v5), Electron | Zero RAM overhead. Darktable already running -- no second process. Eliminates library browser, export, dark theme, and Darktable launcher features (all native). Lua plugin directory vs. Rust+web frontend. |
 | Sharing model | Darktable export module (native) | Custom Rust copy logic | Darktable's export module already handles local/USB/network targets. No custom code needed. |
+| DB writes | Lua applicator via Darktable API | Python SQLite upserts | Darktable owns its DB. Writing via Lua API avoids corruption risk and keeps DB portable. Python `sync` subcommand writes XMP sidecars only. |
+| Progress protocol | `--json-progress` flag on all subcommands | Human-readable stdout | Structured JSON enables Lua parser to update progress bar, status chips, and log viewer. Human output preserved as default. |
 | V&V execution | SSH to Yoga 910 via Claude Code | Manual copy-paste | Native SSH sessions eliminate manual terminal relay. |
 | SSD cartridge identity | Hidden metadata file `.photonforge/cartridge.json` | Filesystem label (PHOTON-*) | Label is now cosmetic; identity survives label changes. Detection is mount-path-agnostic, works with udisks2 auto-mount at any path. |
 | Device detection | Metadata file presence + `/proc/mounts` poll | udev label rules | udisks2 won out over custom udev mounting in practice; polling is simpler and reliable. |
