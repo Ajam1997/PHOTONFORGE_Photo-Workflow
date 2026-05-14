@@ -14,7 +14,7 @@ Revision 6.0 | April 14, 2026 | Development Platform: Claude Code (Multi-Agent)
 
 PhotonForge is an autonomous ingest-to-edit photography system that transforms a Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition) into a purpose-built photography workstation. The system ingests from SD cards, analyzes and scores images, generates semantic filenames, and syncs results to Darktable -- all offline, all local.
 
-The system architecture spans three layers: (1) a Python analysis pipeline for image intelligence, (2) a host integration layer using udev, Docker, and shell scripts, and (3) a Tauri-based GUI that presents the workstation as a kiosk appliance. Development uses Claude Code with a five-agent roster: @architect, @engineer, @devops, @verification, and @validation.
+The system architecture spans three layers: (1) a Python analysis pipeline for image intelligence, (2) a host integration layer using udev, Docker, and shell scripts, and (3) a Darktable Lua script that renders a PHOTONForge control panel in the lighttable view. Development uses Claude Code with a five-agent roster: @architect, @engineer, @devops, @verification, and @validation.
 
 ---
 
@@ -45,8 +45,8 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | Docker daemon | ~0.3 GB | Container runtime overhead |
 | Darktable | ~2.0 GB | Largest single consumer |
 | Analyzer container | 1.5 GB (hard limit) | KPM-1.3: Florence-2 INT8 + image buffers |
-| Tauri GUI | ~50 MB | NFR-3.1: WebKitGTK-based, no Chromium |
-| System buffer/cache | ~3.15 GB | Reclaimable under pressure |
+| Darktable Lua panel | ~0 MB | Runs inside Darktable process, no separate allocation |
+| System buffer/cache | ~3.2 GB | Reclaimable under pressure |
 | **TOTAL** | **8.0 GB** | No swap -- zram only (SSD wear concern) |
 
 ### 2.3 USB Port Topology
@@ -91,10 +91,9 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | NFR-2.2 | Resource Efficiency | Total container RSS <= 1.5 GB. CPU affinity capped at 80%. Host OS reserved: 2.5 GB minimum. |
 | NFR-2.3 | Database Portability | Darktable library.db + user config on external SSD, not host filesystem. |
 | NFR-2.4 | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected. |
-| NFR-3.1 | GUI Memory Budget | Tauri app idle RSS <= 50 MB. Combined system within 8 GB with >= 500 MB free for cache. |
-| NFR-3.2 | Boot-to-App Time | Power button to interactive PhotonForge UI <= 30 seconds. |
-| NFR-3.3 | Touch Accessibility | All interactive elements >= 44px touch target. Screen rotation via watchband hinge. |
-| NFR-3.4 | Dark Mode | Default and only theme. Photography-focused: muted UI, large previews, minimal chrome. |
+| NFR-3.1 | GUI Memory Budget | No separate GUI process. PHOTONForge runs as a Lua panel inside Darktable (~0 MB additional). |
+| NFR-3.2 | Plugin Installation | Single Lua script copied to `~/.config/darktable/lua/`. No build step. |
+| NFR-3.3 | Darktable Version | Target Darktable 4.x+ Lua API (dt.register_lib, dt.new_widget). |
 
 ### 3.3 Key Performance Measures
 
@@ -175,90 +174,64 @@ The inference subsystem targets the i7-7500U's AVX2 instruction set with a 4-mod
 
 ---
 
-## 6. GUI & Appliance Architecture
+## 6. UI Architecture: Darktable Lua Panel
 
 ### 6.1 Product Vision
 
-PhotonForge evolves from a headless pipeline into a full photography workstation. The Yoga 910 boots directly into a photography-focused interface. The recommended path is Tier 1 (kiosk shell) + Tier 2 (Tauri application). Tier 3 (custom OS) is a documented contingency.
+PhotonForge integrates directly into Darktable as a Lua script that renders a control panel in the lighttable view. There is no separate application process -- Darktable is the host, and PHOTONForge is a plugin. This eliminates the RAM overhead of a standalone GUI, removes the need for process coordination between a GUI and Darktable, and leverages Darktable's existing library browser, export system, and dark theme.
 
-### 6.2 Tier Overview
+### 6.2 Why Lua Panel (Supersedes Tauri)
 
-| Tier | Approach | Effort | RAM Overhead | When to Use |
-|:---|:---|:---|:---|:---|
-| Tier 1 | Kiosk Shell | Low (days) | ~0 MB | Immediate. Locks Ubuntu into full-screen app on boot. |
-| Tier 2 | Tauri Application | Medium (weeks) | 30-50 MB idle | Primary target. Custom control surface with Rust backend + web frontend. |
-| Tier 3 | Custom Linux Distro | High (months) | Minimal | Contingency. Only if Tiers 1-2 cannot meet a future requirement. |
-
-### 6.3 Kiosk Shell (Tier 1)
-
-Replace GNOME desktop with a minimal session that auto-launches PhotonForge. Configuration change, not development effort.
-
-- **Auto-login:** GDM auto-login to dedicated 'photonforge' user. No password prompt.
-- **Crash recovery:** Launch script restarts app within 2 seconds on exit.
-- **Admin escape:** SSH for admin user. TTY2 via Ctrl+Alt+F2 for emergency.
-- **Display:** Full-screen, no decorations, no taskbar. FHD native.
-
-### 6.4 Tauri Application (Tier 2)
-
-Custom desktop application using Tauri: system WebKitGTK + Rust backend. 30-50 MB idle RAM vs. Electron's 150-300 MB. Critical for the 8 GB memory budget.
-
-#### 6.4.1 Application Panels
-
-| Panel | Function | Key Interactions |
+| Concern | Tauri (v5 plan) | Darktable Lua (v6) |
 |:---|:---|:---|
-| Ingest Dashboard | SD/SSD status, pipeline progress in real-time | Start/stop pipeline, per-image progress, abort |
-| Library Browser | Thumbnail grid with scores, tags, semantic names, stars | Filter by session, sort by score, select for edit/export |
-| Darktable Launcher | Opens Darktable at active cartridge's library.db | Launch, process monitoring, return on exit |
-| Export/Share | Push Darktable output JPGs to destination | Copy to USB, local folder, future: network/cloud |
-| Cartridge Manager | Format, health check, safe eject | mkfs.ext4 -L PHOTON-XXX, integrity check, eject button |
-| Settings | Pipeline config, model selection, scoring thresholds | Adjust dedup/sharpness/composition weights |
+| RAM overhead | 30-50 MB idle | ~0 MB (runs in Darktable process) |
+| Library browsing | Custom thumbnail grid | Darktable lighttable (native) |
+| Export | Custom Rust copy logic | Darktable export module (native) |
+| Darktable handoff | Subprocess launch + re-focus | No handoff needed -- already inside Darktable |
+| Development effort | Rust backend + web frontend (weeks) | Single Lua script (days) |
+| Maintenance | Two apps to update | One plugin file |
 
-#### 6.4.2 Rust Backend
+### 6.3 Panel Tabs
 
-- **USB/mount management:** Monitor udev events. Trigger systemd-mount. Report to frontend via Tauri events.
-- **Pipeline orchestration:** Spawn Python pipeline as subprocess. Stream stdout/stderr for real-time progress.
-- **Darktable integration:** Launch with --library flag. Monitor process. Re-focus on exit.
-- **File watching:** Watch cartridge output directory for new JPG exports.
-- **SQLite reads:** Read library.db for library browser. Thumbnail generation.
+The PHOTONForge panel appears in the lighttable right-side panel area and contains three tabs. See `docs/mockups/PhotonForgePanel.jsx` for the interactive reference mockup.
 
-#### 6.4.3 Web Frontend
+| Tab | Function | Key Interactions |
+|:---|:---|:---|
+| Ingest | Source/cartridge selection, pipeline trigger, real-time progress, run summary | Source dropdown, cartridge dropdown, Run pipeline / Dry run buttons, progress bar, stage counter |
+| Status | Per-stage checklist (8 stages), warnings for low-scoring images | Stage icons (pending/active/done), warning alerts |
+| Cartridge | PHOTON-XXX volume info, init new cartridge, safe eject with WAL flush | Init new button, Safe eject button with step-by-step feedback |
 
-- **Framework:** React or Svelte (decision deferred to Phase 7.1). TypeScript required.
-- **Design:** Dark mode default. Photography-focused. Large thumbnails, muted UI.
-- **State:** Tauri event bus for real-time backend updates. Local state for UI only.
-- **Responsive:** Optimized for 13.9" FHD. Touch-friendly >= 44px targets for tablet mode.
+### 6.4 Lua Integration
 
-#### 6.4.4 GUI Requirements
+- **Script location:** `~/.config/darktable/lua/photonforge.lua` (or via Darktable's `luarc` require path).
+- **Panel registration:** `dt.register_lib()` to create a lighttable panel with PHOTONForge controls.
+- **Widget toolkit:** Darktable's `dt.new_widget()` API -- labels, buttons, comboboxes, separators. No HTML/CSS.
+- **Pipeline invocation:** `dt.control.execute()` or `io.popen()` to spawn the Python CLI as a subprocess. Parse JSON/JSONL stdout for progress updates.
+- **Cartridge detection:** Poll `/proc/mounts` or watch for `.photonforge/cartridge.json` on mounted volumes.
+- **Safe eject:** Call `scripts/safe_eject.sh` via subprocess. Report WAL flush / sync / unmount steps.
+- **Library refresh:** After pipeline sync, call `dt.database.import()` or prompt the user to refresh the lighttable collection.
+
+### 6.5 Panel Requirements
 
 | ID | Description | Specification |
 |:---|:---|:---|
-| GUI-1.1 | Boot to app | System boots into PhotonForge UI within 30 seconds. No desktop visible. |
-| GUI-1.2 | Crash recovery | Kiosk script restarts app within 2 seconds. |
-| GUI-1.3 | Admin escape | SSH + TTY2 via key combo. |
-| GUI-1.4 | Display | Full-screen, no decorations, FHD native. |
-| GUI-2.1 | Idle memory | Tauri app idle RSS <= 50 MB. |
-| GUI-2.2 | Pipeline feedback | Real-time progress. Latency stdout to UI <= 500 ms. |
-| GUI-2.3 | Darktable handoff | Launch with --library and --configdir. Detect exit, return focus. |
-| GUI-2.4 | Export | Copy JPGs to USB/local. Progress bar. Cancellable. |
-| GUI-2.5 | Cartridge lifecycle | Format, mount, eject, integrity check from UI. |
-| GUI-2.6 | Touch support | All targets >= 44px for tablet mode. |
-| GUI-2.7 | Offline operation | No network calls. All UI assets bundled. |
+| LUA-1.1 | Panel location | Lighttable right-side panel, collapsible |
+| LUA-1.2 | Pipeline feedback | Real-time stage progress from Python subprocess stdout |
+| LUA-1.3 | Cartridge lifecycle | Init (mkfs.ext4 -L PHOTON-XXX), safe eject with WAL flush, capacity display |
+| LUA-1.4 | Source selection | Dropdown for SD mount and import directory paths |
+| LUA-1.5 | Dry run | Pipeline dry-run mode that reports counts without writing files |
+| LUA-1.6 | Offline operation | No network calls. Script bundled with Darktable config. |
+| LUA-1.7 | Warning display | Show per-image warnings (low sharpness, exposure issues) in Status tab |
 
-### 6.5 Sharing Utility
+### 6.6 What Darktable Provides Natively
 
-| Phase | Target | Implementation | Notes |
-|:---|:---|:---|:---|
-| Phase 1 | Local directory | Rust fs copy | Internal SSD or second USB drive |
-| Phase 1 | USB drive | Detect non-PHOTON USB | Must not confuse with cartridges |
-| Phase 2 | Network share | SMB/NFS from Rust | Requires Wi-Fi. One-time credential config. |
-| Phase 3 | Cloud upload | API integration | User opt-in only. Never for pipeline. |
+These features from the old Tauri plan are no longer needed -- Darktable handles them:
 
-### 6.6 Tier 3: Custom Linux Distribution (Contingency)
-
-Build a purpose-built Linux image (Ubuntu Core, Buildroot, or Yocto) that boots directly into PhotonForge. No desktop, no package manager. Analogous to SteamOS or camera firmware. Documented for reference only -- no implementation unless Tiers 1-2 fail to meet a specific requirement.
-
-- **Triggers:** Boot time < 5s needed, kernel customization, OS footprint < 4 GB, OTA updates for fleet, regulatory certification.
-- **Risks:** Full maintenance burden, Darktable cross-compilation, slow build-test cycles, hardware driver gaps.
+- **Library browsing:** Lighttable filmstrip + grid with star ratings, color labels, tags
+- **Export/sharing:** Darktable export module (local directory, USB, network)
+- **Dark theme:** Darktable's default theme
+- **Image editing:** Darkroom view
+- **Metadata display:** Image information panel
 
 ---
 
@@ -313,10 +286,10 @@ photo-workflow/
     VerificationReports/         # Per-commit pass/fail (@verification)
     ValidationReports/           # Per-milestone compliance (@validation)
       soak-test-log.md           # KPM-1.4 persistent cycle tracker
-  photonforge-gui/               # Tauri application (Stage 7)
-    src-tauri/src/               # Rust backend
-    src/panels/                  # Frontend panels
-    src/components/              # Shared UI components
+  lua/
+    photonforge.lua              # Darktable lighttable panel (Ingest / Status / Cartridge tabs)
+  docs/mockups/
+    PhotonForgePanel.jsx         # Interactive React reference mockup
 ```
 
 ---
@@ -332,13 +305,8 @@ photo-workflow/
 | 5. Parallel Build | @engineer + @devops | Concurrent Stage 2-4 (agent teams) | All individual stage criteria met | All Stage 2-4 |
 | 5.1 Batch CLI | @engineer | Stage-based CLI (scan/dedup/score/name/sync/status), JSONL manifest, resume/checkpoint, progress display | All subcommands work independently; 7000-photo batch completes with resume | UN-050 to UN-054 |
 | 6. Integration | @architect (lead) | Full pipeline E2E on Yoga 910 | All KPMs verified; SD-to-Darktable autonomous | All UN-IDs |
-| 7.1 GUI Scaffold | @engineer | Tauri project, panel nav, dark theme, status bar | App launches, panels navigate, cartridge status renders | -- |
-| 7.2 Ingest + Cartridge | @engineer + @devops | Ingest Dashboard, Cartridge Manager, USB events | SD insert shows status. Pipeline from UI. Format/eject from UI. | -- |
-| 7.3 Library Browser | @engineer | Thumbnails, scores, session filtering | Browse 630 images, filter by session, sort by score | -- |
-| 7.4 Darktable Launcher | @engineer | Process management, library handoff | Launch from UI, library.db loads, return on exit | -- |
-| 7.5 Export/Share | @engineer | Phase 1: local directory + USB drive export | Select images, export, verify JPGs on destination | -- |
-| 7.6 Kiosk Mode | @devops | Auto-login, session config, crash recovery | Boot to PhotonForge within 30s, no desktop visible | -- |
-| 7.7 Polish | @engineer + @devops | Touch, tablet mode, performance tuning | Touch >= 44px, rotation works, idle RAM <= 50 MB | -- |
+| 7.1 Lua Panel | @engineer | Darktable Lua script: 3-tab panel (Ingest, Status, Cartridge), pipeline subprocess invocation | Panel renders in lighttable, pipeline runs from UI, cartridge eject works | -- |
+| 7.2 Polish | @engineer + @devops | Progress streaming, warning display, library refresh after sync | Real-time stage feedback, low-score warnings shown, lighttable refreshes | -- |
 
 ---
 
@@ -352,12 +320,8 @@ The Living User Need Document (docs/living-user-needs.md) is the sole input for 
 
 | Decision | Chosen | Rejected | Rationale |
 |:---|:---|:---|:---|
-| Application framework | Tauri | Electron | 8 GB RAM constraint. Electron 150-300 MB idle is incompatible. Tauri uses 30-50 MB. |
-| Implementation path | Tier 1 + Tier 2 | Tier 3 alone | Tier 3 high cost/maintenance. Tier 1+2 achieves appliance UX on standard Ubuntu. |
-| Frontend framework | Deferred (React or Svelte) | N/A | Decision at Phase 7.1 based on Tauri ecosystem support. |
-| Sharing model | Phased: local first, cloud later | Cloud-only | NFR-2.1 offline mandate. Cloud is opt-in layer. |
-| Darktable integration | Subprocess with --library | Embedded library | Darktable not designed for embedding. Subprocess is simple and reliable. |
-| Tier 3 status | Documented, not implemented | Immediate build | No requirement justifies the cost. Path preserved for future. |
+| UI approach | Darktable Lua panel | Tauri (v5), Electron | Zero RAM overhead. Darktable already running -- no second process. Eliminates library browser, export, dark theme, and Darktable launcher features (all native). Single Lua file vs. Rust+web frontend. |
+| Sharing model | Darktable export module (native) | Custom Rust copy logic | Darktable's export module already handles local/USB/network targets. No custom code needed. |
 | V&V execution | SSH to Yoga 910 via Claude Code | Manual copy-paste | Native SSH sessions eliminate manual terminal relay. |
 | SSD cartridge identity | Hidden metadata file `.photonforge/cartridge.json` | Filesystem label (PHOTON-*) | Label is now cosmetic; identity survives label changes. Detection is mount-path-agnostic, works with udisks2 auto-mount at any path. |
 | Device detection | Metadata file presence + `/proc/mounts` poll | udev label rules | udisks2 won out over custom udev mounting in practice; polling is simpler and reliable. |
