@@ -1,0 +1,27 @@
+model_list:
+  # High-volume Subagent (Uses Gemini for high rate limits)
+  - model_name: claude-haiku-4-5-20251001
+    litellm_params:
+      model: qwen/qwen3.5-9b
+      custom_llm_provider: openai
+      api_base: https://openrouter.ai/api/v1
+      api_key: os.environ/OPENROUTER_API_KEY
+      
+  # High-reasoning Lead Agent (Uses Nemotron 120B - 1M context!)
+  - model_name: claude-sonnet-4-6-20251225
+    litellm_params:
+      model: google/gemini-2.5-flash-lite
+      custom_llm_provider: openai
+      api_base: https://openrouter.ai/api/v1
+      api_key: os.environ/OPENROUTER_API_KEY
+
+  # Catch-all Sonnet alias
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: google/gemini-2.5-flash-lite
+      custom_llm_provider: openai
+      api_base: https://openrouter.ai/api/v1
+      api_key: os.environ/OPENROUTER_API_KEY
+
+litellm_settings:
+  drop_params: true
