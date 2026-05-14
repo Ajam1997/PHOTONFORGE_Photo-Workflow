@@ -1,43 +1,19 @@
-"""Unit tests for FR-1.8: Darktable SQLite + XMP sync."""
+"""Tests for darktable_bridge: XMP writing and color label computation."""
 
 from __future__ import annotations
 
-import shutil
-import sqlite3
+import inspect
 from pathlib import Path
 
 import pytest
 
-from photo_workflow.darktable_bridge import sync_to_darktable, _write_xmp, validate_xmp
+from photo_workflow.darktable_bridge import (
+    compute_color_label,
+    sync_to_darktable,
+    validate_xmp,
+    _write_xmp,
+)
 from photo_workflow.pipeline import PhotoRecord
-
-_FIXTURE_DB = Path(__file__).parent / "fixtures" / "library.db"
-
-
-def _make_db(path: Path) -> None:
-    """Create a minimal Darktable-compatible SQLite DB at path."""
-    with sqlite3.connect(path) as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS images (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                filename TEXT NOT NULL,
-                folder   TEXT NOT NULL DEFAULT '',
-                flags    INTEGER DEFAULT 0,
-                caption  TEXT DEFAULT '',
-                UNIQUE(filename, folder)
-            );
-            CREATE TABLE IF NOT EXISTS tags (
-                id       INTEGER PRIMARY KEY AUTOINCREMENT,
-                name     TEXT UNIQUE,
-                synonyms TEXT DEFAULT '',
-                flags    INTEGER DEFAULT 0
-            );
-            CREATE TABLE IF NOT EXISTS tagged_images (
-                imgid  INTEGER,
-                tagid  INTEGER,
-                UNIQUE(imgid, tagid)
-            );
-        """)
 
 
 def _make_record(tmp_path: Path, name: str = "test", duplicate: bool = False) -> PhotoRecord:
@@ -58,7 +34,6 @@ def _make_record(tmp_path: Path, name: str = "test", duplicate: bool = False) ->
 # ---------------------------------------------------------------------------
 
 def test_xmp_written_for_non_duplicate(tmp_path: Path) -> None:
-    """XMP sidecar is created for non-duplicate records."""
     rec = _make_record(tmp_path)
     _write_xmp(rec)
     xmp_path = rec.path.with_suffix(".xmp")
@@ -69,110 +44,82 @@ def test_xmp_written_for_non_duplicate(tmp_path: Path) -> None:
 
 
 def test_xmp_not_written_for_duplicate(tmp_path: Path) -> None:
-    """Duplicate records are skipped — no XMP written."""
     rec = _make_record(tmp_path, duplicate=True)
-    sync_to_darktable([rec], db_path=tmp_path / "nonexistent.db")
+    count = sync_to_darktable([rec])
     xmp_path = rec.path.with_suffix(".xmp")
     assert not xmp_path.exists()
+    assert count == 0
 
 
 def test_validate_xmp_passes_for_valid_sidecar(tmp_path: Path) -> None:
-    """XMP written by _write_xmp passes schema validation."""
     rec = _make_record(tmp_path)
     _write_xmp(rec)
     assert validate_xmp(rec.path.with_suffix(".xmp")) is True
 
 
 def test_validate_xmp_fails_for_malformed(tmp_path: Path) -> None:
-    """Non-XMP file fails validation gracefully."""
     bad_xmp = tmp_path / "bad.xmp"
     bad_xmp.write_text("<not-valid-xmp>garbage</not-valid-xmp>", encoding="utf-8")
     assert validate_xmp(bad_xmp) is False
 
 
 # ---------------------------------------------------------------------------
-# DB tests
+# sync_to_darktable tests
 # ---------------------------------------------------------------------------
 
-def test_db_upsert(tmp_path: Path) -> None:
-    """Non-duplicate records are upserted with star rating and caption."""
-    db_path = tmp_path / "library.db"
-    _make_db(db_path)
-
-    rec = _make_record(tmp_path)
-    sync_to_darktable([rec], db_path=db_path)
-
-    with sqlite3.connect(db_path) as conn:
-        rows = conn.execute("SELECT filename, flags, caption FROM images").fetchall()
-    assert len(rows) == 1
-    assert rows[0][0] == rec.path.name
-    assert rows[0][2] == "golden_hour_landscape"
-    assert 0 <= rows[0][1] <= 7  # star rating 0–5 stored in low 3 bits
-
-
-def test_db_upsert_idempotent(tmp_path: Path) -> None:
-    """Running sync twice produces exactly one row (no duplicates in DB)."""
-    db_path = tmp_path / "library.db"
-    _make_db(db_path)
-
-    rec = _make_record(tmp_path)
-    sync_to_darktable([rec], db_path=db_path)
-    sync_to_darktable([rec], db_path=db_path)
-
-    with sqlite3.connect(db_path) as conn:
-        count = conn.execute("SELECT COUNT(*) FROM images").fetchone()[0]
+def test_sync_to_darktable_xmp_only(tmp_path: Path) -> None:
+    img = tmp_path / "00001.ARW"
+    img.write_bytes(b"fake")
+    record = PhotoRecord(
+        path=img, session_id="s1",
+        sharpness_score=0.7, composition_score=0.6, exposure_score=0.7,
+        semantic_name="a-blue-waterfall",
+        metadata={"original_filename": "DSC001.ARW"},
+    )
+    count = sync_to_darktable([record])
+    assert (tmp_path / "00001.xmp").exists()
     assert count == 1
 
 
-def test_db_tag_written(tmp_path: Path) -> None:
-    """Session tag is written to tags + tagged_images tables."""
-    db_path = tmp_path / "library.db"
-    _make_db(db_path)
-
-    rec = _make_record(tmp_path)
-    sync_to_darktable([rec], db_path=db_path)
-
-    with sqlite3.connect(db_path) as conn:
-        tag = conn.execute(
-            "SELECT name FROM tags WHERE name = ?", ("session:session_0001",)
-        ).fetchone()
-        linked = conn.execute("SELECT COUNT(*) FROM tagged_images").fetchone()[0]
-    assert tag is not None
-    assert linked == 1
+def test_sync_to_darktable_no_db_param() -> None:
+    sig = inspect.signature(sync_to_darktable)
+    assert "db_path" not in sig.parameters
 
 
-def test_missing_db_does_not_raise(tmp_path: Path) -> None:
-    """Missing Darktable DB logs a warning but does not raise."""
-    rec = _make_record(tmp_path)
-    sync_to_darktable([rec], db_path=tmp_path / "nonexistent.db")
-    assert rec.path.with_suffix(".xmp").exists()
+def test_sync_to_darktable_skips_duplicates(tmp_path: Path) -> None:
+    keeper = _make_record(tmp_path, name="keeper")
+    dup = _make_record(tmp_path, name="dup", duplicate=True)
+    count = sync_to_darktable([keeper, dup])
+    assert count == 1
+    assert keeper.path.with_suffix(".xmp").exists()
+    assert not dup.path.with_suffix(".xmp").exists()
 
 
 # ---------------------------------------------------------------------------
-# Fixture DB schema validation (zero-corruption acceptance criterion)
+# compute_color_label tests
 # ---------------------------------------------------------------------------
 
-def test_fixture_db_schema_validates(tmp_path: Path) -> None:
-    """Fixture library.db has the required tables; sync succeeds without corruption."""
-    assert _FIXTURE_DB.exists(), f"Fixture DB missing: {_FIXTURE_DB}"
+def test_compute_color_label_green_mean_above_half() -> None:
+    assert compute_color_label(0.7, 0.6, 0.7) == 2
 
-    db_path = tmp_path / "library.db"
-    shutil.copy(_FIXTURE_DB, db_path)
 
-    rec = _make_record(tmp_path)
-    sync_to_darktable([rec], db_path=db_path)
+def test_compute_color_label_yellow_low_sharpness() -> None:
+    assert compute_color_label(0.2, 0.6, 0.7) == 1
 
-    with sqlite3.connect(db_path) as conn:
-        tables = {
-            r[0] for r in conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
-        }
-        rows = conn.execute("SELECT filename FROM images").fetchall()
 
-    assert {"images", "tags", "tagged_images"}.issubset(tables)
-    assert len(rows) >= 1
+def test_compute_color_label_blue_low_exposure() -> None:
+    assert compute_color_label(0.7, 0.6, 0.4) == 3
 
-    # Original fixture must still be readable (zero-corruption check)
-    with sqlite3.connect(_FIXTURE_DB) as orig:
-        orig.execute("SELECT COUNT(*) FROM images").fetchone()
+
+def test_compute_color_label_purple_low_composition() -> None:
+    assert compute_color_label(0.7, 0.1, 0.7) == 4
+
+
+def test_compute_color_label_no_label_below_mean() -> None:
+    label = compute_color_label(0.4, 0.4, 0.6)
+    assert label == -1
+
+
+def test_compute_color_label_yellow_takes_priority_over_blue() -> None:
+    # sharpness < 0.3 AND exposure < 0.5 → yellow wins
+    assert compute_color_label(0.2, 0.6, 0.3) == 1
