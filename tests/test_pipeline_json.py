@@ -155,3 +155,38 @@ def test_score_json_progress(tmp_path, monkeypatch):
     assert len(progress_lines) == 1
     assert progress_lines[0]["done"] == 1
     assert progress_lines[0]["total"] == 1
+
+
+def test_name_json_progress_emits_semantic_name(tmp_path, monkeypatch):
+    from pathlib import Path
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest
+
+    monkeypatch.setattr("photo_workflow.naming.generate_name", lambda path, model_dir=Path("models/florence2_int8"): "a-blue-waterfall")
+
+    img = tmp_path / "DSC001.ARW"
+    img.write_bytes(b"fake")
+    manifest = tmp_path / "manifest.jsonl"
+    entries = [ManifestEntry(
+        path=str(img), stages_completed=["scan", "dedup", "score"],
+        sharpness=0.7, composition=0.6, exposure=0.7
+    )]
+    save_manifest(entries, manifest)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "name", "--manifest", str(manifest),
+        "--model-dir", str(tmp_path),
+        "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    name_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "name"]
+    assert len(name_lines) == 1
+    assert name_lines[0]["semantic_name"] == "a-blue-waterfall"
+    assert name_lines[0]["status"] == "ok"
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 1
+    assert progress_lines[0]["total"] == 1

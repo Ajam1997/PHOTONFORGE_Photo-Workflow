@@ -439,6 +439,8 @@ def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: 
               help="Re-name all photos regardless of prior completion.")
 @click.option("--verbose", is_flag=True, default=False)
 @click.option("--quiet", is_flag=True, default=False)
+@click.option("--json-progress", "json_progress", is_flag=True, default=False,
+              help="Emit newline-delimited JSON progress lines.")
 def name(
     manifest_path: Path,
     model_dir: Path,
@@ -446,6 +448,7 @@ def name(
     force: bool,
     verbose: bool,
     quiet: bool,
+    json_progress: bool,
 ) -> None:
     """Generate semantic filenames via Florence-2 and rename files on disk."""
     from .manifest import load_manifest, save_manifest, checkpoint
@@ -501,26 +504,33 @@ def name(
             if "name" not in entry.stages_completed:
                 entry.stages_completed.append("name")
 
-            if verbose:
+            if json_progress:
+                emit("name", p.name, "ok", json_progress=True, semantic_name=slug)
+            elif verbose:
                 click.echo(f"  {p.name} -> {slug}")
         except Exception as exc:
             entry.error = str(exc)
             errors += 1
             logger.warning("Name failed for %s: %s", p, exc)
+            if json_progress:
+                emit("name", p.name, "error", json_progress=True, message=str(exc))
 
-        if not quiet:
+        if not (quiet or json_progress):
             tracker.update(i)
 
         if i % 50 == 0:
             checkpoint(entries, manifest_path)
 
-    if not quiet:
+    if not (quiet or json_progress):
         tracker.finish()
 
     save_manifest(entries, manifest_path)
 
-    named = len(to_name) - errors
-    click.echo(f"Named {named}/{len(to_name)} photos. {errors} errors.")
+    if not json_progress:
+        named = len(to_name) - errors
+        click.echo(f"Named {named}/{len(to_name)} photos. {errors} errors.")
+    else:
+        click.echo(json.dumps({"step": "_progress", "done": len(to_name), "total": len(to_name)}))
 
 
 @cli.command()
