@@ -90,3 +90,31 @@ def test_scan_json_progress(tmp_path):
     assert len(progress_lines) == 1
     assert progress_lines[0]["done"] == 2
     assert progress_lines[0]["total"] == 2
+
+
+def test_dedup_json_progress(tmp_path):
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+    from photo_workflow.manifest import ManifestEntry, save_manifest
+
+    manifest = tmp_path / "manifest.jsonl"
+    # Create fake image files so ManifestEntry paths point to real files
+    (tmp_path / "DSC001.ARW").write_bytes(b"fake1")
+    (tmp_path / "DSC002.ARW").write_bytes(b"fake2")
+    entries = [
+        ManifestEntry(path=str(tmp_path / "DSC001.ARW"), stages_completed=["scan"]),
+        ManifestEntry(path=str(tmp_path / "DSC002.ARW"), stages_completed=["scan"]),
+    ]
+    save_manifest(entries, manifest)
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "dedup", "--manifest", str(manifest), "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    assert len(lines) >= 2
+    dedup_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "dedup"]
+    statuses = {rec["status"] for rec in dedup_lines}
+    assert statuses <= {"ok", "duplicate"}
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(progress_lines) == 1

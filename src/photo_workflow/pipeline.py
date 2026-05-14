@@ -276,7 +276,9 @@ def scan(source: Path, manifest_path: Path, recursive: bool, json_progress: bool
 @click.option("--manifest", "manifest_path", required=True,
               type=click.Path(exists=True, path_type=Path),
               help="Path to the JSONL manifest file.")
-def dedup(manifest_path: Path) -> None:
+@click.option("--json-progress", "json_progress", is_flag=True, default=False,
+              help="Emit newline-delimited JSON progress lines.")
+def dedup(manifest_path: Path, json_progress: bool) -> None:
     """Group photos into sessions and flag duplicates."""
     from .manifest import load_manifest, save_manifest
 
@@ -310,12 +312,17 @@ def dedup(manifest_path: Path) -> None:
         entry.is_duplicate = record.is_duplicate
         if "dedup" not in entry.stages_completed:
             entry.stages_completed.append("dedup")
+        status = "duplicate" if record.is_duplicate else "ok"
+        emit("dedup", Path(entry.path).name, status, json_progress=json_progress)
 
     save_manifest(entries, manifest_path)
 
-    sessions = len({e.session_id for e in entries})
-    dupes = sum(1 for e in entries if e.is_duplicate)
-    click.echo(f"Grouped into {sessions} sessions, flagged {dupes} duplicates")
+    if not json_progress:
+        sessions = len({e.session_id for e in entries})
+        dupes = sum(1 for e in entries if e.is_duplicate)
+        click.echo(f"Grouped into {sessions} sessions, flagged {dupes} duplicates")
+    else:
+        click.echo(json.dumps({"step": "_progress", "done": len(entries), "total": len(entries)}))
 
 
 @cli.command()
