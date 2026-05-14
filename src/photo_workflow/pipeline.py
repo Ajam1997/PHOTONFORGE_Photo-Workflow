@@ -211,7 +211,7 @@ def _next_sequence_counter(directory: Path, ext: str) -> int:
     """Return highest existing 5-digit sequence number + 1, or 1 if none exist."""
     max_seq = 0
     for p in directory.iterdir():
-        if p.suffix.lower() == ext.lower() and p.stem.isdigit():
+        if p.suffix.lower() == ext.lower() and p.stem.isdigit() and len(p.stem) == 5:
             max_seq = max(max_seq, int(p.stem))
     return max_seq + 1
 
