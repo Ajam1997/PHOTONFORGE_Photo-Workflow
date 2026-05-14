@@ -63,3 +63,26 @@ def test_ingest_json_progress(tmp_path, monkeypatch):
     assert rec["step"] == "ingest"
     assert rec["status"] == "ok"
     assert "DSC001.ARW" in rec["file"]
+
+
+def test_scan_json_progress(tmp_path):
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+
+    src = tmp_path / "photos"
+    src.mkdir()
+    (src / "DSC001.ARW").write_bytes(b"fake")
+    (src / "DSC002.ARW").write_bytes(b"fake")
+    manifest = tmp_path / "manifest.jsonl"
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "scan", "--source", str(src), "--manifest", str(manifest), "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    assert len(lines) >= 2
+    for line in lines:
+        rec = json.loads(line)
+        if rec["step"] == "scan":
+            assert rec["status"] == "ok"
+            assert rec["file"].endswith(".ARW")

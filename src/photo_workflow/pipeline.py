@@ -242,7 +242,9 @@ def ingest(source: Path, dest: Path, dry_run: bool, json_progress: bool) -> None
               help="Path to the JSONL manifest file.")
 @click.option("--recursive", is_flag=True, default=False,
               help="Recurse into subdirectories.")
-def scan(source: Path, manifest_path: Path, recursive: bool) -> None:
+@click.option("--json-progress", "json_progress", is_flag=True, default=False,
+              help="Emit newline-delimited JSON progress lines.")
+def scan(source: Path, manifest_path: Path, recursive: bool, json_progress: bool) -> None:
     """Discover photos and create the manifest."""
     from .grouping import _read_exif_datetime
     from .manifest import ManifestEntry, save_manifest
@@ -261,9 +263,13 @@ def scan(source: Path, manifest_path: Path, recursive: bool) -> None:
             exif_timestamp=dt.isoformat() if dt else None,
             stages_completed=["scan"],
         ))
+        emit("scan", p.name, "ok", json_progress=json_progress)
 
     save_manifest(entries, manifest_path)
-    click.echo(f"Scanned {len(entries)} photos -> {manifest_path}")
+    if not json_progress:
+        click.echo(f"Scanned {len(entries)} photos -> {manifest_path}")
+    else:
+        click.echo(json.dumps({"step": "_progress", "done": len(entries), "total": len(entries)}))
 
 
 @cli.command()
