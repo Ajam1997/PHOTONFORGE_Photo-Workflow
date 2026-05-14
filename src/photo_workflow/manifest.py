@@ -26,6 +26,7 @@ class ManifestEntry:
     semantic_name: str | None = None
     error: str | None = None
     stages_completed: list[str] = field(default_factory=lambda: ["scan"])
+    metadata: dict = field(default_factory=dict)
 
 
 def _entry_to_json(entry: ManifestEntry) -> str:

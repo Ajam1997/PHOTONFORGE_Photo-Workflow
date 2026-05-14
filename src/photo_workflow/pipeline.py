@@ -207,6 +207,15 @@ PHOTO_EXTS = {
 }
 
 
+def _next_sequence_counter(directory: Path, ext: str) -> int:
+    """Return highest existing 5-digit sequence number + 1, or 1 if none exist."""
+    max_seq = 0
+    for p in directory.iterdir():
+        if p.suffix.lower() == ext.lower() and p.stem.isdigit():
+            max_seq = max(max_seq, int(p.stem))
+    return max_seq + 1
+
+
 @click.group()
 def cli() -> None:
     """PHOTONForge staged photo analysis pipeline."""
@@ -490,24 +499,43 @@ def name(
     tracker = ProgressTracker(stage="name", total=len(to_name))
     errors = 0
 
+    # Determine starting sequence counter (scan before any renames)
+    if to_name:
+        dest_dir = Path(to_name[0].path).parent
+        dest_ext = Path(to_name[0].path).suffix
+        counter = _next_sequence_counter(dest_dir, dest_ext)
+    else:
+        counter = 1
+
     for i, entry in enumerate(to_name, 1):
         p = Path(entry.path)
         try:
             slug = generate_name(p, model_dir=model_dir)
             entry.semantic_name = slug
 
-            new_path = _rename_photo_by_slug(p, slug)
-            if new_path != p:
-                entry.path = str(new_path)
+            # Store original filename before rename
+            entry.metadata = entry.metadata or {}
+            entry.metadata["original_filename"] = p.name
+
+            # Rename to sequence number
+            seq_name = f"{counter:05d}{p.suffix}"
+            new_path = p.parent / seq_name
+            if not new_path.exists() or new_path == p:
+                try:
+                    os.rename(p, new_path)
+                    entry.path = str(new_path)
+                except OSError as exc:
+                    logger.warning("Could not rename %s to %s: %s", p, new_path, exc)
+            counter += 1
 
             entry.error = None
             if "name" not in entry.stages_completed:
                 entry.stages_completed.append("name")
 
             if json_progress:
-                emit("name", p.name, "ok", json_progress=True, semantic_name=slug)
+                emit("name", seq_name, "ok", json_progress=True, semantic_name=slug, original=p.name)
             elif verbose:
-                click.echo(f"  {p.name} -> {slug}")
+                click.echo(f"  {p.name} -> {seq_name}")
         except Exception as exc:
             entry.error = str(exc)
             errors += 1
@@ -536,13 +564,13 @@ def name(
 @cli.command()
 @click.option("--manifest", "manifest_path", required=True,
               type=click.Path(exists=True, path_type=Path))
-@click.option("--db", "db_path", required=True,
-              type=click.Path(path_type=Path),
-              help="Path to Darktable library.db.")
 @click.option("--dry-run", is_flag=True, default=False,
               help="Print what would happen without writing.")
-def sync(manifest_path: Path, db_path: Path, dry_run: bool) -> None:
-    """Write XMP sidecars and sync to Darktable library.db."""
+@click.option("--verbose", is_flag=True, default=False)
+@click.option("--json-progress", "json_progress", is_flag=True, default=False,
+              help="Emit newline-delimited JSON progress lines.")
+def sync(manifest_path: Path, dry_run: bool, verbose: bool, json_progress: bool) -> None:
+    """Write XMP sidecars for all named photos."""
     from .manifest import load_manifest, save_manifest
     from .darktable_bridge import sync_to_darktable
 
@@ -574,17 +602,25 @@ def sync(manifest_path: Path, db_path: Path, dry_run: bool) -> None:
 
     if dry_run:
         non_dupes = sum(1 for r in records if not r.is_duplicate)
-        click.echo(f"Dry run: would write {non_dupes} XMP sidecars and upsert {non_dupes} DB rows")
+        click.echo(f"Dry run: would write {non_dupes} XMP sidecars")
         return
 
-    xmp_written, db_upserted = sync_to_darktable(records, db_path=db_path)
+    xmp_written = sync_to_darktable(records, verbose=verbose)
+
+    for record in records:
+        xmp_path = record.path.with_suffix(".xmp")
+        emit("sync", record.path.name, "ok", json_progress=json_progress,
+             xmp=str(xmp_path))
 
     for entry in entries:
         if not entry.is_duplicate and "sync" not in entry.stages_completed:
             entry.stages_completed.append("sync")
     save_manifest(entries, manifest_path)
 
-    click.echo(f"Wrote {xmp_written} XMP sidecars, upserted {db_upserted} DB rows")
+    if not json_progress:
+        click.echo(f"Wrote {xmp_written} XMP sidecars")
+    else:
+        click.echo(json.dumps({"step": "_progress", "done": xmp_written, "total": xmp_written}))
 
 
 @cli.command()
