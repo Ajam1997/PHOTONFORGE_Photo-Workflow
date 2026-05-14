@@ -30,3 +30,36 @@ def test_emit_error_status(capsys):
     line = json.loads(out.strip())
     assert line["status"] == "error"
     assert line["message"] == "decode failed"
+
+
+def test_ingest_json_progress(tmp_path, monkeypatch):
+    """Test ingest command with --json-progress flag."""
+    from pathlib import Path
+    from click.testing import CliRunner
+    from photo_workflow.pipeline import cli
+
+    src = tmp_path / "src"
+    src.mkdir()
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    (src / "DSC001.ARW").write_bytes(b"fake")
+
+    # Mock ingest_volume to return the destination file
+    def mock_ingest_volume(source, destination, dry_run=False):
+        result_file = destination / "DSC001.ARW"
+        result_file.write_bytes(b"fake")
+        return [result_file]
+
+    monkeypatch.setattr("photo_workflow.ingest.ingest_volume", mock_ingest_volume)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "ingest", "--source", str(src), "--dest", str(dest), "--json-progress"
+    ])
+    assert result.exit_code == 0
+    lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
+    assert len(lines) >= 1
+    rec = json.loads(lines[0])
+    assert rec["step"] == "ingest"
+    assert rec["status"] == "ok"
+    assert "DSC001.ARW" in rec["file"]

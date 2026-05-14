@@ -213,6 +213,29 @@ def cli() -> None:
 
 @cli.command()
 @click.option("--source", required=True, type=click.Path(exists=True, path_type=Path),
+              help="SD card or source directory to ingest from.")
+@click.option("--dest", required=True, type=click.Path(path_type=Path),
+              help="Destination directory (e.g. H:\\ICELAND).")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Show what would be copied without copying.")
+@click.option("--json-progress", "json_progress", is_flag=True, default=False,
+              help="Emit newline-delimited JSON progress lines.")
+def ingest(source: Path, dest: Path, dry_run: bool, json_progress: bool) -> None:
+    """Copy photos from SD card to destination with YYYYMMDD_ prefix."""
+    from .ingest import ingest_volume
+
+    copied = ingest_volume(source, dest, dry_run=dry_run)
+    for p in copied:
+        emit("ingest", p.name, "ok", json_progress=json_progress, dest=str(p))
+    if not json_progress:
+        verb = "Would copy" if dry_run else "Copied"
+        click.echo(f"{verb} {len(copied)} photos to {dest}")
+    else:
+        click.echo(json.dumps({"step": "_progress", "done": len(copied), "total": len(copied)}))
+
+
+@cli.command()
+@click.option("--source", required=True, type=click.Path(exists=True, path_type=Path),
               help="Directory containing photos to process.")
 @click.option("--manifest", "manifest_path", default="manifest.jsonl",
               type=click.Path(path_type=Path), show_default=True,
