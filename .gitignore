@@ -14,3 +14,6 @@ photonforge-gui/src-tauri/target/
 photonforge-gui/.superpowers/
 photonforge-gui/src-tauri/binaries/photo-workflow-sidecar-x86_64-unknown-linux-gnu
 .worktrees/
+.env
+test_tmp/
+.claude/worktrees/
