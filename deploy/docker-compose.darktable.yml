@@ -1,0 +1,29 @@
+services:
+  darktable:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.darktable
+    image: photonforge/darktable:latest
+    container_name: darktable
+
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      # Uncomment if your host uses xauth cookie auth:
+      # - XAUTHORITY=/home/ubuntu/.Xauthority
+
+    volumes:
+      # X11 socket — same path on Linux and WSL2
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      # Persistent Darktable config and library (named volume avoids UID mismatch)
+      - darktable-config:/home/ubuntu/.config/darktable
+      # Photos to import/edit
+      - ${PHOTOS_DIR:-~/Pictures}:/photos
+
+    # Uncomment on Linux laptops with a GPU for hardware acceleration:
+    # devices:
+    #   - /dev/dri:/dev/dri
+
+    restart: "no"
+
+volumes:
+  darktable-config:
