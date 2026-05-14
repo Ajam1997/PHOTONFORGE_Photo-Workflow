@@ -118,3 +118,5 @@ def test_dedup_json_progress(tmp_path):
     assert statuses <= {"ok", "duplicate"}
     progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
     assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 2
+    assert progress_lines[0]["total"] == 2
