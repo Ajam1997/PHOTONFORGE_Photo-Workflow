@@ -8,7 +8,7 @@ local DEFS = {
   { name = "dest_path",    type = "string",  default = "",   label = "Destination path" },
   { name = "model_dir",    type = "string",  default = "models/blip_base", label = "Model directory" },
   { name = "manifest",     type = "string",  default = "manifest.jsonl",   label = "Manifest path" },
-  { name = "tz_offset",    type = "integer", default = 0,    label = "TZ offset (hours)" },
+  { name = "tz_offset",    type = "integer", default = 0,    label = "TZ offset (hours)", min = -12, max = 14 },
   { name = "step_ingest",  type = "bool",    default = true, label = "Ingest" },
   { name = "step_dedup",   type = "bool",    default = true, label = "Dedup" },
   { name = "step_score",   type = "bool",    default = true, label = "Score" },
@@ -22,9 +22,15 @@ local DEFS = {
 }
 
 for _, d in ipairs(DEFS) do
-  dt.preferences.register(
-    SCRIPT, d.name, d.type, d.label, "PHOTONForge: " .. d.label, d.default
-  )
+  if d.type == "integer" then
+    dt.preferences.register(
+      SCRIPT, d.name, d.type, d.label, "PHOTONForge: " .. d.label, d.default, d.min, d.max
+    )
+  else
+    dt.preferences.register(
+      SCRIPT, d.name, d.type, d.label, "PHOTONForge: " .. d.label, d.default
+    )
+  end
 end
 
 function M.read(name)

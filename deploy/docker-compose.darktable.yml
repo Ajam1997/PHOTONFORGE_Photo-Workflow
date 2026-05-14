@@ -18,6 +18,8 @@ services:
       - darktable-config:/home/ubuntu/.config/darktable
       # Photos to import/edit
       - ${PHOTOS_DIR:-~/Pictures}:/photos
+      # PHOTONForge Lua plugin
+      - ../lua/photonforge:/home/ubuntu/.config/darktable/lua/photonforge
 
     # Uncomment on Linux laptops with a GPU for hardware acceleration:
     # devices:

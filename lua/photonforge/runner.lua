@@ -1,5 +1,5 @@
 local dt = require "darktable"
-local json = require "darktable.json"
+local json = require "photonforge/json"
 local config = require "photonforge/config"
 local applicator = require "photonforge/applicator"
 
@@ -92,8 +92,12 @@ function M.run_all(step_list, log_fn, status_fn)
 
     if step == "ingest" and ok then
       local dest = config.read("dest_path")
-      dt.films.scan(dest)
-      log_fn("[ingest] Library rescanned: " .. dest)
+      local film = dt.films.new(dest)
+      if film then
+        log_fn("[ingest] Library rescanned: " .. dest)
+      else
+        log_fn("[ingest] Could not import folder: " .. dest)
+      end
     end
 
     local result = ok and "ok" or "error"

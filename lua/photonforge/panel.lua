@@ -7,15 +7,15 @@ local M = {}
 local LOG_MAX_LINES = 200
 
 function M.build()
+  local entries = {}
+
   local function make_path_entry(label_text, config_key)
     local lbl = dt.new_widget("label") { label = label_text }
     local entry = dt.new_widget("entry") {
       text = config.read(config_key),
       tooltip = label_text,
-      changed_callback = function(w)
-        config.write(config_key, w.text)
-      end,
     }
+    entries[config_key] = entry
     return dt.new_widget("box") {
       orientation = "horizontal",
       lbl, entry,
@@ -34,14 +34,21 @@ function M.build()
   local tz_entry = dt.new_widget("entry") {
     text = tostring(config.read("tz_offset")),
     tooltip = "Hours to add to EXIF timestamp",
-    changed_callback = function(w)
-      local n = tonumber(w.text) or 0
-      config.write("tz_offset", n)
-    end,
   }
+  entries["tz_offset"] = tz_entry
   local tz_box = dt.new_widget("box") {
     orientation = "horizontal", tz_label, tz_entry,
   }
+
+  local function save_entries()
+    for key, w in pairs(entries) do
+      if key == "tz_offset" then
+        config.write(key, tonumber(w.text) or 0)
+      else
+        config.write(key, w.text)
+      end
+    end
+  end
 
   local steps = {"ingest", "dedup", "score", "name", "sync"}
   local step_checks = {}
@@ -54,9 +61,6 @@ function M.build()
       label = step,
       value = config.read("step_" .. step),
       tooltip = "Enable " .. step .. " step",
-      clicked_callback = function(w)
-        config.write("step_" .. step, w.value)
-      end,
     }
     local last_lbl = dt.new_widget("label") {
       label = "last: " .. (config.read("last_run_" .. step) ~= "" and config.read("last_run_" .. step) or "\u{2014}"),
@@ -103,10 +107,14 @@ function M.build()
     label = "\u{25B6} Run PHOTONForge",
     tooltip = "Run enabled pipeline steps",
     clicked_callback = function()
+      save_entries()
       local enabled = {}
       for _, step in ipairs(steps) do
-        if config.read("step_" .. step) then
+        if step_checks[step].value then
+          config.write("step_" .. step, true)
           table.insert(enabled, step)
+        else
+          config.write("step_" .. step, false)
         end
       end
       if #enabled == 0 then

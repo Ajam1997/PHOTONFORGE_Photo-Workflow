@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /home/ubuntu/.config/darktable \
     && chown -R ubuntu:ubuntu /home/ubuntu
 
+COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 USER ubuntu
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["darktable"]
