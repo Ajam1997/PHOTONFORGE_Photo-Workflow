@@ -345,6 +345,7 @@ def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: 
     from .sharpness import score_sharpness
     from .composition import score_composition
     from .exposure import score_exposure
+    from .darktable_bridge import compute_color_label
 
     entries = load_manifest(manifest_path)
 
@@ -385,7 +386,6 @@ def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: 
             if "score" not in entry.stages_completed:
                 entry.stages_completed.append("score")
 
-            from .darktable_bridge import compute_color_label
             mean = (entry.sharpness + entry.composition + entry.exposure) / 3.0
             stars = min(5, round(mean * 5))
             color_label = compute_color_label(entry.sharpness, entry.composition, entry.exposure)

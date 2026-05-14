@@ -122,39 +122,36 @@ def test_dedup_json_progress(tmp_path):
     assert progress_lines[0]["total"] == 2
 
 
-def test_score_json_progress(tmp_path):
+def test_score_json_progress(tmp_path, monkeypatch):
     from click.testing import CliRunner
     from photo_workflow.pipeline import cli
     from photo_workflow.manifest import ManifestEntry, save_manifest
-    import pytest
-    from pathlib import Path
 
-    fixture = Path("tests/fixtures")
-    jpgs = list(fixture.glob("*.jpg")) + list(fixture.glob("*.JPG")) if fixture.exists() else []
-    if not jpgs:
-        pytest.skip("no fixture images available")
-
-    import shutil
-    img = tmp_path / jpgs[0].name
-    shutil.copy(jpgs[0], img)
-
+    img = tmp_path / "DSC001.ARW"
+    img.write_bytes(b"fake")
     manifest = tmp_path / "manifest.jsonl"
-    entries = [ManifestEntry(
-        path=str(img), stages_completed=["scan", "dedup"]
-    )]
+    entries = [ManifestEntry(path=str(img), stages_completed=["scan", "dedup"])]
     save_manifest(entries, manifest)
 
+    monkeypatch.setattr("photo_workflow.sharpness.score_sharpness", lambda p: 0.75)
+    monkeypatch.setattr("photo_workflow.composition.score_composition", lambda p: 0.60)
+    monkeypatch.setattr("photo_workflow.exposure.score_exposure", lambda p: 0.80)
+
     runner = CliRunner()
-    result = runner.invoke(cli, [
-        "score", "--manifest", str(manifest), "--json-progress"
-    ])
+    result = runner.invoke(cli, ["score", "--manifest", str(manifest), "--json-progress"])
     assert result.exit_code == 0
     lines = [l for l in result.output.strip().splitlines() if l.startswith("{")]
     score_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "score"]
-    assert len(score_lines) >= 1
+    assert len(score_lines) == 1
     rec = score_lines[0]
     assert rec["status"] == "ok"
-    assert "sharpness" in rec
-    assert "stars" in rec
-    assert "color_label" in rec
+    assert rec["sharpness"] == 0.75
+    assert rec["composition"] == 0.6
+    assert rec["exposure"] == 0.8
+    assert isinstance(rec["stars"], int)
     assert isinstance(rec["color_label"], int)
+    assert rec["color_label"] == 2  # mean=0.717 >= 0.5 → green
+    progress_lines = [json.loads(l) for l in lines if json.loads(l).get("step") == "_progress"]
+    assert len(progress_lines) == 1
+    assert progress_lines[0]["done"] == 1
+    assert progress_lines[0]["total"] == 1
