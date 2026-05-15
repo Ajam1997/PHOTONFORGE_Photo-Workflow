@@ -676,7 +676,37 @@ def run(source: Path, output: Path, db: Path, dry_run: bool, model_dir: Path) ->
     )
 
 
+def _get_temp_dir() -> Path:
+    """Return the platform temp directory."""
+    import tempfile
+    return Path(tempfile.gettempdir())
+
+
+def _write_sentinel(temp_dir: Path | None = None) -> None:
+    """Write PID file and sentinel for Lua plugin process detection."""
+    if temp_dir is None:
+        temp_dir = _get_temp_dir()
+    pid_file = temp_dir / "photonforge.pid"
+    sentinel = temp_dir / "photonforge.running"
+    pid_file.write_text(str(os.getpid()))
+    sentinel.write_text("")
+
+
+def _cleanup_sentinel(temp_dir: Path | None = None) -> None:
+    """Remove sentinel file on clean exit. PID file is left for kill reference."""
+    if temp_dir is None:
+        temp_dir = _get_temp_dir()
+    sentinel = temp_dir / "photonforge.running"
+    try:
+        sentinel.unlink()
+    except FileNotFoundError:
+        pass
+
+
 def main() -> None:
+    import atexit
+    _write_sentinel()
+    atexit.register(_cleanup_sentinel)
     cli()
 
 
