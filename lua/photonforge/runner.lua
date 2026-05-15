@@ -44,56 +44,58 @@ local function build_cmd(step)
   error("Unknown step: " .. step)
 end
 
-local function exec_hidden(cmd)
+local function get_temp_dir()
   if IS_WINDOWS then
-    local ps = 'powershell -WindowStyle Hidden -NoProfile -Command "& {' .. cmd .. '}"'
-    os.execute(ps)
-  else
-    os.execute(cmd)
+    return os.getenv("TEMP") or os.getenv("TMP") or "C:\\Temp"
   end
+  return os.getenv("TMPDIR") or "/tmp"
+end
+
+local function get_log_path()
+  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_step.log"
+end
+
+local function get_sentinel_path()
+  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge.running"
+end
+
+local function get_pid_path()
+  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge.pid"
+end
+
+local function read_pid_file()
+  local fh = io.open(get_pid_path(), "r")
+  if not fh then return nil end
+  local pid = fh:read("*l")
+  fh:close()
+  if pid then pid = pid:match("^%s*(%d+)%s*$") end
+  return pid
 end
 
 local function is_process_alive()
-  if IS_WINDOWS then
-    local probe_file = os.getenv("TEMP") .. "\\photonforge_probe.txt"
-    exec_hidden(
-      'Get-Process -Name photo-workflow -ErrorAction SilentlyContinue | '
-      .. 'Select-Object -First 1 Id | Out-File -Encoding ascii '
-      .. "'" .. probe_file .. "'"
-    )
-    local fh = io.open(probe_file, "r")
-    if fh then
-      local content = fh:read("*a")
-      fh:close()
-      os.remove(probe_file)
-      return content:find("%d") ~= nil
-    end
-    return false
-  else
-    local ret = os.execute("pgrep -f 'photo-workflow' >/dev/null 2>&1")
-    return (ret == true or ret == 0)
+  local fh = io.open(get_sentinel_path(), "r")
+  if fh then
+    fh:close()
+    return true
   end
+  return false
 end
 
 function M.kill()
   M.abort = true
+  local pid = read_pid_file()
   if IS_WINDOWS then
-    exec_hidden('Stop-Process -Name photo-workflow -Force -ErrorAction SilentlyContinue')
-    exec_hidden(
-      "Get-Process python -ErrorAction SilentlyContinue | "
-      .. "Where-Object { $_.MainWindowTitle -like 'photo-workflow*' } | "
-      .. "Stop-Process -Force"
-    )
+    if pid then
+      os.execute('taskkill /F /PID ' .. pid .. ' >nul 2>&1')
+    end
   else
-    os.execute("pkill -f 'photo-workflow' 2>/dev/null")
+    if pid then
+      os.execute("kill -9 " .. pid .. " 2>/dev/null")
+    else
+      os.execute("pkill -f 'photo-workflow' 2>/dev/null")
+    end
   end
-end
-
-local function get_log_path()
-  if IS_WINDOWS then
-    return os.getenv("TEMP") .. "\\photonforge_step.log"
-  end
-  return "/tmp/photonforge_step.log"
+  os.remove(get_sentinel_path())
 end
 
 function M.run_step(step, log_fn, job)
@@ -105,9 +107,14 @@ function M.run_step(step, log_fn, job)
   if f then f:close() end
 
   if IS_WINDOWS then
-    local inner = cmd .. ' > ' .. shell_quote(log_path) .. ' 2>&1'
-    inner = inner:gsub("'", "''")
-    exec_hidden("Start-Process cmd -ArgumentList '/c'," .. "'" .. inner .. "'" .. " -WindowStyle Hidden")
+    local bat_path = get_temp_dir() .. "\\photonforge_run.bat"
+    local bf = io.open(bat_path, "w")
+    if bf then
+      bf:write("@echo off\r\n")
+      bf:write(cmd .. ' >"' .. log_path .. '" 2>&1\r\n')
+      bf:close()
+    end
+    os.execute('start /B "" "' .. bat_path .. '"')
   else
     cmd = cmd .. " > " .. shell_quote(log_path) .. " 2>&1 &"
     os.execute(cmd)
