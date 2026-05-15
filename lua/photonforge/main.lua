@@ -1,11 +1,4 @@
 local dt = require "darktable"
-
-if dt.preferences.read("photonforge", "_loaded", "bool") then
-  return
-end
-dt.preferences.register("photonforge", "_loaded", "bool", "", "", false)
-dt.preferences.write("photonforge", "_loaded", "bool", true)
-
 local config = require "photonforge/config"
 local panel  = require "photonforge/panel"
 
