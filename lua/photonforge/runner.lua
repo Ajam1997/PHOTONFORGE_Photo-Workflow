@@ -17,29 +17,63 @@ local function shell_quote(s)
   return "'" .. s:gsub("'", "'\\''") .. "'"
 end
 
+local function get_drive_root(path)
+  if IS_WINDOWS then
+    local drive = path:match("^(%a:\\)")
+    if drive then return drive end
+    local unc = path:match("^(\\\\[^\\]+\\[^\\]+\\)")
+    if unc then return unc end
+  end
+  return "/"
+end
+
+local function get_db_path(dest)
+  return get_drive_root(dest) .. "photonforge.db"
+end
+
+local function get_folder_name(dest)
+  if IS_WINDOWS then
+    return dest:match("([^\\]+)\\?$") or dest
+  end
+  return dest:match("([^/]+)/?$") or dest
+end
+
 local function build_cmd(step)
-  local manifest = config.read("manifest")
-  local model_dir = config.read("model_dir")
   local tz = tostring(config.read("tz_offset"))
   local dest = config.read("dest_path")
   local sd = config.read("sd_path")
+  local run_mode = config.read("run_mode")
 
+  local db = get_db_path(dest)
+  local folder = get_folder_name(dest)
   local base = "photo-workflow " .. step .. " --json-progress"
+
+  local mode_flag = ""
+  if run_mode == "force" then
+    if step == "dedup" or step == "score" or step == "name" then
+      mode_flag = " --force"
+    end
+  elseif run_mode == "resume" then
+    if step == "score" or step == "name" then
+      mode_flag = " --resume"
+    end
+  end
 
   if step == "ingest" then
     return base .. " --source " .. shell_quote(sd) .. " --dest " .. shell_quote(dest)
   elseif step == "scan" then
-    return base .. " --source " .. shell_quote(dest) .. " --manifest " .. shell_quote(manifest)
+    return base .. " --source " .. shell_quote(dest) .. " --db " .. shell_quote(db)
   elseif step == "dedup" then
-    return base .. " --manifest " .. shell_quote(manifest)
+    return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+              .. " --source-dir " .. shell_quote(dest) .. mode_flag
   elseif step == "score" then
-    return base .. " --manifest " .. shell_quote(manifest)
+    return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+              .. " --source-dir " .. shell_quote(dest) .. mode_flag
   elseif step == "name" then
-    return base .. " --manifest " .. shell_quote(manifest)
-              .. " --model-dir " .. shell_quote(model_dir)
-              .. " --tz-offset " .. tz
-  elseif step == "sync" then
-    return base .. " --manifest " .. shell_quote(manifest)
+    return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+              .. " --source-dir " .. shell_quote(dest)
+              .. " --model-dir " .. shell_quote("models/florence2_int8")
+              .. mode_flag
   end
   error("Unknown step: " .. step)
 end
@@ -107,24 +141,18 @@ function M.run_step(step, log_fn, job)
   if f then f:close() end
 
   if IS_WINDOWS then
-    local bat_path = get_temp_dir() .. "\\photonforge_run.bat"
-    local bf = io.open(bat_path, "w")
-    if bf then
-      bf:write("@echo off\r\n")
-      bf:write(cmd .. ' >"' .. log_path .. '" 2>&1\r\n')
-      bf:close()
-    end
-    os.execute('start /B "" "' .. bat_path .. '"')
+    cmd = 'start /B cmd /c "' .. cmd .. ' >' .. shell_quote(log_path) .. ' 2>&1"'
   else
     cmd = cmd .. " > " .. shell_quote(log_path) .. " 2>&1 &"
-    os.execute(cmd)
   end
+  os.execute(cmd)
 
   local dest = config.read("dest_path")
   local done, total = 0, 0
   local last_pos = 0
   local idle_count = 0
   local MAX_IDLE = 600
+  local startup_grace = 10
 
   while not M.abort do
     dt.control.sleep(500)
@@ -142,7 +170,9 @@ function M.run_step(step, log_fn, job)
     fh:close()
 
     if new_data == nil or new_data == "" then
-      if not is_process_alive() then
+      if startup_grace > 0 then
+        startup_grace = startup_grace - 1
+      elseif not is_process_alive() then
         break
       end
 
@@ -151,6 +181,7 @@ function M.run_step(step, log_fn, job)
       goto continue
     end
 
+    startup_grace = 0
     idle_count = 0
     for line in new_data:gmatch("[^\r\n]+") do
       local ok, rec = pcall(json.decode, line)
@@ -201,11 +232,21 @@ function M.run_step(step, log_fn, job)
     end
   end
 
+  log_fn(string.format("[%s] Step finished (%d items)", os.date("%H:%M:%S"), done))
   return true
 end
 
 function M.run_all(step_list, log_fn, status_fn)
   M.abort = false
+
+  local run_mode = config.read("run_mode")
+  if run_mode == "fresh" then
+    local dest = config.read("dest_path")
+    local db = get_db_path(dest)
+    os.remove(db)
+    log_fn("[fresh] Deleted database: " .. db)
+  end
+
   local total_steps = #step_list
   local job = dt.gui.create_job(
     "PHOTONForge (" .. total_steps .. " steps)", true,
@@ -218,13 +259,13 @@ function M.run_all(step_list, log_fn, status_fn)
     log_fn(string.format("--- Step %d/%d: %s ---", i, total_steps, step))
     local ok = M.run_step(step, log_fn, job)
 
-    if step == "ingest" and ok then
+    if step == "scan" and ok then
       local dest = config.read("dest_path")
       local film = dt.films.new(dest)
       if film then
-        log_fn("[ingest] Library rescanned: " .. dest)
+        log_fn("[scan] Library imported: " .. dest)
       else
-        log_fn("[ingest] Could not import folder: " .. dest)
+        log_fn("[scan] Could not import folder: " .. dest)
       end
     end
 
@@ -243,6 +284,7 @@ function M.run_all(step_list, log_fn, status_fn)
 
   pcall(function() job.valid = false end)
   pcall(function() job:destroy() end)
+  log_fn(string.format("[%s] Pipeline complete.", os.date("%H:%M:%S")))
 end
 
 return M

@@ -55,9 +55,6 @@ function M.apply(rec, folder)
     if rec.semantic_name ~= nil then
       img:set_metadata("description", rec.semantic_name)
     end
-
-  elseif rec.step == "sync" then
-    dt.print_log(string.format("PHOTONForge XMP written: %s", rec.xmp or ""))
   end
 end
 
