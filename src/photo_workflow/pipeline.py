@@ -65,40 +65,6 @@ def emit(
         click.echo(f"  {step} {file} [{status}]  {extras}")
 
 
-def _rename_photo(record: PhotoRecord) -> None:
-    """Rename *record.path* on disk to use the semantic slug as the filename.
-
-    The new name is ``{semantic_name}{original_suffix}`` (e.g.
-    ``golden-sunset-beach-afternoon-light.jpg``).  If a file with that name
-    already exists in the same directory, ``_2``, ``_3``, … are appended
-    before the suffix to avoid collisions.  ``record.path`` is updated in
-    place after a successful rename.
-    """
-    if not record.semantic_name:
-        return
-
-    directory = record.path.parent
-    suffix = record.path.suffix
-    base_name = record.semantic_name
-
-    candidate = directory / f"{base_name}{suffix}"
-    counter = 2
-    while candidate.exists() and candidate != record.path:
-        candidate = directory / f"{base_name}_{counter}{suffix}"
-        counter += 1
-
-    if candidate == record.path:
-        # Already named correctly — nothing to do
-        return
-
-    try:
-        os.rename(record.path, candidate)
-        logger.info("Renamed %s -> %s", record.path.name, candidate.name)
-        record.path = candidate
-    except OSError as exc:
-        logger.warning("Could not rename %s: %s", record.path, exc)
-
-
 class AnalysisPipeline:
     """Orchestrates ingest → group → dedup → score → name → catalog."""
 
@@ -148,13 +114,6 @@ class AnalysisPipeline:
 
         scored = sum(1 for r in records if not r.is_duplicate)
 
-        # Rename files on disk to the semantic slug (skipped in dry-run mode)
-        if not self.config.dry_run:
-            for record in records:
-                if record.is_duplicate or not record.semantic_name:
-                    continue
-                _rename_photo(record)
-
         if not self.config.dry_run:
             xmp_written = sync_to_darktable(records)
             db_upserted = 0
@@ -175,28 +134,6 @@ class AnalysisPipeline:
         return records, summary
 
 
-def _rename_photo_by_slug(path: Path, slug: str) -> Path:
-    """Rename a photo on disk using a semantic slug. Returns the new path."""
-    if not slug:
-        return path
-    directory = path.parent
-    suffix = path.suffix
-    candidate = directory / f"{slug}{suffix}"
-    counter = 2
-    while candidate.exists() and candidate != path:
-        candidate = directory / f"{slug}_{counter}{suffix}"
-        counter += 1
-    if candidate == path:
-        return path
-    try:
-        os.rename(path, candidate)
-        logger.info("Renamed %s -> %s", path.name, candidate.name)
-        return candidate
-    except OSError as exc:
-        logger.warning("Could not rename %s: %s", path, exc)
-        return path
-
-
 # --- Staged CLI -----------------------------------------------------------
 
 # Supported image extensions for scanning (union of RAW + common formats)
@@ -205,15 +142,6 @@ PHOTO_EXTS = {
     ".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf",
     ".rw2", ".orf", ".pef", ".srw", ".3fr", ".mef",
 }
-
-
-def _next_sequence_counter(directory: Path, ext: str) -> int:
-    """Return highest existing 5-digit sequence number + 1, or 1 if none exist."""
-    max_seq = 0
-    for p in directory.iterdir():
-        if p.suffix.lower() == ext.lower() and p.stem.isdigit() and len(p.stem) == 5:
-            max_seq = max(max_seq, int(p.stem))
-    return max_seq + 1
 
 
 @click.group()
@@ -248,186 +176,176 @@ def ingest(source: Path, dest: Path, dry_run: bool, json_progress: bool) -> None
 @cli.command()
 @click.option("--source", required=True, type=click.Path(exists=True, path_type=Path),
               help="Directory containing photos to process.")
-@click.option("--manifest", "manifest_path", default="manifest.jsonl",
-              type=click.Path(path_type=Path), show_default=True,
-              help="Path to the JSONL manifest file.")
-@click.option("--recursive", is_flag=True, default=False,
-              help="Recurse into subdirectories.")
+@click.option("--db", "db_path", required=True, type=click.Path(path_type=Path),
+              help="Path to photonforge.db.")
 @click.option("--json-progress", "json_progress", is_flag=True, default=False,
               help="Emit newline-delimited JSON progress lines.")
-def scan(source: Path, manifest_path: Path, recursive: bool, json_progress: bool) -> None:
-    """Discover photos and create the manifest."""
-    from .grouping import read_exif_datetime
-    from .manifest import ManifestEntry, save_manifest
+def scan(source: Path, db_path: Path, json_progress: bool) -> None:
+    """Discover photos, read EXIF, and insert into photonforge.db."""
+    import sqlite3
 
-    glob_fn = source.rglob if recursive else source.glob
+    from .grouping import read_exif_datetime
+    from .photondb import ensure_table, insert_photo, update_stages
+
+    folder_name = source.name
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    ensure_table(conn, folder_name)
+
     photos = sorted(
-        p for p in glob_fn("*")
-        if p.is_file() and p.suffix.lower() in PHOTO_EXTS
+        p for p in source.rglob("*")
+        if p.is_file()
+        and p.suffix.lower() in PHOTO_EXTS
+        and not any(part.startswith(".") for part in p.parts[len(source.parts):])
     )
 
-    entries: list[ManifestEntry] = []
     for p in photos:
-        dt = read_exif_datetime(p)
-        entries.append(ManifestEntry(
-            path=str(p),
-            exif_timestamp=dt.isoformat() if dt else None,
-            stages_completed=["scan"],
-        ))
+        dt_val = read_exif_datetime(p)
+        ts = dt_val.isoformat() if dt_val else None
+        insert_photo(conn, folder_name, p.name, p.name, ts)
+        update_stages(conn, folder_name, p.name, "scan")
         emit("scan", p.name, "ok", json_progress=json_progress)
 
-    save_manifest(entries, manifest_path)
+    conn.close()
+
     if not json_progress:
-        click.echo(f"Scanned {len(entries)} photos -> {manifest_path}")
+        click.echo(f"Scanned {len(photos)} photos -> {db_path}")
     else:
-        click.echo(json.dumps({"step": "_progress", "done": len(entries), "total": len(entries)}))
+        click.echo(json.dumps({"step": "_progress", "done": len(photos), "total": len(photos)}))
 
 
 @cli.command()
-@click.option("--manifest", "manifest_path", required=True,
-              type=click.Path(exists=True, path_type=Path),
-              help="Path to the JSONL manifest file.")
-@click.option("--json-progress", "json_progress", is_flag=True, default=False,
-              help="Emit newline-delimited JSON progress lines.")
-def dedup(manifest_path: Path, json_progress: bool) -> None:
+@click.option("--db", "db_path", required=True, type=click.Path(exists=True, path_type=Path),
+              help="Path to photonforge.db.")
+@click.option("--folder", required=True, help="Folder/table name in the DB.")
+@click.option("--source-dir", "source_dir", required=True, type=click.Path(exists=True, path_type=Path),
+              help="Directory containing the photo files.")
+@click.option("--json-progress", "json_progress", is_flag=True, default=False)
+@click.option("--force", is_flag=True, default=False)
+def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, force: bool) -> None:
     """Group photos into sessions and flag duplicates."""
-    from .manifest import load_manifest, save_manifest
-
-    entries = load_manifest(manifest_path)
-
-    not_scanned = [e for e in entries if "scan" not in e.stages_completed]
-    if not_scanned:
-        raise click.ClickException(
-            f"{len(not_scanned)} photos have not been through 'scan'. "
-            f"Run 'photo-workflow scan' first."
-        )
-
-    to_process = [e for e in entries if "dedup" not in e.stages_completed]
-    if not to_process:
-        click.echo("All photos already deduped. Use --force to redo.")
-        return
+    import sqlite3
 
     from .grouping import cluster_sessions
     from .dedup import deduplicate
+    from .photondb import ensure_table, get_pending, update_stages, clear_stage
 
-    records = [
-        PhotoRecord(path=Path(e.path), session_id=e.session_id)
-        for e in entries
-    ]
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    ensure_table(conn, folder)
+
+    if force:
+        clear_stage(conn, folder, "dedup")
+
+    pending = get_pending(conn, folder, "dedup")
+    if not pending:
+        click.echo("All photos already deduped. Use --force to redo.")
+        conn.close()
+        return
+
+    all_rows = conn.execute(f"SELECT * FROM [{folder}]").fetchall()
+
+    records = []
+    for row in all_rows:
+        rec = PhotoRecord(path=source_dir / row["filename"])
+        rec.session_id = row["session_id"] or ""
+        records.append(rec)
 
     records = cluster_sessions(records)
-    records = deduplicate(records)
 
-    for entry, record in zip(entries, records):
-        entry.session_id = record.session_id
-        entry.is_duplicate = record.is_duplicate
-        if "dedup" not in entry.stages_completed:
-            entry.stages_completed.append("dedup")
-        status = "duplicate" if record.is_duplicate else "ok"
-        emit("dedup", Path(entry.path).name, status, json_progress=json_progress)
+    def _progress(done: int, total: int) -> None:
+        if json_progress:
+            click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
 
-    save_manifest(entries, manifest_path)
+    _progress(0, len(records))
+    records = deduplicate(records, progress_fn=_progress)
+
+    for rec in records:
+        fname = rec.path.name
+        conn.execute(
+            f"UPDATE [{folder}] SET session_id=?, is_duplicate=? WHERE filename=?",
+            (rec.session_id, 1 if rec.is_duplicate else 0, fname),
+        )
+        update_stages(conn, folder, fname, "dedup")
+        status = "duplicate" if rec.is_duplicate else "ok"
+        emit("dedup", fname, status, json_progress=json_progress)
+
+    conn.commit()
+    conn.close()
 
     if not json_progress:
-        sessions = len({e.session_id for e in entries})
-        dupes = sum(1 for e in entries if e.is_duplicate)
+        sessions = len({r.session_id for r in records})
+        dupes = sum(1 for r in records if r.is_duplicate)
         click.echo(f"Grouped into {sessions} sessions, flagged {dupes} duplicates")
     else:
-        click.echo(json.dumps({"step": "_progress", "done": len(entries), "total": len(entries)}))
+        click.echo(json.dumps({"step": "_progress", "done": len(records), "total": len(records)}))
 
 
 @cli.command()
-@click.option("--manifest", "manifest_path", required=True,
-              type=click.Path(exists=True, path_type=Path))
-@click.option("--resume", is_flag=True, default=False,
-              help="Skip photos already scored.")
-@click.option("--force", is_flag=True, default=False,
-              help="Re-score all photos regardless of prior completion.")
-@click.option("--verbose", is_flag=True, default=False)
-@click.option("--quiet", is_flag=True, default=False)
-@click.option("--json-progress", "json_progress", is_flag=True, default=False,
-              help="Emit newline-delimited JSON progress lines.")
-def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: bool, json_progress: bool) -> None:
+@click.option("--db", "db_path", required=True, type=click.Path(exists=True, path_type=Path))
+@click.option("--folder", required=True, help="Folder/table name in the DB.")
+@click.option("--source-dir", "source_dir", required=True, type=click.Path(exists=True, path_type=Path),
+              help="Directory containing the photo files.")
+@click.option("--resume", is_flag=True, default=False)
+@click.option("--force", is_flag=True, default=False)
+@click.option("--json-progress", "json_progress", is_flag=True, default=False)
+def score(db_path: Path, folder: str, source_dir: Path, resume: bool, force: bool, json_progress: bool) -> None:
     """Score photos for sharpness, composition, and exposure."""
-    from .manifest import load_manifest, save_manifest, checkpoint
-    from .progress import ProgressTracker
+    import sqlite3
+
     from .sharpness import score_sharpness
     from .composition import score_composition
     from .exposure import score_exposure
     from .darktable_bridge import compute_color_label
+    from .photondb import ensure_table, get_pending, update_scores, update_stages, clear_stage
 
-    entries = load_manifest(manifest_path)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    ensure_table(conn, folder)
 
-    not_deduped = [e for e in entries if "dedup" not in e.stages_completed]
-    if not_deduped:
-        raise click.ClickException(
-            f"{len(not_deduped)} photos have not been through 'dedup'. "
-            f"Run 'photo-workflow dedup' first."
-        )
+    if force:
+        clear_stage(conn, folder, "score")
 
-    to_score = [
-        e for e in entries
-        if not e.is_duplicate and (force or "score" not in e.stages_completed)
-    ]
+    pending = get_pending(conn, folder, "score")
+    to_score = [r for r in pending if not r["is_duplicate"]]
 
-    if not to_score and not force:
-        if resume:
-            click.echo("All non-duplicate photos already scored.")
-        else:
-            click.echo("All non-duplicate photos already scored. Use --resume or --force.")
+    if not to_score:
+        click.echo("All non-duplicate photos already scored.")
+        conn.close()
         return
 
-    if resume and not force:
-        already = sum(1 for e in entries if not e.is_duplicate and "score" in e.stages_completed)
-        if already > 0:
-            click.echo(f"Resuming: {already} already scored, {len(to_score)} remaining")
-
-    tracker = ProgressTracker(stage="score", total=len(to_score))
     errors = 0
-
-    for i, entry in enumerate(to_score, 1):
-        p = Path(entry.path)
+    for i, row in enumerate(to_score, 1):
+        p = source_dir / row["filename"]
         try:
-            entry.sharpness = score_sharpness(p)
-            entry.composition = score_composition(p)
-            entry.exposure = score_exposure(p)
-            entry.error = None
-            if "score" not in entry.stages_completed:
-                entry.stages_completed.append("score")
+            sharp = score_sharpness(p)
+            comp = score_composition(p)
+            expo = score_exposure(p)
+            update_scores(conn, folder, row["filename"], sharp, comp, expo)
+            update_stages(conn, folder, row["filename"], "score")
 
-            mean = (entry.sharpness + entry.composition + entry.exposure) / 3.0
+            mean = (sharp + comp + expo) / 3.0
             stars = min(5, round(mean * 5))
-            color_label = compute_color_label(entry.sharpness, entry.composition, entry.exposure)
+            color_label = compute_color_label(sharp, comp, expo)
 
             if json_progress:
-                emit("score", p.name, "ok", json_progress=True,
-                     sharpness=round(entry.sharpness, 4),
-                     composition=round(entry.composition, 4),
-                     exposure=round(entry.exposure, 4),
-                     stars=stars,
-                     color_label=color_label)
-            elif verbose:
-                click.echo(
-                    f"  {p.name}: sharp={entry.sharpness:.4f} "
-                    f"comp={entry.composition:.4f} exp={entry.exposure:.4f}"
-                )
+                emit("score", row["filename"], "ok", json_progress=True,
+                     sharpness=round(sharp, 4), composition=round(comp, 4),
+                     exposure=round(expo, 4), stars=stars, color_label=color_label)
         except Exception as exc:
-            entry.error = str(exc)
+            conn.execute(
+                f"UPDATE [{folder}] SET error=? WHERE filename=?",
+                (str(exc), row["filename"]),
+            )
+            conn.commit()
             errors += 1
-            logger.warning("Score failed for %s: %s", p, exc)
             if json_progress:
-                emit("score", p.name, "error", json_progress=True, message=str(exc))
+                emit("score", row["filename"], "error", json_progress=True, message=str(exc))
 
-        if not (quiet or json_progress):
-            tracker.update(i)
+        if json_progress and i % 10 == 0:
+            click.echo(json.dumps({"step": "_progress", "done": i, "total": len(to_score)}))
 
-        if i % 50 == 0:
-            checkpoint(entries, manifest_path)
-
-    if not (quiet or json_progress):
-        tracker.finish()
-
-    save_manifest(entries, manifest_path)
+    conn.close()
 
     if not json_progress:
         scored = len(to_score) - errors
@@ -437,122 +355,69 @@ def score(manifest_path: Path, resume: bool, force: bool, verbose: bool, quiet: 
 
 
 @cli.command()
-@click.option("--manifest", "manifest_path", required=True,
-              type=click.Path(exists=True, path_type=Path))
+@click.option("--db", "db_path", required=True, type=click.Path(exists=True, path_type=Path))
+@click.option("--folder", required=True, help="Folder/table name in the DB.")
+@click.option("--source-dir", "source_dir", required=True, type=click.Path(exists=True, path_type=Path),
+              help="Directory containing the photo files.")
 @click.option("--model-dir", default="models/florence2_int8", show_default=True,
-              type=click.Path(path_type=Path),
-              help="Path to the Florence-2 INT8 ONNX model directory.")
-@click.option("--resume", is_flag=True, default=False,
-              help="Skip photos already named.")
-@click.option("--force", is_flag=True, default=False,
-              help="Re-name all photos regardless of prior completion.")
-@click.option("--verbose", is_flag=True, default=False)
-@click.option("--quiet", is_flag=True, default=False)
-@click.option("--json-progress", "json_progress", is_flag=True, default=False,
-              help="Emit newline-delimited JSON progress lines.")
+              type=click.Path(path_type=Path))
+@click.option("--resume", is_flag=True, default=False)
+@click.option("--force", is_flag=True, default=False)
+@click.option("--json-progress", "json_progress", is_flag=True, default=False)
 def name(
-    manifest_path: Path,
+    db_path: Path,
+    folder: str,
+    source_dir: Path,
     model_dir: Path,
     resume: bool,
     force: bool,
-    verbose: bool,
-    quiet: bool,
     json_progress: bool,
 ) -> None:
-    """Generate semantic filenames via Florence-2 and rename files on disk."""
-    from .manifest import load_manifest, save_manifest, checkpoint
-    from .progress import ProgressTracker
+    """Generate semantic descriptions via Florence-2 (written to Darktable description, not filename)."""
+    import sqlite3
+
     from .naming import generate_name
+    from .photondb import ensure_table, get_pending, update_semantic, update_stages, clear_stage
 
-    entries = load_manifest(manifest_path)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    ensure_table(conn, folder)
 
-    not_scored = [
-        e for e in entries
-        if not e.is_duplicate and "score" not in e.stages_completed
-    ]
-    if not_scored:
-        raise click.ClickException(
-            f"{len(not_scored)} photos have not been through 'score'. "
-            f"Run 'photo-workflow score' first."
-        )
+    if force:
+        clear_stage(conn, folder, "name")
 
-    to_name = [
-        e for e in entries
-        if not e.is_duplicate and (force or "name" not in e.stages_completed)
-    ]
+    pending = get_pending(conn, folder, "name")
+    to_name = [r for r in pending if not r["is_duplicate"]]
 
-    if not to_name and not force:
-        if resume:
-            click.echo("All non-duplicate photos already named.")
-        else:
-            click.echo("All non-duplicate photos already named. Use --resume or --force.")
+    if not to_name:
+        click.echo("All non-duplicate photos already named.")
+        conn.close()
         return
 
-    if resume and not force:
-        already = sum(
-            1 for e in entries
-            if not e.is_duplicate and "name" in e.stages_completed
-        )
-        if already > 0:
-            click.echo(f"Resuming: {already} already named, {len(to_name)} remaining")
-
-    tracker = ProgressTracker(stage="name", total=len(to_name))
     errors = 0
-
-    # Determine starting sequence counter (scan before any renames)
-    if to_name:
-        dest_dir = Path(to_name[0].path).parent
-        dest_ext = Path(to_name[0].path).suffix
-        counter = _next_sequence_counter(dest_dir, dest_ext)
-    else:
-        counter = 1
-
-    for i, entry in enumerate(to_name, 1):
-        p = Path(entry.path)
+    for i, row in enumerate(to_name, 1):
+        p = source_dir / row["filename"]
         try:
             slug = generate_name(p, model_dir=model_dir)
-            entry.semantic_name = slug
-
-            # Store original filename before rename
-            entry.metadata = entry.metadata or {}
-            entry.metadata["original_filename"] = p.name
-
-            # Rename to sequence number
-            seq_name = f"{counter:05d}{p.suffix}"
-            new_path = p.parent / seq_name
-            if not new_path.exists() or new_path == p:
-                try:
-                    os.rename(p, new_path)
-                    entry.path = str(new_path)
-                except OSError as exc:
-                    logger.warning("Could not rename %s to %s: %s", p, new_path, exc)
-            counter += 1
-
-            entry.error = None
-            if "name" not in entry.stages_completed:
-                entry.stages_completed.append("name")
+            update_semantic(conn, folder, row["filename"], slug)
+            update_stages(conn, folder, row["filename"], "name")
 
             if json_progress:
-                emit("name", seq_name, "ok", json_progress=True, semantic_name=slug, original=p.name)
-            elif verbose:
-                click.echo(f"  {p.name} -> {seq_name}")
+                emit("name", row["filename"], "ok", json_progress=True, semantic_name=slug)
         except Exception as exc:
-            entry.error = str(exc)
+            conn.execute(
+                f"UPDATE [{folder}] SET error=? WHERE filename=?",
+                (str(exc), row["filename"]),
+            )
+            conn.commit()
             errors += 1
-            logger.warning("Name failed for %s: %s", p, exc)
             if json_progress:
-                emit("name", p.name, "error", json_progress=True, message=str(exc))
+                emit("name", row["filename"], "error", json_progress=True, message=str(exc))
 
-        if not (quiet or json_progress):
-            tracker.update(i)
+        if json_progress and i % 10 == 0:
+            click.echo(json.dumps({"step": "_progress", "done": i, "total": len(to_name)}))
 
-        if i % 50 == 0:
-            checkpoint(entries, manifest_path)
-
-    if not (quiet or json_progress):
-        tracker.finish()
-
-    save_manifest(entries, manifest_path)
+    conn.close()
 
     if not json_progress:
         named = len(to_name) - errors
@@ -562,92 +427,36 @@ def name(
 
 
 @cli.command()
-@click.option("--manifest", "manifest_path", required=True,
-              type=click.Path(exists=True, path_type=Path))
-@click.option("--dry-run", is_flag=True, default=False,
-              help="Print what would happen without writing.")
-@click.option("--verbose", is_flag=True, default=False)
-@click.option("--json-progress", "json_progress", is_flag=True, default=False,
-              help="Emit newline-delimited JSON progress lines.")
-def sync(manifest_path: Path, dry_run: bool, verbose: bool, json_progress: bool) -> None:
-    """Write XMP sidecars for all named photos."""
-    from .manifest import load_manifest, save_manifest
-    from .darktable_bridge import sync_to_darktable
+@click.option("--db", "db_path", required=True, type=click.Path(exists=True, path_type=Path))
+@click.option("--folder", required=True, help="Folder/table name in the DB.")
+def status(db_path: Path, folder: str) -> None:
+    """Show pipeline status for a folder."""
+    import sqlite3
 
-    entries = load_manifest(manifest_path)
+    from .photondb import sanitize_table_name
 
-    not_named = [
-        e for e in entries
-        if not e.is_duplicate and "name" not in e.stages_completed
-    ]
-    if not_named:
-        raise click.ClickException(
-            f"{len(not_named)} photos have not been through 'name'. "
-            f"Run 'photo-workflow name' first."
-        )
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    table = sanitize_table_name(folder)
+    rows = conn.execute(f"SELECT * FROM [{table}]").fetchall()
+    conn.close()
 
-    records = []
-    for e in entries:
-        rec = PhotoRecord(
-            path=Path(e.path),
-            session_id=e.session_id,
-            is_duplicate=e.is_duplicate,
-            sharpness_score=e.sharpness or 0.0,
-            composition_score=e.composition or 0.0,
-            exposure_score=e.exposure or 0.0,
-            semantic_name=e.semantic_name or "",
-            metadata={"original_filename": Path(e.path).name},
-        )
-        records.append(rec)
-
-    if dry_run:
-        non_dupes = sum(1 for r in records if not r.is_duplicate)
-        click.echo(f"Dry run: would write {non_dupes} XMP sidecars")
-        return
-
-    xmp_written = sync_to_darktable(records, verbose=verbose)
-
-    for record in records:
-        xmp_path = record.path.with_suffix(".xmp")
-        emit("sync", record.path.name, "ok", json_progress=json_progress,
-             xmp=str(xmp_path))
-
-    for entry in entries:
-        if not entry.is_duplicate and "sync" not in entry.stages_completed:
-            entry.stages_completed.append("sync")
-    save_manifest(entries, manifest_path)
-
-    if not json_progress:
-        click.echo(f"Wrote {xmp_written} XMP sidecars")
-    else:
-        click.echo(json.dumps({"step": "_progress", "done": xmp_written, "total": xmp_written}))
-
-
-@cli.command()
-@click.option("--manifest", "manifest_path", required=True,
-              type=click.Path(exists=True, path_type=Path))
-def status(manifest_path: Path) -> None:
-    """Show manifest summary: per-stage completion and error count."""
-    from .manifest import load_manifest
-
-    entries = load_manifest(manifest_path)
-    total = len(entries)
-    dupes = sum(1 for e in entries if e.is_duplicate)
+    total = len(rows)
+    dupes = sum(1 for r in rows if r["is_duplicate"])
 
     stage_counts = {}
-    for stage in ("scan", "dedup", "score", "name", "sync"):
-        stage_counts[stage] = sum(1 for e in entries if stage in e.stages_completed)
+    for stage in ("scan", "dedup", "score", "name"):
+        stage_counts[stage] = sum(1 for r in rows if stage in (r["stages"] or ""))
 
-    error_count = sum(1 for e in entries if e.error)
+    error_count = sum(1 for r in rows if r["error"])
 
-    click.echo(f"Manifest: {manifest_path}")
+    click.echo(f"Database: {db_path} / table: {table}")
     click.echo(f"  Total photos:  {total}")
     click.echo(f"  Duplicates:    {dupes}")
     click.echo(f"  Scan:          {stage_counts['scan']}/{total}")
     click.echo(f"  Dedup:         {stage_counts['dedup']}/{total}")
     click.echo(f"  Score:         {stage_counts['score']}/{total - dupes} (non-duplicate)")
     click.echo(f"  Name:          {stage_counts['name']}/{total - dupes} (non-duplicate)")
-    click.echo(f"  Sync:          {stage_counts['sync']}/{total - dupes} (non-duplicate)")
     click.echo(f"  Errors:        {error_count}")
 
 
@@ -705,6 +514,10 @@ def _cleanup_sentinel(temp_dir: Path | None = None) -> None:
 
 def main() -> None:
     import atexit
+    import sys
+    # Force line-buffered stdout so Lua poller sees output in real time
+    if not sys.stdout.line_buffering:
+        sys.stdout.reconfigure(line_buffering=True)
     _write_sentinel()
     atexit.register(_cleanup_sentinel)
     cli()
