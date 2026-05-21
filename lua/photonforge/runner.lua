@@ -141,11 +141,27 @@ function M.run_step(step, log_fn, job)
   if f then f:close() end
 
   if IS_WINDOWS then
-    cmd = 'start /B cmd /c "' .. cmd .. ' >' .. shell_quote(log_path) .. ' 2>&1"'
+    local bat_path = get_temp_dir() .. "\\photonforge_run.bat"
+    local vbs_path = get_temp_dir() .. "\\photonforge_run.vbs"
+
+    local bat = io.open(bat_path, "w")
+    if bat then
+      bat:write('@echo off\r\n')
+      bat:write(cmd .. ' > "' .. log_path .. '" 2>&1\r\n')
+      bat:close()
+    end
+
+    local vbs = io.open(vbs_path, "w")
+    if vbs then
+      vbs:write('CreateObject("Wscript.Shell").Run """' .. bat_path .. '""", 0, False\r\n')
+      vbs:close()
+    end
+
+    os.execute('wscript "' .. vbs_path .. '"')
   else
     cmd = cmd .. " > " .. shell_quote(log_path) .. " 2>&1 &"
+    os.execute(cmd)
   end
-  os.execute(cmd)
 
   local dest = config.read("dest_path")
   local done, total = 0, 0
