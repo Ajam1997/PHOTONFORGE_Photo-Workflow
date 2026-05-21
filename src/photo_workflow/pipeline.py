@@ -159,18 +159,30 @@ def cli() -> None:
               help="Show what would be copied without copying.")
 @click.option("--json-progress", "json_progress", is_flag=True, default=False,
               help="Emit newline-delimited JSON progress lines.")
-def ingest(source: Path, dest: Path, dry_run: bool, json_progress: bool) -> None:
-    """Copy photos from SD card to destination with YYYYMMDD_ prefix."""
+@click.option("--file-type", "file_type", type=click.Choice(["both", "raw", "jpg"]),
+              default="both", help="File types to ingest: raw, jpg, or both.")
+def ingest(source: Path, dest: Path, dry_run: bool, json_progress: bool, file_type: str) -> None:
+    """Copy photos from SD card to destination with cartridge-prefix renaming."""
     from .ingest import ingest_volume
+    from .volume import extract_cartridge_id, get_volume_label
 
-    copied = ingest_volume(source, dest, dry_run=dry_run)
-    for p in copied:
-        emit("ingest", p.name, "ok", json_progress=json_progress, dest=str(p))
+    label = get_volume_label(dest)
+    cart_id = extract_cartridge_id(label)
+    if json_progress:
+        click.echo(json.dumps({"step": "ingest", "file": f"label='{label}' cart={cart_id}",
+                                "status": "info"}))
+    else:
+        click.echo(f"Volume label: '{label}', cartridge ID: {cart_id}")
+
+    def _progress(new_name: str, original: str, done: int, total: int) -> None:
+        emit("ingest", new_name, "ok", json_progress=json_progress, dest=original)
+        if json_progress:
+            click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
+
+    copied = ingest_volume(source, dest, dry_run=dry_run, progress_fn=_progress, file_type=file_type)
     if not json_progress:
         verb = "Would copy" if dry_run else "Copied"
         click.echo(f"{verb} {len(copied)} photos to {dest}")
-    else:
-        click.echo(json.dumps({"step": "_progress", "done": len(copied), "total": len(copied)}))
 
 
 @cli.command()
@@ -228,22 +240,23 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
 
     from .grouping import cluster_sessions
     from .dedup import deduplicate
-    from .photondb import ensure_table, get_pending, update_stages, clear_stage
+    from .photondb import sanitize_table_name, ensure_table, get_pending, update_stages, clear_stage
 
+    table = sanitize_table_name(folder)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    ensure_table(conn, folder)
+    ensure_table(conn, table)
 
     if force:
-        clear_stage(conn, folder, "dedup")
+        clear_stage(conn, table, "dedup")
 
-    pending = get_pending(conn, folder, "dedup")
+    pending = get_pending(conn, table, "dedup")
     if not pending:
         click.echo("All photos already deduped. Use --force to redo.")
         conn.close()
         return
 
-    all_rows = conn.execute(f"SELECT * FROM [{folder}]").fetchall()
+    all_rows = conn.execute(f"SELECT * FROM [{table}]").fetchall()
 
     records = []
     for row in all_rows:
@@ -263,10 +276,10 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
     for rec in records:
         fname = rec.path.name
         conn.execute(
-            f"UPDATE [{folder}] SET session_id=?, is_duplicate=? WHERE filename=?",
+            f"UPDATE [{table}] SET session_id=?, is_duplicate=? WHERE filename=?",
             (rec.session_id, 1 if rec.is_duplicate else 0, fname),
         )
-        update_stages(conn, folder, fname, "dedup")
+        update_stages(conn, table, fname, "dedup")
         status = "duplicate" if rec.is_duplicate else "ok"
         emit("dedup", fname, status, json_progress=json_progress)
 
@@ -297,16 +310,17 @@ def score(db_path: Path, folder: str, source_dir: Path, resume: bool, force: boo
     from .composition import score_composition
     from .exposure import score_exposure
     from .darktable_bridge import compute_color_label
-    from .photondb import ensure_table, get_pending, update_scores, update_stages, clear_stage
+    from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_stages, clear_stage
 
+    table = sanitize_table_name(folder)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    ensure_table(conn, folder)
+    ensure_table(conn, table)
 
     if force:
-        clear_stage(conn, folder, "score")
+        clear_stage(conn, table, "score")
 
-    pending = get_pending(conn, folder, "score")
+    pending = get_pending(conn, table, "score")
     to_score = [r for r in pending if not r["is_duplicate"]]
 
     if not to_score:
@@ -321,8 +335,8 @@ def score(db_path: Path, folder: str, source_dir: Path, resume: bool, force: boo
             sharp = score_sharpness(p)
             comp = score_composition(p)
             expo = score_exposure(p)
-            update_scores(conn, folder, row["filename"], sharp, comp, expo)
-            update_stages(conn, folder, row["filename"], "score")
+            update_scores(conn, table, row["filename"], sharp, comp, expo)
+            update_stages(conn, table, row["filename"], "score")
 
             mean = (sharp + comp + expo) / 3.0
             stars = min(5, round(mean * 5))
@@ -331,10 +345,11 @@ def score(db_path: Path, folder: str, source_dir: Path, resume: bool, force: boo
             if json_progress:
                 emit("score", row["filename"], "ok", json_progress=True,
                      sharpness=round(sharp, 4), composition=round(comp, 4),
-                     exposure=round(expo, 4), stars=stars, color_label=color_label)
+                     exposure=round(expo, 4), stars=stars, color_label=color_label,
+                     original_name=row["original_name"])
         except Exception as exc:
             conn.execute(
-                f"UPDATE [{folder}] SET error=? WHERE filename=?",
+                f"UPDATE [{table}] SET error=? WHERE filename=?",
                 (str(exc), row["filename"]),
             )
             conn.commit()
@@ -359,8 +374,8 @@ def score(db_path: Path, folder: str, source_dir: Path, resume: bool, force: boo
 @click.option("--folder", required=True, help="Folder/table name in the DB.")
 @click.option("--source-dir", "source_dir", required=True, type=click.Path(exists=True, path_type=Path),
               help="Directory containing the photo files.")
-@click.option("--model-dir", default="models/florence2_int8", show_default=True,
-              type=click.Path(path_type=Path))
+@click.option("--model-dir", default=None, type=click.Path(path_type=Path),
+              help="Florence-2 model directory.")
 @click.option("--resume", is_flag=True, default=False)
 @click.option("--force", is_flag=True, default=False)
 @click.option("--json-progress", "json_progress", is_flag=True, default=False)
@@ -368,25 +383,28 @@ def name(
     db_path: Path,
     folder: str,
     source_dir: Path,
-    model_dir: Path,
+    model_dir: Path | None,
     resume: bool,
     force: bool,
     json_progress: bool,
 ) -> None:
     """Generate semantic descriptions via Florence-2 (written to Darktable description, not filename)."""
+    if model_dir is None:
+        model_dir = Path(__file__).resolve().parent.parent.parent / "models" / "florence2_int8"
     import sqlite3
 
     from .naming import generate_name
-    from .photondb import ensure_table, get_pending, update_semantic, update_stages, clear_stage
+    from .photondb import sanitize_table_name, ensure_table, get_pending, update_semantic, update_stages, clear_stage
 
+    table = sanitize_table_name(folder)
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    ensure_table(conn, folder)
+    ensure_table(conn, table)
 
     if force:
-        clear_stage(conn, folder, "name")
+        clear_stage(conn, table, "name")
 
-    pending = get_pending(conn, folder, "name")
+    pending = get_pending(conn, table, "name")
     to_name = [r for r in pending if not r["is_duplicate"]]
 
     if not to_name:
@@ -399,14 +417,14 @@ def name(
         p = source_dir / row["filename"]
         try:
             slug = generate_name(p, model_dir=model_dir)
-            update_semantic(conn, folder, row["filename"], slug)
-            update_stages(conn, folder, row["filename"], "name")
+            update_semantic(conn, table, row["filename"], slug)
+            update_stages(conn, table, row["filename"], "name")
 
             if json_progress:
                 emit("name", row["filename"], "ok", json_progress=True, semantic_name=slug)
         except Exception as exc:
             conn.execute(
-                f"UPDATE [{folder}] SET error=? WHERE filename=?",
+                f"UPDATE [{table}] SET error=? WHERE filename=?",
                 (str(exc), row["filename"]),
             )
             conn.commit()

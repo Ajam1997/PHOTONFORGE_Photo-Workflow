@@ -107,12 +107,29 @@ function M.build()
   local mode_label = dt.new_widget("label") { label = "Run mode:" }
   local mode_combo = dt.new_widget("combobox") {
     label = "",
-    tooltip = "resume = skip done steps, force = redo all, fresh = delete DB first",
+    tooltip = "resume = skip done steps, force = redo all, fresh = force + re-ingest",
     value = mode_idx,
     "resume", "force", "fresh",
   }
   local mode_box = dt.new_widget("box") {
     orientation = "horizontal", mode_label, mode_combo,
+  }
+
+  local file_types = {"both", "raw", "jpg"}
+  local current_ft = config.read("file_type")
+  local ft_idx = 1
+  for i, ft in ipairs(file_types) do
+    if ft == current_ft then ft_idx = i end
+  end
+  local ft_label = dt.new_widget("label") { label = "File type:" }
+  local ft_combo = dt.new_widget("combobox") {
+    label = "",
+    tooltip = "raw = ARW/CR2/NEF/DNG only, jpg = JPEG/PNG/TIFF only, both = all",
+    value = ft_idx,
+    "both", "raw", "jpg",
+  }
+  local ft_box = dt.new_widget("box") {
+    orientation = "horizontal", ft_label, ft_combo,
   }
 
   local function save_entries()
@@ -129,9 +146,15 @@ function M.build()
     else
       config.write("run_mode", tostring(mv))
     end
+    local fv = ft_combo.value
+    if type(fv) == "number" then
+      config.write("file_type", file_types[fv] or "both")
+    else
+      config.write("file_type", tostring(fv))
+    end
   end
 
-  local steps = {"ingest", "scan", "dedup", "score", "name"}
+  local steps = {"ingest", "import", "dedup", "score", "name"}
   local step_checks = {}
   local last_run_labels = {}
 
@@ -227,6 +250,7 @@ function M.build()
     config_box,
     tz_box,
     mode_box,
+    ft_box,
     steps_box,
     btn_box,
     log_view,

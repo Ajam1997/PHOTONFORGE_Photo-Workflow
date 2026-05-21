@@ -51,9 +51,21 @@ function M.apply(rec, folder)
       img.purple = (cl == 4)
     end
 
+    local parts = {}
+    if rec.sharpness ~= nil then table.insert(parts, string.format("Sharp:%.2f", rec.sharpness)) end
+    if rec.composition ~= nil then table.insert(parts, string.format("Comp:%.2f", rec.composition)) end
+    if rec.exposure ~= nil then table.insert(parts, string.format("Expo:%.2f", rec.exposure)) end
+    if #parts > 0 then
+      img.notes = table.concat(parts, " | ")
+    end
+
+    if rec.original_name ~= nil then
+      img.PreservedFileName = rec.original_name
+    end
+
   elseif rec.step == "name" then
     if rec.semantic_name ~= nil then
-      img:set_metadata("description", rec.semantic_name)
+      img.description = rec.semantic_name
     end
   end
 end
