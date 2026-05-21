@@ -31,7 +31,7 @@ def open_db(dest_path: Path) -> sqlite3.Connection:
         pass
     conn = sqlite3.connect(str(db_file))
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA journal_mode=DELETE")
     return conn
 
 

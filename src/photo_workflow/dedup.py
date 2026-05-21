@@ -35,8 +35,8 @@ def deduplicate(records: list, progress_fn: object = None) -> list:
     seen: dict[str, dict[int, str]] = {}  # session_id → {hash: path}
     total = len(records)
 
-    for i, rec in enumerate(records):
-        if progress_fn and i % 50 == 0:
+    for i, rec in enumerate(records, 1):
+        if progress_fn:
             progress_fn(i, total)
         h = _dhash(rec.path)
         if h is None:

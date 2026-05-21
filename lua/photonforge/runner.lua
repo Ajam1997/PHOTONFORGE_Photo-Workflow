@@ -49,7 +49,7 @@ local function build_cmd(step)
   local base = "photo-workflow " .. step .. " --json-progress"
 
   local mode_flag = ""
-  if run_mode == "force" then
+  if run_mode == "force" or run_mode == "fresh" then
     if step == "dedup" or step == "score" or step == "name" then
       mode_flag = " --force"
     end
@@ -60,7 +60,12 @@ local function build_cmd(step)
   end
 
   if step == "ingest" then
-    return base .. " --source " .. shell_quote(sd) .. " --dest " .. shell_quote(dest)
+    local file_type = config.read("file_type")
+    local ft_flag = ""
+    if file_type == "raw" or file_type == "jpg" then
+      ft_flag = " --file-type " .. file_type
+    end
+    return base .. " --source " .. shell_quote(sd) .. " --dest " .. shell_quote(dest) .. ft_flag
   elseif step == "scan" then
     return base .. " --source " .. shell_quote(dest) .. " --db " .. shell_quote(db)
   elseif step == "dedup" then
@@ -72,7 +77,6 @@ local function build_cmd(step)
   elseif step == "name" then
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest)
-              .. " --model-dir " .. shell_quote("models/florence2_int8")
               .. mode_flag
   end
   error("Unknown step: " .. step)
@@ -132,7 +136,26 @@ function M.kill()
   os.remove(get_sentinel_path())
 end
 
+function M.run_import(log_fn, job)
+  local ok = M.run_step("scan", log_fn, job)
+  if not ok then return false end
+
+  local dest = config.read("dest_path")
+  log_fn(string.format("[%s] Importing %s into Darktable library...", os.date("%H:%M:%S"), dest))
+  local result = dt.database.import(dest)
+  if result then
+    log_fn(string.format("[%s] Library imported: %s (%s images)", os.date("%H:%M:%S"), dest, tostring(result)))
+  else
+    log_fn(string.format("[%s] Could not import folder: %s", os.date("%H:%M:%S"), dest))
+  end
+  return true
+end
+
 function M.run_step(step, log_fn, job)
+  if step == "import" then
+    return M.run_import(log_fn, job)
+  end
+
   local cmd = build_cmd(step)
   local log_path = get_log_path()
   log_fn(string.format("[%s] Running: %s", os.date("%H:%M:%S"), cmd))
@@ -257,10 +280,7 @@ function M.run_all(step_list, log_fn, status_fn)
 
   local run_mode = config.read("run_mode")
   if run_mode == "fresh" then
-    local dest = config.read("dest_path")
-    local db = get_db_path(dest)
-    os.remove(db)
-    log_fn("[fresh] Deleted database: " .. db)
+    log_fn("[fresh] All steps will be re-run (DB preserved).")
   end
 
   local total_steps = #step_list
@@ -274,16 +294,6 @@ function M.run_all(step_list, log_fn, status_fn)
     if M.abort then break end
     log_fn(string.format("--- Step %d/%d: %s ---", i, total_steps, step))
     local ok = M.run_step(step, log_fn, job)
-
-    if step == "scan" and ok then
-      local dest = config.read("dest_path")
-      local film = dt.films.new(dest)
-      if film then
-        log_fn("[scan] Library imported: " .. dest)
-      else
-        log_fn("[scan] Could not import folder: " .. dest)
-      end
-    end
 
     local result = ok and "ok" or "error"
     if status_fn ~= nil then
