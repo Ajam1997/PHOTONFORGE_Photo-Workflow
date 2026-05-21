@@ -19,8 +19,10 @@ def score_exposure(path: Path) -> float:
     Higher entropy = more evenly distributed tones = better exposure.
     Returns a score in [0.0, 1.0].
     """
-    img = cv2.imread(str(path))
-    if img is None:
+    from .raw_loader import load_rgb
+    try:
+        img = load_rgb(path)
+    except Exception:
         logger.warning("Could not load image for exposure: %s", path)
         return 0.0
 

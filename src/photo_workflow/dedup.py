@@ -12,31 +12,32 @@ DHASH_THRESHOLD = 2  # FR-1.3: Hamming distance <= 2 per spec
 
 def _dhash(path: Path) -> int | None:
     try:
-        from PIL import Image
         import imagehash
         import numpy as np
-        with Image.open(path) as img:
-            h = imagehash.dhash(img)
-            # Convert the 8x8 bool array to a 64-bit integer for XOR-based Hamming distance
-            flat = h.hash.flatten().astype(np.uint8)
-            # Pack 64 bits into a single integer
-            result = 0
-            for bit in flat:
-                result = (result << 1) | int(bit)
-            return result
+        from .raw_loader import load_thumbnail
+        img = load_thumbnail(path)
+        h = imagehash.dhash(img)
+        flat = h.hash.flatten().astype(np.uint8)
+        result = 0
+        for bit in flat:
+            result = (result << 1) | int(bit)
+        return result
     except Exception as e:
         logger.warning("dHash failed for %s: %s", path, e)
         return None
 
 
-def deduplicate(records: list) -> list:
+def deduplicate(records: list, progress_fn: object = None) -> list:
     """
     Mark duplicate PhotoRecords using dHash perceptual hashing.
     Within each session, the first occurrence is kept; duplicates are flagged.
     """
     seen: dict[str, dict[int, str]] = {}  # session_id → {hash: path}
+    total = len(records)
 
-    for rec in records:
+    for i, rec in enumerate(records):
+        if progress_fn and i % 50 == 0:
+            progress_fn(i, total)
         h = _dhash(rec.path)
         if h is None:
             continue

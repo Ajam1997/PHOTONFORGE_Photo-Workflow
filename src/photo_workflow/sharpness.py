@@ -26,8 +26,10 @@ def score_sharpness(path: Path) -> float:
     Compute Laplacian variance as a sharpness proxy.
     Returns a score in [0.0, 1.0] normalized against a practical max.
     """
-    img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-    if img is None:
+    from .raw_loader import load_gray
+    try:
+        img = load_gray(path)
+    except Exception:
         logger.warning("Could not load image for sharpness: %s", path)
         return 0.0
 
@@ -56,8 +58,10 @@ def main(path: Path, threshold: float) -> None:
     for p in targets:
         if not (p.is_file() and p.suffix.lower() in _SUPPORTED_EXTS):
             continue
-        img = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
-        if img is None:
+        from .raw_loader import load_gray
+        try:
+            img = load_gray(p)
+        except Exception:
             click.echo(f"{p}: unreadable")
             continue
         variance = float(laplace(img.astype(np.float64)).var())
