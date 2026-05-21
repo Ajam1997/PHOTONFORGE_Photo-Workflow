@@ -12,7 +12,7 @@ import pytest
 from photo_workflow.naming import (
     _Sessions,
     _build_empty_past_kv,
-    _caption_to_slug,
+    _read_shooting_info,
     generate_name,
 )
 
@@ -21,7 +21,6 @@ def _fake_sessions(use_merged_decoder: bool = False) -> _Sessions:
     """Return a _Sessions with all-MagicMock internals."""
     decoder_mock = MagicMock()
     if use_merged_decoder:
-        # Merged decoder exposes 'use_cache_branch' as an input name
         decoder_mock.get_inputs.return_value = [
             MagicMock(name="encoder_attention_mask"),
             MagicMock(name="encoder_hidden_states"),
@@ -63,7 +62,7 @@ def test_missing_model_falls_back_to_stem(tmp_path: Path) -> None:
 
 
 def test_unloadable_image_falls_back_to_stem(tmp_path: Path) -> None:
-    """If cv2 cannot load the image, return the filename stem."""
+    """If image cannot be loaded and no EXIF, return the filename stem."""
     img_path = tmp_path / "photo.jpg"
     img_path.touch()
 
@@ -77,8 +76,8 @@ def test_unloadable_image_falls_back_to_stem(tmp_path: Path) -> None:
     assert result == "photo"
 
 
-def test_caption_is_slugified(tmp_path: Path) -> None:
-    """Model caption is lowercased, punctuation removed, first 5 words joined by hyphens."""
+def test_caption_is_full_sentence(tmp_path: Path) -> None:
+    """Model caption is preserved as a capitalized full sentence."""
     img_path = tmp_path / "img.jpg"
     img_path.touch()
 
@@ -89,18 +88,14 @@ def test_caption_is_slugified(tmp_path: Path) -> None:
 
     with patch("photo_workflow.naming._load_sessions", return_value=_fake_sessions()), \
          patch("photo_workflow.naming._preprocess_image", return_value=dummy_pixels), \
-         patch("photo_workflow.naming._run_inference", return_value="A golden sunset over the ocean!"):
+         patch("photo_workflow.naming._run_inference", return_value="a golden sunset over the ocean"):
         result = generate_name(img_path, model_dir=tmp_path / "models")
 
-    assert " " not in result
-    assert "!" not in result
-    assert result == result.lower()
-    assert result == "a-golden-sunset-over-the"
+    assert result.startswith("A golden sunset over the ocean")
 
 
-def test_slug_max_length(tmp_path: Path) -> None:
-    """Slug is capped at 64 characters."""
-    very_long = "a " * 100  # 200 chars before slug, but 5-word cap applies first
+def test_caption_trailing_period_stripped(tmp_path: Path) -> None:
+    """Trailing period from model output is removed."""
     img_path = tmp_path / "img.jpg"
     img_path.touch()
 
@@ -111,14 +106,15 @@ def test_slug_max_length(tmp_path: Path) -> None:
 
     with patch("photo_workflow.naming._load_sessions", return_value=_fake_sessions()), \
          patch("photo_workflow.naming._preprocess_image", return_value=dummy_pixels), \
-         patch("photo_workflow.naming._run_inference", return_value=very_long):
+         patch("photo_workflow.naming._run_inference", return_value="a red fox in a field."):
         result = generate_name(img_path, model_dir=tmp_path / "models")
 
-    assert len(result) <= 64
+    assert not result.endswith(".")
+    assert result.startswith("A red fox in a field")
 
 
-def test_five_word_slug(tmp_path: Path) -> None:
-    """Caption is truncated to the first 5 words."""
+def test_caption_combined_with_exif(tmp_path: Path) -> None:
+    """Caption and EXIF shooting info are combined on separate lines."""
     img_path = tmp_path / "img.jpg"
     img_path.touch()
 
@@ -129,10 +125,31 @@ def test_five_word_slug(tmp_path: Path) -> None:
 
     with patch("photo_workflow.naming._load_sessions", return_value=_fake_sessions()), \
          patch("photo_workflow.naming._preprocess_image", return_value=dummy_pixels), \
-         patch("photo_workflow.naming._run_inference", return_value="red fox jumps over lazy brown dog"):
+         patch("photo_workflow.naming._run_inference", return_value="mountain lake at dawn"), \
+         patch("photo_workflow.naming._read_shooting_info", return_value="35mm | f/2.8 | 1/250s | ISO 400"):
         result = generate_name(img_path, model_dir=tmp_path / "models")
 
-    assert result == "red-fox-jumps-over-lazy"
+    lines = result.split("\n")
+    assert len(lines) == 2
+    assert lines[0] == "Mountain lake at dawn"
+    assert "35mm" in lines[1]
+    assert "ISO 400" in lines[1]
+
+
+def test_exif_only_when_model_unavailable(tmp_path: Path) -> None:
+    """When model can't load but EXIF is available, return EXIF info."""
+    img_path = tmp_path / "img.jpg"
+    img_path.touch()
+
+    import photo_workflow.naming as nm
+    nm._session_cache.clear()
+
+    with patch("photo_workflow.naming._load_sessions", side_effect=FileNotFoundError("no model")), \
+         patch("photo_workflow.naming._read_shooting_info", return_value="50mm | f/1.8 | ISO 200"):
+        result = generate_name(img_path, model_dir=tmp_path / "models")
+
+    assert "50mm" in result
+    assert "ISO 200" in result
 
 
 def test_slow_inference_logs_warning(
@@ -151,7 +168,7 @@ def test_slow_inference_logs_warning(
     def fake_counter() -> float:
         nonlocal call_count
         call_count += 1
-        return 0.0 if call_count == 1 else 3.0  # simulates 3s elapsed (> 2.5s KPM limit)
+        return 0.0 if call_count == 1 else 3.0
 
     with patch("photo_workflow.naming._load_sessions", return_value=_fake_sessions()), \
          patch("photo_workflow.naming._preprocess_image", return_value=dummy_pixels), \
@@ -166,7 +183,6 @@ def test_slow_inference_logs_warning(
 def test_build_empty_past_kv_returns_zero_tensors() -> None:
     """_build_empty_past_kv returns float32 zero tensors of shape (1, 12, 0, 64)."""
     session_mock = MagicMock()
-    # Simulate 6-layer merged decoder: each layer has 4 KV slots (dec.key, dec.val, enc.key, enc.val)
     kv_input_names = [
         f"past_key_values.{layer}.{side}.{kv}"
         for layer in range(6)
@@ -179,17 +195,8 @@ def test_build_empty_past_kv_returns_zero_tensors() -> None:
 
     result = _build_empty_past_kv(session_mock)
 
-    assert len(result) == 24  # 6 layers * 2 sides * 2 kv = 24
+    assert len(result) == 24
     for name, tensor in result.items():
         assert name.startswith("past_key_values"), f"unexpected key: {name}"
         assert tensor.dtype == np.float32
         assert tensor.shape == (1, 12, 0, 64), f"wrong shape for {name}: {tensor.shape}"
-
-
-def test_caption_to_slug_strips_task_prefix() -> None:
-    """Captions starting with a leading task token or angle brackets are still slugified."""
-    # Verify the slug function handles captions from the real model gracefully
-    assert _caption_to_slug("A glowing ring in the dark with a black background.") == \
-        "a-glowing-ring-in-the"
-    assert _caption_to_slug("") == ""
-    assert _caption_to_slug("One") == "one"

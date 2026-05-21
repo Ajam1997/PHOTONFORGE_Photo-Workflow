@@ -15,7 +15,6 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 ONNX_SUBDIR = "onnx"
-MAX_WORDS = 5
 MAX_NEW_TOKENS = 30
 EOS_TOKEN_ID = 2
 DECODER_START_TOKEN_ID = 2   # decoder_start_token_id from generation_config.json
@@ -26,10 +25,9 @@ FORCED_BOS_TOKEN_ID = 0      # forced_bos_token_id: first generated token is alw
 # VQA-style non-answers ("answering does not require reading...") instead of captions.
 CAPTION_PROMPT_TEXT = "What does the image describe?"
 _KPM_INFERENCE_LIMIT = 2.5  # seconds (KPM-1.2)
-# Resize to 512×512 before vision encoding. Florence-2's ViT accepts dynamic spatial
-# inputs; 512 reduces patch count by 55% vs 768 (257 vs 577 tokens), cutting vision
-# encoder latency below the KPM-1.2 budget without meaningful caption quality loss.
-INFER_IMG_SIZE = 512
+# Must match preprocessor_config.json size (768). Using 512 produces 257 vision tokens
+# instead of the expected 577, causing the model to output "unanswerable".
+INFER_IMG_SIZE = 768
 
 
 @dataclass
@@ -189,9 +187,9 @@ def _load_sessions(model_dir: Path) -> _Sessions:
 def _preprocess_image(path: Path, sessions: _Sessions) -> np.ndarray:
     import cv2
 
-    img = cv2.imread(str(path))
-    if img is None:
-        raise ValueError(f"Could not read image: {path}")
+    from .raw_loader import load_rgb
+
+    img = load_rgb(path)
     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     h, w = sessions.img_size
     img_resized = cv2.resize(img_rgb, (w, h)).astype(np.float32) / 255.0
@@ -370,43 +368,82 @@ def _decode_no_cache(
     return ""
 
 
-def _caption_to_slug(caption: str) -> str:
-    words = caption.split()[:MAX_WORDS]
-    slug = re.sub(r"[^a-z0-9]+", "-", " ".join(words).lower()).strip("-")
-    return slug[:64]
+def _read_shooting_info(path: Path) -> str:
+    """Read EXIF shooting parameters and format as a summary line."""
+    try:
+        import exifread
+
+        with open(path, "rb") as f:
+            tags = exifread.process_file(f, details=False)
+    except Exception:
+        return ""
+
+    parts: list[str] = []
+
+    fl = tags.get("EXIF FocalLength")
+    if fl:
+        v = fl.values[0]
+        mm = float(v.num) / float(v.den) if v.den else float(v.num)
+        parts.append(f"{mm:.0f}mm")
+
+    fn = tags.get("EXIF FNumber")
+    if fn:
+        v = fn.values[0]
+        fnum = float(v.num) / float(v.den) if v.den else float(v.num)
+        parts.append(f"f/{fnum:.1f}")
+
+    et = tags.get("EXIF ExposureTime")
+    if et:
+        parts.append(f"{et}s")
+
+    iso = tags.get("EXIF ISOSpeedRatings")
+    if iso:
+        parts.append(f"ISO {iso}")
+
+    camera = tags.get("Image Model")
+    if camera:
+        parts.append(str(camera).strip())
+
+    return " | ".join(parts) if parts else ""
 
 
 def generate_name(path: Path, model_dir: Path = Path("models/florence2_int8")) -> str:
+    """Generate a semantic description combining Florence-2 caption with EXIF metadata."""
+    caption = ""
     cache_key = str(model_dir)
     if cache_key not in _session_cache:
         try:
             _session_cache[cache_key] = _load_sessions(model_dir)
         except Exception as e:
-            logger.warning("Florence-2 model unavailable: %s — using original name", e)
-            return path.stem
+            logger.warning("Florence-2 model unavailable: %s — using EXIF only", e)
+            _session_cache[cache_key] = None
 
     sessions = _session_cache[cache_key]
+    if sessions is not None:
+        try:
+            pixel_values = _preprocess_image(path, sessions)
 
-    try:
-        pixel_values = _preprocess_image(path, sessions)
+            t0 = time.perf_counter()
+            caption = _run_inference(sessions, pixel_values)
+            elapsed = time.perf_counter() - t0
 
-        t0 = time.perf_counter()
-        caption = _run_inference(sessions, pixel_values)
-        elapsed = time.perf_counter() - t0
+            if elapsed > _KPM_INFERENCE_LIMIT:
+                logger.warning(
+                    "Florence-2 inference took %.2fs for %s (KPM-1.2 limit: 2.5s)",
+                    elapsed,
+                    path.name,
+                )
 
-        if elapsed > _KPM_INFERENCE_LIMIT:
-            logger.warning(
-                "Florence-2 inference took %.2fs for %s (KPM-1.2 limit: 2.5s)",
-                elapsed,
-                path.name,
-            )
+            caption = caption.strip().rstrip(".")
+            if caption:
+                caption = caption[0].upper() + caption[1:]
 
-        slug = _caption_to_slug(caption)
-        return slug if slug else path.stem
+        except Exception as e:
+            logger.warning("Naming inference failed for %s: %s", path.name, e)
 
-    except Exception as e:
-        logger.warning("Naming inference failed for %s: %s", path.name, e)
-        return path.stem
+    exif_line = _read_shooting_info(path)
+    parts = [p for p in [caption, exif_line] if p]
+    return "\n".join(parts) if parts else path.stem
 
 
 @click.command("name")
@@ -419,6 +456,6 @@ def generate_name(path: Path, model_dir: Path = Path("models/florence2_int8")) -
     help="Path to the florence2_int8 model directory (contains onnx/ subdir).",
 )
 def main(path: Path, model_dir: Path) -> None:
-    """Generate a 5-word semantic filename slug for PATH using Florence-2 INT8."""
+    """Generate a semantic description for PATH using Florence-2 INT8 + EXIF."""
     result = generate_name(path, model_dir=model_dir)
     click.echo(result)
