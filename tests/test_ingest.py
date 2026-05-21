@@ -1,13 +1,24 @@
-"""Tests for FR-1.1: rsync-triggered volume ingestion (ingest.py)."""
+"""Tests for FR-1.1: volume ingestion with cartridge-prefix renaming (ingest.py)."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
+import numpy as np
+from PIL import Image
 
 from photo_workflow.ingest import ingest_volume, SUPPORTED_EXTENSIONS
+
+
+def _make_jpg(path: Path, dt_str: str = "2026:05:10 14:32:01") -> None:
+    """Create a tiny JPEG with EXIF DateTimeOriginal."""
+    arr = np.full((8, 8, 3), 128, dtype=np.uint8)
+    img = Image.fromarray(arr)
+    exif = img.getexif()
+    exif[0x9003] = dt_str  # DateTimeOriginal
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path, "JPEG", exif=exif.tobytes())
 
 
 def test_supported_extensions_not_empty() -> None:
@@ -15,36 +26,36 @@ def test_supported_extensions_not_empty() -> None:
     assert len(SUPPORTED_EXTENSIONS) > 0
     assert ".jpg" in SUPPORTED_EXTENSIONS
     assert ".raw" in SUPPORTED_EXTENSIONS
-
-
-def test_ingest_volume_raises_on_rsync_failure(tmp_path: Path) -> None:
-    """rsync non-zero exit code raises RuntimeError."""
-    failed = MagicMock(returncode=1, stderr="rsync: error")
-    with patch("subprocess.run", return_value=failed):
-        with pytest.raises(RuntimeError, match="rsync exited"):
-            ingest_volume(tmp_path / "src", tmp_path / "dst")
-
-
-def test_ingest_volume_dry_run_returns_existing_files(tmp_path: Path) -> None:
-    """Dry-run returns files already present in output dir (no rsync write)."""
-    output = tmp_path / "output"
-    output.mkdir()
-    (output / "photo.jpg").touch()
-    (output / "ignore.txt").touch()
-
-    ok = MagicMock(returncode=0, stderr="")
-    with patch("subprocess.run", return_value=ok):
-        result = ingest_volume(tmp_path / "src", output, dry_run=True)
-
-    names = {p.name for p in result}
-    assert "photo.jpg" in names
-    assert "ignore.txt" not in names
+    assert ".arw" in SUPPORTED_EXTENSIONS
 
 
 def test_ingest_volume_creates_output_dir(tmp_path: Path) -> None:
     """Output directory is created if it does not exist."""
+    src = tmp_path / "src"
+    src.mkdir()
     output = tmp_path / "does" / "not" / "exist"
-    ok = MagicMock(returncode=0, stderr="")
-    with patch("subprocess.run", return_value=ok):
-        ingest_volume(tmp_path / "src", output)
+
+    with patch("photo_workflow.ingest.get_volume_label", return_value="PHOTONFORGE-001"):
+        ingest_volume(src, output)
+
     assert output.is_dir()
+
+
+def test_ingest_volume_skips_non_image_files(tmp_path: Path) -> None:
+    """Non-image files in source are ignored."""
+    src = tmp_path / "src"
+    src.mkdir()
+    output = tmp_path / "output"
+    output.mkdir()
+
+    # Create various files
+    _make_jpg(src / "photo.jpg", "2026:05:10 12:00:00")
+    (src / "readme.txt").touch()
+    (src / "data.csv").touch()
+
+    with patch("photo_workflow.ingest.get_volume_label", return_value="PHOTONFORGE-001"):
+        result = ingest_volume(src, output)
+
+    # Only the JPEG should be ingested
+    assert len(result) == 1
+    assert result[0].name.endswith(".jpg")
