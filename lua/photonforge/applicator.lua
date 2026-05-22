@@ -59,6 +59,14 @@ function M.apply(rec, folder)
       img.notes = table.concat(parts, " | ")
     end
 
+    if rec.genre ~= nil and rec.genre ~= "" then
+      local confidence = tonumber(rec.genre_confidence) or 0
+      if confidence >= 0.5 then
+        local tag = dt.tags.create("PHOTONForge|" .. rec.genre)
+        dt.tags.attach(tag, img)
+      end
+    end
+
     if rec.original_name ~= nil then
       img.PreservedFileName = rec.original_name
     end

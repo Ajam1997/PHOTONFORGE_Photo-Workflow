@@ -161,7 +161,7 @@ function M.run_import(log_fn, job)
   return true
 end
 
-function M.run_step(step, log_fn, job)
+function M.run_step(step, log_fn, job, progress_fn)
   if step == "import" then
     return M.run_import(log_fn, job)
   end
@@ -242,9 +242,16 @@ function M.run_step(step, log_fn, job)
           if job ~= nil and total > 0 then
             job.percent = done / total
           end
+          if progress_fn then
+            progress_fn(step, done, total)
+          end
         else
-          local msg = string.format("[%s] %s %s [%s]",
-            os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
+          local counter = ""
+          if done > 0 and total > 0 then
+            counter = string.format("  %d/%d", done, total)
+          end
+          local msg = string.format("[%s] %s%s  %s  [%s]",
+            os.date("%H:%M:%S"), rec.step or "?", counter, rec.file or "", rec.status or "")
           log_fn(msg)
           applicator.apply(rec, dest)
         end
@@ -272,8 +279,12 @@ function M.run_step(step, log_fn, job)
       for line in remaining:gmatch("[^\r\n]+") do
         local ok, rec = pcall(json.decode, line)
         if ok and type(rec) == "table" and rec.step ~= "_progress" then
-          local msg = string.format("[%s] %s %s [%s]",
-            os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
+          local counter = ""
+          if done > 0 and total > 0 then
+            counter = string.format("  %d/%d", done, total)
+          end
+          local msg = string.format("[%s] %s%s  %s  [%s]",
+            os.date("%H:%M:%S"), rec.step or "?", counter, rec.file or "", rec.status or "")
           log_fn(msg)
           applicator.apply(rec, dest)
         elseif not ok then
@@ -287,7 +298,7 @@ function M.run_step(step, log_fn, job)
   return true
 end
 
-function M.run_all(step_list, log_fn, status_fn)
+function M.run_all(step_list, log_fn, status_fn, progress_fn)
   M.abort = false
 
   local run_mode = config.read("run_mode")
@@ -302,14 +313,43 @@ function M.run_all(step_list, log_fn, status_fn)
   )
   job.percent = 0.0
 
+  local step_stats = {}
+  local pipeline_start = os.time()
+
   for i, step in ipairs(step_list) do
     if M.abort then break end
     log_fn(string.format("--- Step %d/%d: %s ---", i, total_steps, step))
-    local ok = M.run_step(step, log_fn, job)
+
+    if status_fn ~= nil then
+      status_fn(step, "running", "")
+    end
+    if progress_fn then
+      progress_fn(step, 0, 0)
+    end
+
+    local step_start = os.time()
+    local step_done, step_total = 0, 0
+    local function track_progress(s, done, total)
+      step_done = done
+      step_total = total
+      if progress_fn then
+        progress_fn(s .. "  |  Step " .. i .. "/" .. total_steps, done, total)
+      end
+    end
+
+    local ok = M.run_step(step, log_fn, job, track_progress)
+    local elapsed = os.time() - step_start
+
+    step_stats[#step_stats + 1] = {
+      name = step,
+      ok = ok,
+      files = step_done,
+      seconds = elapsed,
+    }
 
     local result = ok and "ok" or "error"
     if status_fn ~= nil then
-      status_fn(step, result, os.date("%Y-%m-%d %H:%M"))
+      status_fn(step, result, os.date("%Y-%m-%d %H:%M"), step_done)
     end
 
     if not ok then
@@ -322,7 +362,23 @@ function M.run_all(step_list, log_fn, status_fn)
 
   pcall(function() job.valid = false end)
   pcall(function() job:destroy() end)
-  log_fn(string.format("[%s] Pipeline complete.", os.date("%H:%M:%S")))
+
+  if progress_fn then
+    progress_fn("", 0, 0)
+  end
+
+  local total_elapsed = os.time() - pipeline_start
+  local summary = {}
+  table.insert(summary, "")
+  table.insert(summary, string.format("=== Summary (%ds) ===", total_elapsed))
+  for _, s in ipairs(step_stats) do
+    local mark = s.ok and "\u{2713}" or "\u{2717}"
+    local files_str = s.files > 0 and string.format("  %d files", s.files) or ""
+    table.insert(summary, string.format("  %s %s%s  (%ds)", mark, s.name, files_str, s.seconds))
+  end
+  table.insert(summary, "")
+  log_fn(table.concat(summary, "\n"))
+  dt.print(string.format("PHOTONForge complete (%ds)", total_elapsed))
 end
 
 return M

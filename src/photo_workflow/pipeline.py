@@ -515,7 +515,8 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     emit("score", row["filename"], "ok", json_progress=True,
                          sharpness=round(sharp, 4), composition=round(comp, 4),
                          exposure=round(expo, 4), master=round(master, 4),
-                         genre=fusion.genre, stars=stars, color_label=color_label,
+                         genre=fusion.genre, genre_confidence=round(fusion.genre_confidence, 3),
+                         stars=stars, color_label=color_label,
                          original_name=row["original_name"])
             except Exception as genre_error:
                 # Fallback to legacy scoring

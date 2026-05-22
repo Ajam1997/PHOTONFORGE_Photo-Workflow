@@ -192,11 +192,20 @@ function M.build()
     log_view.text = table.concat(log_lines, "\n")
   end
 
-  local function update_status(step, result, timestamp)
+  local function update_status(step, result, timestamp, file_count)
+    if result == "running" then
+      last_run_labels[step].label = "Running..."
+      return
+    end
     local mark = result == "ok" and "\u{2713}" or "\u{2717}"
-    local text = string.format("last: %s %s", timestamp, mark)
+    local text
+    if file_count and file_count > 0 then
+      text = string.format("%s %s (%d files)", timestamp, mark, file_count)
+    else
+      text = string.format("%s %s", timestamp, mark)
+    end
     last_run_labels[step].label = text
-    config.write("last_run_" .. step, timestamp .. " " .. mark)
+    config.write("last_run_" .. step, text)
   end
 
   local stop_btn = dt.new_widget("button") {
@@ -229,10 +238,11 @@ function M.build()
 
         append_log("[RUN] Starting " .. #enabled .. " steps: " .. table.concat(enabled, ", "))
         dt.control.dispatch(function()
-          local ok2, err2 = pcall(runner.run_all, enabled, append_log, update_status)
+          local ok2, err2 = pcall(runner.run_all, enabled, append_log, update_status, update_progress)
           if not ok2 then
             append_log("[ERROR] run_all: " .. tostring(err2))
           end
+          clear_progress()
         end)
       end)
       if not ok then
@@ -245,6 +255,25 @@ function M.build()
     orientation = "horizontal", run_btn, stop_btn,
   }
 
+  local progress_label = dt.new_widget("label") {
+    label = "",
+  }
+
+  local function update_progress(step, done, total)
+    if total > 0 then
+      progress_label.label = string.format("%s: %d/%d", step, done, total)
+    else
+      progress_label.label = step .. "..."
+    end
+  end
+
+  local function clear_progress()
+    progress_label.label = ""
+  end
+
+  M.update_progress = update_progress
+  M.clear_progress = clear_progress
+
   local root = dt.new_widget("box") {
     orientation = "vertical",
     config_box,
@@ -253,6 +282,7 @@ function M.build()
     ft_box,
     steps_box,
     btn_box,
+    progress_label,
     log_view,
   }
 
