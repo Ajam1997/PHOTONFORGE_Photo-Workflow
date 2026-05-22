@@ -32,9 +32,12 @@ def integration_sd_images(tmp_path_factory: pytest.TempPathFactory) -> Path:
         exif[0x0132] = dt_str  # Image DateTime tag (IFD0 tag 0x0132)
         img.save(p, "JPEG", quality=95, exif=exif.tobytes())
 
-    checker = (np.indices((256, 256)).sum(axis=0) % 2 * 255).astype(np.uint8)
-    checker_rgb = np.stack([checker, checker, checker], axis=2)
-    save_jpg(checker_rgb, "IMG_0001.jpg", "2026:04:01 10:00:00")
+    # Random noise has strong Sobel gradient response everywhere.  A 1-pixel
+    # checkerboard *looks* sharp but the 3×3 Sobel kernel cancels symmetrically
+    # at every pixel, producing zero Tenengrad / SML values.
+    rng_sharp = np.random.default_rng(0)
+    sharp_rgb = rng_sharp.integers(0, 256, (256, 256, 3), dtype=np.uint8)
+    save_jpg(sharp_rgb, "IMG_0001.jpg", "2026:04:01 10:00:00")
 
     # IMG_0002: byte-identical copy — dHash distance 0
     shutil.copy2(sd / "IMG_0001.jpg", sd / "IMG_0002.jpg")
