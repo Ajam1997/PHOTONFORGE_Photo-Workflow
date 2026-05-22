@@ -12,23 +12,22 @@ from photo_workflow.sharpness import score_sharpness
 
 
 def test_sharp_image_scores_high() -> None:
-    """High-variance image (sharp) → score close to 1.0."""
-    # Simulate a high-variance Laplacian (sharp image)
-    fake_lap = np.random.randn(100, 100) * 50.0  # variance ~2500
+    """High-gradient image (sharp) → score close to 1.0."""
+    # Random noise produces very high Tenengrad + SML values → saturates at 1.0
+    rng = np.random.default_rng(42)
+    sharp_gray = rng.integers(0, 256, (100, 100), dtype=np.uint8)
 
-    with patch("cv2.imread", return_value=np.zeros((100, 100), dtype=np.uint8)), \
-         patch("photo_workflow.sharpness.laplace", return_value=fake_lap):
+    with patch("photo_workflow.raw_loader.load_gray", return_value=sharp_gray):
         score = score_sharpness(Path("/fake/sharp.jpg"))
 
     assert score == 1.0  # Should saturate at max
 
 
 def test_blurry_image_scores_low() -> None:
-    """Low-variance image (blurry) → score well below 0.5."""
-    fake_lap = np.ones((100, 100)) * 0.1  # variance near 0
+    """Low-gradient image (blurry) → score well below 0.5."""
+    blurry_gray = np.full((100, 100), 128, dtype=np.uint8)
 
-    with patch("cv2.imread", return_value=np.zeros((100, 100), dtype=np.uint8)), \
-         patch("photo_workflow.sharpness.laplace", return_value=fake_lap):
+    with patch("photo_workflow.raw_loader.load_gray", return_value=blurry_gray):
         score = score_sharpness(Path("/fake/blurry.jpg"))
 
     assert score < 0.1
@@ -43,10 +42,11 @@ def test_missing_image_returns_zero() -> None:
 
 def test_score_is_normalized() -> None:
     """Score must always be in [0.0, 1.0]."""
-    fake_lap = np.random.randn(200, 200) * 1000.0  # extreme variance
+    # Extreme noise should still clamp to [0, 1]
+    rng = np.random.default_rng(99)
+    extreme_gray = rng.integers(0, 256, (200, 200), dtype=np.uint8)
 
-    with patch("cv2.imread", return_value=np.zeros((200, 200), dtype=np.uint8)), \
-         patch("photo_workflow.sharpness.laplace", return_value=fake_lap):
+    with patch("photo_workflow.raw_loader.load_gray", return_value=extreme_gray):
         score = score_sharpness(Path("/fake/extreme.jpg"))
 
     assert 0.0 <= score <= 1.0
