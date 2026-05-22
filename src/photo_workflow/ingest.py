@@ -55,6 +55,7 @@ def ingest_volume(
     output_dir: Path,
     dry_run: bool = False,
     progress_fn: object = None,
+    scan_progress_fn: object = None,
     file_type: str = "both",
 ) -> list[Path]:
     """Copy photos from source_dir to output_dir with P{CCC}{TTT}{NNNNNNN} naming.
@@ -62,6 +63,9 @@ def ingest_volume(
     Files are sorted by EXIF timestamp before sequence assignment.
     Skips files whose original name is already in photonforge.db.
     DB records are written per-file so interrupted ingests can resume.
+
+    *scan_progress_fn(done, total)* is called during the EXIF reading
+    phase so callers can show progress before copies begin.
     """
     from .photondb import open_db, ensure_table, insert_photo
     from .volume import extract_cartridge_id, derive_trip_code, format_photo_name, get_next_sequence
@@ -91,8 +95,11 @@ def ingest_volume(
     already_ingested = _get_already_ingested(output_dir)
 
     timed: list[tuple[str, Path]] = []
-    for src in sources:
+    scan_total = len(sources)
+    for scan_i, src in enumerate(sources, 1):
         ts = _read_exif_timestamp(src)
+        if scan_progress_fn is not None:
+            scan_progress_fn(scan_i, scan_total)
         if (src.name, ts or "") in already_ingested:
             logger.debug("Skipping (already ingested): %s", src.name)
             continue

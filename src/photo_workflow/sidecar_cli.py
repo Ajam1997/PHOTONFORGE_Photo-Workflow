@@ -135,7 +135,7 @@ def ingest(
         dupes_found = 0
         if not skip_dedup:
             emit({"type": "progress", "step": "dedup", "current": 0, "total": len(records), "message": f"Analysing {len(records)} files…"})
-            records = deduplicate(records)
+            records, _new_hashes = deduplicate(records)
             dupes_found = sum(1 for r in records if r.is_duplicate)
             emit({"type": "stage_done", "stage": "dedup", "dupes_found": dupes_found})
 

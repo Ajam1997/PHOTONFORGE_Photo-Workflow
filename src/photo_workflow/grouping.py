@@ -24,16 +24,26 @@ def read_exif_datetime(path: Path) -> datetime | None:
     return None
 
 
-def cluster_sessions(records: list) -> list:
+def cluster_sessions(
+    records: list,
+    timestamps: dict[str, datetime] | None = None,
+) -> list:
     """
     Assign session_id to each PhotoRecord based on temporal proximity.
     Records without EXIF timestamps are assigned to a fallback session.
+
+    If *timestamps* is provided (filename → datetime), uses those instead
+    of re-reading EXIF from disk — much faster when timestamps are already
+    in the DB from the scan step.
     """
     timed: list[tuple[datetime, object]] = []
     untimed: list[object] = []
 
     for rec in records:
-        dt = read_exif_datetime(rec.path)
+        if timestamps is not None:
+            dt = timestamps.get(rec.path.name)
+        else:
+            dt = read_exif_datetime(rec.path)
         if dt:
             timed.append((dt, rec))
         else:

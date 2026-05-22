@@ -25,7 +25,7 @@ def test_no_duplicates_when_hashes_differ() -> None:
     hashes = [0x0000000000000000, 0xFFFFFFFFFFFFFFFF, 0x00FF00FF00FF00FF]
 
     with patch("photo_workflow.dedup._dhash", side_effect=hashes):
-        result = deduplicate(records)
+        result, new_hashes = deduplicate(records)
 
     assert not any(r.is_duplicate for r in result)
 
@@ -37,7 +37,7 @@ def test_duplicate_flagged_within_session() -> None:
     near_hash = base_hash ^ 0b11  # Hamming distance = 2 <= DHASH_THRESHOLD
 
     with patch("photo_workflow.dedup._dhash", side_effect=[base_hash, near_hash]):
-        result = deduplicate(records)
+        result, new_hashes = deduplicate(records)
 
     assert not result[0].is_duplicate
     assert result[1].is_duplicate
@@ -51,7 +51,7 @@ def test_no_cross_session_dedup() -> None:
     near_hash = base_hash ^ 0b111
 
     with patch("photo_workflow.dedup._dhash", side_effect=[base_hash, near_hash]):
-        result = deduplicate([r1, r2])
+        result, new_hashes = deduplicate([r1, r2])
 
     assert not any(r.is_duplicate for r in result)
 
@@ -60,5 +60,21 @@ def test_dhash_failure_skips_record() -> None:
     """Records where dHash fails are not marked as duplicates."""
     records = [_make_record("bad")]
     with patch("photo_workflow.dedup._dhash", return_value=None):
-        result = deduplicate(records)
+        result, new_hashes = deduplicate(records)
     assert not result[0].is_duplicate
+
+
+def test_dhash_cache_skips_computation() -> None:
+    """When dhash_cache provides a hash, _dhash is not called for that file."""
+    records = [_make_record("cached"), _make_record("fresh")]
+    cached_hash = 0xABCDABCDABCDABCD
+    fresh_hash = 0xFFFFFFFFFFFFFFFF
+
+    cache = {"cached.jpg": cached_hash}
+
+    with patch("photo_workflow.dedup._dhash", return_value=fresh_hash) as mock_dhash:
+        result, new_hashes = deduplicate(records, dhash_cache=cache)
+
+    mock_dhash.assert_called_once()
+    assert "fresh.jpg" in new_hashes
+    assert "cached.jpg" not in new_hashes

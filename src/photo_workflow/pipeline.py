@@ -116,7 +116,7 @@ class AnalysisPipeline:
         ]
 
         records = cluster_sessions(records)
-        records = deduplicate(records)
+        records, _new_hashes = deduplicate(records)
 
         # Initialize model sessions for genre-aware scoring
         model_sessions = ModelSessions(self.config.scoring_model_dir)
@@ -254,7 +254,14 @@ def ingest(source: Path, dest: Path, dry_run: bool, json_progress: bool, file_ty
         if json_progress:
             click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
 
-    copied = ingest_volume(source, dest, dry_run=dry_run, progress_fn=_progress, file_type=file_type)
+    def _scan_progress(done: int, total: int) -> None:
+        if json_progress and done % 10 == 0:
+            emit("ingest", f"scanning EXIF {done}/{total}", "info", json_progress=True)
+
+    copied = ingest_volume(
+        source, dest, dry_run=dry_run, progress_fn=_progress,
+        scan_progress_fn=_scan_progress, file_type=file_type,
+    )
     if not json_progress:
         verb = "Would copy" if dry_run else "Copied"
         click.echo(f"{verb} {len(copied)} photos to {dest}")
@@ -275,6 +282,8 @@ def scan(source: Path, db_path: Path, json_progress: bool) -> None:
     from .photondb import ensure_table, insert_photo, update_stages
 
     from .photondb import sanitize_table_name
+
+    BATCH_SIZE = 50
 
     folder_name = source.name
     conn = sqlite3.connect(str(db_path))
@@ -305,12 +314,15 @@ def scan(source: Path, db_path: Path, json_progress: bool) -> None:
     for i, p in enumerate(to_scan, 1):
         dt_val = read_exif_datetime(p)
         ts = dt_val.isoformat() if dt_val else None
-        insert_photo(conn, folder_name, p.name, p.name, ts)
-        update_stages(conn, folder_name, p.name, "scan")
+        insert_photo(conn, folder_name, p.name, p.name, ts, auto_commit=False)
+        update_stages(conn, folder_name, p.name, "scan", auto_commit=False)
+        if i % BATCH_SIZE == 0:
+            conn.commit()
         emit("scan", p.name, "ok", json_progress=json_progress)
         if json_progress and i % 10 == 0:
             click.echo(json.dumps({"step": "_progress", "done": i, "total": len(to_scan)}))
 
+    conn.commit()
     conn.close()
 
     if not json_progress:
@@ -331,9 +343,10 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
     """Group photos into sessions and flag duplicates."""
     import sqlite3
 
+    from datetime import datetime
     from .grouping import cluster_sessions
     from .dedup import deduplicate
-    from .photondb import sanitize_table_name, ensure_table, get_pending, update_stages, clear_stage
+    from .photondb import sanitize_table_name, ensure_table, get_pending, get_dhashes, update_dhash, update_stages, clear_stage
 
     table = sanitize_table_name(folder)
     conn = sqlite3.connect(str(db_path))
@@ -351,20 +364,35 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
 
     all_rows = conn.execute(f"SELECT * FROM [{table}]").fetchall()
 
+    # Build timestamp map from DB to avoid re-reading EXIF from disk
+    timestamps: dict[str, datetime] = {}
+    for row in all_rows:
+        ts = row["exif_timestamp"]
+        if ts:
+            try:
+                timestamps[row["filename"]] = datetime.fromisoformat(ts)
+            except (ValueError, TypeError):
+                pass
+
     records = []
     for row in all_rows:
         rec = PhotoRecord(path=source_dir / row["filename"])
         rec.session_id = row["session_id"] or ""
         records.append(rec)
 
-    records = cluster_sessions(records)
+    records = cluster_sessions(records, timestamps=timestamps)
+
+    dhash_cache = get_dhashes(conn, table)
 
     def _progress(done: int, total: int) -> None:
         if json_progress:
             click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
 
     _progress(0, len(records))
-    records = deduplicate(records, progress_fn=_progress)
+    records, new_hashes = deduplicate(records, progress_fn=_progress, dhash_cache=dhash_cache)
+
+    for fname, h in new_hashes.items():
+        update_dhash(conn, table, fname, h, auto_commit=False)
 
     for rec in records:
         fname = rec.path.name
@@ -372,7 +400,7 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
             f"UPDATE [{table}] SET session_id=?, is_duplicate=? WHERE filename=?",
             (rec.session_id, 1 if rec.is_duplicate else 0, fname),
         )
-        update_stages(conn, table, fname, "dedup")
+        update_stages(conn, table, fname, "dedup", auto_commit=False)
         status = "duplicate" if rec.is_duplicate else "ok"
         emit("dedup", fname, status, json_progress=json_progress)
 
@@ -471,12 +499,14 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 expo = exposure_result.overall
                 master = fusion.master_score
 
-                update_scores(conn, table, row["filename"], sharp, comp, expo)
+                update_scores(conn, table, row["filename"], sharp, comp, expo, auto_commit=False)
                 update_genre_scores(
                     conn, table, row["filename"],
-                    fusion.genre, fusion.genre_confidence, master, fusion.sub_scores
+                    fusion.genre, fusion.genre_confidence, master, fusion.sub_scores,
+                    auto_commit=False,
                 )
-                update_stages(conn, table, row["filename"], "score")
+                update_stages(conn, table, row["filename"], "score", auto_commit=False)
+                conn.commit()
 
                 stars = fusion.star_rating
                 color_label = fusion.color_label
@@ -493,8 +523,9 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 sharp = score_sharpness(p)
                 comp = score_composition(p)
                 expo = score_exposure(p)
-                update_scores(conn, table, row["filename"], sharp, comp, expo)
-                update_stages(conn, table, row["filename"], "score")
+                update_scores(conn, table, row["filename"], sharp, comp, expo, auto_commit=False)
+                update_stages(conn, table, row["filename"], "score", auto_commit=False)
+                conn.commit()
 
                 mean = (sharp + comp + expo) / 3.0
                 stars = min(5, round(mean * 5))
@@ -575,8 +606,9 @@ def name(
         p = source_dir / row["filename"]
         try:
             slug = generate_name(p, model_dir=model_dir)
-            update_semantic(conn, table, row["filename"], slug)
-            update_stages(conn, table, row["filename"], "name")
+            update_semantic(conn, table, row["filename"], slug, auto_commit=False)
+            update_stages(conn, table, row["filename"], "name", auto_commit=False)
+            conn.commit()
 
             if json_progress:
                 emit("name", row["filename"], "ok", json_progress=True, semantic_name=slug)
