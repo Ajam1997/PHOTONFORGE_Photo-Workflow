@@ -78,6 +78,22 @@ class ModelSessions:
             "clip_aesthetic_head", "clip_aesthetic_head", "aesthetic_mlp.onnx"
         )
 
+    @property
+    def genre_prototypes(self) -> np.ndarray | None:
+        if "genre_prototypes" not in self._sessions:
+            proto_path = self._model_dir / "genre_prototypes.npy"
+            if proto_path.exists():
+                try:
+                    self._sessions["genre_prototypes"] = np.load(str(proto_path))
+                    logger.info("Loaded genre prototypes: %s", proto_path)
+                except Exception as e:
+                    logger.warning("Failed to load genre prototypes: %s", e)
+                    self._sessions["genre_prototypes"] = None
+            else:
+                logger.warning("Genre prototypes not found: %s", proto_path)
+                self._sessions["genre_prototypes"] = None
+        return self._sessions["genre_prototypes"]
+
 
 def _extract_exif(path: Path) -> dict:
     """Extract relevant EXIF fields from an image file."""

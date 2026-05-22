@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ class PipelineConfig:
     output_dir: Path
     darktable_db: Path
     model_dir: Path = Path("models/florence2_int8")
+    scoring_model_dir: Path = Path("models")
     dry_run: bool = False
 
 
@@ -42,6 +44,8 @@ class PhotoRecord:
     genre_confidence: float = 0.0
     master_score: float = 0.0
     sub_scores: dict = field(default_factory=dict)
+    hard_reject: bool = False
+    hard_reject_reason: str = ""
 
 
 @dataclass
@@ -92,6 +96,12 @@ class AnalysisPipeline:
         from .exposure import score_exposure
         from .naming import generate_name
         from .darktable_bridge import sync_to_darktable
+        from .subject_context import ModelSessions, build_subject_context
+        from .sharpness import score_sharpness_detailed
+        from .composition import score_composition_detailed
+        from .exposure import score_exposure_detailed
+        from .genre_router import route_genre
+        from .score_fusion import fuse_scores
 
         t0 = time.perf_counter()
 
@@ -108,13 +118,74 @@ class AnalysisPipeline:
         records = cluster_sessions(records)
         records = deduplicate(records)
 
+        # Initialize model sessions for genre-aware scoring
+        model_sessions = ModelSessions(self.config.scoring_model_dir)
+
         for record in records:
             if record.is_duplicate:
                 continue
-            record.sharpness_score = score_sharpness(record.path)
-            record.composition_score = score_composition(record.path)
-            record.exposure_score = score_exposure(record.path)
-            record.semantic_name = generate_name(record.path, model_dir=self.config.model_dir)
+
+            try:
+                # Build subject context (runs all models once)
+                ctx = build_subject_context(record.path, model_sessions)
+
+                # Route genre using CLIP + EXIF + YOLO
+                genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes)
+
+                # Score with detailed sub-scores
+                sharpness_result = score_sharpness_detailed(ctx)
+                composition_result = score_composition_detailed(ctx)
+                exposure_result = score_exposure_detailed(ctx)
+
+                # Get aesthetic score (fallback to 0.5 if not available)
+                aesthetic_score = 0.5
+                if model_sessions.clip_aesthetic_head is not None:
+                    try:
+                        input_name = model_sessions.clip_aesthetic_head.get_inputs()[0].name
+                        # Use CLIP embedding as input to aesthetic head
+                        aesthetic_output = model_sessions.clip_aesthetic_head.run(
+                            None, {input_name: np.expand_dims(ctx.clip_embedding, axis=0)}
+                        )
+                        aesthetic_score = float(aesthetic_output[0][0])
+                        aesthetic_score = max(0.0, min(1.0, aesthetic_score))
+                    except Exception as e:
+                        logger.warning("Aesthetic scoring failed: %s", e)
+                        aesthetic_score = 0.5
+
+                # Fuse all scores using genre weighting
+                fusion = fuse_scores(
+                    sharpness_result,
+                    composition_result,
+                    exposure_result,
+                    genre_result,
+                    aesthetic_score,
+                )
+
+                # Populate old-style scores for backward compatibility
+                record.sharpness_score = sharpness_result.overall
+                record.composition_score = composition_result.overall
+                record.exposure_score = exposure_result.overall
+
+                # Populate new genre-aware fields
+                record.genre = fusion.genre
+                record.genre_confidence = fusion.genre_confidence
+                record.master_score = fusion.master_score
+                record.sub_scores = fusion.sub_scores
+                record.hard_reject = fusion.hard_reject
+                record.hard_reject_reason = fusion.hard_reject_reason
+
+                # Semantic name (old path still works)
+                record.semantic_name = generate_name(record.path, model_dir=self.config.model_dir)
+            except Exception as e:
+                logger.error("Scoring failed for %s: %s", record.path, e)
+                # Fallback to legacy scoring if genre-aware fails
+                record.sharpness_score = score_sharpness(record.path)
+                record.composition_score = score_composition(record.path)
+                record.exposure_score = score_exposure(record.path)
+                record.semantic_name = generate_name(record.path, model_dir=self.config.model_dir)
+                record.genre = "general"
+                record.genre_confidence = 0.0
+                record.master_score = (record.sharpness_score + record.composition_score + record.exposure_score) / 3.0
 
         scored = sum(1 for r in records if not r.is_duplicate)
 
@@ -303,18 +374,26 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
 @click.option("--folder", required=True, help="Folder/table name in the DB.")
 @click.option("--source-dir", "source_dir", required=True, type=click.Path(exists=True, path_type=Path),
               help="Directory containing the photo files.")
+@click.option("--model-dir", default=None, type=click.Path(path_type=Path),
+              help="Scoring model directory (for genre-aware scoring).")
 @click.option("--resume", is_flag=True, default=False)
 @click.option("--force", is_flag=True, default=False)
 @click.option("--json-progress", "json_progress", is_flag=True, default=False)
-def score(db_path: Path, folder: str, source_dir: Path, resume: bool, force: bool, json_progress: bool) -> None:
-    """Score photos for sharpness, composition, and exposure."""
+def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, resume: bool, force: bool, json_progress: bool) -> None:
+    """Score photos for sharpness, composition, exposure, and genre."""
     import sqlite3
 
-    from .sharpness import score_sharpness
-    from .composition import score_composition
-    from .exposure import score_exposure
+    from .subject_context import ModelSessions, build_subject_context
+    from .sharpness import score_sharpness, score_sharpness_detailed
+    from .composition import score_composition, score_composition_detailed
+    from .exposure import score_exposure, score_exposure_detailed
+    from .genre_router import route_genre
+    from .score_fusion import fuse_scores
     from .darktable_bridge import compute_color_label
-    from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_stages, clear_stage
+    from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_genre_scores, update_stages, clear_stage
+
+    if model_dir is None:
+        model_dir = Path(__file__).resolve().parent.parent.parent / "models"
 
     table = sanitize_table_name(folder)
     conn = sqlite3.connect(str(db_path))
@@ -332,25 +411,82 @@ def score(db_path: Path, folder: str, source_dir: Path, resume: bool, force: boo
         conn.close()
         return
 
+    # Initialize model sessions for genre-aware scoring
+    model_sessions = ModelSessions(model_dir)
+
     errors = 0
     for i, row in enumerate(to_score, 1):
         p = source_dir / row["filename"]
         try:
-            sharp = score_sharpness(p)
-            comp = score_composition(p)
-            expo = score_exposure(p)
-            update_scores(conn, table, row["filename"], sharp, comp, expo)
-            update_stages(conn, table, row["filename"], "score")
+            # Try genre-aware scoring first
+            try:
+                ctx = build_subject_context(p, model_sessions)
+                genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes)
+                sharpness_result = score_sharpness_detailed(ctx)
+                composition_result = score_composition_detailed(ctx)
+                exposure_result = score_exposure_detailed(ctx)
 
-            mean = (sharp + comp + expo) / 3.0
-            stars = min(5, round(mean * 5))
-            color_label = compute_color_label(sharp, comp, expo)
+                # Aesthetic score
+                aesthetic_score = 0.5
+                if model_sessions.clip_aesthetic_head is not None:
+                    try:
+                        input_name = model_sessions.clip_aesthetic_head.get_inputs()[0].name
+                        aesthetic_output = model_sessions.clip_aesthetic_head.run(
+                            None, {input_name: np.expand_dims(ctx.clip_embedding, axis=0)}
+                        )
+                        aesthetic_score = float(aesthetic_output[0][0])
+                        aesthetic_score = max(0.0, min(1.0, aesthetic_score))
+                    except Exception:
+                        aesthetic_score = 0.5
 
-            if json_progress:
-                emit("score", row["filename"], "ok", json_progress=True,
-                     sharpness=round(sharp, 4), composition=round(comp, 4),
-                     exposure=round(expo, 4), stars=stars, color_label=color_label,
-                     original_name=row["original_name"])
+                # Fuse scores
+                fusion = fuse_scores(
+                    sharpness_result,
+                    composition_result,
+                    exposure_result,
+                    genre_result,
+                    aesthetic_score,
+                )
+
+                sharp = sharpness_result.overall
+                comp = composition_result.overall
+                expo = exposure_result.overall
+                master = fusion.master_score
+
+                update_scores(conn, table, row["filename"], sharp, comp, expo)
+                update_genre_scores(
+                    conn, table, row["filename"],
+                    fusion.genre, fusion.genre_confidence, master, fusion.sub_scores
+                )
+                update_stages(conn, table, row["filename"], "score")
+
+                stars = fusion.star_rating
+                color_label = fusion.color_label
+
+                if json_progress:
+                    emit("score", row["filename"], "ok", json_progress=True,
+                         sharpness=round(sharp, 4), composition=round(comp, 4),
+                         exposure=round(expo, 4), master=round(master, 4),
+                         genre=fusion.genre, stars=stars, color_label=color_label,
+                         original_name=row["original_name"])
+            except Exception as genre_error:
+                # Fallback to legacy scoring
+                logger.warning("Genre-aware scoring failed, falling back to legacy: %s", genre_error)
+                sharp = score_sharpness(p)
+                comp = score_composition(p)
+                expo = score_exposure(p)
+                update_scores(conn, table, row["filename"], sharp, comp, expo)
+                update_stages(conn, table, row["filename"], "score")
+
+                mean = (sharp + comp + expo) / 3.0
+                stars = min(5, round(mean * 5))
+                color_label = compute_color_label(sharp, comp, expo)
+
+                if json_progress:
+                    emit("score", row["filename"], "ok", json_progress=True,
+                         sharpness=round(sharp, 4), composition=round(comp, 4),
+                         exposure=round(expo, 4), stars=stars, color_label=color_label,
+                         original_name=row["original_name"])
         except Exception as exc:
             conn.execute(
                 f"UPDATE [{table}] SET error=? WHERE filename=?",
