@@ -130,7 +130,7 @@ class AnalysisPipeline:
                 ctx = build_subject_context(record.path, model_sessions)
 
                 # Route genre using CLIP + EXIF + YOLO
-                genre_result = route_genre(ctx)
+                genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes)
 
                 # Score with detailed sub-scores
                 sharpness_result = score_sharpness_detailed(ctx)
@@ -421,7 +421,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
             # Try genre-aware scoring first
             try:
                 ctx = build_subject_context(p, model_sessions)
-                genre_result = route_genre(ctx)
+                genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes)
                 sharpness_result = score_sharpness_detailed(ctx)
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)

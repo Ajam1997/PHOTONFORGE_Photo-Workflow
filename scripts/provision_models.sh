@@ -92,3 +92,70 @@ export REPO_ROOT
 log "Quantization complete. Weights at $MODELS_DIR"
 log "Listing:"
 find "$MODELS_DIR" -name '*.onnx' -exec ls -lh {} \;
+
+# --- Genre prototypes: precompute 8×512 CLIP text embeddings ----------------
+CLIP_TEXT_ENCODER="${REPO_ROOT}/models/mobileclip_s0_int8/text_encoder.onnx"
+GENRE_PROTO="${REPO_ROOT}/models/genre_prototypes.npy"
+
+if [ -f "$CLIP_TEXT_ENCODER" ]; then
+    if [ -f "$GENRE_PROTO" ] && [ "$FORCE" = false ]; then
+        log "Genre prototypes already present at $GENRE_PROTO. Use --force to regenerate."
+    else
+        log "Generating genre prototypes from CLIP text encoder..."
+        python3 - <<'GENRE_EOF'
+import sys
+from pathlib import Path
+import os
+import numpy as np
+
+repo_root = Path(os.environ.get("REPO_ROOT", "."))
+text_encoder_path = repo_root / "models" / "mobileclip_s0_int8" / "text_encoder.onnx"
+output_path = repo_root / "models" / "genre_prototypes.npy"
+
+import onnxruntime as ort
+
+try:
+    from transformers import CLIPTokenizer
+    tokenizer = CLIPTokenizer.from_pretrained("apple/MobileCLIP-S0-OpenCLIP", cache_dir=str(repo_root / "models" / ".cache" / "tokenizer"))
+except Exception:
+    from open_clip import get_tokenizer
+    tokenizer = get_tokenizer("MobileCLIP-S0")
+
+sess = ort.InferenceSession(str(text_encoder_path), providers=["CPUExecutionProvider"])
+input_name = sess.get_inputs()[0].name
+
+genre_prompts = [
+    "a wildlife photograph of animals in their natural habitat",
+    "a landscape photograph of natural scenery, mountains, or seascape",
+    "a portrait photograph of a person, headshot or upper body",
+    "a street photography scene of urban life and candid moments",
+    "an architectural photograph of buildings, structures, or interiors",
+    "a macro close-up photograph of small subjects with fine detail",
+    "an event photograph of people at a gathering, ceremony, or celebration",
+    "a general photograph",
+]
+
+prototypes = []
+for prompt in genre_prompts:
+    tokens = tokenizer(prompt, return_tensors="np", padding="max_length", max_length=77, truncation=True)
+    input_ids = tokens["input_ids"].astype(np.int64) if hasattr(tokens, "__getitem__") else tokens.numpy().astype(np.int64)
+    if input_ids.ndim == 1:
+        input_ids = np.expand_dims(input_ids, 0)
+    out = sess.run(None, {input_name: input_ids})
+    emb = out[0].flatten().astype(np.float32)
+    norm = np.linalg.norm(emb)
+    if norm > 0:
+        emb = emb / norm
+    prototypes.append(emb)
+    print(f"[provision_models] Encoded: {prompt[:50]}... -> {emb.shape}", file=sys.stderr)
+
+proto_matrix = np.stack(prototypes)  # (8, 512)
+np.save(str(output_path), proto_matrix)
+print(f"[provision_models] Saved genre prototypes: {output_path} shape={proto_matrix.shape}", file=sys.stderr)
+GENRE_EOF
+        log "Genre prototypes generated at $GENRE_PROTO"
+    fi
+else
+    log "WARNING: CLIP text encoder not found at $CLIP_TEXT_ENCODER — skipping genre prototypes."
+    log "Genre classification will fall back to EXIF+YOLO only."
+fi
