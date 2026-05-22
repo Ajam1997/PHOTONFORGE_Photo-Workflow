@@ -180,9 +180,9 @@ def provision_clip(models_dir: Path, force: bool = False) -> None:
         log.error("pip install open_clip_torch torch  (needed for MobileCLIP export)")
         return
 
-    log.info("Loading MobileCLIP-S0 via open_clip...")
+    log.info("Loading MobileCLIP-S1 via open_clip...")
     model, _, preprocess = open_clip.create_model_and_transforms(
-        "MobileCLIP-S0", pretrained="datacomp"
+        "MobileCLIP-S1", pretrained="datacompdr"
     )
     model.eval()
     visual = model.visual
@@ -226,7 +226,7 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
     import torch
 
     log.info("Generating genre prototype embeddings...")
-    tokenizer = open_clip.get_tokenizer("MobileCLIP-S0")
+    tokenizer = open_clip.get_tokenizer("MobileCLIP-S1")
 
     genre_prompts = {
         "wildlife": "a wildlife photograph of an animal in nature",
