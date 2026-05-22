@@ -81,11 +81,17 @@ def _run_pipeline(
     db_path.parent.mkdir(parents=True, exist_ok=True)
     make_darktable_db(db_path)
 
+    # Use a non-existent model dir so tests run in degraded (no-model) mode
+    # regardless of which ONNX models happen to be provisioned locally.
+    empty_model_dir = tmp_path / "empty_models"
+    empty_model_dir.mkdir(exist_ok=True)
+
     config = PipelineConfig(
         source_dir=integration_sd_images,
         output_dir=staging_dir,
         darktable_db=db_path,
-        model_dir=Path("models"),
+        model_dir=empty_model_dir,
+        scoring_model_dir=empty_model_dir,
         dry_run=dry_run,
     )
     with patch("photo_workflow.ingest.ingest_volume", side_effect=_mock_ingest):

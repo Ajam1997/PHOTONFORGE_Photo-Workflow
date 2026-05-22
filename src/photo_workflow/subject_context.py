@@ -190,7 +190,9 @@ def _run_yunet(image_bgr: np.ndarray, session: Any) -> list[FaceDetection]:
     scale_x, scale_y = w / target_w, h / target_h
 
     for det in raw:
-        conf = float(det[4]) if len(det) > 4 else float(det[-1])
+        if len(det) < 5:
+            continue  # Skip malformed detections
+        conf = float(det[4])
         if conf < 0.5:
             continue
         bx = int(det[0] * scale_x)
@@ -280,15 +282,22 @@ def build_subject_context(path: Path, model_sessions: ModelSessions) -> SubjectC
 
     Runs all available models and produces degraded output for missing ones.
     """
-    # Load image — try cv2 directly first (works for JPG/PNG)
-    image_bgr = cv2.imread(str(path))
-    if image_bgr is None:
-        # Fall back to raw_loader for RAW formats
+    # Load image — use raw_loader for RAW formats (cv2.imread reads broken
+    # embedded TIFF thumbnails from ARW/CR2/etc), cv2 for JPG/PNG.
+    from .raw_loader import is_raw, load_rgb
+
+    if is_raw(path):
         try:
-            from .raw_loader import load_rgb
             image_bgr = load_rgb(path)
         except Exception as e:
-            raise ValueError(f"Cannot load image: {path}") from e
+            raise ValueError(f"Cannot load RAW image: {path}") from e
+    else:
+        image_bgr = cv2.imread(str(path))
+        if image_bgr is None:
+            try:
+                image_bgr = load_rgb(path)
+            except Exception as e:
+                raise ValueError(f"Cannot load image: {path}") from e
 
     image_gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
