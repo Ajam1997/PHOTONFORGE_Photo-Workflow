@@ -50,9 +50,32 @@ def ensure_table(conn: sqlite3.Connection, table: str) -> None:
             exposure       REAL,
             semantic_name  TEXT DEFAULT '',
             stages         TEXT DEFAULT '',
-            error          TEXT DEFAULT ''
+            error          TEXT DEFAULT '',
+            genre          TEXT DEFAULT '',
+            genre_confidence REAL DEFAULT 0.0,
+            master_score   REAL DEFAULT 0.0,
+            sub_scores     TEXT DEFAULT ''
         )
     """)
+    conn.commit()
+
+    # Migration: add new columns to existing tables
+    try:
+        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN genre TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    try:
+        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN genre_confidence REAL DEFAULT 0.0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN master_score REAL DEFAULT 0.0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN sub_scores TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
 
 
@@ -143,4 +166,24 @@ def clear_stage(conn: sqlite3.Connection, table: str, stage: str) -> None:
             f"UPDATE [{table}] SET stages=? WHERE filename=?",
             (",".join(parts), row["filename"]),
         )
+    conn.commit()
+
+
+def update_genre_scores(
+    conn: sqlite3.Connection,
+    table: str,
+    filename: str,
+    genre: str,
+    genre_confidence: float,
+    master_score: float,
+    sub_scores: dict,
+) -> None:
+    """Write genre-aware scoring results."""
+    import json
+    table = sanitize_table_name(table)
+    sub_scores_json = json.dumps(sub_scores) if sub_scores else ""
+    conn.execute(
+        f"UPDATE [{table}] SET genre=?, genre_confidence=?, master_score=?, sub_scores=? WHERE filename=?",
+        (genre, genre_confidence, master_score, sub_scores_json, filename),
+    )
     conn.commit()

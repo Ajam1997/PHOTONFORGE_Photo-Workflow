@@ -31,6 +31,9 @@ XMP_TEMPLATE = """\
       <photon:OriginalFilename>{original_filename}</photon:OriginalFilename>
       <photon:SessionID>{session_id}</photon:SessionID>
       <photon:IsDuplicate>{is_duplicate}</photon:IsDuplicate>
+      <photon:Genre>{genre}</photon:Genre>
+      <photon:GenreConfidence>{genre_confidence}</photon:GenreConfidence>
+      <photon:MasterScore>{master_score}</photon:MasterScore>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
@@ -50,11 +53,43 @@ _THRESH_COMPOSITION = 0.2
 _THRESH_GREEN_MEAN  = 0.5
 
 
-def compute_color_label(sharpness: float, composition: float, exposure: float) -> int:
+def compute_color_label(
+    sharpness: float,
+    composition: float | None = None,
+    exposure: float | None = None,
+    master_score: float | None = None,
+    hard_reject: bool = False,
+) -> int:
     """Return the Darktable color label int for a set of scores.
 
-    Priority: yellow > blue > purple > green > none. Returns -1 if no label applies.
+    Supports both legacy 3-score mode and new master_score mode.
+
+    Priority (legacy): yellow > blue > purple > green > none. Returns -1 if no label applies.
+    Priority (new): hard_reject -> none, master_score -> colors by threshold.
     """
+    # New genre-aware mode: master_score provided
+    if master_score is not None:
+        if hard_reject:
+            return _DT_NONE  # Reject flag is separate
+        if master_score < 0.3:
+            return _DT_YELLOW
+        if master_score < 0.5:
+            return _DT_NONE
+        if master_score < 0.75:
+            return _DT_GREEN
+        return _DT_BLUE
+
+    # Legacy 3-score mode (backward compatibility)
+    if composition is None or exposure is None:
+        # Fallback: treat sharpness as standalone score
+        if sharpness < 0.3:
+            return _DT_YELLOW
+        if sharpness < 0.5:
+            return _DT_NONE
+        if sharpness < 0.75:
+            return _DT_GREEN
+        return _DT_BLUE
+
     if sharpness < _THRESH_SHARPNESS:
         return _DT_YELLOW
     if exposure < _THRESH_EXPOSURE:
@@ -78,6 +113,9 @@ def _write_xmp(record: "PhotoRecord") -> None:
         original_filename=original_filename,
         session_id=record.session_id,
         is_duplicate=str(record.is_duplicate).lower(),
+        genre=record.genre,
+        genre_confidence=record.genre_confidence,
+        master_score=record.master_score,
     )
     xmp_path.write_text(xmp_content, encoding="utf-8")
 
