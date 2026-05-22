@@ -274,6 +274,8 @@ def scan(source: Path, db_path: Path, json_progress: bool) -> None:
     from .grouping import read_exif_datetime
     from .photondb import ensure_table, insert_photo, update_stages
 
+    from .photondb import sanitize_table_name
+
     folder_name = source.name
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -286,19 +288,35 @@ def scan(source: Path, db_path: Path, json_progress: bool) -> None:
         and not any(part.startswith(".") for part in p.parts[len(source.parts):])
     )
 
-    for p in photos:
+    table = sanitize_table_name(folder_name)
+    all_rows = conn.execute(f"SELECT filename, stages FROM [{table}]").fetchall()
+    already_scanned = {row["filename"] for row in all_rows if "scan" in (row["stages"] or "")}
+    to_scan = [p for p in photos if p.name not in already_scanned]
+
+    if not to_scan:
+        if not json_progress:
+            click.echo(f"All {len(photos)} photos already scanned.")
+        conn.close()
+        return
+
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": len(to_scan)}))
+
+    for i, p in enumerate(to_scan, 1):
         dt_val = read_exif_datetime(p)
         ts = dt_val.isoformat() if dt_val else None
         insert_photo(conn, folder_name, p.name, p.name, ts)
         update_stages(conn, folder_name, p.name, "scan")
         emit("scan", p.name, "ok", json_progress=json_progress)
+        if json_progress and i % 10 == 0:
+            click.echo(json.dumps({"step": "_progress", "done": i, "total": len(to_scan)}))
 
     conn.close()
 
     if not json_progress:
-        click.echo(f"Scanned {len(photos)} photos -> {db_path}")
+        click.echo(f"Scanned {len(to_scan)} new photos ({len(already_scanned)} already scanned) -> {db_path}")
     else:
-        click.echo(json.dumps({"step": "_progress", "done": len(photos), "total": len(photos)}))
+        click.echo(json.dumps({"step": "_progress", "done": len(to_scan), "total": len(to_scan)}))
 
 
 @cli.command()

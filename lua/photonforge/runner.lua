@@ -112,11 +112,19 @@ end
 
 local function is_process_alive()
   local fh = io.open(get_sentinel_path(), "r")
-  if fh then
-    fh:close()
-    return true
+  if not fh then return false end
+  fh:close()
+
+  local pid = read_pid_file()
+  if not pid then return true end
+
+  if IS_WINDOWS then
+    local ret = os.execute('tasklist /FI "PID eq ' .. pid .. '" /NH 2>nul | findstr ' .. pid .. ' >nul 2>&1')
+    return (ret == true or ret == 0)
+  else
+    local ret = os.execute("kill -0 " .. pid .. " 2>/dev/null")
+    return (ret == true or ret == 0)
   end
-  return false
 end
 
 function M.kill()
@@ -124,7 +132,9 @@ function M.kill()
   local pid = read_pid_file()
   if IS_WINDOWS then
     if pid then
-      os.execute('taskkill /F /PID ' .. pid .. ' >nul 2>&1')
+      os.execute('taskkill /F /T /PID ' .. pid .. ' >nul 2>&1')
+    else
+      os.execute('wmic process where "CommandLine like \'%%photo-workflow%%\'" call terminate >nul 2>&1')
     end
   else
     if pid then
@@ -223,6 +233,7 @@ function M.run_step(step, log_fn, job)
     startup_grace = 0
     idle_count = 0
     for line in new_data:gmatch("[^\r\n]+") do
+      if M.abort then break end
       local ok, rec = pcall(json.decode, line)
       if ok and type(rec) == "table" then
         if rec.step == "_progress" then
@@ -251,6 +262,7 @@ function M.run_step(step, log_fn, job)
     return false
   end
 
+  -- Process any remaining output only on clean exit (not after abort)
   local fh = io.open(log_path, "r")
   if fh then
     fh:seek("set", last_pos)

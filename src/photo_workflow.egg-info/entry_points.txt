@@ -1,2 +1,0 @@
-[console_scripts]
-photo-workflow = photo_workflow.pipeline:main
