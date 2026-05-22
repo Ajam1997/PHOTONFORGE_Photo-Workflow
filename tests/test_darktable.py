@@ -16,6 +16,23 @@ from photo_workflow.darktable_bridge import (
 from photo_workflow.pipeline import PhotoRecord
 
 
+_SAMPLE_SUB_SCORES = {
+    "eye_sharpness": 0.85,
+    "subject_sharpness": 0.78,
+    "subject_isolation": 0.64,
+    "blur_type": "bokeh",
+    "composition_rot": 0.71,
+    "symmetry": 0.32,
+    "leading_lines": 0.45,
+    "negative_space": 0.68,
+    "zone_entropy": 0.82,
+    "dynamic_range": 0.91,
+    "exposure_style": "normal",
+    "face_exposure": 0.88,
+    "aesthetic_clip": 0.65,
+}
+
+
 def _make_record(tmp_path: Path, name: str = "test", duplicate: bool = False) -> PhotoRecord:
     img_path = tmp_path / f"{name}.jpg"
     img_path.touch()
@@ -26,6 +43,10 @@ def _make_record(tmp_path: Path, name: str = "test", duplicate: bool = False) ->
     rec.composition_score = 0.72
     rec.exposure_score = 0.91
     rec.semantic_name = "golden_hour_landscape"
+    rec.genre = "wildlife"
+    rec.genre_confidence = 0.87
+    rec.master_score = 0.72
+    rec.sub_scores = dict(_SAMPLE_SUB_SCORES)
     return rec
 
 
@@ -41,6 +62,47 @@ def test_xmp_written_for_non_duplicate(tmp_path: Path) -> None:
     content = xmp_path.read_text()
     assert "0.85" in content
     assert "golden_hour_landscape" in content
+
+
+def test_xmp_contains_genre_fields(tmp_path: Path) -> None:
+    rec = _make_record(tmp_path)
+    _write_xmp(rec)
+    content = rec.path.with_suffix(".xmp").read_text()
+    assert "<photon:Genre>wildlife</photon:Genre>" in content
+    assert "<photon:GenreConfidence>0.87</photon:GenreConfidence>" in content
+    assert "<photon:MasterScore>0.72</photon:MasterScore>" in content
+
+
+def test_xmp_contains_all_sub_scores(tmp_path: Path) -> None:
+    rec = _make_record(tmp_path)
+    _write_xmp(rec)
+    content = rec.path.with_suffix(".xmp").read_text()
+    assert "<photon:EyeSharpness>0.85</photon:EyeSharpness>" in content
+    assert "<photon:SubjectSharpness>0.78</photon:SubjectSharpness>" in content
+    assert "<photon:SubjectIsolation>0.64</photon:SubjectIsolation>" in content
+    assert "<photon:BlurType>bokeh</photon:BlurType>" in content
+    assert "<photon:CompositionRoT>0.71</photon:CompositionRoT>" in content
+    assert "<photon:Symmetry>0.32</photon:Symmetry>" in content
+    assert "<photon:LeadingLines>0.45</photon:LeadingLines>" in content
+    assert "<photon:NegativeSpace>0.68</photon:NegativeSpace>" in content
+    assert "<photon:ZoneEntropy>0.82</photon:ZoneEntropy>" in content
+    assert "<photon:DynamicRange>0.91</photon:DynamicRange>" in content
+    assert "<photon:ExposureStyle>normal</photon:ExposureStyle>" in content
+    assert "<photon:FaceExposure>0.88</photon:FaceExposure>" in content
+    assert "<photon:AestheticScore>0.65</photon:AestheticScore>" in content
+
+
+def test_xmp_defaults_when_no_sub_scores(tmp_path: Path) -> None:
+    img = tmp_path / "bare.jpg"
+    img.touch()
+    rec = PhotoRecord(path=img, semantic_name="test")
+    _write_xmp(rec)
+    content = img.with_suffix(".xmp").read_text()
+    assert "<photon:Genre></photon:Genre>" in content
+    assert "<photon:MasterScore>0.0</photon:MasterScore>" in content
+    assert "<photon:EyeSharpness>0.0</photon:EyeSharpness>" in content
+    assert "<photon:BlurType></photon:BlurType>" in content
+    assert "<photon:ExposureStyle></photon:ExposureStyle>" in content
 
 
 def test_xmp_not_written_for_duplicate(tmp_path: Path) -> None:
@@ -123,3 +185,31 @@ def test_compute_color_label_no_label_below_mean() -> None:
 def test_compute_color_label_yellow_takes_priority_over_blue() -> None:
     # sharpness < 0.3 AND exposure < 0.5 → yellow wins
     assert compute_color_label(0.2, 0.6, 0.3) == 1
+
+
+# ---------------------------------------------------------------------------
+# compute_color_label master_score mode tests
+# ---------------------------------------------------------------------------
+
+def test_compute_color_label_master_score_yellow() -> None:
+    assert compute_color_label(0.0, master_score=0.2) == 1  # < 0.3
+
+
+def test_compute_color_label_master_score_none_average() -> None:
+    assert compute_color_label(0.0, master_score=0.4) == -1  # 0.3-0.5
+
+
+def test_compute_color_label_master_score_green() -> None:
+    assert compute_color_label(0.0, master_score=0.6) == 2  # 0.5-0.75
+
+
+def test_compute_color_label_master_score_blue_excellent() -> None:
+    assert compute_color_label(0.0, master_score=0.8) == 3  # > 0.75
+
+
+def test_compute_color_label_hard_reject_returns_none() -> None:
+    assert compute_color_label(0.0, master_score=0.9, hard_reject=True) == -1
+
+
+def test_compute_color_label_sharpness_only_fallback() -> None:
+    assert compute_color_label(0.8) == 3  # > 0.75 → blue
