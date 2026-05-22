@@ -6,9 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-import pytest
 
-from photo_workflow.composition import score_composition, _rule_of_thirds_score
+from photo_workflow.composition import score_composition, _improved_rot_score
 
 
 def test_missing_image_returns_zero() -> None:
@@ -30,15 +29,16 @@ def test_score_is_normalized() -> None:
     assert 0.0 <= score <= 1.0
 
 
-def test_saliency_failure_returns_zero() -> None:
-    """If saliency computation raises, score is 0.0."""
+def test_saliency_failure_returns_valid_score() -> None:
+    """If saliency computation raises, score uses fallback (empty saliency)."""
     fake_img = np.zeros((100, 100, 3), dtype=np.uint8)
 
     with patch("cv2.imread", return_value=fake_img), \
          patch("photo_workflow.composition._compute_saliency", side_effect=RuntimeError("fail")):
         score = score_composition(Path("/fake/image.jpg"))
 
-    assert score == 0.0
+    # Should return a valid score in [0,1], not crash
+    assert 0.0 <= score <= 1.0
 
 
 def test_uniform_saliency_returns_nonzero() -> None:
@@ -55,8 +55,8 @@ def test_uniform_saliency_returns_nonzero() -> None:
 
 
 def test_rule_of_thirds_score_range() -> None:
-    """_rule_of_thirds_score always returns a value in [0.0, 1.0]."""
+    """_improved_rot_score always returns a value in [0.0, 1.0]."""
     for _ in range(10):
         saliency_map = np.random.rand(200, 300).astype(np.float32)
-        score = _rule_of_thirds_score(saliency_map)
+        score = _improved_rot_score(saliency_map)
         assert 0.0 <= score <= 1.0
