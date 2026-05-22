@@ -31,6 +31,22 @@ XMP_TEMPLATE = """\
       <photon:OriginalFilename>{original_filename}</photon:OriginalFilename>
       <photon:SessionID>{session_id}</photon:SessionID>
       <photon:IsDuplicate>{is_duplicate}</photon:IsDuplicate>
+      <photon:Genre>{genre}</photon:Genre>
+      <photon:GenreConfidence>{genre_confidence}</photon:GenreConfidence>
+      <photon:MasterScore>{master_score}</photon:MasterScore>
+      <photon:EyeSharpness>{eye_sharpness}</photon:EyeSharpness>
+      <photon:SubjectSharpness>{subject_sharpness}</photon:SubjectSharpness>
+      <photon:SubjectIsolation>{subject_isolation}</photon:SubjectIsolation>
+      <photon:BlurType>{blur_type}</photon:BlurType>
+      <photon:CompositionRoT>{composition_rot}</photon:CompositionRoT>
+      <photon:Symmetry>{symmetry}</photon:Symmetry>
+      <photon:LeadingLines>{leading_lines}</photon:LeadingLines>
+      <photon:NegativeSpace>{negative_space}</photon:NegativeSpace>
+      <photon:ZoneEntropy>{zone_entropy}</photon:ZoneEntropy>
+      <photon:DynamicRange>{dynamic_range}</photon:DynamicRange>
+      <photon:ExposureStyle>{exposure_style}</photon:ExposureStyle>
+      <photon:FaceExposure>{face_exposure}</photon:FaceExposure>
+      <photon:AestheticScore>{aesthetic_score}</photon:AestheticScore>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
@@ -50,11 +66,40 @@ _THRESH_COMPOSITION = 0.2
 _THRESH_GREEN_MEAN  = 0.5
 
 
-def compute_color_label(sharpness: float, composition: float, exposure: float) -> int:
+def compute_color_label(
+    sharpness: float,
+    composition: float | None = None,
+    exposure: float | None = None,
+    master_score: float | None = None,
+    hard_reject: bool = False,
+) -> int:
     """Return the Darktable color label int for a set of scores.
 
-    Priority: yellow > blue > purple > green > none. Returns -1 if no label applies.
+    Supports both legacy 3-score mode and new master_score mode.
+
+    Priority (legacy): yellow > blue > purple > green > none. Returns -1 if no label applies.
+    Priority (new): hard_reject -> none, master_score -> colors by threshold.
     """
+    if master_score is not None:
+        if hard_reject:
+            return _DT_NONE
+        if master_score < 0.3:
+            return _DT_YELLOW
+        if master_score < 0.5:
+            return _DT_NONE
+        if master_score < 0.75:
+            return _DT_GREEN
+        return _DT_BLUE
+
+    if composition is None or exposure is None:
+        if sharpness < 0.3:
+            return _DT_YELLOW
+        if sharpness < 0.5:
+            return _DT_NONE
+        if sharpness < 0.75:
+            return _DT_GREEN
+        return _DT_BLUE
+
     if sharpness < _THRESH_SHARPNESS:
         return _DT_YELLOW
     if exposure < _THRESH_EXPOSURE:
@@ -70,6 +115,7 @@ def compute_color_label(sharpness: float, composition: float, exposure: float) -
 def _write_xmp(record: "PhotoRecord") -> None:
     xmp_path = record.path.with_suffix(".xmp")
     original_filename = record.metadata.get("original_filename", record.path.name)
+    ss = record.sub_scores
     xmp_content = XMP_TEMPLATE.format(
         sharpness=record.sharpness_score,
         composition=record.composition_score,
@@ -78,6 +124,22 @@ def _write_xmp(record: "PhotoRecord") -> None:
         original_filename=original_filename,
         session_id=record.session_id,
         is_duplicate=str(record.is_duplicate).lower(),
+        genre=record.genre,
+        genre_confidence=record.genre_confidence,
+        master_score=record.master_score,
+        eye_sharpness=ss.get("eye_sharpness", 0.0),
+        subject_sharpness=ss.get("subject_sharpness", 0.0),
+        subject_isolation=ss.get("subject_isolation", 0.0),
+        blur_type=ss.get("blur_type", ""),
+        composition_rot=ss.get("composition_rot", 0.0),
+        symmetry=ss.get("symmetry", 0.0),
+        leading_lines=ss.get("leading_lines", 0.0),
+        negative_space=ss.get("negative_space", 0.0),
+        zone_entropy=ss.get("zone_entropy", 0.0),
+        dynamic_range=ss.get("dynamic_range", 0.0),
+        exposure_style=ss.get("exposure_style", ""),
+        face_exposure=ss.get("face_exposure", 0.0),
+        aesthetic_score=ss.get("aesthetic_clip", 0.0),
     )
     xmp_path.write_text(xmp_content, encoding="utf-8")
 

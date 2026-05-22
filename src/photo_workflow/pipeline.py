@@ -38,6 +38,10 @@ class PhotoRecord:
     exposure_score: float = 0.0
     semantic_name: str = ""
     metadata: dict = field(default_factory=dict)
+    genre: str = ""
+    genre_confidence: float = 0.0
+    master_score: float = 0.0
+    sub_scores: dict = field(default_factory=dict)
 
 
 @dataclass
