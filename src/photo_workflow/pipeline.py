@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,6 @@ class AnalysisPipeline:
                 aesthetic_score = 0.5
                 if model_sessions.clip_aesthetic_head is not None:
                     try:
-                        import numpy as np
                         input_name = model_sessions.clip_aesthetic_head.get_inputs()[0].name
                         # Use CLIP embedding as input to aesthetic head
                         aesthetic_output = model_sessions.clip_aesthetic_head.run(
@@ -431,7 +431,6 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 aesthetic_score = 0.5
                 if model_sessions.clip_aesthetic_head is not None:
                     try:
-                        import numpy as np
                         input_name = model_sessions.clip_aesthetic_head.get_inputs()[0].name
                         aesthetic_output = model_sessions.clip_aesthetic_head.run(
                             None, {input_name: np.expand_dims(ctx.clip_embedding, axis=0)}
