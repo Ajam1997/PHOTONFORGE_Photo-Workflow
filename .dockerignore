@@ -1,0 +1,11 @@
+.git
+.claude
+dev
+docs
+tests
+models
+*.pyc
+__pycache__
+.env
+.ruff_cache
+.mypy_cache

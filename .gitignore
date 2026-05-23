@@ -15,3 +15,6 @@ docs/ValidationReports/PhotoWorkFlowTestOutput/
 .env
 test_tmp/
 .claude/worktrees/
+.claude/settings.json
+.claude/settings.local.json
+yolov8n.pt
