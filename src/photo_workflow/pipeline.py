@@ -303,7 +303,9 @@ def scan(source: Path, db_path: Path, json_progress: bool) -> None:
     to_scan = [p for p in photos if p.name not in already_scanned]
 
     if not to_scan:
-        if not json_progress:
+        if json_progress:
+            click.echo(json.dumps({"step": "_progress", "done": len(photos), "total": len(photos)}))
+        else:
             click.echo(f"All {len(photos)} photos already scanned.")
         conn.close()
         return
@@ -358,7 +360,11 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
 
     pending = get_pending(conn, table, "dedup")
     if not pending:
-        click.echo("All photos already deduped. Use --force to redo.")
+        if json_progress:
+            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+        else:
+            click.echo("All photos already deduped. Use --force to redo.")
         conn.close()
         return
 
@@ -453,7 +459,11 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     to_score = [r for r in pending if not r["is_duplicate"]]
 
     if not to_score:
-        click.echo("All non-duplicate photos already scored.")
+        if json_progress:
+            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+        else:
+            click.echo("All non-duplicate photos already scored.")
         conn.close()
         return
 
@@ -536,6 +546,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     emit("score", row["filename"], "ok", json_progress=True,
                          sharpness=round(sharp, 4), composition=round(comp, 4),
                          exposure=round(expo, 4), stars=stars, color_label=color_label,
+                         genre="general", genre_confidence=0.0,
                          original_name=row["original_name"])
         except Exception as exc:
             conn.execute(
@@ -598,7 +609,11 @@ def name(
     to_name = [r for r in pending if not r["is_duplicate"]]
 
     if not to_name:
-        click.echo("All non-duplicate photos already named.")
+        if json_progress:
+            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+        else:
+            click.echo("All non-duplicate photos already named.")
         conn.close()
         return
 

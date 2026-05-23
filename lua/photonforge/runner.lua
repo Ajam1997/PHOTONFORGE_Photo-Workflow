@@ -66,8 +66,6 @@ local function build_cmd(step)
       ft_flag = " --file-type " .. file_type
     end
     return base .. " --source " .. shell_quote(sd) .. " --dest " .. shell_quote(dest) .. ft_flag
-  elseif step == "scan" then
-    return base .. " --source " .. shell_quote(dest) .. " --db " .. shell_quote(db)
   elseif step == "dedup" then
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest) .. mode_flag
@@ -89,8 +87,8 @@ local function get_temp_dir()
   return os.getenv("TMPDIR") or "/tmp"
 end
 
-local function get_log_path()
-  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_step.log"
+local function get_log_path(step)
+  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".log"
 end
 
 local function get_sentinel_path()
@@ -114,17 +112,7 @@ local function is_process_alive()
   local fh = io.open(get_sentinel_path(), "r")
   if not fh then return false end
   fh:close()
-
-  local pid = read_pid_file()
-  if not pid then return true end
-
-  if IS_WINDOWS then
-    local ret = os.execute('tasklist /FI "PID eq ' .. pid .. '" /NH 2>nul | findstr ' .. pid .. ' >nul 2>&1')
-    return (ret == true or ret == 0)
-  else
-    local ret = os.execute("kill -0 " .. pid .. " 2>/dev/null")
-    return (ret == true or ret == 0)
-  end
+  return true
 end
 
 function M.kill()
@@ -147,14 +135,11 @@ function M.kill()
 end
 
 function M.run_import(log_fn, job)
-  local ok = M.run_step("scan", log_fn, job)
-  if not ok then return false end
-
   local dest = config.read("dest_path")
   log_fn(string.format("[%s] Importing %s into Darktable library...", os.date("%H:%M:%S"), dest))
   local result = dt.database.import(dest)
   if result then
-    log_fn(string.format("[%s] Library imported: %s (%s images)", os.date("%H:%M:%S"), dest, tostring(result)))
+    log_fn(string.format("[%s] Library imported: %s", os.date("%H:%M:%S"), dest))
   else
     log_fn(string.format("[%s] Could not import folder: %s", os.date("%H:%M:%S"), dest))
   end
@@ -167,20 +152,25 @@ function M.run_step(step, log_fn, job, progress_fn)
   end
 
   local cmd = build_cmd(step)
-  local log_path = get_log_path()
+  local log_path = get_log_path(step)
+  local sentinel = get_sentinel_path()
   log_fn(string.format("[%s] Running: %s", os.date("%H:%M:%S"), cmd))
 
   local f = io.open(log_path, "w")
   if f then f:close() end
 
+  local sf = io.open(sentinel, "w")
+  if sf then sf:write("running\n") sf:close() end
+
   if IS_WINDOWS then
-    local bat_path = get_temp_dir() .. "\\photonforge_run.bat"
-    local vbs_path = get_temp_dir() .. "\\photonforge_run.vbs"
+    local bat_path = get_temp_dir() .. "\\photonforge_" .. step .. ".bat"
+    local vbs_path = get_temp_dir() .. "\\photonforge_" .. step .. ".vbs"
 
     local bat = io.open(bat_path, "w")
     if bat then
       bat:write('@echo off\r\n')
       bat:write(cmd .. ' > "' .. log_path .. '" 2>&1\r\n')
+      bat:write('del "' .. sentinel .. '" 2>nul\r\n')
       bat:close()
     end
 
@@ -190,14 +180,15 @@ function M.run_step(step, log_fn, job, progress_fn)
       vbs:close()
     end
 
-    os.execute('wscript "' .. vbs_path .. '"')
+    local p = io.popen('wscript "' .. vbs_path .. '"', "r")
+    if p then p:read("*a") p:close() end
   else
-    cmd = cmd .. " > " .. shell_quote(log_path) .. " 2>&1 &"
-    os.execute(cmd)
+    os.execute("(" .. cmd .. " > " .. shell_quote(log_path) .. " 2>&1; rm -f " .. shell_quote(sentinel) .. ") &")
   end
 
   local dest = config.read("dest_path")
   local done, total = 0, 0
+  local file_count = 0
   local last_pos = 0
   local idle_count = 0
   local MAX_IDLE = 600
@@ -247,8 +238,11 @@ function M.run_step(step, log_fn, job, progress_fn)
           end
         else
           local counter = ""
-          if done > 0 and total > 0 then
-            counter = string.format("  %d/%d", done, total)
+          if rec.status ~= "info" then
+            file_count = file_count + 1
+            if total > 0 then
+              counter = string.format("  %d/%d", file_count, total)
+            end
           end
           local msg = string.format("[%s] %s%s  %s  [%s]",
             os.date("%H:%M:%S"), rec.step or "?", counter, rec.file or "", rec.status or "")
@@ -279,9 +273,10 @@ function M.run_step(step, log_fn, job, progress_fn)
       for line in remaining:gmatch("[^\r\n]+") do
         local ok, rec = pcall(json.decode, line)
         if ok and type(rec) == "table" and rec.step ~= "_progress" then
+          file_count = file_count + 1
           local counter = ""
-          if done > 0 and total > 0 then
-            counter = string.format("  %d/%d", done, total)
+          if total > 0 then
+            counter = string.format("  %d/%d", file_count, total)
           end
           local msg = string.format("[%s] %s%s  %s  [%s]",
             os.date("%H:%M:%S"), rec.step or "?", counter, rec.file or "", rec.status or "")

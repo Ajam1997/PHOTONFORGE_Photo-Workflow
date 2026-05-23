@@ -15,4 +15,5 @@ dt.register_lib(
   widget
 )
 
-dt.print_log("PHOTONForge: plugin registered")
+dt.print_log("PHOTONForge: plugin registered (v2)")
+dt.print("PHOTONForge plugin loaded")

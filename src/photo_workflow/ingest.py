@@ -67,7 +67,7 @@ def ingest_volume(
     *scan_progress_fn(done, total)* is called during the EXIF reading
     phase so callers can show progress before copies begin.
     """
-    from .photondb import open_db, ensure_table, insert_photo
+    from .photondb import open_db, ensure_table, insert_photo, update_stages
     from .volume import extract_cartridge_id, derive_trip_code, format_photo_name, get_next_sequence
 
     if file_type == "raw":
@@ -128,6 +128,7 @@ def ingest_volume(
         exif_ts = ts if ts != "9999" else None
         try:
             insert_photo(conn, table, new_name, src.name, exif_ts)
+            update_stages(conn, table, new_name, "scan")
         except Exception as e:
             logger.warning("Could not write DB record for %s: %s", new_name, e)
         seq += 1
