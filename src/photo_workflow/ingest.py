@@ -106,6 +106,13 @@ def ingest_volume(
         timed.append((ts or "9999", src))
     timed.sort(key=lambda x: x[0])
 
+    # Clean up interrupted copies from previous runs
+    for tmp in output_dir.glob("*.tmp"):
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+
     seq = get_next_sequence(output_dir, cart_id, trip_code)
 
     total = len(timed)
@@ -123,14 +130,19 @@ def ingest_volume(
             seq += 1
             continue
 
-        shutil.copy2(src, dest)
-        copied.append(dest)
         exif_ts = ts if ts != "9999" else None
         try:
             insert_photo(conn, table, new_name, src.name, exif_ts)
             update_stages(conn, table, new_name, "scan")
         except Exception as e:
             logger.warning("Could not write DB record for %s: %s", new_name, e)
+            seq += 1
+            continue
+
+        temp = dest.with_suffix(dest.suffix + ".tmp")
+        shutil.copy2(src, temp)
+        temp.rename(dest)
+        copied.append(dest)
         seq += 1
 
         if progress_fn is not None:
