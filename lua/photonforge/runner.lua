@@ -66,8 +66,6 @@ local function build_cmd(step)
       ft_flag = " --file-type " .. file_type
     end
     return base .. " --source " .. shell_quote(sd) .. " --dest " .. shell_quote(dest) .. ft_flag
-  elseif step == "scan" then
-    return base .. " --source " .. shell_quote(dest) .. " --db " .. shell_quote(db)
   elseif step == "dedup" then
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest) .. mode_flag
@@ -89,8 +87,8 @@ local function get_temp_dir()
   return os.getenv("TMPDIR") or "/tmp"
 end
 
-local function get_log_path()
-  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_step.log"
+local function get_log_path(step)
+  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".log"
 end
 
 local function get_sentinel_path()
@@ -112,11 +110,9 @@ end
 
 local function is_process_alive()
   local fh = io.open(get_sentinel_path(), "r")
-  if fh then
-    fh:close()
-    return true
-  end
-  return false
+  if not fh then return false end
+  fh:close()
+  return true
 end
 
 function M.kill()
@@ -124,7 +120,9 @@ function M.kill()
   local pid = read_pid_file()
   if IS_WINDOWS then
     if pid then
-      os.execute('taskkill /F /PID ' .. pid .. ' >nul 2>&1')
+      os.execute('taskkill /F /T /PID ' .. pid .. ' >nul 2>&1')
+    else
+      os.execute('wmic process where "CommandLine like \'%%photo-workflow%%\'" call terminate >nul 2>&1')
     end
   else
     if pid then
@@ -137,40 +135,42 @@ function M.kill()
 end
 
 function M.run_import(log_fn, job)
-  local ok = M.run_step("scan", log_fn, job)
-  if not ok then return false end
-
   local dest = config.read("dest_path")
   log_fn(string.format("[%s] Importing %s into Darktable library...", os.date("%H:%M:%S"), dest))
   local result = dt.database.import(dest)
   if result then
-    log_fn(string.format("[%s] Library imported: %s (%s images)", os.date("%H:%M:%S"), dest, tostring(result)))
+    log_fn(string.format("[%s] Library imported: %s", os.date("%H:%M:%S"), dest))
   else
     log_fn(string.format("[%s] Could not import folder: %s", os.date("%H:%M:%S"), dest))
   end
   return true
 end
 
-function M.run_step(step, log_fn, job)
+function M.run_step(step, log_fn, job, progress_fn)
   if step == "import" then
     return M.run_import(log_fn, job)
   end
 
   local cmd = build_cmd(step)
-  local log_path = get_log_path()
+  local log_path = get_log_path(step)
+  local sentinel = get_sentinel_path()
   log_fn(string.format("[%s] Running: %s", os.date("%H:%M:%S"), cmd))
 
   local f = io.open(log_path, "w")
   if f then f:close() end
 
+  local sf = io.open(sentinel, "w")
+  if sf then sf:write("running\n") sf:close() end
+
   if IS_WINDOWS then
-    local bat_path = get_temp_dir() .. "\\photonforge_run.bat"
-    local vbs_path = get_temp_dir() .. "\\photonforge_run.vbs"
+    local bat_path = get_temp_dir() .. "\\photonforge_" .. step .. ".bat"
+    local vbs_path = get_temp_dir() .. "\\photonforge_" .. step .. ".vbs"
 
     local bat = io.open(bat_path, "w")
     if bat then
       bat:write('@echo off\r\n')
       bat:write(cmd .. ' > "' .. log_path .. '" 2>&1\r\n')
+      bat:write('del "' .. sentinel .. '" 2>nul\r\n')
       bat:close()
     end
 
@@ -180,14 +180,15 @@ function M.run_step(step, log_fn, job)
       vbs:close()
     end
 
-    os.execute('wscript "' .. vbs_path .. '"')
+    local p = io.popen('wscript "' .. vbs_path .. '"', "r")
+    if p then p:read("*a") p:close() end
   else
-    cmd = cmd .. " > " .. shell_quote(log_path) .. " 2>&1 &"
-    os.execute(cmd)
+    os.execute("(" .. cmd .. " > " .. shell_quote(log_path) .. " 2>&1; rm -f " .. shell_quote(sentinel) .. ") &")
   end
 
   local dest = config.read("dest_path")
   local done, total = 0, 0
+  local file_count = 0
   local last_pos = 0
   local idle_count = 0
   local MAX_IDLE = 600
@@ -223,6 +224,7 @@ function M.run_step(step, log_fn, job)
     startup_grace = 0
     idle_count = 0
     for line in new_data:gmatch("[^\r\n]+") do
+      if M.abort then break end
       local ok, rec = pcall(json.decode, line)
       if ok and type(rec) == "table" then
         if rec.step == "_progress" then
@@ -231,9 +233,19 @@ function M.run_step(step, log_fn, job)
           if job ~= nil and total > 0 then
             job.percent = done / total
           end
+          if progress_fn then
+            progress_fn(step, done, total)
+          end
         else
-          local msg = string.format("[%s] %s %s [%s]",
-            os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
+          local counter = ""
+          if rec.status ~= "info" then
+            file_count = file_count + 1
+            if total > 0 then
+              counter = string.format("  %d/%d", file_count, total)
+            end
+          end
+          local msg = string.format("[%s] %s%s  %s  [%s]",
+            os.date("%H:%M:%S"), rec.step or "?", counter, rec.file or "", rec.status or "")
           log_fn(msg)
           applicator.apply(rec, dest)
         end
@@ -251,6 +263,7 @@ function M.run_step(step, log_fn, job)
     return false
   end
 
+  -- Process any remaining output only on clean exit (not after abort)
   local fh = io.open(log_path, "r")
   if fh then
     fh:seek("set", last_pos)
@@ -260,8 +273,13 @@ function M.run_step(step, log_fn, job)
       for line in remaining:gmatch("[^\r\n]+") do
         local ok, rec = pcall(json.decode, line)
         if ok and type(rec) == "table" and rec.step ~= "_progress" then
-          local msg = string.format("[%s] %s %s [%s]",
-            os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
+          file_count = file_count + 1
+          local counter = ""
+          if total > 0 then
+            counter = string.format("  %d/%d", file_count, total)
+          end
+          local msg = string.format("[%s] %s%s  %s  [%s]",
+            os.date("%H:%M:%S"), rec.step or "?", counter, rec.file or "", rec.status or "")
           log_fn(msg)
           applicator.apply(rec, dest)
         elseif not ok then
@@ -275,7 +293,7 @@ function M.run_step(step, log_fn, job)
   return true
 end
 
-function M.run_all(step_list, log_fn, status_fn)
+function M.run_all(step_list, log_fn, status_fn, progress_fn)
   M.abort = false
 
   local run_mode = config.read("run_mode")
@@ -290,14 +308,43 @@ function M.run_all(step_list, log_fn, status_fn)
   )
   job.percent = 0.0
 
+  local step_stats = {}
+  local pipeline_start = os.time()
+
   for i, step in ipairs(step_list) do
     if M.abort then break end
     log_fn(string.format("--- Step %d/%d: %s ---", i, total_steps, step))
-    local ok = M.run_step(step, log_fn, job)
+
+    if status_fn ~= nil then
+      status_fn(step, "running", "")
+    end
+    if progress_fn then
+      progress_fn(step, 0, 0)
+    end
+
+    local step_start = os.time()
+    local step_done, step_total = 0, 0
+    local function track_progress(s, done, total)
+      step_done = done
+      step_total = total
+      if progress_fn then
+        progress_fn(s .. "  |  Step " .. i .. "/" .. total_steps, done, total)
+      end
+    end
+
+    local ok = M.run_step(step, log_fn, job, track_progress)
+    local elapsed = os.time() - step_start
+
+    step_stats[#step_stats + 1] = {
+      name = step,
+      ok = ok,
+      files = step_done,
+      seconds = elapsed,
+    }
 
     local result = ok and "ok" or "error"
     if status_fn ~= nil then
-      status_fn(step, result, os.date("%Y-%m-%d %H:%M"))
+      status_fn(step, result, os.date("%Y-%m-%d %H:%M"), step_done)
     end
 
     if not ok then
@@ -310,7 +357,23 @@ function M.run_all(step_list, log_fn, status_fn)
 
   pcall(function() job.valid = false end)
   pcall(function() job:destroy() end)
-  log_fn(string.format("[%s] Pipeline complete.", os.date("%H:%M:%S")))
+
+  if progress_fn then
+    progress_fn("", 0, 0)
+  end
+
+  local total_elapsed = os.time() - pipeline_start
+  local summary = {}
+  table.insert(summary, "")
+  table.insert(summary, string.format("=== Summary (%ds) ===", total_elapsed))
+  for _, s in ipairs(step_stats) do
+    local mark = s.ok and "\u{2713}" or "\u{2717}"
+    local files_str = s.files > 0 and string.format("  %d files", s.files) or ""
+    table.insert(summary, string.format("  %s %s%s  (%ds)", mark, s.name, files_str, s.seconds))
+  end
+  table.insert(summary, "")
+  log_fn(table.concat(summary, "\n"))
+  dt.print(string.format("PHOTONForge complete (%ds)", total_elapsed))
 end
 
 return M

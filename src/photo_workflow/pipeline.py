@@ -116,7 +116,7 @@ class AnalysisPipeline:
         ]
 
         records = cluster_sessions(records)
-        records = deduplicate(records)
+        records, _new_hashes = deduplicate(records)
 
         # Initialize model sessions for genre-aware scoring
         model_sessions = ModelSessions(self.config.scoring_model_dir)
@@ -254,7 +254,14 @@ def ingest(source: Path, dest: Path, dry_run: bool, json_progress: bool, file_ty
         if json_progress:
             click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
 
-    copied = ingest_volume(source, dest, dry_run=dry_run, progress_fn=_progress, file_type=file_type)
+    def _scan_progress(done: int, total: int) -> None:
+        if json_progress and done % 10 == 0:
+            emit("ingest", f"scanning EXIF {done}/{total}", "info", json_progress=True)
+
+    copied = ingest_volume(
+        source, dest, dry_run=dry_run, progress_fn=_progress,
+        scan_progress_fn=_scan_progress, file_type=file_type,
+    )
     if not json_progress:
         verb = "Would copy" if dry_run else "Copied"
         click.echo(f"{verb} {len(copied)} photos to {dest}")
@@ -274,6 +281,10 @@ def scan(source: Path, db_path: Path, json_progress: bool) -> None:
     from .grouping import read_exif_datetime
     from .photondb import ensure_table, insert_photo, update_stages
 
+    from .photondb import sanitize_table_name
+
+    BATCH_SIZE = 50
+
     folder_name = source.name
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -286,19 +297,40 @@ def scan(source: Path, db_path: Path, json_progress: bool) -> None:
         and not any(part.startswith(".") for part in p.parts[len(source.parts):])
     )
 
-    for p in photos:
+    table = sanitize_table_name(folder_name)
+    all_rows = conn.execute(f"SELECT filename, stages FROM [{table}]").fetchall()
+    already_scanned = {row["filename"] for row in all_rows if "scan" in (row["stages"] or "")}
+    to_scan = [p for p in photos if p.name not in already_scanned]
+
+    if not to_scan:
+        if json_progress:
+            click.echo(json.dumps({"step": "_progress", "done": len(photos), "total": len(photos)}))
+        else:
+            click.echo(f"All {len(photos)} photos already scanned.")
+        conn.close()
+        return
+
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": len(to_scan)}))
+
+    for i, p in enumerate(to_scan, 1):
         dt_val = read_exif_datetime(p)
         ts = dt_val.isoformat() if dt_val else None
-        insert_photo(conn, folder_name, p.name, p.name, ts)
-        update_stages(conn, folder_name, p.name, "scan")
+        insert_photo(conn, folder_name, p.name, p.name, ts, auto_commit=False)
+        update_stages(conn, folder_name, p.name, "scan", auto_commit=False)
+        if i % BATCH_SIZE == 0:
+            conn.commit()
         emit("scan", p.name, "ok", json_progress=json_progress)
+        if json_progress and i % 10 == 0:
+            click.echo(json.dumps({"step": "_progress", "done": i, "total": len(to_scan)}))
 
+    conn.commit()
     conn.close()
 
     if not json_progress:
-        click.echo(f"Scanned {len(photos)} photos -> {db_path}")
+        click.echo(f"Scanned {len(to_scan)} new photos ({len(already_scanned)} already scanned) -> {db_path}")
     else:
-        click.echo(json.dumps({"step": "_progress", "done": len(photos), "total": len(photos)}))
+        click.echo(json.dumps({"step": "_progress", "done": len(to_scan), "total": len(to_scan)}))
 
 
 @cli.command()
@@ -313,9 +345,10 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
     """Group photos into sessions and flag duplicates."""
     import sqlite3
 
+    from datetime import datetime
     from .grouping import cluster_sessions
     from .dedup import deduplicate
-    from .photondb import sanitize_table_name, ensure_table, get_pending, update_stages, clear_stage
+    from .photondb import sanitize_table_name, ensure_table, get_pending, get_dhashes, update_dhash, update_stages, clear_stage
 
     table = sanitize_table_name(folder)
     conn = sqlite3.connect(str(db_path))
@@ -327,11 +360,25 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
 
     pending = get_pending(conn, table, "dedup")
     if not pending:
-        click.echo("All photos already deduped. Use --force to redo.")
+        if json_progress:
+            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+        else:
+            click.echo("All photos already deduped. Use --force to redo.")
         conn.close()
         return
 
     all_rows = conn.execute(f"SELECT * FROM [{table}]").fetchall()
+
+    # Build timestamp map from DB to avoid re-reading EXIF from disk
+    timestamps: dict[str, datetime] = {}
+    for row in all_rows:
+        ts = row["exif_timestamp"]
+        if ts:
+            try:
+                timestamps[row["filename"]] = datetime.fromisoformat(ts)
+            except (ValueError, TypeError):
+                pass
 
     records = []
     for row in all_rows:
@@ -339,14 +386,19 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
         rec.session_id = row["session_id"] or ""
         records.append(rec)
 
-    records = cluster_sessions(records)
+    records = cluster_sessions(records, timestamps=timestamps)
+
+    dhash_cache = get_dhashes(conn, table)
 
     def _progress(done: int, total: int) -> None:
         if json_progress:
             click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
 
     _progress(0, len(records))
-    records = deduplicate(records, progress_fn=_progress)
+    records, new_hashes = deduplicate(records, progress_fn=_progress, dhash_cache=dhash_cache)
+
+    for fname, h in new_hashes.items():
+        update_dhash(conn, table, fname, h, auto_commit=False)
 
     for rec in records:
         fname = rec.path.name
@@ -354,7 +406,7 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
             f"UPDATE [{table}] SET session_id=?, is_duplicate=? WHERE filename=?",
             (rec.session_id, 1 if rec.is_duplicate else 0, fname),
         )
-        update_stages(conn, table, fname, "dedup")
+        update_stages(conn, table, fname, "dedup", auto_commit=False)
         status = "duplicate" if rec.is_duplicate else "ok"
         emit("dedup", fname, status, json_progress=json_progress)
 
@@ -407,7 +459,11 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     to_score = [r for r in pending if not r["is_duplicate"]]
 
     if not to_score:
-        click.echo("All non-duplicate photos already scored.")
+        if json_progress:
+            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+        else:
+            click.echo("All non-duplicate photos already scored.")
         conn.close()
         return
 
@@ -453,12 +509,14 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 expo = exposure_result.overall
                 master = fusion.master_score
 
-                update_scores(conn, table, row["filename"], sharp, comp, expo)
+                update_scores(conn, table, row["filename"], sharp, comp, expo, auto_commit=False)
                 update_genre_scores(
                     conn, table, row["filename"],
-                    fusion.genre, fusion.genre_confidence, master, fusion.sub_scores
+                    fusion.genre, fusion.genre_confidence, master, fusion.sub_scores,
+                    auto_commit=False,
                 )
-                update_stages(conn, table, row["filename"], "score")
+                update_stages(conn, table, row["filename"], "score", auto_commit=False)
+                conn.commit()
 
                 stars = fusion.star_rating
                 color_label = fusion.color_label
@@ -467,7 +525,8 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     emit("score", row["filename"], "ok", json_progress=True,
                          sharpness=round(sharp, 4), composition=round(comp, 4),
                          exposure=round(expo, 4), master=round(master, 4),
-                         genre=fusion.genre, stars=stars, color_label=color_label,
+                         genre=fusion.genre, genre_confidence=round(fusion.genre_confidence, 3),
+                         stars=stars, color_label=color_label,
                          original_name=row["original_name"])
             except Exception as genre_error:
                 # Fallback to legacy scoring
@@ -475,8 +534,9 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 sharp = score_sharpness(p)
                 comp = score_composition(p)
                 expo = score_exposure(p)
-                update_scores(conn, table, row["filename"], sharp, comp, expo)
-                update_stages(conn, table, row["filename"], "score")
+                update_scores(conn, table, row["filename"], sharp, comp, expo, auto_commit=False)
+                update_stages(conn, table, row["filename"], "score", auto_commit=False)
+                conn.commit()
 
                 mean = (sharp + comp + expo) / 3.0
                 stars = min(5, round(mean * 5))
@@ -486,6 +546,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     emit("score", row["filename"], "ok", json_progress=True,
                          sharpness=round(sharp, 4), composition=round(comp, 4),
                          exposure=round(expo, 4), stars=stars, color_label=color_label,
+                         genre="general", genre_confidence=0.0,
                          original_name=row["original_name"])
         except Exception as exc:
             conn.execute(
@@ -548,7 +609,11 @@ def name(
     to_name = [r for r in pending if not r["is_duplicate"]]
 
     if not to_name:
-        click.echo("All non-duplicate photos already named.")
+        if json_progress:
+            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+        else:
+            click.echo("All non-duplicate photos already named.")
         conn.close()
         return
 
@@ -557,8 +622,9 @@ def name(
         p = source_dir / row["filename"]
         try:
             slug = generate_name(p, model_dir=model_dir)
-            update_semantic(conn, table, row["filename"], slug)
-            update_stages(conn, table, row["filename"], "name")
+            update_semantic(conn, table, row["filename"], slug, auto_commit=False)
+            update_stages(conn, table, row["filename"], "name", auto_commit=False)
+            conn.commit()
 
             if json_progress:
                 emit("name", row["filename"], "ok", json_progress=True, semantic_name=slug)

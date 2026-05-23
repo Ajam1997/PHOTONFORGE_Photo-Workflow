@@ -55,6 +55,7 @@ def ingest_volume(
     output_dir: Path,
     dry_run: bool = False,
     progress_fn: object = None,
+    scan_progress_fn: object = None,
     file_type: str = "both",
 ) -> list[Path]:
     """Copy photos from source_dir to output_dir with P{CCC}{TTT}{NNNNNNN} naming.
@@ -62,8 +63,11 @@ def ingest_volume(
     Files are sorted by EXIF timestamp before sequence assignment.
     Skips files whose original name is already in photonforge.db.
     DB records are written per-file so interrupted ingests can resume.
+
+    *scan_progress_fn(done, total)* is called during the EXIF reading
+    phase so callers can show progress before copies begin.
     """
-    from .photondb import open_db, ensure_table, insert_photo
+    from .photondb import open_db, ensure_table, insert_photo, update_stages
     from .volume import extract_cartridge_id, derive_trip_code, format_photo_name, get_next_sequence
 
     if file_type == "raw":
@@ -91,13 +95,23 @@ def ingest_volume(
     already_ingested = _get_already_ingested(output_dir)
 
     timed: list[tuple[str, Path]] = []
-    for src in sources:
+    scan_total = len(sources)
+    for scan_i, src in enumerate(sources, 1):
         ts = _read_exif_timestamp(src)
+        if scan_progress_fn is not None:
+            scan_progress_fn(scan_i, scan_total)
         if (src.name, ts or "") in already_ingested:
             logger.debug("Skipping (already ingested): %s", src.name)
             continue
         timed.append((ts or "9999", src))
     timed.sort(key=lambda x: x[0])
+
+    # Clean up interrupted copies from previous runs
+    for tmp in output_dir.glob("*.tmp"):
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
 
     seq = get_next_sequence(output_dir, cart_id, trip_code)
 
@@ -116,13 +130,19 @@ def ingest_volume(
             seq += 1
             continue
 
-        shutil.copy2(src, dest)
-        copied.append(dest)
         exif_ts = ts if ts != "9999" else None
         try:
             insert_photo(conn, table, new_name, src.name, exif_ts)
+            update_stages(conn, table, new_name, "scan")
         except Exception as e:
             logger.warning("Could not write DB record for %s: %s", new_name, e)
+            seq += 1
+            continue
+
+        temp = dest.with_suffix(dest.suffix + ".tmp")
+        shutil.copy2(src, temp)
+        temp.rename(dest)
+        copied.append(dest)
         seq += 1
 
         if progress_fn is not None:

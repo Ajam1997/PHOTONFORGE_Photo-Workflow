@@ -27,18 +27,36 @@ def _dhash(path: Path) -> int | None:
         return None
 
 
-def deduplicate(records: list, progress_fn: object = None) -> list:
+def deduplicate(
+    records: list,
+    progress_fn: object = None,
+    dhash_cache: dict[str, int] | None = None,
+) -> tuple[list, dict[str, int]]:
     """
     Mark duplicate PhotoRecords using dHash perceptual hashing.
     Within each session, the first occurrence is kept; duplicates are flagged.
+
+    *dhash_cache* maps filename → cached hash int from the DB.
+    Returns (records, new_hashes) where new_hashes contains freshly
+    computed hashes that should be persisted to the DB.
     """
     seen: dict[str, dict[int, str]] = {}  # session_id → {hash: path}
+    new_hashes: dict[str, int] = {}
     total = len(records)
+    cache = dhash_cache or {}
 
     for i, rec in enumerate(records, 1):
         if progress_fn:
             progress_fn(i, total)
-        h = _dhash(rec.path)
+
+        fname = rec.path.name
+        if fname in cache:
+            h = cache[fname]
+        else:
+            h = _dhash(rec.path)
+            if h is not None:
+                new_hashes[fname] = h
+
         if h is None:
             continue
 
@@ -54,4 +72,4 @@ def deduplicate(records: list, progress_fn: object = None) -> list:
 
     dupes = sum(1 for r in records if r.is_duplicate)
     logger.info("Deduplication: %d/%d marked as duplicates", dupes, len(records))
-    return records
+    return records, new_hashes

@@ -64,7 +64,7 @@ def test_ingest_emits_progress_and_done_events(tmp_path: Path) -> None:
         ])), \
          patch("photo_workflow.sidecar_cli._eject_sd"), \
          patch("photo_workflow.sidecar_cli.cluster_sessions", return_value=records), \
-         patch("photo_workflow.sidecar_cli.deduplicate", return_value=records), \
+         patch("photo_workflow.sidecar_cli.deduplicate", return_value=(records, {})), \
          patch("photo_workflow.sidecar_cli.score_sharpness", return_value=0.8), \
          patch("photo_workflow.sidecar_cli.score_composition", return_value=0.7), \
          patch("photo_workflow.sidecar_cli.score_exposure", return_value=0.9), \
@@ -165,7 +165,7 @@ def test_ingest_full_pipeline_emits_sd_ejected_and_all_stage_dones(tmp_path: Pat
     with patch("photo_workflow.sidecar_cli.subprocess.Popen", return_value=_make_mock_popen(rsync_lines)), \
          patch("photo_workflow.sidecar_cli._eject_sd"), \
          patch("photo_workflow.sidecar_cli.cluster_sessions", return_value=records), \
-         patch("photo_workflow.sidecar_cli.deduplicate", return_value=records), \
+         patch("photo_workflow.sidecar_cli.deduplicate", return_value=(records, {})), \
          patch("photo_workflow.sidecar_cli.score_sharpness", return_value=0.8), \
          patch("photo_workflow.sidecar_cli.score_composition", return_value=0.7), \
          patch("photo_workflow.sidecar_cli.score_exposure", return_value=0.9), \
@@ -200,7 +200,7 @@ def test_ingest_skip_naming_and_darktable_omits_those_stage_dones(tmp_path: Path
     with patch("photo_workflow.sidecar_cli.subprocess.Popen", return_value=_make_mock_popen([">f+++++++++ DSC_0001.ARW\n"])), \
          patch("photo_workflow.sidecar_cli._eject_sd"), \
          patch("photo_workflow.sidecar_cli.cluster_sessions", return_value=records), \
-         patch("photo_workflow.sidecar_cli.deduplicate", return_value=records), \
+         patch("photo_workflow.sidecar_cli.deduplicate", return_value=(records, {})), \
          patch("photo_workflow.sidecar_cli.score_sharpness", return_value=0.8), \
          patch("photo_workflow.sidecar_cli.score_composition", return_value=0.7), \
          patch("photo_workflow.sidecar_cli.score_exposure", return_value=0.9):
