@@ -29,6 +29,12 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.10",
 ]
+docs = [
+    "requests>=2.32",
+    "PyYAML>=6.0",
+    "mkdocs-material>=9.5",
+    "responses>=0.25",
+]
 
 [project.scripts]
 photo-workflow = "photo_workflow.pipeline:main"
