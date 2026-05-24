@@ -1,0 +1,52 @@
+name: PR — Close Issues and Roll Up Status
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  roll-up-status:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests PyYAML
+
+      - name: Roll up Issue status
+        env:
+          GITHUB_TOKEN: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
+        run: |
+          python - <<'EOF'
+          import os, re, json, sys
+          from pathlib import Path
+          sys.path.insert(0, ".")
+          from scripts.github_client import GitHubClient
+
+          client = GitHubClient()
+          pr_body = """${{ github.event.pull_request.body }}"""
+
+          # Find all referenced Issue numbers
+          closed_nums = [int(m) for m in re.findall(r"(?:Closes|Fixes|Resolves)\s+#(\d+)", pr_body, re.IGNORECASE)]
+
+          issue_map = json.loads(Path("docs/github-issue-map.json").read_text()) if Path("docs/github-issue-map.json").exists() else {}
+
+          for num in closed_nums:
+              issues = client.list_issues(state="all")
+              issue = next((i for i in issues if i["number"] == num), None)
+              if not issue:
+                  continue
+              labels = [l["name"] for l in issue.get("labels", [])]
+              if "type: fr" in labels or "type: nfr" in labels:
+                  client.set_labels(num, ["status: verified"])
+                  print(f"Set status: verified on #{num}")
+          EOF

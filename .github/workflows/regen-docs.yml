@@ -1,0 +1,43 @@
+name: Regenerate Docs and Deploy MkDocs
+
+on:
+  push:
+    branches: [main]
+  issues:
+    types: [labeled, unlabeled, closed, reopened, edited]
+  workflow_dispatch:
+
+jobs:
+  regen-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests PyYAML mkdocs-material
+
+      - name: Regenerate docs from GitHub Issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
+        run: python scripts/generate_docs.py
+
+      - name: Commit regenerated docs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/living-user-needs.md docs/photonforge-architecture.md
+          git diff --staged --quiet || git commit -m "docs: auto-regenerate from GitHub Issues [skip ci]"
+          git push
+
+      - name: Deploy MkDocs to GitHub Pages
+        run: mkdocs gh-deploy --force

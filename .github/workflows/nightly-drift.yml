@@ -1,0 +1,41 @@
+name: Nightly Drift Check
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests PyYAML mkdocs-material
+
+      - name: Run drift check
+        env:
+          GITHUB_TOKEN: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
+        run: python scripts/check_drift.py || true
+
+      - name: Commit drift reports
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/drift-reports/ || true
+          git diff --staged --quiet || git commit -m "docs: add nightly drift report [skip ci]"
+          git push || true
+
+      - name: Rebuild and deploy MkDocs
+        run: mkdocs gh-deploy --force
