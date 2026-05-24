@@ -25,6 +25,12 @@ KPM: NONE
 Stage: 1
 Status: DEFINED
 
+[UN-003](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/14): Users can install and configure the system from documentation.
+Acceptance: Installation docs exist. A new user can stand up the pipeline on a fresh Yoga 910 by following the docs alone.
+KPM: NONE
+Stage: 1
+Status: DEFINED
+
 [UN-010](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/32): Photos are automatically grouped into shooting sessions.
 Acceptance: cluster_sessions() correctly groups fixture images by time and location.
 KPM: NONE
@@ -64,6 +70,12 @@ Status: DEFINED
 [UN-021](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/38): Processed photos are synced to Darktable with scores and metadata.
 Acceptance: library.db contains a record per image. XMP sidecar written per image.
 KPM: NONE
+Stage: 3
+Status: DEFINED
+
+[UN-022](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/16): Semantic filenames incorporate genre and scoring context for richer descriptions.
+Acceptance: generate_name() uses genre tag and top score dimensions to produce filenames that reflect subject and quality, not just scene description.
+KPM: KPM-1.2
 Stage: 3
 Status: DEFINED
 
