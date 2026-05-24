@@ -73,18 +73,19 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 <!-- AUTO:fr_table -->
 | ID | Description | Implementation | Status |
 |:---|:---|:---|:---|
-| [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge | DEFINED |
-| [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh | DEFINED |
-| [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | Spatio-Temporal Grouping | Cluster if temporal delta < 500ms AND Hamming distance near 0 | DEFINED |
-| [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | Perceptual Deduplication | dHash near-duplicate detection (Hamming distance <= 2) | DEFINED |
-| [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | Sharpness Scoring | Normalized Laplacian Variance | DEFINED |
-| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps | DEFINED |
-| [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | Exposure Assessment | 11-zone luminance segmentation; entropy vs. IEA40K threshold | DEFINED |
-| [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | Local Semantic Naming | Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs. | DEFINED |
-| [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | Genre Detection Calibration and Back-Training |  | DEFINED |
-| [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | Multi-Genre Tagging Support |  | DEFINED |
-| [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation | DEFINED |
-| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. | DEFINED |
+| [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge | VERIFIED |
+| [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh | VERIFIED |
+| [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | Spatio-Temporal Grouping | Cluster if temporal delta < 500ms AND Hamming distance near 0 | VERIFIED |
+| [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | Perceptual Deduplication | dHash near-duplicate detection (Hamming distance <= 2) | VERIFIED |
+| [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | Sharpness Scoring | Normalized Laplacian Variance | VERIFIED |
+| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps | VERIFIED |
+| [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | Exposure Assessment | 11-zone luminance segmentation; entropy vs. IEA40K threshold | VERIFIED |
+| [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | Local Semantic Naming | Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs. | VERIFIED |
+| [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | Genre Detection Calibration and Back-Training |  | VERIFIED |
+| [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | Multi-Genre Tagging Support |  | VERIFIED |
+| [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation | VERIFIED |
+| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. | VERIFIED |
+| [[Fixture Corpus] Labeled reference image set for KPM measurement](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/75) | Labeled reference image set for KPM measurement |  | DEFINED |
 <!-- /AUTO:fr_table -->
 
 ### 3.2 Non-Functional Requirements
@@ -104,8 +105,15 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | KPM | Metric | Target | Owner | Verified By | Last Measured | Status |
 |:---|:---|:---|:---|:---|:---|:---|
 | [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | Ingest Latency | >= 80% USB 3.0 bandwidth | @devops | @verification | untested | untested |
+| [KPM-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74) | Session Grouping Precision | >= 90% F1 score on session boundary detection against labeled fixture corpus | @engineer | @verification | untested | untested |
 | [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @engineer | @verification | untested | untested |
+| [KPM-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/68) | Analyzer Peak RSS | <= 1.5 GB peak RSS during full scoring pipeline | @engineer | @verification | untested | untested |
 | [KPM-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/65) | Data Integrity | Zero SQLite corruption over 50 eject cycles | @devops | @validation | untested | untested |
+| [KPM-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/69) | End-to-End Pipeline Throughput | >= 10 photos/min on i7-7500U (full ingest → score → name pipeline) | @engineer | @verification | untested | untested |
+| [KPM-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/70) | Dedup False-Positive Rate | <= 1% false-positive rate on known-distinct image corpus | @engineer | @verification | untested | untested |
+| [KPM-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/71) | Naming Output Validity Rate | >= 95% of outputs are non-trivial semantic captions (not 'yes', 'no', or 'answering does not require reading') | @engineer | @verification | untested | untested |
+| [KPM-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/72) | Scoring Determinism | Score variance <= 0.01 on identical image run twice (sharpness, composition, exposure, master) | @engineer | @verification | untested | untested |
+| [KPM-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/73) | CPU Cap Compliance | Peak CPU utilisation <= 80% of available cores during full pipeline run | @devops | @verification | untested | untested |
 <!-- /AUTO:kpm_table -->
 
 ---
