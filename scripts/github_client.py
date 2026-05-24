@@ -171,7 +171,7 @@ class GitHubClient:
         options: required when data_type is SINGLE_SELECT
         """
         if data_type == "SINGLE_SELECT":
-            opts = [{"name": o} for o in (options or [])]
+            opts = [{"name": o, "color": "GRAY", "description": ""} for o in (options or [])]
             data = self.graphql(
                 """
                 mutation($projectId: ID!, $name: String!, $options: [ProjectV2SingleSelectFieldOptionInput!]!) {
