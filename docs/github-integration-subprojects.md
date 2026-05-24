@@ -22,7 +22,7 @@ Seed the full requirement hierarchy into GitHub Issues and Projects boards, esta
 
 ---
 
-## Sub-project 2 — Doc Reorganisation 🔲 UP NEXT
+## Sub-project 2 — Doc Reorganisation ✅ DONE
 
 Clean up and consolidate the docs directory so the site is tidy and nothing is orphaned.
 
@@ -35,7 +35,7 @@ Clean up and consolidate the docs directory so the site is tidy and nothing is o
 
 ---
 
-## Sub-project 3 — PR Automation Refinements 🔲
+## Sub-project 3 — PR Automation Refinements 🔲 UP NEXT
 
 Extend the basic Issue closure automation (`pr-close-issues.yml`) with smarter rollup logic.
 

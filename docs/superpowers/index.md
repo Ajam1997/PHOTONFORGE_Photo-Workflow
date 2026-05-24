@@ -6,6 +6,7 @@ Design specs and implementation plans for each PHOTONForge sub-project.
 
 | Date | Title |
 |:---|:---|
+| 2026-05-23 | [Doc Reorganisation](specs/2026-05-23-doc-reorg-design.md) |
 | 2026-05-23 | [GitHub Scaffolding](specs/2026-05-23-github-scaffolding-design.md) |
 | 2026-05-21 | [Genre-Aware Scoring](specs/2026-05-21-genre-aware-scoring-design.md) |
 | 2026-05-20 | [Pipeline v2](specs/2026-05-20-pipeline-v2-design.md) |
@@ -24,6 +25,7 @@ Design specs and implementation plans for each PHOTONForge sub-project.
 
 | Date | Title |
 |:---|:---|
+| 2026-05-23 | [Doc Reorganisation](plans/2026-05-23-doc-reorg.md) |
 | 2026-05-23 | [GitHub Scaffolding](plans/2026-05-23-github-scaffolding.md) |
 | 2026-05-21 | [Genre-Aware Scoring](plans/2026-05-21-genre-aware-scoring.md) |
 | 2026-05-20 | [Pipeline v2](plans/2026-05-20-pipeline-v2.md) |
