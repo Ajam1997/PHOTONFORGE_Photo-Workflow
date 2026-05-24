@@ -97,6 +97,12 @@ KPM: KPM-1.4/KPM-1.1
 Stage: 7
 Status: DEFINED
 
+[UN-050](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/44): The pipeline CLI supports staged execution of individual processing steps.
+Acceptance: photo-workflow exposes subcommands scan, dedup, score, name, sync, status. Each subcommand runs independently and enforces prerequisite stages.
+KPM: NONE
+Stage: 5
+Status: DEFINED
+
 [UN-051](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/45): The pipeline tracks per-photo processing state across stages via a DB File.
 Acceptance: ingest creates a SQLite DB file. Each subsequent stage reads and updates it. DB records per-photo stages_completed, scores, semantic_name, and errors.
 KPM: NONE
