@@ -2,6 +2,8 @@
 
 **Date:** 2026-04-17
 **Status:** Approved
+**Author:** Alex Meyer
+**Scope:** Replace old `PhotonForge_new` SSH key with `photonforge_yoga` across config and agent definitions
 
 ---
 

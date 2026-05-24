@@ -2,6 +2,7 @@
 
 **Date**: 2026-05-23
 **Status**: Approved
+**Author**: Alex Meyer
 **Approach**: Native Sub-issues hierarchy (Approach A)
 
 ## Summary

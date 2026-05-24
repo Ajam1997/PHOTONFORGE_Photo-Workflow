@@ -2,7 +2,8 @@
 
 **Date:** 2026-04-17
 **Status:** Approved
-**Roadmap stage:** 7.1 (GUI Scaffold)
+**Author:** Alex Meyer
+**Scope:** Tauri + Svelte GUI scaffold with six panel stubs, dark theme, and live status bar
 
 ---
 

@@ -1,7 +1,9 @@
 # Cartridge Identity Redesign
 
 **Date:** 2026-04-23
-**Status:** Approved — ready for implementation planning
+**Status:** Approved
+**Author:** Alex Meyer
+**Scope:** Replace label-based cartridge detection with `.photonforge/cartridge.json` metadata file
 
 ---
 

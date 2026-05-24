@@ -1,6 +1,11 @@
 # Cartridge Provisioning Utility — Design Specification
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:writing-plans after this spec is approved.
+**Date:** 2026-04-20
+**Status:** Approved
+**Author:** Alex Meyer
+**Scope:** Automated cartridge partition, format, and init via CartridgeManager panel
+
+---
 
 ## Goal
 

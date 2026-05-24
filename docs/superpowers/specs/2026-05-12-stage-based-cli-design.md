@@ -2,6 +2,7 @@
 
 **Date:** 2026-05-12
 **Status:** Approved
+**Author:** Alex Meyer
 **Scope:** Enhance `photo-workflow` CLI from a monolithic single command to a staged subcommand group with manifest-based checkpointing, enabling batch processing of 7000+ photos with resume capability.
 
 ## Motivation

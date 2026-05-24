@@ -1,5 +1,10 @@
 # Ingest Pipeline — Full Pipeline with Stage Controls
 
+**Date:** 2026-04-20
+**Status:** Approved
+**Author:** Alex Meyer
+**Scope:** Full pipeline with per-stage checkboxes, SD auto-eject, background processing
+
 ## Goal
 
 Extend the Ingest tab to run the full PHOTONForge analysis pipeline (not just file copy), with per-stage checkboxes the user can toggle. Settings persist between sessions. After copy completes, the SD card is automatically ejected so the user can resume shooting while the remaining stages process in the background.

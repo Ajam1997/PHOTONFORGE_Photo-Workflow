@@ -1,7 +1,8 @@
 # PHOTONForge Darktable Lua Plugin — Design Spec
 
-**Date:** 2026-05-13  
-**Status:** Approved  
+**Date:** 2026-05-13
+**Status:** Approved
+**Author:** Alex Meyer
 **Scope:** Darktable left-sidebar plugin + Python engine changes (sequence numbering, `--json-progress`, DB-write removal)
 
 ---

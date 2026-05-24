@@ -1,5 +1,10 @@
 # PHOTONForge Pipeline v2 Design Spec
 
+**Date**: 2026-05-20
+**Status**: Approved
+**Author**: Alex Meyer
+**Scope**: Replace JSONL manifest with SQLite, Darktable import at scan time, sequential file naming, remove sync step
+
 ## Goal
 
 Replace the fragile JSONL manifest with a per-cartridge SQLite database, eliminate the sync step by importing photos into Darktable at scan time, add sequential file naming at ingest with cartridge/trip prefixes, write semantic names to Darktable description (not tags), and simplify the Lua panel UI.

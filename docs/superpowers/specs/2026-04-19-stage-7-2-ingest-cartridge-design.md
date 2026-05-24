@@ -1,5 +1,10 @@
 # Stage 7.2 — IngestDashboard & CartridgeManager Implementation Plan
 
+**Date:** 2026-04-19
+**Status:** Approved
+**Author:** Alex Meyer
+**Scope:** Wire IngestDashboard and CartridgeManager panels to Python backend via PyInstaller sidecar
+
 ## Goal
 
 Wire the IngestDashboard and CartridgeManager panel stubs to the Python backend via a PyInstaller sidecar, giving the operator a touch-friendly UI for triggering photo ingestion and managing SSD cartridges.
