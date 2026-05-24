@@ -71,45 +71,39 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 ### 3.1 Functional Requirements
 
 <!-- AUTO:fr_table -->
-| ID | Description | Implementation |
-|:---|:---|:---|
-| FR-1.1 | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge |
-| FR-1.2 | Spatio-Temporal Grouping | Cluster if temporal delta < 500ms AND Hamming distance near 0 |
-| FR-1.3 | Perceptual Deduplication | dHash near-duplicate detection (Hamming distance <= 2) |
-| FR-1.4 | Sharpness Scoring | Normalized Laplacian Variance |
-| FR-1.5 | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps |
-| FR-1.6 | Exposure Assessment | 11-zone luminance segmentation; entropy vs. IEA40K threshold |
-| FR-1.7 | Local Semantic Naming | Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs. |
-| FR-1.8 | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation |
-| FR-1.9 | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. |
-| FR-1.10 | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh |
+| ID | Description | Implementation | Status |
+|:---|:---|:---|:---|
+| [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge | DEFINED |
+| [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh | DEFINED |
+| [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | Spatio-Temporal Grouping | Cluster if temporal delta < 500ms AND Hamming distance near 0 | DEFINED |
+| [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | Perceptual Deduplication | dHash near-duplicate detection (Hamming distance <= 2) | DEFINED |
+| [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | Sharpness Scoring | Normalized Laplacian Variance | DEFINED |
+| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps | DEFINED |
+| [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | Exposure Assessment | 11-zone luminance segmentation; entropy vs. IEA40K threshold | DEFINED |
+| [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | Local Semantic Naming | Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs. | DEFINED |
+| [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation | DEFINED |
+| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. | DEFINED |
 <!-- /AUTO:fr_table -->
 
 ### 3.2 Non-Functional Requirements
 
 <!-- AUTO:nfr_table -->
-| ID | Description | Specification |
-|:---|:---|:---|
-| NFR-2.1 | Internet Independence | 100% offline at runtime. Initial provisioning (OS, packages, models) may use internet. Cloud export (Phase 3) user-opt-in only. |
-| NFR-2.2 | Resource Efficiency | Total container RSS <= 1.5 GB. CPU affinity capped at 80%. Host OS reserved: 2.5 GB minimum. |
-| NFR-2.3 | Database Portability | Darktable library.db + user config on external SSD, not host filesystem. |
-| NFR-2.4 | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected. |
-| NFR-3.1 | GUI Memory Budget | No separate GUI process. PHOTONForge runs as a Lua panel inside Darktable (~0 MB additional). |
-| NFR-3.2 | Plugin Installation | Single Lua script copied to `~/.config/darktable/lua/`. No build step. |
-| NFR-3.3 | Darktable Version | Target Darktable 4.x+ Lua API (dt.register_lib, dt.new_widget). |
+| ID | Description | Specification | Status |
+|:---|:---|:---|:---|
+| [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59) | Internet Independence | 100% offline at runtime. Initial provisioning (OS, packages, models) may use internet. Cloud export (Phase 3) user-opt-in only. | DEFINED |
+| [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | Database Portability | Darktable library.db + user config on external SSD, not host filesystem. | DEFINED |
+| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62) | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected. | DEFINED |
+| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60) | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected. | DEFINED |
 <!-- /AUTO:nfr_table -->
 
 ### 3.3 Key Performance Measures
 
 <!-- AUTO:kpm_table -->
-| KPM | Metric | Target | Owner | Verified By |
-|:---|:---|:---|:---|:---|
-| KPM-1.1 | Ingest Latency | >= 80% USB 3.0 bandwidth | @devops | @verification |
-| KPM-1.2 | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @engineer | @verification |
-| KPM-1.3 | Memory Stability | RSS <= 1.5 GB for analyzer | @engineer | @verification |
-| KPM-1.4 | Data Integrity | Zero SQLite corruption over 50 eject cycles | @devops | @validation |
-
-NOTE: KPM-1.2 provisionally set at 2.5s pending benchmarking on the i7-7500U. If INT8 inference is faster, tighten toward 1.5s.
+| KPM | Metric | Target | Owner | Verified By | Last Measured | Status |
+|:---|:---|:---|:---|:---|:---|:---|
+| [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | Ingest Latency | >= 80% USB 3.0 bandwidth | @devops | @verification | untested | untested |
+| [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @engineer | @verification | untested | untested |
+| [KPM-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/65) | Data Integrity | Zero SQLite corruption over 50 eject cycles | @devops | @validation | untested | untested |
 <!-- /AUTO:kpm_table -->
 
 ---
