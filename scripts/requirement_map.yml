@@ -1,104 +1,139 @@
-# Maps UN IDs to their FR, NFR, and KPM decompositions.
-# Each UN entry lists the IDs of its child requirements.
-# These IDs must match the IDs in photonforge-architecture.md exactly.
-
 stages:
   1:
-    title: "Stage 1 — Project Scaffold & Agent Roster"
-    user_needs: [UN-001, UN-002]
+    title: Stage 1 — Project Scaffold & Agent Roster
+    user_needs:
+    - UN-001
+    - UN-002
   2:
-    title: "Stage 2 — Core Analysis Engine"
-    user_needs: [UN-010, UN-011, UN-012, UN-013, UN-014]
+    title: Stage 2 — Core Analysis Engine
+    user_needs:
+    - UN-010
+    - UN-011
+    - UN-012
+    - UN-013
+    - UN-014
   3:
-    title: "Stage 3 — Inference & Darktable Bridge"
-    user_needs: [UN-020, UN-021]
+    title: Stage 3 — Inference & Darktable Bridge
+    user_needs:
+    - UN-020
+    - UN-021
   4:
-    title: "Stage 4 — Host Integration"
-    user_needs: [UN-030, UN-031, UN-032]
+    title: Stage 4 — Host Integration
+    user_needs:
+    - UN-030
+    - UN-031
+    - UN-032
   5:
-    title: "Stage 5 — Staged Pipeline CLI"
-    user_needs: [UN-050, UN-051, UN-052, UN-053, UN-054]
+    title: Stage 5 — Staged Pipeline CLI
+    user_needs:
+    - UN-050
+    - UN-051
+    - UN-052
+    - UN-053
+    - UN-054
   6:
-    title: "Stage 6 — SD Staging & Safe Removal"
-    user_needs: [UN-040]
+    title: Stage 6 — SD Staging & Safe Removal
+    user_needs:
+    - UN-040
   7:
-    title: "Stage 7 — GUI & Full Integration"
-    user_needs: [UN-041]
-
+    title: Stage 7 — GUI & Full Integration
+    user_needs:
+    - UN-041
 user_needs:
   UN-001:
     functional_requirements: []
-    non_functional_requirements: []
     kpms: []
+    non_functional_requirements: []
   UN-002:
     functional_requirements: []
-    non_functional_requirements: []
     kpms: []
+    non_functional_requirements: []
   UN-010:
-    functional_requirements: [FR-1.2]
-    non_functional_requirements: []
+    functional_requirements:
+    - FR-1.2
     kpms: []
+    non_functional_requirements: []
   UN-011:
-    functional_requirements: [FR-1.3]
-    non_functional_requirements: []
+    functional_requirements:
+    - FR-1.3
     kpms: []
+    non_functional_requirements: []
   UN-012:
-    functional_requirements: [FR-1.4]
-    non_functional_requirements: []
+    functional_requirements:
+    - FR-1.4
     kpms: []
+    non_functional_requirements: []
   UN-013:
-    functional_requirements: [FR-1.5]
-    non_functional_requirements: []
+    functional_requirements:
+    - FR-1.5
     kpms: []
+    non_functional_requirements: []
   UN-014:
-    functional_requirements: [FR-1.6]
-    non_functional_requirements: []
+    functional_requirements:
+    - FR-1.6
     kpms: []
+    non_functional_requirements: []
   UN-020:
-    functional_requirements: [FR-1.7]
+    functional_requirements:
+    - FR-1.7
+    - FR-1.7.1
+    - FR-1.7.2
+    kpms:
+    - KPM-1.2
     non_functional_requirements: []
-    kpms: [KPM-1.2]
   UN-021:
-    functional_requirements: [FR-1.8]
-    non_functional_requirements: []
+    functional_requirements:
+    - FR-1.8
     kpms: []
+    non_functional_requirements: []
   UN-030:
-    functional_requirements: [FR-1.1]
-    non_functional_requirements: [NFR-2.1, NFR-2.4]
-    kpms: [KPM-1.1]
+    functional_requirements:
+    - FR-1.1
+    kpms:
+    - KPM-1.1
+    non_functional_requirements:
+    - NFR-2.1
+    - NFR-2.4
   UN-031:
-    functional_requirements: [FR-1.9]
-    non_functional_requirements: [NFR-2.3]
+    functional_requirements:
+    - FR-1.9
     kpms: []
+    non_functional_requirements:
+    - NFR-2.3
   UN-032:
-    functional_requirements: [FR-1.10]
+    functional_requirements:
+    - FR-1.10
+    kpms:
+    - KPM-1.4
     non_functional_requirements: []
-    kpms: [KPM-1.4]
   UN-040:
-    functional_requirements: [FR-1.1]
+    functional_requirements:
+    - FR-1.1
+    kpms:
+    - KPM-1.1
     non_functional_requirements: []
-    kpms: [KPM-1.1]
   UN-041:
     functional_requirements: []
-    non_functional_requirements: [NFR-2.4]
     kpms: []
+    non_functional_requirements:
+    - NFR-2.4
   UN-050:
     functional_requirements: []
-    non_functional_requirements: []
     kpms: []
+    non_functional_requirements: []
   UN-051:
     functional_requirements: []
-    non_functional_requirements: []
     kpms: []
+    non_functional_requirements: []
   UN-052:
     functional_requirements: []
-    non_functional_requirements: []
     kpms: []
+    non_functional_requirements: []
   UN-053:
     functional_requirements: []
-    non_functional_requirements: []
     kpms: []
+    non_functional_requirements: []
   UN-054:
     functional_requirements: []
-    non_functional_requirements: []
     kpms: []
+    non_functional_requirements: []

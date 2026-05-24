@@ -197,14 +197,14 @@ class GitHubClient:
         data = self.graphql(
             """
             mutation($projectId: ID!, $contentId: ID!) {
-              addProjectV2Item(input: {projectId: $projectId, contentId: $contentId}) {
+              addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
                 item { id }
               }
             }
             """,
             {"projectId": project_id, "contentId": issue_node_id},
         )
-        return data["addProjectV2Item"]["item"]["id"]
+        return data["addProjectV2ItemById"]["item"]["id"]
 
     def _find_project_field_id(self, project_id: str, name: str) -> str | None:
         """Return the node ID of an existing field on a project, or None."""

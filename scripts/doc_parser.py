@@ -7,13 +7,14 @@ def parse_user_needs(path: Path) -> list[dict]:
     """Return list of UN dicts from living-user-needs.md."""
     text = path.read_text(encoding="utf-8")
     # Split on UN-NNN: lines
-    blocks = re.split(r"(?=^UN-\d+:)", text, flags=re.MULTILINE)
+    # Handles both plain "UN-001: Title" and linked "[UN-001](url): Title" formats
+    blocks = re.split(r"(?=^\[?UN-\d+\]?(?:\([^)]+\))?:)", text, flags=re.MULTILINE)
     items = []
     for block in blocks:
         block = block.strip()
-        if not block.startswith("UN-"):
+        if not re.match(r"\[?UN-", block):
             continue
-        m_id = re.match(r"^(UN-\d+):\s*(.+)", block)
+        m_id = re.match(r"^\[?(UN-\d+)\]?(?:\([^)]+\))?:\s*(.+)", block)
         if not m_id:
             continue
         un_id, title = m_id.group(1), m_id.group(2).strip()

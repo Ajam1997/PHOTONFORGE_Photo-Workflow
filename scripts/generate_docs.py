@@ -5,10 +5,12 @@ Usage:
   python scripts/generate_docs.py
 """
 import re
+import yaml
 from pathlib import Path
 from scripts.github_client import GitHubClient
 
 DOCS = Path("docs")
+SCRIPTS = Path("scripts")
 
 
 def _extract_id(title: str) -> str:
@@ -31,8 +33,17 @@ def _body_field(body: str, field: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def render_user_needs_section(issues: list[dict]) -> str:
-    """Render UN-XXX list with acceptance, KPM, stage, status."""
+def render_user_needs_section(
+    issues: list[dict],
+    fr_issues: list[dict],
+    nfr_issues: list[dict],
+    req_map: dict,
+) -> str:
+    """Render UN-XXX list with acceptance, KPM, stage, status, and FR/NFR decomposition."""
+    fr_index = {_extract_id(i["title"]): i for i in fr_issues}
+    nfr_index = {_extract_id(i["title"]): i for i in nfr_issues}
+    un_decomp = req_map.get("user_needs", {})
+
     lines = []
     for issue in sorted(issues, key=lambda i: _extract_id(i["title"])):
         un_id = _extract_id(issue["title"])
@@ -47,6 +58,20 @@ def render_user_needs_section(issues: list[dict]) -> str:
         lines.append(f"KPM: {kpm}")
         lines.append(f"Stage: {stage}")
         lines.append(f"Status: {status}")
+
+        decomp = un_decomp.get(un_id, {})
+        parts = []
+        for fr_id in decomp.get("functional_requirements", []):
+            fr = fr_index.get(fr_id)
+            if fr:
+                parts.append(f"[{fr_id}]({fr['html_url']})")
+        for nfr_id in decomp.get("non_functional_requirements", []):
+            nfr = nfr_index.get(nfr_id)
+            if nfr:
+                parts.append(f"[{nfr_id}]({nfr['html_url']})")
+        if parts:
+            lines.append(f"Decomposes to: {', '.join(parts)}")
+
         lines.append("")
     return "\n".join(lines)
 
@@ -121,17 +146,22 @@ def main() -> None:
     """Fetch issues from GitHub and regenerate living docs."""
     client = GitHubClient()
 
+    req_map = yaml.safe_load((SCRIPTS / "requirement_map.yml").read_text(encoding="utf-8"))
+
     print("Fetching Issues from GitHub...")
     un_issues = client.list_issues(labels="type: user-need")
-    fr_issues = client.list_issues(labels="type: fr")
-    nfr_issues = client.list_issues(labels="type: nfr")
+    fr_issues = client.list_issues(labels="type: fr", state="all")
+    nfr_issues = client.list_issues(labels="type: nfr", state="all")
     kpm_issues = client.list_issues(labels="type: kpm")
     epic_issues = client.list_issues(labels="type: epic")
 
     # Regenerate living-user-needs.md
     un_path = DOCS / "living-user-needs.md"
     text = un_path.read_text(encoding="utf-8")
-    text = inject_auto_section(text, "user_needs", render_user_needs_section(un_issues))
+    text = inject_auto_section(
+        text, "user_needs",
+        render_user_needs_section(un_issues, fr_issues, nfr_issues, req_map),
+    )
     un_path.write_text(text, encoding="utf-8")
     print(f"Updated {un_path}")
 

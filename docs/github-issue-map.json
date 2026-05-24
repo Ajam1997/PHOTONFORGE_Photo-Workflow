@@ -147,6 +147,14 @@
     "FR-1.10": {
       "number": 58,
       "node_id": "I_kwDOR_dVD88AAAABDNN2bg"
+    },
+    "FR-1.7.1": {
+      "number": 66,
+      "node_id": "I_kwDOR_dVD88AAAABDPK3oQ"
+    },
+    "FR-1.7.2": {
+      "number": 67,
+      "node_id": "I_kwDOR_dVD88AAAABDPQrYw"
     }
   },
   "non_functional_requirements": {
