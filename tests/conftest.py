@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 from PIL import Image
+
+# Add project root to sys.path so tests can import from scripts/
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 
 @pytest.fixture(scope="session")
