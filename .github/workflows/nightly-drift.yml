@@ -27,7 +27,7 @@ jobs:
       - name: Run drift check
         env:
           GITHUB_TOKEN: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
-        run: python scripts/check_drift.py || true
+        run: python -m scripts.check_drift || true
 
       - name: Commit drift reports
         run: |
