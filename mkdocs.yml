@@ -1,0 +1,44 @@
+site_name: PHOTONForge
+site_description: Autonomous ingest-to-edit photography pipeline
+site_url: https://Ajam1997.github.io/PHOTONFORGE_Photo-Workflow
+repo_url: https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow
+repo_name: Ajam1997/PHOTONFORGE_Photo-Workflow
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Roadmap: roadmap.md
+  - User Needs: living-user-needs.md
+  - Architecture: photonforge-architecture.md
+  - KPM Dashboard: kpm-dashboard.md
+  - Specs & Plans:
+    - Overview: superpowers/index.md
+
+plugins:
+  - search
+
+markdown_extensions:
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.highlight

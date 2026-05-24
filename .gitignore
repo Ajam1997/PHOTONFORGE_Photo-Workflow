@@ -18,3 +18,4 @@ test_tmp/
 .claude/settings.json
 .claude/settings.local.json
 yolov8n.pt
+site/
