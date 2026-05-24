@@ -291,3 +291,62 @@ class GitHubClient:
             """,
             {"projectId": project_id, "itemId": item_id, "fieldId": field_id, "optionId": option_id},
         )
+
+    def find_project_item_by_issue_number(self, project_id: str, issue_number: int) -> str | None:
+        """Return the Projects v2 item node ID for the given issue number, or None."""
+        after = None
+        while True:
+            data = self.graphql(
+                """
+                query($projectId: ID!, $after: String) {
+                  node(id: $projectId) {
+                    ... on ProjectV2 {
+                      items(first: 100, after: $after) {
+                        nodes {
+                          id
+                          content { ... on Issue { number } }
+                        }
+                        pageInfo { hasNextPage endCursor }
+                      }
+                    }
+                  }
+                }
+                """,
+                {"projectId": project_id, "after": after},
+            )
+            items = data["node"]["items"]
+            for node in items["nodes"]:
+                content = node.get("content") or {}
+                if content.get("number") == issue_number:
+                    return node["id"]
+            if not items["pageInfo"]["hasNextPage"]:
+                return None
+            after = items["pageInfo"]["endCursor"]
+
+    def get_project_select_option_id(self, project_id: str, field_id: str, option_name: str) -> str | None:
+        """Return the option node ID for a single-select field value by name."""
+        data = self.graphql(
+            """
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  fields(first: 30) {
+                    nodes {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        options { id name }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """,
+            {"projectId": project_id},
+        )
+        for field in data["node"]["fields"]["nodes"]:
+            if field.get("id") == field_id:
+                for opt in field.get("options", []):
+                    if opt["name"].lower() == option_name.lower():
+                        return opt["id"]
+        return None

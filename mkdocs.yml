@@ -36,6 +36,7 @@ nav:
   - Specs & Plans:
     - Overview: superpowers/index.md
     - Specs:
+      - Agent Write-back: superpowers/specs/2026-05-23-agent-writeback-design.md
       - Scheduled Automation: superpowers/specs/2026-05-23-scheduled-automation-design.md
       - PR Automation: superpowers/specs/2026-05-23-pr-automation-design.md
       - Doc Reorganisation: superpowers/specs/2026-05-23-doc-reorg-design.md

@@ -60,5 +60,29 @@ models/    -- florence2_int8/ (vendored, not downloaded)
 
 Full spec: docs/photo-workflow-architecture-v4.docx
 
+## Agent Write-back Protocol
+
+Agents write results back to GitHub Issues via `scripts/github_comment.py`.
+**Never call the GitHub API directly.** All commands read GITHUB_TOKEN from environment.
+Issue numbers are resolved automatically from `docs/github-issue-map.json`.
+
+**@verification** (after every commit to main):
+```bash
+# On test pass:
+python scripts/github_comment.py verify-fr FR-1.2 "pytest: 5/5 passed, 1.8s avg"
+# On regression:
+python scripts/github_comment.py regress-fr FR-1.2 "test_sharpness failed: expected 0.85 got 0.72"
+# After benchmark:
+python scripts/github_comment.py update-kpm KPM-1.2 "1.8s on i7-7500U — 2026-05-23" passing
+```
+
+**@validation** (on milestone merge or manual invocation):
+```bash
+# On E2E pass:
+python scripts/github_comment.py validate-un UN-010 "all 3 grouping scenarios passed"
+# On E2E failure:
+python scripts/github_comment.py validation-failure UN-010 "wrong clusters on burst shots — 4 grouped, expected 1"
+```
+
 ## Remote Execution
 Client-side testing runs via SSH to alex@<yoga-ip>. The Yoga 910 hosts the runtime environment with mounted PHOTON cartridges and SD reader. Use scripts/remote_test.sh as the standard entry point. Physical hardware actions (plug/unplug) require human intervention -- agents use prompt-and-wait pattern for these.

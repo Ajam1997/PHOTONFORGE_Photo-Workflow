@@ -59,7 +59,7 @@ Harden the nightly drift check and keep the architecture doc narrative current.
 
 ---
 
-## Sub-project 5 — Agent Write-back Integration 🔲 UP NEXT
+## Sub-project 5 — Agent Write-back Integration ✅ DONE
 
 Wire `@verification` and `@validation` agents to post results back to GitHub Issues after every run.
 
