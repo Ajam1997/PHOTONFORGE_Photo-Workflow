@@ -64,12 +64,14 @@ def seed_labels(client: GitHubClient) -> None:
 
 
 def seed_boards(client: GitHubClient) -> dict:
-    """Create the three Projects v2 boards with custom fields. Returns board metadata dict."""
+    """Create the three Projects v2 boards with custom fields. Returns board metadata dict.
+    Idempotent: skips creation if a board with the same title already exists.
+    """
     owner_id = client.get_owner_node_id()
     boards: dict = {}
 
     # Roadmap board
-    roadmap = client.create_project(owner_id, "PHOTONForge Roadmap")
+    roadmap = client.get_or_create_project(owner_id, "PHOTONForge Roadmap")
     stage_field_id = client.create_project_field(
         roadmap["id"], "Stage", "SINGLE_SELECT",
         options=[str(i) for i in range(1, 8)]
@@ -86,7 +88,7 @@ def seed_boards(client: GitHubClient) -> dict:
     print(f"  board: PHOTONForge Roadmap (#{roadmap['number']})")
 
     # Requirements board
-    reqs = client.create_project(owner_id, "PHOTONForge Requirements")
+    reqs = client.get_or_create_project(owner_id, "PHOTONForge Requirements")
     un_id_field = client.create_project_field(reqs["id"], "UN ID", "TEXT")
     fr_id_field = client.create_project_field(reqs["id"], "FR ID", "TEXT")
     acceptance_field = client.create_project_field(reqs["id"], "Acceptance Criteria", "TEXT")
@@ -107,12 +109,12 @@ def seed_boards(client: GitHubClient) -> dict:
     print(f"  board: PHOTONForge Requirements (#{reqs['number']})")
 
     # KPM Dashboard
-    kpm_board = client.create_project(owner_id, "PHOTONForge KPM Dashboard")
+    kpm_board = client.get_or_create_project(owner_id, "PHOTONForge KPM Dashboard")
     kpm_id_field = client.create_project_field(kpm_board["id"], "KPM ID", "TEXT")
     target_field = client.create_project_field(kpm_board["id"], "Target", "TEXT")
     last_measured_field = client.create_project_field(kpm_board["id"], "Last Measured", "TEXT")
-    status_field_id = client.create_project_field(
-        kpm_board["id"], "Status", "SINGLE_SELECT",
+    kpm_status_field_id = client.create_project_field(
+        kpm_board["id"], "KPM Status", "SINGLE_SELECT",
         options=["passing", "failing", "untested"]
     )
     measured_by_field = client.create_project_field(kpm_board["id"], "Measured By", "TEXT")
@@ -123,7 +125,7 @@ def seed_boards(client: GitHubClient) -> dict:
             "kpm_id_id": kpm_id_field,
             "target_id": target_field,
             "last_measured_id": last_measured_field,
-            "status_id": status_field_id,
+            "status_id": kpm_status_field_id,
             "measured_by_id": measured_by_field,
         },
     }

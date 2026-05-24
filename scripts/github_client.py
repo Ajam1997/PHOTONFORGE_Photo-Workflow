@@ -137,6 +137,25 @@ class GitHubClient:
         )
         return data["user"]["id"]
 
+    def find_project_by_title(self, title: str) -> dict | None:
+        """Return existing Projects v2 board with matching title, or None."""
+        data = self.graphql(
+            "query($login: String!) { user(login: $login) { projectsV2(first: 20) { nodes { id number title } } } }",
+            {"login": self.owner},
+        )
+        for node in data["user"]["projectsV2"]["nodes"]:
+            if node["title"] == title:
+                return {"id": node["id"], "number": node["number"]}
+        return None
+
+    def get_or_create_project(self, owner_id: str, title: str) -> dict:
+        """Return existing project with title, or create it."""
+        existing = self.find_project_by_title(title)
+        if existing:
+            print(f"    (found existing board: {title})")
+            return existing
+        return self.create_project(owner_id, title)
+
     def create_project(self, owner_id: str, title: str) -> dict:
         """Create a Projects v2 board. Returns {"id": ..., "number": ...}."""
         data = self.graphql(
@@ -165,11 +184,40 @@ class GitHubClient:
         )
         return data["addProjectV2Item"]["item"]["id"]
 
+    def _find_project_field_id(self, project_id: str, name: str) -> str | None:
+        """Return the node ID of an existing field on a project, or None."""
+        data = self.graphql(
+            """
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  fields(first: 30) {
+                    nodes {
+                      ... on ProjectV2Field { id name }
+                      ... on ProjectV2SingleSelectField { id name }
+                    }
+                  }
+                }
+              }
+            }
+            """,
+            {"projectId": project_id},
+        )
+        for node in data["node"]["fields"]["nodes"]:
+            if node.get("name") == name:
+                return node["id"]
+        return None
+
     def create_project_field(self, project_id: str, name: str, data_type: str, options: list[str] | None = None) -> str:
         """Create a custom field on a Projects v2 board. Returns field node ID.
+        Idempotent: returns existing field ID if a field with the same name exists.
         data_type: TEXT | SINGLE_SELECT | NUMBER | DATE
         options: required when data_type is SINGLE_SELECT
         """
+        existing_id = self._find_project_field_id(project_id, name)
+        if existing_id:
+            return existing_id
+
         if data_type == "SINGLE_SELECT":
             opts = [{"name": o, "color": "GRAY", "description": ""} for o in (options or [])]
             data = self.graphql(
