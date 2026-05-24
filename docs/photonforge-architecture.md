@@ -77,8 +77,8 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh | DEFINED |
 | [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | Spatio-Temporal Grouping | Cluster if temporal delta < 500ms AND Hamming distance near 0 | VERIFIED |
 | [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | Perceptual Deduplication | dHash near-duplicate detection (Hamming distance <= 2) | VERIFIED |
-| [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | Sharpness Scoring | Normalized Laplacian Variance | DEFINED |
-| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps | DEFINED |
+| [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | Sharpness Scoring | Normalized Laplacian Variance | VERIFIED |
+| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps | VERIFIED |
 | [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | Exposure Assessment | 11-zone luminance segmentation; entropy vs. IEA40K threshold | DEFINED |
 | [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | Local Semantic Naming | Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs. | DEFINED |
 | [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | Genre Detection Calibration and Back-Training |  | DEFINED |
