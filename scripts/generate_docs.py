@@ -149,11 +149,11 @@ def main() -> None:
     req_map = yaml.safe_load((SCRIPTS / "requirement_map.yml").read_text(encoding="utf-8"))
 
     print("Fetching Issues from GitHub...")
-    un_issues = client.list_issues(labels="type: user-need")
+    un_issues = client.list_issues(labels="type: user-need", state="all")
     fr_issues = client.list_issues(labels="type: fr", state="all")
     nfr_issues = client.list_issues(labels="type: nfr", state="all")
-    kpm_issues = client.list_issues(labels="type: kpm")
-    epic_issues = client.list_issues(labels="type: epic")
+    kpm_issues = client.list_issues(labels="type: kpm", state="all")
+    epic_issues = client.list_issues(labels="type: epic", state="all")
 
     # Regenerate living-user-needs.md
     un_path = DOCS / "living-user-needs.md"

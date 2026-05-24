@@ -4,6 +4,7 @@ stages:
     user_needs:
     - UN-001
     - UN-002
+    - UN-003
   2:
     title: Stage 2 — Core Analysis Engine
     user_needs:
@@ -17,6 +18,7 @@ stages:
     user_needs:
     - UN-020
     - UN-021
+    - UN-022
   4:
     title: Stage 4 — Host Integration
     user_needs:
@@ -45,6 +47,10 @@ user_needs:
     kpms: []
     non_functional_requirements: []
   UN-002:
+    functional_requirements: []
+    kpms: []
+    non_functional_requirements: []
+  UN-003:
     functional_requirements: []
     kpms: []
     non_functional_requirements: []
@@ -84,6 +90,10 @@ user_needs:
   UN-021:
     functional_requirements:
     - FR-1.8
+    kpms: []
+    non_functional_requirements: []
+  UN-022:
+    functional_requirements: []
     kpms: []
     non_functional_requirements: []
   UN-030:

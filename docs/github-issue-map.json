@@ -105,6 +105,14 @@
     "UN-054": {
       "number": 48,
       "node_id": "I_kwDOR_dVD88AAAABDNN1nw"
+    },
+    "UN-003": {
+      "number": 14,
+      "node_id": "I_kwDOR_dVD88AAAABDHfF2w"
+    },
+    "UN-022": {
+      "number": 16,
+      "node_id": "I_kwDOR_dVD88AAAABDHlLFg"
     }
   },
   "functional_requirements": {
