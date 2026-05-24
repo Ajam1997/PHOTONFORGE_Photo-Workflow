@@ -1,60 +1,52 @@
-\*\*`generate\_name()` is working.\*\* `DSC04937.JPG` → `answering-does-not-require-reading` — a genuine semantic slug, not a raw stem, not a crash. Here's the full picture:
+# Engineering Notes
 
+Running notes on open bugs and known performance gaps. These are not specs — they're observations captured during development sessions for follow-up.
 
+---
 
-\---
+## KPM-1.2 Performance Gap — Florence-2 Inference Speed
 
+**Status:** Open
+**Target:** ≤ 2.5s / image (KPM-1.2)
+**Measured:** 6.7s on i7-7500U
 
+`generate_name()` is working — it produces real semantic slugs (e.g. `DSC04937.JPG` → `answering-does-not-require-reading`). The functional fix is done. The speed is the problem.
 
-\*\*What was fixed (4 commits):\*\*
+**Root cause:** No KV-cache. The current implementation uses `decoder_model` for every step, which is O(n²) in sequence length. Each token generation re-processes all previous tokens from scratch.
 
+**Investigation path:** Switch to `decoder_with_past_model_int8.onnx` for step 2+ (generate one token with `decoder_model`, then feed the returned `past_key_values` into `decoder_with_past` for subsequent steps). This is blocked by a fixed 16-token input dimension in the `decoder_with_past` model — needs reshaping or re-export.
 
+**Commits that fixed the functional output:**
 
 | Commit | Fix |
+|---|---|
+| `7edfc51` | Added `_build_empty_past_kv` — resolved missing past_key_values on step 0 |
+| `95e9cd4` | Switched from broken merged decoder to `decoder_model` + `decoder_with_past` split pair |
+| `14dbd13` | Dropped padded `decoder_with_past` (garbled output); `decoder_model` for all steps |
+| `1728f72` | Fixed decoder seed from BOS=0 to `[decoder_start=2, forced_bos=0]` |
+| `b3aae18` | Root cause: replaced `<CAPTION>` (subword-decomposed) with `<cap>` (id=51269, registered special token) |
 
-|--------|-----|
+---
 
-| `7edfc51` | Added `\_build\_empty\_past\_kv` — resolved missing past\_key\_values on step 0 |
+## Open Naming Bugs
 
-| `95e9cd4` | Switched from broken merged decoder to `decoder\_model` + `decoder\_with\_past` split pair |
+**Status:** Open
+**Source:** Test batch run — see `docs/ValidationReports/PhotoWorkFlowTestOutput` (deleted; check git history if needed)
 
-| `14dbd13` | Dropped padded `decoder\_with\_past` (garbled output); `decoder\_model` for all steps |
+Two separate bugs observed during a real photo batch test:
 
-| `1728f72` | Fixed decoder seed from BOS=0 to `\[decoder\_start=2, forced\_bos=0]` |
+### Bug 1 — Model outputs one of three fixed strings
 
-| `b3aae18` | \*\*Root cause:\*\* replaced `<CAPTION>` (subword-decomposed) with `<cap>` (id=51269, registered special token) |
+The naming model outputs only one of:
+- `"yes"`
+- `"no"`
+- `"answering does not require reading"`
 
+instead of a genuine semantic caption. This is distinct from the earlier fix (which produced real output in isolation) — the batch run context or input preprocessing may be feeding the model differently.
 
+### Bug 2 — File not renamed on disk
 
-\---
-
-
-
-\*\*Current status:\*\*
-
-
-
-| Check | Result |
-
-|-------|--------|
-
-| Semantic slug | ✅ \*\*PASS\*\* — real description, no `DSC` prefix |
-
-| KPM-1.2 (≤ 2.5s) | ❌ \*\*FAIL\*\* — 6.7s on i7-7500U |
-
-
-
-KPM-1.2 is a separate performance concern. The no-cache `decoder\_model` loop is O(n²) in sequence length — a KV-cache path using `decoder\_with\_past\_model\_int8.onnx` can cut this dramatically, but that requires resolving the fixed-16-token input dimension. Flag for the next @engineer session when you're ready to tackle the speed budget.
-
-
-See docs/ValidationReports/PhotoWorkFlowTestOutput
-
-This folder contains the output from a test batch of photos i ran, there are several issues, the nameing seams to still be broken and assigns each photo one of three names 
-
-"yes"
-
-"no"
-
-"answering does not require reading"
-
-Additionaly the name is out put to the XMP but the file name is not changed. The orginal file name as well as the new file name should be stored in the XMP and the file should be renamed with the generated name.
+The semantic name is written to the XMP sidecar but the actual file is not renamed. Expected behaviour:
+- Original filename stored in XMP (e.g. `DSC04937.ARW`)
+- New semantic filename stored in XMP (e.g. `cat-sitting-on-windowsill.ARW`)
+- File renamed on disk to the semantic name
