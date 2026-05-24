@@ -70,6 +70,7 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 
 ### 3.1 Functional Requirements
 
+<!-- AUTO:fr_table -->
 | ID | Description | Implementation |
 |:---|:---|:---|
 | FR-1.1 | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge |
@@ -82,9 +83,11 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | FR-1.8 | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation |
 | FR-1.9 | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. |
 | FR-1.10 | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh |
+<!-- /AUTO:fr_table -->
 
 ### 3.2 Non-Functional Requirements
 
+<!-- AUTO:nfr_table -->
 | ID | Description | Specification |
 |:---|:---|:---|
 | NFR-2.1 | Internet Independence | 100% offline at runtime. Initial provisioning (OS, packages, models) may use internet. Cloud export (Phase 3) user-opt-in only. |
@@ -94,9 +97,11 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | NFR-3.1 | GUI Memory Budget | No separate GUI process. PHOTONForge runs as a Lua panel inside Darktable (~0 MB additional). |
 | NFR-3.2 | Plugin Installation | Single Lua script copied to `~/.config/darktable/lua/`. No build step. |
 | NFR-3.3 | Darktable Version | Target Darktable 4.x+ Lua API (dt.register_lib, dt.new_widget). |
+<!-- /AUTO:nfr_table -->
 
 ### 3.3 Key Performance Measures
 
+<!-- AUTO:kpm_table -->
 | KPM | Metric | Target | Owner | Verified By |
 |:---|:---|:---|:---|:---|
 | KPM-1.1 | Ingest Latency | >= 80% USB 3.0 bandwidth | @devops | @verification |
@@ -105,6 +110,7 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | KPM-1.4 | Data Integrity | Zero SQLite corruption over 50 eject cycles | @devops | @validation |
 
 NOTE: KPM-1.2 provisionally set at 2.5s pending benchmarking on the i7-7500U. If INT8 inference is faster, tighten toward 1.5s.
+<!-- /AUTO:kpm_table -->
 
 ---
 

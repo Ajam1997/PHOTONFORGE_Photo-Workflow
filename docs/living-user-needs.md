@@ -1,5 +1,8 @@
 # Living User Need Document -- PHOTONForge
 
+> **Source of truth:** [GitHub Projects — Requirements Board](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/projects).
+> This file is auto-generated from GitHub Issues — do not edit the section below manually.
+
 ## Format
 UN-[ID]: [User need in plain language]
 Acceptance: [Observable, measurable output]
@@ -8,6 +11,8 @@ Stage: [Roadmap stage number]
 Status: [DEFINED | VERIFIED | VALIDATED]
 
 ## Requirements
+
+<!-- AUTO:user_needs -->
 
 UN-001: The system installs without errors on the target machine.
 Acceptance: pip install -e . exits 0. pytest --collect-only finds all test files.
@@ -122,3 +127,5 @@ Acceptance: Corrupt files or inference failures log a warning, record error in m
 KPM: NONE
 Stage: 5
 Status: DEFINED
+
+<!-- /AUTO:user_needs -->
