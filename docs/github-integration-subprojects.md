@@ -47,7 +47,7 @@ Extend the basic Issue closure automation (`pr-close-issues.yml`) with smarter r
 
 ---
 
-## Sub-project 4 — Scheduled Automation Enhancements 🔲 UP NEXT
+## Sub-project 4 — Scheduled Automation Enhancements ✅ DONE
 
 Harden the nightly drift check and keep the architecture doc narrative current.
 
@@ -59,7 +59,7 @@ Harden the nightly drift check and keep the architecture doc narrative current.
 
 ---
 
-## Sub-project 5 — Agent Write-back Integration 🔲
+## Sub-project 5 — Agent Write-back Integration 🔲 UP NEXT
 
 Wire `@verification` and `@validation` agents to post results back to GitHub Issues after every run.
 

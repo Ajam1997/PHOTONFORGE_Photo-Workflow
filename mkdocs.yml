@@ -36,6 +36,7 @@ nav:
   - Specs & Plans:
     - Overview: superpowers/index.md
     - Specs:
+      - Scheduled Automation: superpowers/specs/2026-05-23-scheduled-automation-design.md
       - PR Automation: superpowers/specs/2026-05-23-pr-automation-design.md
       - Doc Reorganisation: superpowers/specs/2026-05-23-doc-reorg-design.md
       - GitHub Scaffolding: superpowers/specs/2026-05-23-github-scaffolding-design.md
@@ -73,6 +74,7 @@ nav:
       - 2026-04-16 Build Log: PlanningBriefs/2026-04-16-build-log.md
       - 2026-04-15 Brief: PlanningBriefs/2026-04-15-planning-brief.md
       - 2026-04-15 Build Log: PlanningBriefs/2026-04-15-build-log.md
+  - Drift Reports: drift-reports/index.md
   - GitHub Integration: github-integration-subprojects.md
   - Notes: Notes.md
 

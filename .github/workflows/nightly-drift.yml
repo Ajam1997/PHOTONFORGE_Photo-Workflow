@@ -33,7 +33,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/drift-reports/ || true
+          git add docs/drift-reports/index.md docs/drift-reports/*.md || true
           git diff --staged --quiet || git commit -m "docs: add nightly drift report [skip ci]"
           git push || true
 

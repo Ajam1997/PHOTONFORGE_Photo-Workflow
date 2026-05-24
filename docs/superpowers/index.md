@@ -6,6 +6,7 @@ Design specs and implementation plans for each PHOTONForge sub-project.
 
 | Date | Title |
 |:---|:---|
+| 2026-05-23 | [Scheduled Automation](specs/2026-05-23-scheduled-automation-design.md) |
 | 2026-05-23 | [PR Automation](specs/2026-05-23-pr-automation-design.md) |
 | 2026-05-23 | [Doc Reorganisation](specs/2026-05-23-doc-reorg-design.md) |
 | 2026-05-23 | [GitHub Scaffolding](specs/2026-05-23-github-scaffolding-design.md) |

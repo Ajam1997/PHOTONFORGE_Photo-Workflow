@@ -90,6 +90,28 @@ def render_drift_report(stale: list[dict], date: str) -> str:
     return "\n".join(lines) + "\n"
 
 
+def update_drift_index(drift_dir: Path) -> None:
+    """Regenerate docs/drift-reports/index.md listing all reports newest-first."""
+    reports = sorted(
+        [f for f in drift_dir.glob("*.md") if f.name != "index.md"],
+        reverse=True,
+    )
+    lines = [
+        "# Drift Reports",
+        "",
+        "Nightly stale-requirement reports. Generated automatically by `check_drift.py`.",
+        "",
+    ]
+    if reports:
+        lines += ["| Date | Report |", "|:---|:---|"]
+        for r in reports:
+            date = r.stem
+            lines.append(f"| {date} | [View]({r.name}) |")
+    else:
+        lines.append("No drift reports yet — all requirements are current.")
+    (drift_dir / "index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main() -> None:
     """Fetch FR/NFR issues, detect stale items, and open GitHub Issue if any found."""
     client = GitHubClient()
@@ -101,8 +123,9 @@ def main() -> None:
 
     stale = find_stale_frs(fr_issues + nfr_issues, SRC)
 
+    DRIFT_DIR.mkdir(parents=True, exist_ok=True)
+
     if stale:
-        DRIFT_DIR.mkdir(parents=True, exist_ok=True)
         report_path = DRIFT_DIR / f"{today}.md"
         report = render_drift_report(stale, today)
         report_path.write_text(report, encoding="utf-8")
@@ -120,6 +143,11 @@ def main() -> None:
             ["type: drift-report"],
         )
         print("Opened drift Issue on GitHub")
+
+    update_drift_index(DRIFT_DIR)
+    print(f"Updated drift index: {DRIFT_DIR / 'index.md'}")
+
+    if stale:
         sys.exit(1)  # Non-zero exit flags CI as needing attention
     else:
         print("No drift detected.")
