@@ -71,6 +71,7 @@ nav:
       - 2026-04-15 Brief: PlanningBriefs/2026-04-15-planning-brief.md
       - 2026-04-15 Build Log: PlanningBriefs/2026-04-15-build-log.md
       - Approval Pending: PlanningBriefs/APPROVAL_PENDING.md
+  - GitHub Integration: github-integration-subprojects.md
   - Notes: Notes.md
 
 plugins:
