@@ -64,21 +64,13 @@ nav:
       - Stage 7.1 GUI Scaffold: superpowers/plans/2026-04-17-stage-7-1-gui-scaffold.md
       - SSH Key Update: superpowers/plans/2026-04-17-ssh-key-update.md
       - Soak Test Notifications: superpowers/plans/2026-04-16-soak-test-notifications.md
-  - Planning Briefs:
-    - 2026-04-17 Brief: PlanningBriefs/2026-04-17-planning-brief.md
-    - 2026-04-17 Build Log: PlanningBriefs/2026-04-17-build-log.md
-    - 2026-04-16 Build Log: PlanningBriefs/2026-04-16-build-log.md
-    - 2026-04-15 Brief: PlanningBriefs/2026-04-15-planning-brief.md
-    - 2026-04-15 Build Log: PlanningBriefs/2026-04-15-build-log.md
-    - Approval Pending: PlanningBriefs/APPROVAL_PENDING.md
-  - Reports:
-    - Verification:
-      - 2026-04-18 Failure: VerificationReports/2026-04-18-failure-843e109.md
-      - 2026-04-18 14:00: VerificationReports/2026-04-18-14-00-verification.md
-      - 2026-04-17: VerificationReports/2026-04-17-verification-report.md
-    - Validation:
-      - Stage 7.1: ValidationReports/2026-04-18-stage7.1-validation.md
-      - Soak Test Log: ValidationReports/soak-test-log.md
+    - Briefs & Build Logs:
+      - 2026-04-17 Brief: PlanningBriefs/2026-04-17-planning-brief.md
+      - 2026-04-17 Build Log: PlanningBriefs/2026-04-17-build-log.md
+      - 2026-04-16 Build Log: PlanningBriefs/2026-04-16-build-log.md
+      - 2026-04-15 Brief: PlanningBriefs/2026-04-15-planning-brief.md
+      - 2026-04-15 Build Log: PlanningBriefs/2026-04-15-build-log.md
+      - Approval Pending: PlanningBriefs/APPROVAL_PENDING.md
   - Notes: Notes.md
 
 plugins:
