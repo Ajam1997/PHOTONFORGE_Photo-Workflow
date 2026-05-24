@@ -32,6 +32,9 @@ nav:
   - KPM Dashboard: kpm-dashboard.md
   - Specs & Plans:
     - Overview: superpowers/index.md
+  - Research:
+    - Overview: research/index.md
+    - Scoring Redesign: research/scoring-redesign.md
 
 plugins:
   - search
