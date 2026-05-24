@@ -80,7 +80,7 @@ Stage: 7
 Status: DEFINED
 
 [UN-051](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/45): The pipeline tracks per-photo processing state across stages via a DB File.
-Acceptance: scan creates a JSONL manifest. Each subsequent stage reads and updates it. Manifest records per-photo stages_completed, scores, semantic_name, and errors.
+Acceptance: ingest creates a SQLite DB file. Each subsequent stage reads and updates it. DB records per-photo stages_completed, scores, semantic_name, and errors.
 KPM: NONE
 Stage: 5
 Status: DEFINED
