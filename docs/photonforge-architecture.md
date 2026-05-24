@@ -75,6 +75,8 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 |:---|:---|:---|:---|
 | [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge | DEFINED |
 | [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh | DEFINED |
+| [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | Genre Detection Calibration and Back-Training |  | DEFINED |
+| [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | Multi-Genre Tagging Support |  | DEFINED |
 | [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. | DEFINED |
 <!-- /AUTO:fr_table -->
 
