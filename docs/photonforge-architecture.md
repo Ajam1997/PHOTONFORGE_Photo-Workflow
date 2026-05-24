@@ -85,6 +85,7 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | Multi-Genre Tagging Support |  | DEFINED |
 | [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation | DEFINED |
 | [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. | DEFINED |
+| [[Fixture Corpus] Labeled reference image set for KPM measurement](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/75) | Labeled reference image set for KPM measurement |  | DEFINED |
 <!-- /AUTO:fr_table -->
 
 ### 3.2 Non-Functional Requirements
@@ -104,6 +105,7 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | KPM | Metric | Target | Owner | Verified By | Last Measured | Status |
 |:---|:---|:---|:---|:---|:---|:---|
 | [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | Ingest Latency | >= 80% USB 3.0 bandwidth | @devops | @verification | untested | untested |
+| [KPM-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74) | Session Grouping Precision | >= 90% F1 score on session boundary detection against labeled fixture corpus | @engineer | @verification | untested | untested |
 | [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @engineer | @verification | untested | untested |
 | [KPM-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/68) | Analyzer Peak RSS | <= 1.5 GB peak RSS during full scoring pipeline | @engineer | @verification | untested | untested |
 | [KPM-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/65) | Data Integrity | Zero SQLite corruption over 50 eject cycles | @devops | @validation | untested | untested |
