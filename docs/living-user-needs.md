@@ -19,6 +19,24 @@ KPM: NONE
 Stage: 1
 Status: DEFINED
 
+[UN-002](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/31): All five primary agents are discoverable by Claude Code.
+Acceptance: claude agents lists @architect, @engineer, @devops, @verification, @validation.
+KPM: NONE
+Stage: 1
+Status: DEFINED
+
+[UN-010](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/32): Photos are automatically grouped into shooting sessions.
+Acceptance: cluster_sessions() correctly groups fixture images by time and location.
+KPM: NONE
+Stage: 2
+Status: DEFINED
+
+[UN-011](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/33): Near-duplicate photos are archived.
+Acceptance: deduplicate() archives images with dHash Hamming <= 2. No false positives.
+KPM: NONE
+Stage: 2
+Status: DEFINED
+
 [UN-012](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/34): Each photo receives a sharpness score.
 Acceptance: score_sharpness() returns float in [0.0, 1.0] for all fixture images.
 KPM: NONE
