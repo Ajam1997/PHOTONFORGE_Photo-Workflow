@@ -87,10 +87,28 @@ class GitHubClient:
         r.raise_for_status()
         return r.json()
 
+    def get_issue(self, issue_number: int) -> dict:
+        r = self._session.get(
+            f"{self.REST_BASE}/repos/{self.owner}/{self.repo}/issues/{issue_number}",
+        )
+        r.raise_for_status()
+        return r.json()
+
     def set_labels(self, issue_number: int, labels: list[str]) -> None:
         r = self._session.post(
             f"{self.REST_BASE}/repos/{self.owner}/{self.repo}/issues/{issue_number}/labels",
             json={"labels": labels},
+        )
+        r.raise_for_status()
+
+    def replace_status_label(self, issue_number: int, new_status: str) -> None:
+        """Replace any existing status:* label with new_status, preserving all other labels."""
+        issue = self.get_issue(issue_number)
+        current = [l["name"] for l in issue.get("labels", [])]
+        updated = [l for l in current if not l.startswith("status:")] + [new_status]
+        r = self._session.put(
+            f"{self.REST_BASE}/repos/{self.owner}/{self.repo}/issues/{issue_number}/labels",
+            json={"labels": updated},
         )
         r.raise_for_status()
 

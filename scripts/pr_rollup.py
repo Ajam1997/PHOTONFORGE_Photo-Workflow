@@ -1,0 +1,188 @@
+"""PR merge → Issue status rollup.
+
+Called by .github/workflows/pr-close-issues.yml after a PR is merged.
+Parses closed Issue numbers from the PR body, applies status: verified to
+FR/NFR Issues, rolls up to parent UNs when all siblings are verified, and
+promotes parent Epics to Done when all UNs in a stage are verified.
+"""
+import argparse
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+import yaml
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from scripts.github_client import GitHubClient
+
+REPO_ROOT = Path(__file__).parent.parent
+ISSUE_MAP_PATH = REPO_ROOT / "docs" / "github-issue-map.json"
+REQ_MAP_PATH = REPO_ROOT / "scripts" / "requirement_map.yml"
+
+
+def load_maps() -> tuple[dict, dict]:
+    issue_map = json.loads(ISSUE_MAP_PATH.read_text())
+    req_map = yaml.safe_load(REQ_MAP_PATH.read_text())
+    return issue_map, req_map
+
+
+def build_reverse_maps(issue_map: dict, req_map: dict) -> tuple[dict, dict, dict, dict]:
+    """Return (fr_to_un, nfr_to_un, un_to_stage, stage_to_epic_num)."""
+    fr_to_un: dict[str, str] = {}
+    nfr_to_un: dict[str, str] = {}
+    un_to_stage: dict[str, int] = {}
+    stage_to_epic_num: dict[int, int] = {}
+
+    for stage_num, stage_data in req_map["stages"].items():
+        # Epic number lookup: issue_map["epics"] is keyed by "Stage N" short form
+        epic_entry = issue_map["epics"].get(f"Stage {stage_num}", {})
+        if epic_entry:
+            stage_to_epic_num[stage_num] = epic_entry["number"]
+
+        for un_id in stage_data.get("user_needs", []):
+            un_to_stage[un_id] = stage_num
+            un_entry = req_map["user_needs"].get(un_id, {})
+            for fr_id in un_entry.get("functional_requirements", []):
+                fr_to_un[fr_id] = un_id
+            for nfr_id in un_entry.get("non_functional_requirements", []):
+                nfr_to_un[nfr_id] = un_id
+
+    return fr_to_un, nfr_to_un, un_to_stage, stage_to_epic_num
+
+
+def build_num_to_req_id(issue_map: dict) -> dict[int, str]:
+    """Map GitHub Issue number → requirement ID for all FR/NFR entries."""
+    result: dict[int, str] = {}
+    for section in ("functional_requirements", "non_functional_requirements"):
+        for req_id, data in issue_map.get(section, {}).items():
+            result[data["number"]] = req_id
+    return result
+
+
+def is_verified(issue: dict) -> bool:
+    return any(l["name"] == "status: verified" for l in issue.get("labels", []))
+
+
+def get_req_issue_num(issue_map: dict, req_id: str) -> int | None:
+    for section in ("functional_requirements", "non_functional_requirements"):
+        entry = issue_map.get(section, {}).get(req_id)
+        if entry:
+            return entry["number"]
+    return None
+
+
+def rollup(pr_body: str, dry_run: bool = False) -> None:
+    issue_map, req_map = load_maps()
+    fr_to_un, nfr_to_un, un_to_stage, stage_to_epic_num = build_reverse_maps(issue_map, req_map)
+    num_to_req_id = build_num_to_req_id(issue_map)
+
+    client = GitHubClient()
+
+    # Fetch all issues once to avoid repeated list API calls
+    all_issues_list = client.list_issues(state="all")
+    all_issues: dict[int, dict] = {i["number"]: i for i in all_issues_list}
+
+    closed_nums = [
+        int(m)
+        for m in re.findall(r"(?:Closes|Fixes|Resolves)\s+#(\d+)", pr_body, re.IGNORECASE)
+    ]
+    print(f"Closed issue numbers from PR body: {closed_nums}")
+
+    newly_verified_uns: set[str] = set()
+
+    for num in closed_nums:
+        req_id = num_to_req_id.get(num)
+        if not req_id:
+            print(f"  #{num}: not a tracked FR/NFR — skipping")
+            continue
+
+        print(f"  #{num} ({req_id}): applying status: verified")
+        if not dry_run:
+            client.replace_status_label(num, "status: verified")
+        # Update local cache so sibling checks see this as verified
+        if num in all_issues:
+            labels = [l for l in all_issues[num].get("labels", []) if not l["name"].startswith("status:")]
+            labels.append({"name": "status: verified"})
+            all_issues[num]["labels"] = labels
+
+        parent_un = fr_to_un.get(req_id) or nfr_to_un.get(req_id)
+        if not parent_un:
+            print(f"    no parent UN for {req_id} — skipping rollup")
+            continue
+
+        # Check all FR/NFR siblings
+        un_entry = req_map["user_needs"].get(parent_un, {})
+        sibling_ids = (
+            un_entry.get("functional_requirements", []) +
+            un_entry.get("non_functional_requirements", [])
+        )
+
+        unverified = []
+        for sib_id in sibling_ids:
+            sib_num = get_req_issue_num(issue_map, sib_id)
+            if not sib_num:
+                continue
+            sib_issue = all_issues.get(sib_num, {})
+            if not is_verified(sib_issue):
+                unverified.append(f"{sib_id} (#{sib_num})")
+
+        if unverified:
+            print(f"    {parent_un}: siblings not yet verified: {', '.join(unverified)}")
+        else:
+            un_num = issue_map["user_needs"].get(parent_un, {}).get("number")
+            if un_num:
+                print(f"    all siblings verified → {parent_un} (#{un_num}): applying status: verified")
+                if not dry_run:
+                    client.replace_status_label(un_num, "status: verified")
+                if un_num in all_issues:
+                    labels = [l for l in all_issues[un_num].get("labels", []) if not l["name"].startswith("status:")]
+                    labels.append({"name": "status: verified"})
+                    all_issues[un_num]["labels"] = labels
+                newly_verified_uns.add(parent_un)
+
+    # Epic rollup
+    for un_id in newly_verified_uns:
+        stage_num = un_to_stage.get(un_id)
+        if stage_num is None:
+            continue
+
+        stage_data = req_map["stages"].get(stage_num, {})
+        all_uns_in_stage = stage_data.get("user_needs", [])
+
+        unverified_uns = []
+        for un in all_uns_in_stage:
+            un_num = issue_map["user_needs"].get(un, {}).get("number")
+            if not un_num:
+                continue
+            un_issue = all_issues.get(un_num, {})
+            if not is_verified(un_issue):
+                unverified_uns.append(f"{un} (#{un_num})")
+
+        if unverified_uns:
+            print(f"  Stage {stage_num}: UNs not yet verified: {', '.join(unverified_uns)}")
+        else:
+            epic_num = stage_to_epic_num.get(stage_num)
+            if epic_num:
+                print(f"  Stage {stage_num}: all UNs verified → closing Epic #{epic_num}")
+                if not dry_run:
+                    client.replace_status_label(epic_num, "status: validated")
+                    client.close_issue(epic_num)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Roll up PR Issue status after merge")
+    parser.add_argument("--dry-run", action="store_true", help="Print planned actions without touching GitHub")
+    args = parser.parse_args()
+
+    pr_body = os.environ.get("PR_BODY", "")
+    if not pr_body:
+        print("PR_BODY env var is empty — nothing to process")
+        sys.exit(0)
+
+    rollup(pr_body, dry_run=args.dry_run)
+
+
+if __name__ == "__main__":
+    main()

@@ -35,7 +35,7 @@ Clean up and consolidate the docs directory so the site is tidy and nothing is o
 
 ---
 
-## Sub-project 3 — PR Automation Refinements 🔲 UP NEXT
+## Sub-project 3 — PR Automation Refinements ✅ DONE
 
 Extend the basic Issue closure automation (`pr-close-issues.yml`) with smarter rollup logic.
 
@@ -47,7 +47,7 @@ Extend the basic Issue closure automation (`pr-close-issues.yml`) with smarter r
 
 ---
 
-## Sub-project 4 — Scheduled Automation Enhancements 🔲
+## Sub-project 4 — Scheduled Automation Enhancements 🔲 UP NEXT
 
 Harden the nightly drift check and keep the architecture doc narrative current.
 

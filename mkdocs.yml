@@ -36,6 +36,7 @@ nav:
   - Specs & Plans:
     - Overview: superpowers/index.md
     - Specs:
+      - PR Automation: superpowers/specs/2026-05-23-pr-automation-design.md
       - Doc Reorganisation: superpowers/specs/2026-05-23-doc-reorg-design.md
       - GitHub Scaffolding: superpowers/specs/2026-05-23-github-scaffolding-design.md
       - Genre-Aware Scoring: superpowers/specs/2026-05-21-genre-aware-scoring-design.md
