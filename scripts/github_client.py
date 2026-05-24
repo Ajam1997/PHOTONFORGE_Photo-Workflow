@@ -68,11 +68,15 @@ class GitHubClient:
         return self.create_issue(title, body, labels)
 
     def add_sub_issue(self, parent_number: int, child_issue_id: int) -> None:
-        """Add child_issue_id as a sub-issue of parent_number."""
+        """Add child_issue_id as a sub-issue of parent_number.
+        Skips gracefully if the sub-issues API is unavailable (404) — requires GitHub Team/Enterprise.
+        """
         r = self._session.post(
             f"{self.REST_BASE}/repos/{self.owner}/{self.repo}/issues/{parent_number}/sub_issues",
             json={"sub_issue_id": child_issue_id},
         )
+        if r.status_code == 404:
+            return  # Sub-issues API not available on this plan — hierarchy captured via labels/body
         r.raise_for_status()
 
     def post_comment(self, issue_number: int, body: str) -> dict:
