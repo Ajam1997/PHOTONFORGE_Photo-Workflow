@@ -79,7 +79,7 @@ KPM: KPM-1.4/KPM-1.1
 Stage: 7
 Status: DEFINED
 
-[UN-051](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/45): The pipeline tracks per-photo processing state across stages via a manifest file.
+[UN-051](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/45): The pipeline tracks per-photo processing state across stages via a DB File.
 Acceptance: scan creates a JSONL manifest. Each subsequent stage reads and updates it. Manifest records per-photo stages_completed, scores, semantic_name, and errors.
 KPM: NONE
 Stage: 5
