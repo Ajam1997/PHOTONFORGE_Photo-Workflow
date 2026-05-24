@@ -63,6 +63,75 @@ def seed_labels(client: GitHubClient) -> None:
         print(f"  label: {label['name']}")
 
 
+def seed_boards(client: GitHubClient) -> dict:
+    """Create the three Projects v2 boards with custom fields. Returns board metadata dict."""
+    owner_id = client.get_owner_node_id()
+    boards: dict = {}
+
+    # Roadmap board
+    roadmap = client.create_project(owner_id, "PHOTONForge Roadmap")
+    stage_field_id = client.create_project_field(
+        roadmap["id"], "Stage", "SINGLE_SELECT",
+        options=[str(i) for i in range(1, 8)]
+    )
+    owner_field_id = client.create_project_field(
+        roadmap["id"], "Owner", "SINGLE_SELECT",
+        options=["architect", "engineer", "devops"]
+    )
+    boards["roadmap"] = {
+        "id": roadmap["id"],
+        "number": roadmap["number"],
+        "fields": {"stage_id": stage_field_id, "owner_id": owner_field_id},
+    }
+    print(f"  board: PHOTONForge Roadmap (#{roadmap['number']})")
+
+    # Requirements board
+    reqs = client.create_project(owner_id, "PHOTONForge Requirements")
+    un_id_field = client.create_project_field(reqs["id"], "UN ID", "TEXT")
+    fr_id_field = client.create_project_field(reqs["id"], "FR ID", "TEXT")
+    acceptance_field = client.create_project_field(reqs["id"], "Acceptance Criteria", "TEXT")
+    req_owner_field = client.create_project_field(
+        reqs["id"], "Owner", "SINGLE_SELECT",
+        options=["architect", "engineer", "devops"]
+    )
+    boards["requirements"] = {
+        "id": reqs["id"],
+        "number": reqs["number"],
+        "fields": {
+            "un_id_id": un_id_field,
+            "fr_id_id": fr_id_field,
+            "acceptance_id": acceptance_field,
+            "owner_id": req_owner_field,
+        },
+    }
+    print(f"  board: PHOTONForge Requirements (#{reqs['number']})")
+
+    # KPM Dashboard
+    kpm_board = client.create_project(owner_id, "PHOTONForge KPM Dashboard")
+    kpm_id_field = client.create_project_field(kpm_board["id"], "KPM ID", "TEXT")
+    target_field = client.create_project_field(kpm_board["id"], "Target", "TEXT")
+    last_measured_field = client.create_project_field(kpm_board["id"], "Last Measured", "TEXT")
+    status_field_id = client.create_project_field(
+        kpm_board["id"], "Status", "SINGLE_SELECT",
+        options=["passing", "failing", "untested"]
+    )
+    measured_by_field = client.create_project_field(kpm_board["id"], "Measured By", "TEXT")
+    boards["kpm_dashboard"] = {
+        "id": kpm_board["id"],
+        "number": kpm_board["number"],
+        "fields": {
+            "kpm_id_id": kpm_id_field,
+            "target_id": target_field,
+            "last_measured_id": last_measured_field,
+            "status_id": status_field_id,
+            "measured_by_id": measured_by_field,
+        },
+    }
+    print(f"  board: PHOTONForge KPM Dashboard (#{kpm_board['number']})")
+
+    return boards
+
+
 def seed_issues(
     client: GitHubClient, req_map: dict, un_items: list[dict], arch: dict, dry_run: bool
 ) -> dict:
@@ -220,19 +289,22 @@ def main() -> None:
     un_items = parse_user_needs(DOCS / "living-user-needs.md")
     arch = parse_architecture(DOCS / "photonforge-architecture.md")
 
-    # For dry-run, use a dummy token; for real runs, let GitHubClient read from env
     client = GitHubClient(token="dry-run" if dry_run else None)
 
     print("Creating labels...")
     if not dry_run:
         seed_labels(client)
+
+    print("\nCreating Projects boards...")
+    if not dry_run:
+        boards = seed_boards(client)
     else:
-        # Still print label names for dry-run feedback
-        for label in build_label_definitions():
-            print(f"  label: {label['name']}")
+        boards = {}
 
     print("\nCreating Issues...")
     issue_map = seed_issues(client, req_map, un_items, arch, dry_run)
+    issue_map["projects"] = boards
+    issue_map["project_items"] = {"kpm_dashboard": {}}
 
     if not dry_run:
         MAP_PATH.write_text(json.dumps(issue_map, indent=2))
