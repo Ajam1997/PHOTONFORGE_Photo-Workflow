@@ -19,12 +19,6 @@ KPM: NONE
 Stage: 1
 Status: DEFINED
 
-[UN-002](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/31): All five primary agents are discoverable by Claude Code.
-Acceptance: claude agents lists @architect, @engineer, @devops, @verification, @validation.
-KPM: NONE
-Stage: 1
-Status: DEFINED
-
 [UN-010](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/32): Photos are automatically grouped into shooting sessions.
 Acceptance: cluster_sessions() correctly groups fixture images by time and location.
 KPM: NONE
