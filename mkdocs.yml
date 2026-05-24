@@ -30,11 +30,56 @@ nav:
   - User Needs: living-user-needs.md
   - Architecture: photonforge-architecture.md
   - KPM Dashboard: kpm-dashboard.md
-  - Specs & Plans:
-    - Overview: superpowers/index.md
   - Research:
     - Overview: research/index.md
     - Scoring Redesign: research/scoring-redesign.md
+  - Specs & Plans:
+    - Overview: superpowers/index.md
+    - Specs:
+      - GitHub Scaffolding: superpowers/specs/2026-05-23-github-scaffolding-design.md
+      - Genre-Aware Scoring: superpowers/specs/2026-05-21-genre-aware-scoring-design.md
+      - Pipeline v2: superpowers/specs/2026-05-20-pipeline-v2-design.md
+      - Terminal Flash Bugfix: superpowers/specs/2026-05-14-terminal-flash-bugfix-design.md
+      - Darktable Lua Plugin: superpowers/specs/2026-05-13-darktable-lua-plugin-design.md
+      - Stage-Based CLI: superpowers/specs/2026-05-12-stage-based-cli-design.md
+      - Cartridge Identity Redesign: superpowers/specs/2026-04-23-cartridge-identity-redesign.md
+      - Ingest Pipeline: superpowers/specs/2026-04-20-ingest-pipeline-design.md
+      - Cartridge Provisioning: superpowers/specs/2026-04-20-cartridge-provisioning-design.md
+      - Stage 7.2 Ingest Cartridge: superpowers/specs/2026-04-19-stage-7-2-ingest-cartridge-design.md
+      - Stage 7.1 GUI Scaffold: superpowers/specs/2026-04-17-stage-7-1-gui-scaffold-design.md
+      - SSH Key Update: superpowers/specs/2026-04-17-ssh-key-update-design.md
+      - Soak Test Notifications: superpowers/specs/2026-04-16-soak-test-notifications-design.md
+    - Plans:
+      - GitHub Scaffolding: superpowers/plans/2026-05-23-github-scaffolding.md
+      - Genre-Aware Scoring: superpowers/plans/2026-05-21-genre-aware-scoring.md
+      - Pipeline v2: superpowers/plans/2026-05-20-pipeline-v2.md
+      - Terminal Flash Bugfix: superpowers/plans/2026-05-14-terminal-flash-bugfix.md
+      - Python Engine Changes: superpowers/plans/2026-05-13-python-engine-changes.md
+      - Lua Plugin: superpowers/plans/2026-05-13-lua-plugin.md
+      - Stage-Based CLI: superpowers/plans/2026-05-12-stage-based-cli.md
+      - Cartridge Identity Redesign: superpowers/plans/2026-04-23-cartridge-identity-redesign.md
+      - Ingest Pipeline: superpowers/plans/2026-04-20-ingest-pipeline.md
+      - Cartridge Provisioning: superpowers/plans/2026-04-20-cartridge-provisioning.md
+      - Stage 7.2 Ingest Cartridge: superpowers/plans/2026-04-19-stage-7-2-ingest-cartridge.md
+      - Stage 7.1 GUI Scaffold: superpowers/plans/2026-04-17-stage-7-1-gui-scaffold.md
+      - SSH Key Update: superpowers/plans/2026-04-17-ssh-key-update.md
+      - Soak Test Notifications: superpowers/plans/2026-04-16-soak-test-notifications.md
+  - Planning Briefs:
+    - 2026-04-17 Brief: PlanningBriefs/2026-04-17-planning-brief.md
+    - 2026-04-17 Build Log: PlanningBriefs/2026-04-17-build-log.md
+    - 2026-04-16 Build Log: PlanningBriefs/2026-04-16-build-log.md
+    - 2026-04-15 Brief: PlanningBriefs/2026-04-15-planning-brief.md
+    - 2026-04-15 Build Log: PlanningBriefs/2026-04-15-build-log.md
+    - Approval Pending: PlanningBriefs/APPROVAL_PENDING.md
+  - Reports:
+    - Verification:
+      - 2026-04-18 Failure: VerificationReports/2026-04-18-failure-843e109.md
+      - 2026-04-18 14:00: VerificationReports/2026-04-18-14-00-verification.md
+      - 2026-04-17: VerificationReports/2026-04-17-verification-report.md
+    - Validation:
+      - Stage 7.1: ValidationReports/2026-04-18-stage7.1-validation.md
+      - Soak Test Log: ValidationReports/soak-test-log.md
+  - Notes: Notes.md
 
 plugins:
   - search
