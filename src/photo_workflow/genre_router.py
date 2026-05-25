@@ -19,6 +19,7 @@ GENRES = [
     "architecture",
     "macro",
     "event",
+    "waterfall",
     "general",
 ]
 
@@ -71,6 +72,15 @@ _EXIF_PRIORS = {
         "shutter": (-5.5, 0.8),
         "iso": (6.0, 0.8),
     },
+    # Waterfall: wide-to-mid focal lengths, narrow apertures (f/8-f/16),
+    # shutter is bimodal (long-exposure silk OR fast-freeze droplets) so
+    # std is wide; low ISO typical of tripod/landscape shooting.
+    "waterfall": {
+        "focal_length": (3.2, 0.7),
+        "aperture": (2.3, 0.4),
+        "shutter": (-2.0, 2.5),
+        "iso": (4.6, 0.6),
+    },
     "general": {
         "focal_length": (3.8, 1.5),
         "aperture": (1.5, 1.0),
@@ -119,6 +129,11 @@ _SUBJECT_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.2, 0.15),  # Varied
         "primary_class": {"person": 1.5},
     },
+    "waterfall": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.3, 0.2),   # Waterfall fills mid-to-large frame
+        "primary_class": {},             # YOLO COCO has no waterfall class
+    },
     "general": {
         "face_count": (0.5, 1.0),       # Uniform (any)
         "subject_area_ratio": (0.2, 0.2),   # Uniform
@@ -135,6 +150,7 @@ _SHARPNESS_PROFILE_PRIORS = {
     "architecture": (1.0, 0.5),  # Uniform
     "macro": (3.5, 1.2),      # Very high contrast
     "event": (1.5, 0.8),      # Moderate contrast
+    "waterfall": (1.3, 0.7),  # Mostly uniform; rocks sharp, water motion-blurred
     "general": (1.5, 1.0),    # Moderate baseline
 }
 

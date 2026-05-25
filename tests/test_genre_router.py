@@ -44,10 +44,11 @@ def _make_context(
 
 
 def test_genres_list_complete() -> None:
-    """All 8 genres should be defined."""
-    assert len(GENRES) == 8
-    assert "wildlife" in GENRES
-    assert "general" in GENRES
+    """All built-in genres should be defined."""
+    assert len(GENRES) == 9
+    for g in ("wildlife", "landscape", "portrait", "street",
+              "architecture", "macro", "event", "waterfall", "general"):
+        assert g in GENRES
 
 
 def test_route_genre_returns_valid_result() -> None:

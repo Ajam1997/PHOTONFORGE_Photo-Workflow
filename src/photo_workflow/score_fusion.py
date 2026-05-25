@@ -74,6 +74,16 @@ GENRE_WEIGHTS: dict[str, dict[str, float]] = {
         "composition_rot": 0.10, "exposure_overall": 0.10,
         "aesthetic_clip": 0.08, "balance": 0.07,
     },
+    # Waterfall: leading lines (flow), motion tolerance (long-exposure silk),
+    # sharp surrounding rock, balanced composition. Sits between landscape
+    # and macro in subject-emphasis terms.
+    "waterfall": {
+        "leading_lines": 0.15, "subject_sharpness": 0.15,
+        "composition_rot": 0.12, "motion_tolerance": 0.12,
+        "exposure_overall": 0.10, "dynamic_range": 0.10,
+        "balance": 0.08, "negative_space": 0.08,
+        "aesthetic_clip": 0.08, "highlight_clip": 0.02,
+    },
     "general": {
         "subject_sharpness": 0.20, "exposure_overall": 0.18,
         "composition_rot": 0.15, "subject_isolation": 0.12,

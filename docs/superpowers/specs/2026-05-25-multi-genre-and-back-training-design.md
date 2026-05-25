@@ -27,7 +27,7 @@ defined as separate issues but interact. This document locks the joint design.
 @dataclass
 class GenreResult:
     genres: list[tuple[str, float]]   # top-3 above 0.15 floor
-    distribution: dict[str, float]    # full 8-genre softmax (unchanged)
+    distribution: dict[str, float]    # full softmax over GENRES (9-way as of 2026-05-25)
     needs_review: bool                # True when forced to general
 
     @property
