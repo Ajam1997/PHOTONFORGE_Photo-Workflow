@@ -27,8 +27,9 @@ _YOLO_INPUT_SIZE = 640
 class ModelSessions:
     """Lazy-loaded, long-lived ONNX inference sessions."""
 
-    def __init__(self, model_dir: Path) -> None:
+    def __init__(self, model_dir: Path, training_db_path: Path | None = None) -> None:
         self._model_dir = model_dir
+        self._training_db_path = training_db_path
         self._sessions: dict[str, Any] = {}
 
     def _load_session(self, key: str, subdir: str, filename: str) -> Any:
@@ -82,6 +83,36 @@ class ModelSessions:
     @property
     def genre_prototypes(self) -> np.ndarray | None:
         if "genre_prototypes" not in self._sessions:
+            # Try loading from training_weights.db if configured
+            if self._training_db_path and self._training_db_path.exists():
+                try:
+                    from .training_weights_db import open_training_db, get_active_prototypes
+
+                    conn = open_training_db(self._training_db_path)
+                    active = get_active_prototypes(conn)
+                    conn.close()
+
+                    if active:
+                        # Build 10x512 matrix in GENRES order
+                        from .genre_router import GENRES
+
+                        prototypes_list = []
+                        for genre in GENRES:
+                            if genre in active:
+                                prototypes_list.append(active[genre]["prototype"])
+                            else:
+                                # Fallback to zero if genre not found (shouldn't happen)
+                                prototypes_list.append(np.zeros(512, dtype=np.float32))
+                        protos = np.array(prototypes_list, dtype=np.float32)
+                        self._sessions["genre_prototypes"] = protos
+                        logger.info("Loaded genre prototypes from training_weights.db")
+                        return protos
+                except Exception as e:
+                    logger.warning(
+                        "Failed to load prototypes from training_weights.db: %s", e
+                    )
+
+            # Fallback to hardcoded file
             proto_path = self._model_dir / "genre_prototypes.npy"
             if proto_path.exists():
                 try:

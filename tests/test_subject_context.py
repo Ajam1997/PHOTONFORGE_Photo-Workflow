@@ -101,3 +101,52 @@ def test_build_subject_context_sharpness_contrast(tmp_path: Path) -> None:
     assert hasattr(ctx, "sharpness_contrast")
     assert isinstance(ctx.sharpness_contrast, (int, float))
     assert ctx.sharpness_contrast >= 0.0
+
+
+def test_model_sessions_training_db_override(tmp_path: Path) -> None:
+    """ModelSessions should load active prototypes from training_weights.db if configured."""
+    from photo_workflow.training_weights_db import open_training_db, ensure_schema, upsert_prototype
+
+    # Create a training_weights.db with some prototypes
+    training_db_path = tmp_path / "training_weights.db"
+    conn = open_training_db(training_db_path)
+    ensure_schema(conn)
+
+    # Create 10 active prototypes (one per GENRES)
+    from photo_workflow.genre_router import GENRES
+
+    for i, genre in enumerate(GENRES):
+        proto = np.random.randn(512).astype(np.float32)
+        proto /= np.linalg.norm(proto)
+        upsert_prototype(conn, 1, genre, proto.tobytes(), i * 5, 0.8)
+
+    conn.close()
+
+    # Create ModelSessions with training_db_path
+    sessions = ModelSessions(tmp_path / "models", training_db_path=training_db_path)
+    protos = sessions.genre_prototypes
+
+    assert protos is not None
+    assert protos.shape == (len(GENRES), 512)
+    # Should be all active prototypes we just inserted
+    for i in range(len(GENRES)):
+        assert not np.allclose(protos[i], 0.0)
+
+
+def test_model_sessions_training_db_fallback(tmp_path: Path) -> None:
+    """ModelSessions should fallback to hardcoded file if training_db missing."""
+    # Create a hardcoded genre_prototypes.npy
+    model_dir = tmp_path / "models"
+    model_dir.mkdir()
+
+    hardcoded_protos = np.random.randn(10, 512).astype(np.float32)
+    np.save(model_dir / "genre_prototypes.npy", hardcoded_protos)
+
+    # Training DB doesn't exist
+    training_db_path = tmp_path / "nonexistent.db"
+
+    sessions = ModelSessions(model_dir, training_db_path=training_db_path)
+    protos = sessions.genre_prototypes
+
+    assert protos is not None
+    assert np.allclose(protos, hardcoded_protos)
