@@ -59,12 +59,20 @@ function M.apply(rec, folder)
       img.notes = table.concat(parts, " | ")
     end
 
-    if rec.genre ~= nil and rec.genre ~= "" then
-      local confidence = tonumber(rec.genre_confidence) or 0
-      if confidence >= 0.5 then
-        local tag = dt.tags.create("PHOTONForge|" .. rec.genre)
-        dt.tags.attach(tag, img)
+    -- Multi-genre tagging (FR-1.7.2, design D5).
+    -- Prefer rec.genres (list of {g=name, c=confidence}); fall back to rec.genre
+    -- for older score emit payloads.  Tags are flat — no hierarchical prefix.
+    -- The router's 0.15 floor is already the gate; do not add an extra one here.
+    if rec.genres ~= nil and #rec.genres > 0 then
+      for _, entry in ipairs(rec.genres) do
+        if entry.g ~= nil and entry.g ~= "" then
+          local tag = dt.tags.create(entry.g)
+          dt.tags.attach(tag, img)
+        end
       end
+    elseif rec.genre ~= nil and rec.genre ~= "" then
+      local tag = dt.tags.create(rec.genre)
+      dt.tags.attach(tag, img)
     end
 
     if rec.original_name ~= nil then

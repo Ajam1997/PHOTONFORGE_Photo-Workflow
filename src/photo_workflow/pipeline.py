@@ -533,10 +533,16 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 color_label = fusion.color_label
 
                 if json_progress:
+                    # Emit multi-genre data so the Lua applicator can write all tags.
+                    # genres = list of {"g": <name>, "c": <confidence>}, top-3 above 0.15 floor.
+                    genres_payload = [
+                        {"g": g, "c": round(c, 3)} for g, c in fusion.genres
+                    ]
                     emit("score", row["filename"], "ok", json_progress=True,
                          sharpness=round(sharp, 4), composition=round(comp, 4),
                          exposure=round(expo, 4), master=round(master, 4),
                          genre=fusion.genre, genre_confidence=round(fusion.genre_confidence, 3),
+                         genres=genres_payload, needs_review=fusion.needs_review,
                          stars=stars, color_label=color_label,
                          original_name=row["original_name"])
             except Exception as genre_error:
