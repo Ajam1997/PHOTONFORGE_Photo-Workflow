@@ -191,27 +191,45 @@ def validate_xmp(xmp_path: Path) -> bool:
         return False
 
 
+def _get_data_db_path(library_db_path: Path) -> Path:
+    """Return the path to Darktable's data.db (same directory as library.db).
+
+    Darktable 5.x splits tag storage across two databases:
+      library.db  — images, tagged_images (imgid, tagid, position)
+      data.db     — tags (id, name, synonyms, flags)
+    """
+    return library_db_path.parent / "data.db"
+
+
 def write_darktable_keywords(
     library_db_path: Path,
     filename: str,
     keywords: list[str],
 ) -> None:
-    """Write flat keyword entries to Darktable's library.db for a given file.
+    """Write flat keyword entries to Darktable's databases for a given file.
 
-    Creates or updates entries in Darktable's tagxtag/tagged_images/tags tables.
-    This is for FR-1.7.2's genre-tagging path.
+    Compatible with Darktable 5.x which splits tag storage:
+      tags            → data.db   (id, name, synonyms, flags)
+      tagged_images   → library.db (imgid, tagid, position)
+      images          → library.db
+
+    Uses SQLite ATTACH so both files are accessed in a single connection,
+    keeping the writes atomic.
 
     Args:
         library_db_path: Path to Darktable's library.db
         filename: Image filename (basename only, not full path)
         keywords: List of keyword strings to apply (e.g., ["wildlife", "portrait"])
     """
+    data_db_path = _get_data_db_path(library_db_path)
     try:
         conn = sqlite3.connect(str(library_db_path))
         conn.row_factory = sqlite3.Row
 
-        # Get or create the image entry in images table
-        # (Darktable stores full path, we may need to search)
+        # Attach data.db so we can read/write tags in the same connection
+        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
+
+        # Find the image
         image_row = conn.execute(
             "SELECT id FROM images WHERE filename=?",
             (filename,)
@@ -224,38 +242,35 @@ def write_darktable_keywords(
 
         image_id = image_row["id"]
 
-        # For each keyword, ensure tag exists and link it
         for keyword in keywords:
-            # Get or create tag
+            # Get or create tag in data.db
             tag_row = conn.execute(
-                "SELECT id FROM tags WHERE name=?",
+                "SELECT id FROM data.tags WHERE name=?",
                 (keyword,)
             ).fetchone()
 
             if tag_row:
                 tag_id = tag_row["id"]
             else:
-                # Create new tag
                 conn.execute(
-                    "INSERT INTO tags (name) VALUES (?)",
+                    "INSERT INTO data.tags (name, synonyms, flags) VALUES (?, '', 0)",
                     (keyword,)
                 )
                 conn.commit()
                 tag_id = conn.execute(
-                    "SELECT id FROM tags WHERE name=?",
+                    "SELECT id FROM data.tags WHERE name=?",
                     (keyword,)
                 ).fetchone()["id"]
 
             # Check if already tagged
             existing = conn.execute(
-                "SELECT id FROM tagged_images WHERE imgid=? AND tagid=?",
+                "SELECT imgid FROM tagged_images WHERE imgid=? AND tagid=?",
                 (image_id, tag_id)
             ).fetchone()
 
             if not existing:
-                # Create tag link
                 conn.execute(
-                    "INSERT INTO tagged_images (imgid, tagid) VALUES (?, ?)",
+                    "INSERT INTO tagged_images (imgid, tagid, position) VALUES (?, ?, 0)",
                     (image_id, tag_id)
                 )
                 conn.commit()
@@ -269,7 +284,9 @@ def read_darktable_keywords(
     library_db_path: Path,
     filename: str,
 ) -> list[str]:
-    """Read flat keyword entries from Darktable's library.db for a given file.
+    """Read flat keyword entries from Darktable's databases for a given file.
+
+    Compatible with Darktable 5.x (tags in data.db, tagged_images in library.db).
 
     Args:
         library_db_path: Path to Darktable's library.db
@@ -278,12 +295,13 @@ def read_darktable_keywords(
     Returns:
         List of keyword strings currently tagged on the image.
     """
+    data_db_path = _get_data_db_path(library_db_path)
     keywords: list[str] = []
     try:
         conn = sqlite3.connect(str(library_db_path))
         conn.row_factory = sqlite3.Row
+        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
 
-        # Get image ID
         image_row = conn.execute(
             "SELECT id FROM images WHERE filename=?",
             (filename,)
@@ -296,10 +314,9 @@ def read_darktable_keywords(
 
         image_id = image_row["id"]
 
-        # Get all tags for this image
         tag_rows = conn.execute(
-            "SELECT tags.name FROM tags "
-            "INNER JOIN tagged_images ON tagged_images.tagid=tags.id "
+            "SELECT data.tags.name FROM data.tags "
+            "INNER JOIN tagged_images ON tagged_images.tagid = data.tags.id "
             "WHERE tagged_images.imgid=?",
             (image_id,)
         ).fetchall()

@@ -246,96 +246,98 @@ def test_xmp_contains_needs_review_flag(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Darktable keyword tests
+# Darktable keyword tests  (Darktable 5.x split-DB schema)
 # ---------------------------------------------------------------------------
+# DT5 stores tag names in data.db and tag links in library.db.
+# Helpers below create both files so tests match production behaviour.
+
+def _make_dt5_dbs(tmp_path: Path) -> tuple[Path, Path]:
+    """Create minimal Darktable 5.x library.db + data.db in tmp_path."""
+    lib = tmp_path / "library.db"
+    data = tmp_path / "data.db"
+
+    conn = sqlite3.connect(str(lib))
+    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY, filename TEXT)")
+    conn.execute(
+        "CREATE TABLE tagged_images (imgid INTEGER, tagid INTEGER, position INTEGER)"
+    )
+    conn.commit()
+    conn.close()
+
+    conn = sqlite3.connect(str(data))
+    conn.execute(
+        "CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE, "
+        "synonyms TEXT, flags INTEGER)"
+    )
+    conn.commit()
+    conn.close()
+
+    return lib, data
+
 
 def test_write_darktable_keywords_creates_tags(tmp_path: Path) -> None:
-    """write_darktable_keywords should create tags in Darktable library.db."""
-    db_path = tmp_path / "library.db"
-    conn = sqlite3.connect(str(db_path))
+    """write_darktable_keywords should create tags in data.db and links in library.db."""
+    lib, data = _make_dt5_dbs(tmp_path)
 
-    # Create minimal Darktable schema
-    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY, filename TEXT)")
-    conn.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    conn.execute(
-        "CREATE TABLE tagged_images (id INTEGER PRIMARY KEY, imgid INTEGER, tagid INTEGER)"
-    )
+    conn = sqlite3.connect(str(lib))
     conn.execute("INSERT INTO images (filename) VALUES ('test.jpg')")
     conn.commit()
     conn.close()
 
-    # Write keywords
-    write_darktable_keywords(db_path, "test.jpg", ["wildlife", "portrait"])
+    write_darktable_keywords(lib, "test.jpg", ["wildlife", "portrait"])
 
-    # Verify they were written
-    conn = sqlite3.connect(str(db_path))
-    conn.row_factory = sqlite3.Row
-    tags = conn.execute("SELECT name FROM tags").fetchall()
-    tag_names = {row["name"] for row in tags}
+    # Tags written to data.db
+    conn = sqlite3.connect(str(data))
+    tag_names = {r[0] for r in conn.execute("SELECT name FROM tags").fetchall()}
+    conn.close()
     assert "wildlife" in tag_names
     assert "portrait" in tag_names
 
-    # Verify tagged_images links exist
+    # Links written to library.db
+    conn = sqlite3.connect(str(lib))
     links = conn.execute("SELECT COUNT(*) FROM tagged_images").fetchone()[0]
-    assert links == 2
     conn.close()
+    assert links == 2
 
 
 def test_read_darktable_keywords_retrieves_tags(tmp_path: Path) -> None:
-    """read_darktable_keywords should retrieve tags from Darktable library.db."""
-    db_path = tmp_path / "library.db"
-    conn = sqlite3.connect(str(db_path))
+    """read_darktable_keywords should retrieve tags across the split databases."""
+    lib, data = _make_dt5_dbs(tmp_path)
 
-    # Create minimal Darktable schema
-    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY, filename TEXT)")
-    conn.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    conn.execute(
-        "CREATE TABLE tagged_images (id INTEGER PRIMARY KEY, imgid INTEGER, tagid INTEGER)"
-    )
-
-    # Insert test data
+    conn = sqlite3.connect(str(lib))
     conn.execute("INSERT INTO images (filename) VALUES ('test.jpg')")
-    conn.execute("INSERT INTO tags (name) VALUES ('wildlife')")
-    conn.execute("INSERT INTO tags (name) VALUES ('landscape')")
-    conn.execute("INSERT INTO tagged_images (imgid, tagid) VALUES (1, 1)")
-    conn.execute("INSERT INTO tagged_images (imgid, tagid) VALUES (1, 2)")
+    conn.execute("INSERT INTO tagged_images (imgid, tagid, position) VALUES (1, 1, 0)")
+    conn.execute("INSERT INTO tagged_images (imgid, tagid, position) VALUES (1, 2, 0)")
     conn.commit()
     conn.close()
 
-    # Read keywords
-    keywords = read_darktable_keywords(db_path, "test.jpg")
+    conn = sqlite3.connect(str(data))
+    conn.execute("INSERT INTO tags (name, synonyms, flags) VALUES ('wildlife', '', 0)")
+    conn.execute("INSERT INTO tags (name, synonyms, flags) VALUES ('landscape', '', 0)")
+    conn.commit()
+    conn.close()
+
+    keywords = read_darktable_keywords(lib, "test.jpg")
     assert set(keywords) == {"wildlife", "landscape"}
 
 
 def test_read_darktable_keywords_nonexistent_image(tmp_path: Path) -> None:
     """read_darktable_keywords should return empty list for missing image."""
-    db_path = tmp_path / "library.db"
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY, filename TEXT)")
-    conn.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT)")
-    conn.execute("CREATE TABLE tagged_images (id INTEGER PRIMARY KEY, imgid INTEGER, tagid INTEGER)")
-    conn.commit()
-    conn.close()
-
-    keywords = read_darktable_keywords(db_path, "nonexistent.jpg")
+    lib, _ = _make_dt5_dbs(tmp_path)
+    keywords = read_darktable_keywords(lib, "nonexistent.jpg")
     assert keywords == []
 
 
 def test_keywords_round_trip(tmp_path: Path) -> None:
     """Writing then reading keywords should preserve the list."""
-    db_path = tmp_path / "library.db"
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY, filename TEXT)")
-    conn.execute("CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
-    conn.execute("CREATE TABLE tagged_images (id INTEGER PRIMARY KEY, imgid INTEGER, tagid INTEGER)")
+    lib, _ = _make_dt5_dbs(tmp_path)
+
+    conn = sqlite3.connect(str(lib))
     conn.execute("INSERT INTO images (filename) VALUES ('photo.jpg')")
     conn.commit()
     conn.close()
 
-    # Write keywords
     original = ["macro", "nature", "insect"]
-    write_darktable_keywords(db_path, "photo.jpg", original)
-
-    # Read them back
-    retrieved = read_darktable_keywords(db_path, "photo.jpg")
+    write_darktable_keywords(lib, "photo.jpg", original)
+    retrieved = read_darktable_keywords(lib, "photo.jpg")
     assert set(retrieved) == set(original)
