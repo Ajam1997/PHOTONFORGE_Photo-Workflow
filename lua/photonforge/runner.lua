@@ -70,8 +70,17 @@ local function build_cmd(step)
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest) .. mode_flag
   elseif step == "score" then
-    return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+    local cmd = base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest) .. mode_flag
+    -- Use calibrated prototypes if training_weights.db is present on the cartridge
+    local drive = get_drive_root(dest)
+    local training_db = drive .. "training_weights.db"
+    local fh = io.open(training_db, "r")
+    if fh then
+      fh:close()
+      cmd = cmd .. " --training-db " .. shell_quote(training_db)
+    end
+    return cmd
   elseif step == "name" then
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest)

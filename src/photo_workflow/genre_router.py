@@ -314,8 +314,10 @@ def _compute_clip_similarity(
     # Cosine similarity (embedding is already L2-normalized)
     similarities = genre_prototypes @ clip_embedding  # (num_genres,)
 
-    # Temperature-scaled softmax
-    temperature = 0.1
+    # Temperature-scaled softmax.
+    # 0.1 is too peaked (concentrates on 1 genre) — 0.35 gives useful spread
+    # across multi-genre scenes while still being discriminative.
+    temperature = 0.35
     exp_sim = np.exp((similarities - similarities.max()) / temperature)
     probs = exp_sim / exp_sim.sum()
 
