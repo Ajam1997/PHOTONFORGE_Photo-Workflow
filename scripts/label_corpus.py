@@ -17,7 +17,8 @@ You can stop and resume — already-labelled filenames are skipped on restart.
 
 Key bindings inside the window:
     w wildlife    l landscape   p portrait   s street
-    a architecture   m macro    e event      f waterfall    g general
+    a architecture   m macro    e event      f waterfall
+    i signage     g general
     c custom genre (free text)
     SPACE / ENTER  commit selection and advance
     BACKSPACE      clear current selection
@@ -61,6 +62,7 @@ BUILTIN_GENRES = {
     "m": "macro",
     "e": "event",
     "f": "waterfall",     # 'f' for falls (w is taken by wildlife)
+    "i": "signage",       # 'i' for sIgnage (s is taken by street)
     "g": "general",
 }
 
@@ -346,7 +348,8 @@ class CorpusLabeller:
 
         legend = (
             "w wildlife   l landscape   p portrait   s street   "
-            "a architecture   m macro   e event   f waterfall   g general\n"
+            "a architecture   m macro   e event   f waterfall   "
+            "i signage   g general\n"
             "c custom    SPACE commit    BACKSPACE clear    "
             "TAB skip    R needs_review    LEFT back    ESC quit"
         )

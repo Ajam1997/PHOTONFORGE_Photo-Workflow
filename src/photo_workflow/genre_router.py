@@ -20,6 +20,7 @@ GENRES = [
     "macro",
     "event",
     "waterfall",
+    "signage",
     "general",
 ]
 
@@ -81,6 +82,14 @@ _EXIF_PRIORS = {
         "shutter": (-2.0, 2.5),
         "iso": (4.6, 0.6),
     },
+    # Signage: handheld mid focal lengths (24-50mm), moderate aperture,
+    # fast handheld shutter, variable ISO (indoor/outdoor mix).
+    "signage": {
+        "focal_length": (3.5, 0.6),
+        "aperture": (1.5, 0.5),
+        "shutter": (-5.5, 1.0),
+        "iso": (5.5, 0.8),
+    },
     "general": {
         "focal_length": (3.8, 1.5),
         "aperture": (1.5, 1.0),
@@ -134,6 +143,11 @@ _SUBJECT_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.3, 0.2),   # Waterfall fills mid-to-large frame
         "primary_class": {},             # YOLO COCO has no waterfall class
     },
+    "signage": {
+        "face_count": (0.0, 0.4),       # Signs rarely have faces
+        "subject_area_ratio": (0.3, 0.15),  # Sign fills moderate-to-large frame
+        "primary_class": {"stop sign": 2.0},  # COCO 'stop sign' is a strong cue
+    },
     "general": {
         "face_count": (0.5, 1.0),       # Uniform (any)
         "subject_area_ratio": (0.2, 0.2),   # Uniform
@@ -151,6 +165,7 @@ _SHARPNESS_PROFILE_PRIORS = {
     "macro": (3.5, 1.2),      # Very high contrast
     "event": (1.5, 0.8),      # Moderate contrast
     "waterfall": (1.3, 0.7),  # Mostly uniform; rocks sharp, water motion-blurred
+    "signage": (1.0, 0.5),    # Frontal flat subject — uniform sharpness preferred
     "general": (1.5, 1.0),    # Moderate baseline
 }
 

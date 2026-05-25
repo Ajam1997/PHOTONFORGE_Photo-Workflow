@@ -45,9 +45,10 @@ def _make_context(
 
 def test_genres_list_complete() -> None:
     """All built-in genres should be defined."""
-    assert len(GENRES) == 9
+    assert len(GENRES) == 10
     for g in ("wildlife", "landscape", "portrait", "street",
-              "architecture", "macro", "event", "waterfall", "general"):
+              "architecture", "macro", "event", "waterfall",
+              "signage", "general"):
         assert g in GENRES
 
 

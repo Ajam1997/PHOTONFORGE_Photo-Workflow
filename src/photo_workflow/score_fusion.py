@@ -84,6 +84,16 @@ GENRE_WEIGHTS: dict[str, dict[str, float]] = {
         "balance": 0.08, "negative_space": 0.08,
         "aesthetic_clip": 0.08, "highlight_clip": 0.02,
     },
+    # Signage: legibility is paramount — sharp subject + good exposure.
+    # Symmetry/balance secondary (signs are often centred). Composition
+    # weight modest since signage shots are often documentary, not artistic.
+    "signage": {
+        "subject_sharpness": 0.25, "exposure_overall": 0.18,
+        "symmetry": 0.12, "balance": 0.10,
+        "composition_rot": 0.08, "highlight_clip": 0.08,
+        "color_contrast": 0.07, "aesthetic_clip": 0.06,
+        "negative_space": 0.06,
+    },
     "general": {
         "subject_sharpness": 0.20, "exposure_overall": 0.18,
         "composition_rot": 0.15, "subject_isolation": 0.12,
