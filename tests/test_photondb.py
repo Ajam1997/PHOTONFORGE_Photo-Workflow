@@ -16,6 +16,7 @@ from photo_workflow.photondb import (
     update_semantic,
     mark_duplicate,
     sanitize_table_name,
+    update_genre_scores,
 )
 
 
@@ -170,4 +171,67 @@ def test_mark_duplicate(tmp_path: Path):
     mark_duplicate(conn, "T", "a.jpg")
     row = conn.execute("SELECT is_duplicate FROM T WHERE filename='a.jpg'").fetchone()
     assert row[0] == 1
+    conn.close()
+
+
+def test_update_genre_scores_with_multi_genre(tmp_path: Path):
+    """Test update_genre_scores with new multi-genre fields."""
+    conn = open_db(tmp_path)
+    ensure_table(conn, "T")
+    insert_photo(conn, "T", "a.jpg", "a.jpg", None)
+
+    # Update with multi-genre data
+    genres = [("wildlife", 0.87), ("landscape", 0.05)]
+    update_genre_scores(
+        conn, "T", "a.jpg",
+        genre="wildlife",
+        genre_confidence=0.87,
+        master_score=0.75,
+        sub_scores={"eye_sharpness": 0.9, "subject_sharpness": 0.85},
+        genres=genres,
+        primary_genre="wildlife",
+        needs_review=False,
+        clip_embedding=b"fake_embedding_bytes",
+    )
+
+    row = conn.execute(
+        "SELECT genre, primary_genre, genres, needs_review, clip_embedding FROM T WHERE filename='a.jpg'"
+    ).fetchone()
+
+    assert row["genre"] == "wildlife"
+    assert row["primary_genre"] == "wildlife"
+    assert row["needs_review"] == 0
+    assert row["clip_embedding"] == b"fake_embedding_bytes"
+    # genres is stored as JSON
+    import json
+    genres_parsed = json.loads(row["genres"])
+    assert len(genres_parsed) == 2
+    assert genres_parsed[0]["g"] == "wildlife"
+    assert genres_parsed[0]["c"] == 0.87
+
+    conn.close()
+
+
+def test_migration_adds_new_columns_idempotently(tmp_path: Path):
+    """New columns should be added only once, migration should be idempotent."""
+    conn = open_db(tmp_path)
+    ensure_table(conn, "T")
+
+    # Check that new columns exist
+    row = conn.execute("PRAGMA table_info(T)").fetchall()
+    col_names = {col[1] for col in row}
+
+    assert "genres" in col_names
+    assert "primary_genre" in col_names
+    assert "needs_review" in col_names
+    assert "clip_embedding" in col_names
+
+    # Call ensure_table again - should not crash
+    ensure_table(conn, "T")
+
+    # Columns should still exist
+    row = conn.execute("PRAGMA table_info(T)").fetchall()
+    col_names = {col[1] for col in row}
+    assert "genres" in col_names
+
     conn.close()

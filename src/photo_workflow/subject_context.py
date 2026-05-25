@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 
 from .scoring_types import FaceDetection, ObjectDetection, SubjectContext
+from .sharpness import _tenengrad
 
 logger = logging.getLogger(__name__)
 
@@ -349,6 +350,17 @@ def build_subject_context(path: Path, model_sessions: ModelSessions) -> SubjectC
         largest = max(detections, key=lambda d: d.bbox[2] * d.bbox[3])
         primary_subject_bbox = largest.bbox
 
+    # Compute sharpness contrast (subject Tenengrad / background Tenengrad)
+    sharpness_contrast = 1.0
+    if subject_mask.sum() > 0:
+        inv_mask = 1 - subject_mask
+        subject_ten = _tenengrad(image_gray[subject_mask > 0])
+        bg_ten = _tenengrad(image_gray[inv_mask > 0])
+        if bg_ten > 0:
+            sharpness_contrast = subject_ten / bg_ten
+        else:
+            sharpness_contrast = 1.0 if subject_ten == 0 else max(subject_ten / 0.01, 1.0)
+
     return SubjectContext(
         image_bgr=image_bgr,
         image_gray=image_gray,
@@ -360,4 +372,5 @@ def build_subject_context(path: Path, model_sessions: ModelSessions) -> SubjectC
         primary_subject_bbox=primary_subject_bbox,
         clip_embedding=clip_embedding,
         exif=exif,
+        sharpness_contrast=sharpness_contrast,
     )

@@ -80,7 +80,63 @@ _EXIF_PRIORS = {
 }
 
 # Confidence threshold below which we fall back to "general"
-_CONFIDENCE_THRESHOLD = 0.3
+_CONFIDENCE_THRESHOLD = 0.15  # Floor for top-3 genres
+
+# Per-genre Gaussian priors for subject context (face_count, subject_area_ratio, primary class)
+_SUBJECT_CONTEXT_PRIORS = {
+    "wildlife": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.2, 0.15),  # Medium subject size
+        "primary_class": {"bird": 1.5, "elephant": 1.5, "giraffe": 1.5},  # Multipliers
+    },
+    "landscape": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.1, 0.1),   # Small subject
+        "primary_class": {},             # Indifferent to class
+    },
+    "portrait": {
+        "face_count": (1.0, 0.3),       # One face
+        "subject_area_ratio": (0.2, 0.1),   # Focused face
+        "primary_class": {"person": 2.0},   # Person preferred
+    },
+    "street": {
+        "face_count": (0.5, 0.4),       # Few faces
+        "subject_area_ratio": (0.15, 0.1),  # Mixed subject size
+        "primary_class": {"person": 1.3},
+    },
+    "architecture": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.25, 0.15), # Medium-large
+        "primary_class": {},             # Indifferent
+    },
+    "macro": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.4, 0.15),  # Large subject zoom
+        "primary_class": {"insect": 1.5, "flower": 1.5},
+    },
+    "event": {
+        "face_count": (3.0, 1.0),       # Multiple faces
+        "subject_area_ratio": (0.2, 0.15),  # Varied
+        "primary_class": {"person": 1.5},
+    },
+    "general": {
+        "face_count": (0.5, 1.0),       # Uniform (any)
+        "subject_area_ratio": (0.2, 0.2),   # Uniform
+        "primary_class": {},             # Indifferent
+    },
+}
+
+# Per-genre sharpness profile (subject/background contrast preference)
+_SHARPNESS_PROFILE_PRIORS = {
+    "wildlife": (2.5, 1.0),   # High contrast preferred
+    "landscape": (1.0, 0.5),  # Uniform sharpness
+    "portrait": (3.0, 1.2),   # High contrast (bokeh)
+    "street": (1.5, 0.8),     # Moderate contrast
+    "architecture": (1.0, 0.5),  # Uniform
+    "macro": (3.5, 1.2),      # Very high contrast
+    "event": (1.5, 0.8),      # Moderate contrast
+    "general": (1.5, 1.0),    # Moderate baseline
+}
 
 
 def _compute_exif_prior(exif: dict) -> dict[str, float]:
@@ -200,22 +256,91 @@ def _compute_clip_similarity(
     return {GENRES[i]: float(probs[i]) for i in range(len(GENRES))}
 
 
+def _compute_subject_context_likelihood(ctx: SubjectContext) -> dict[str, float]:
+    """Compute per-genre likelihood from subject context.
+
+    Uses face_count, subject_area_ratio, and primary detection class.
+    Returns dict of genre -> unnormalized probability.
+    """
+    face_count = len(ctx.faces)
+    area_ratio = ctx.subject_area_ratio
+
+    # Determine primary detection class
+    primary_class = ""
+    if ctx.detections:
+        largest = max(ctx.detections, key=lambda d: d.bbox[2] * d.bbox[3])
+        primary_class = largest.class_name
+
+    evidence = {g: 1.0 for g in GENRES}
+
+    for genre in GENRES:
+        priors = _SUBJECT_CONTEXT_PRIORS.get(genre, {})
+
+        # Face count Gaussian likelihood
+        face_mean, face_std = priors.get("face_count", (0.0, 1.0))
+        face_diff = face_count - face_mean
+        face_likelihood = math.exp(-0.5 * (face_diff / max(face_std, 0.1)) ** 2)
+        evidence[genre] *= face_likelihood
+
+        # Subject area ratio Gaussian likelihood
+        area_mean, area_std = priors.get("subject_area_ratio", (0.2, 0.2))
+        area_diff = area_ratio - area_mean
+        area_likelihood = math.exp(-0.5 * (area_diff / max(area_std, 0.1)) ** 2)
+        evidence[genre] *= area_likelihood
+
+        # Primary class bonus (if applicable)
+        if primary_class:
+            class_bonus = priors.get("primary_class", {}).get(primary_class, 1.0)
+            evidence[genre] *= class_bonus
+
+    # Normalize
+    total = sum(evidence.values())
+    if total > 0:
+        return {g: evidence[g] / total for g in GENRES}
+    return {g: 1.0 / len(GENRES) for g in GENRES}
+
+
+def _compute_sharpness_profile_likelihood(sharpness_contrast: float) -> dict[str, float]:
+    """Compute per-genre likelihood from sharpness contrast.
+
+    Higher contrast (subject sharp, background blurred) favors portrait/macro.
+    Uniform sharpness favors landscape/architecture.
+    Returns dict of genre -> unnormalized probability.
+    """
+    evidence = {g: 1.0 for g in GENRES}
+
+    for genre in GENRES:
+        mean, std = _SHARPNESS_PROFILE_PRIORS.get(genre, (1.5, 1.0))
+        diff = sharpness_contrast - mean
+        likelihood = math.exp(-0.5 * (diff / max(std, 0.1)) ** 2)
+        evidence[genre] = likelihood
+
+    # Normalize
+    total = sum(evidence.values())
+    if total > 0:
+        return {g: evidence[g] / total for g in GENRES}
+    return {g: 1.0 / len(GENRES) for g in GENRES}
+
+
 def route_genre(
     ctx: SubjectContext,
     genre_prototypes: np.ndarray | None = None,
 ) -> GenreResult:
-    """Classify image genre using Bayesian product-of-experts.
+    """Classify image genre using 5-signal Bayesian product-of-experts.
 
-    Fuses CLIP similarity, EXIF prior, and YOLO object evidence.
-    Falls back to "general" when confidence is below threshold.
+    Fuses: CLIP similarity, EXIF prior, YOLO object evidence,
+    subject context (faces/area/class), and sharpness profile.
+
+    Returns top-3 genres above 0.15 floor, or [("general", 1.0)] with needs_review=True
+    if nothing clears the threshold.
 
     Args:
-        ctx: SubjectContext with CLIP embedding, detections, and EXIF.
+        ctx: SubjectContext with CLIP embedding, detections, EXIF, and sharpness_contrast.
         genre_prototypes: Precomputed genre prototype embeddings, shape (8, 512).
                           If None, CLIP evidence is uniform.
 
     Returns:
-        GenreResult with top genre, confidence, and full distribution.
+        GenreResult with top-3 genres, full distribution, and needs_review flag.
     """
     # Evidence source 1: CLIP
     clip_probs = _compute_clip_similarity(ctx.clip_embedding, genre_prototypes)
@@ -227,10 +352,22 @@ def route_genre(
     image_area = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
     yolo_probs = _compute_yolo_evidence(ctx.detections, image_area)
 
-    # Bayesian product-of-experts fusion
+    # Evidence source 4: Subject context (faces, area, class)
+    subject_probs = _compute_subject_context_likelihood(ctx)
+
+    # Evidence source 5: Sharpness profile
+    sharpness_probs = _compute_sharpness_profile_likelihood(ctx.sharpness_contrast)
+
+    # Bayesian product-of-experts fusion (5 signals)
     fused = {}
     for g in GENRES:
-        fused[g] = clip_probs[g] * exif_probs[g] * yolo_probs[g]
+        fused[g] = (
+            clip_probs[g] *
+            exif_probs[g] *
+            yolo_probs[g] *
+            subject_probs[g] *
+            sharpness_probs[g]
+        )
 
     # Normalize
     total = sum(fused.values())
@@ -239,17 +376,18 @@ def route_genre(
     else:
         distribution = {g: 1.0 / len(GENRES) for g in GENRES}
 
-    # Find top genre
-    top_genre = max(distribution, key=lambda g: distribution[g])
-    confidence = distribution[top_genre]
+    # Extract top-3 above confidence floor (0.15)
+    sorted_genres = sorted(distribution.items(), key=lambda x: x[1], reverse=True)
+    top_3 = [(g, conf) for g, conf in sorted_genres if conf >= _CONFIDENCE_THRESHOLD]
 
-    # Fallback to general if confidence is too low
-    if confidence < _CONFIDENCE_THRESHOLD:
-        top_genre = "general"
-        confidence = distribution["general"]
+    # If no genre clears the floor, return general with needs_review=True
+    needs_review = False
+    if not top_3:
+        top_3 = [("general", 1.0)]
+        needs_review = True
 
     return GenreResult(
-        genre=top_genre,
-        confidence=confidence,
+        genres=top_3,
         distribution=distribution,
+        needs_review=needs_review,
     )

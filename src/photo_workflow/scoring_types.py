@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -52,6 +52,9 @@ class SubjectContext:
     # EXIF metadata
     exif: dict
 
+    # Sharpness contrast (subject Tenengrad / background Tenengrad)
+    sharpness_contrast: float = 0.0
+
 
 @dataclass
 class SharpnessScores:
@@ -98,9 +101,19 @@ class ExposureScores:
 class GenreResult:
     """Genre classification output."""
 
-    genre: str
-    confidence: float
-    distribution: dict[str, float]
+    genres: list[tuple[str, float]]  # top-3 above 0.15 floor
+    distribution: dict[str, float]  # full 8-genre softmax
+    needs_review: bool  # True when forced to general due to low confidence
+
+    @property
+    def primary_genre(self) -> str:
+        """Return the top genre name."""
+        return self.genres[0][0] if self.genres else "general"
+
+    @property
+    def primary_confidence(self) -> float:
+        """Return the top genre confidence."""
+        return self.genres[0][1] if self.genres else 0.0
 
 
 @dataclass
@@ -108,10 +121,12 @@ class FusionResult:
     """Final scored output combining all modules."""
 
     master_score: float
-    genre: str
-    genre_confidence: float
+    genre: str  # primary_genre for backward compatibility
+    genre_confidence: float  # primary_confidence for backward compatibility
     sub_scores: dict[str, float]
     hard_reject: bool
     hard_reject_reason: str
     star_rating: int
     color_label: int
+    genres: list[tuple[str, float]] = field(default_factory=list)  # multi-genre output
+    needs_review: bool = False  # True when low-confidence fallback to general

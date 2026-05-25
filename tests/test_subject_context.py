@@ -85,3 +85,19 @@ def test_build_subject_context_exif_extraction(tmp_path: Path) -> None:
 
     # EXIF dict exists (may be empty for synthetic images)
     assert isinstance(ctx.exif, dict)
+
+
+def test_build_subject_context_sharpness_contrast(tmp_path: Path) -> None:
+    """sharpness_contrast should be computed during build_subject_context."""
+    from PIL import Image
+    img_path = tmp_path / "test.jpg"
+    img = Image.fromarray(np.zeros((100, 100, 3), dtype=np.uint8))
+    img.save(img_path)
+
+    sessions = ModelSessions(tmp_path / "models")
+    ctx = build_subject_context(img_path, sessions)
+
+    # sharpness_contrast should exist and be >= 0
+    assert hasattr(ctx, "sharpness_contrast")
+    assert isinstance(ctx.sharpness_contrast, (int, float))
+    assert ctx.sharpness_contrast >= 0.0

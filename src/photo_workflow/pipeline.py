@@ -46,6 +46,9 @@ class PhotoRecord:
     sub_scores: dict = field(default_factory=dict)
     hard_reject: bool = False
     hard_reject_reason: str = ""
+    genres: list[tuple[str, float]] = field(default_factory=list)  # Multi-genre output
+    needs_review: bool = False  # True when low-confidence fallback
+    clip_embedding: bytes | None = None  # Raw CLIP embedding bytes
 
 
 @dataclass
@@ -173,6 +176,9 @@ class AnalysisPipeline:
                 record.sub_scores = fusion.sub_scores
                 record.hard_reject = fusion.hard_reject
                 record.hard_reject_reason = fusion.hard_reject_reason
+                record.genres = fusion.genres
+                record.needs_review = fusion.needs_review
+                record.clip_embedding = ctx.clip_embedding.tobytes() if ctx.clip_embedding is not None else None
 
                 # Semantic name (old path still works)
                 record.semantic_name = generate_name(record.path, model_dir=self.config.model_dir)
@@ -510,9 +516,14 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 master = fusion.master_score
 
                 update_scores(conn, table, row["filename"], sharp, comp, expo, auto_commit=False)
+                clip_embedding_bytes = ctx.clip_embedding.tobytes() if ctx.clip_embedding is not None else None
                 update_genre_scores(
                     conn, table, row["filename"],
                     fusion.genre, fusion.genre_confidence, master, fusion.sub_scores,
+                    genres=fusion.genres,
+                    primary_genre=fusion.genre,
+                    needs_review=fusion.needs_review,
+                    clip_embedding=clip_embedding_bytes,
                     auto_commit=False,
                 )
                 update_stages(conn, table, row["filename"], "score", auto_commit=False)

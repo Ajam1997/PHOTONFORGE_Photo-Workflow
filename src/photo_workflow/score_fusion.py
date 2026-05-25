@@ -171,14 +171,27 @@ def _compute_master_score(
     sub_scores: dict[str, float],
     genre: GenreResult,
 ) -> float:
-    """Compute the genre-weighted master score via soft blending."""
+    """Compute the genre-weighted master score via soft blending.
+
+    Blends GENRE_WEIGHTS across all entries in genre.genres,
+    weighted by their confidence scores (normalized to sum to 1).
+    """
+    # Normalize genre confidences so they sum to 1
+    total_confidence = sum(conf for _, conf in genre.genres)
+    if total_confidence <= 0:
+        # Fallback to equal weighting
+        normalized_genres = [(g, 1.0 / len(genre.genres)) for g, _ in genre.genres]
+    else:
+        normalized_genres = [(g, conf / total_confidence) for g, conf in genre.genres]
+
     effective_weights: dict[str, float] = {}
 
-    for genre_name, prob in genre.distribution.items():
+    # Accumulate weights from all genres in the list
+    for genre_name, normalized_conf in normalized_genres:
         if genre_name not in GENRE_WEIGHTS:
             continue
         for key, weight in GENRE_WEIGHTS[genre_name].items():
-            effective_weights[key] = effective_weights.get(key, 0.0) + prob * weight
+            effective_weights[key] = effective_weights.get(key, 0.0) + normalized_conf * weight
 
     master = 0.0
     for key, weight in effective_weights.items():
@@ -247,11 +260,11 @@ def fuse_scores(
         sharpness: Enhanced sharpness analysis results.
         composition: Enhanced composition analysis results.
         exposure: Enhanced exposure analysis results.
-        genre: Genre classification result with probability distribution.
+        genre: Genre classification result with multi-genre list and distribution.
         aesthetic: CLIP aesthetic head score in [0, 1].
 
     Returns:
-        FusionResult with master score, sub-scores, and classification labels.
+        FusionResult with master score, sub-scores, classification labels, and multi-genre data.
     """
     sub_scores = _build_sub_score_dict(
         sharpness, composition, exposure, aesthetic, faces, image_gray,
@@ -263,11 +276,13 @@ def fuse_scores(
 
     return FusionResult(
         master_score=round(master_score, 4),
-        genre=genre.genre,
-        genre_confidence=round(genre.confidence, 4),
+        genre=genre.primary_genre,  # Backward compatibility
+        genre_confidence=round(genre.primary_confidence, 4),  # Backward compatibility
         sub_scores=sub_scores,
         hard_reject=hard_reject,
         hard_reject_reason=reject_reason,
         star_rating=star_rating,
         color_label=color_label,
+        genres=genre.genres,  # Multi-genre data
+        needs_review=genre.needs_review,
     )

@@ -47,7 +47,9 @@ def _make_genre(genre: str = "wildlife", confidence: float = 0.85) -> GenreResul
     # Normalize
     total = sum(dist.values())
     dist = {g: v / total for g, v in dist.items()}
-    return GenreResult(genre=genre, confidence=dist[genre], distribution=dist)
+    # Create genres list with top-3 above 0.15 floor
+    genres_list = [(genre, dist[genre])]
+    return GenreResult(genres=genres_list, distribution=dist, needs_review=False)
 
 
 def test_fuse_scores_returns_fusion_result() -> None:
@@ -166,7 +168,7 @@ def test_soft_genre_blending() -> None:
     dist = {g: 0.0 for g in GENRE_WEIGHTS}
     dist["wildlife"] = 0.5
     dist["portrait"] = 0.5
-    genre = GenreResult(genre="wildlife", confidence=0.5, distribution=dist)
+    genre = GenreResult(genres=[("wildlife", 0.5), ("portrait", 0.5)], distribution=dist, needs_review=False)
 
     result = fuse_scores(
         sharpness=_make_sharpness(),
