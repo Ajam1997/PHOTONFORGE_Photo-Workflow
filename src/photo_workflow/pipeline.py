@@ -628,6 +628,11 @@ def name(
         conn.close()
         return
 
+    # Pre-warm Florence-2 sessions once before the batch so the first image
+    # is not penalised by ONNX JIT compilation (KPM-1.2).
+    from .naming import warm_sessions
+    warm_sessions(model_dir)
+
     errors = 0
     for i, row in enumerate(to_name, 1):
         p = source_dir / row["filename"]

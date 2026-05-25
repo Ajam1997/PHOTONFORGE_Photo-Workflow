@@ -12,8 +12,10 @@ import pytest
 from photo_workflow.naming import (
     _Sessions,
     _build_empty_past_kv,
+    _physical_core_count,
     _read_shooting_info,
     generate_name,
+    warm_sessions,
 )
 
 
@@ -178,6 +180,67 @@ def test_slow_inference_logs_warning(
         generate_name(img_path, model_dir=tmp_path / "models")
 
     assert any("KPM-1.2" in r.message for r in caplog.records)
+
+
+def test_physical_core_count_positive_and_even() -> None:
+    """_physical_core_count returns a positive integer >= 2."""
+    count = _physical_core_count()
+    assert isinstance(count, int)
+    assert count >= 2
+
+
+def test_warm_sessions_returns_true_when_model_loads(tmp_path: Path) -> None:
+    """warm_sessions returns True and populates the cache when load succeeds."""
+    import photo_workflow.naming as nm
+    nm._session_cache.clear()
+
+    with patch("photo_workflow.naming._load_sessions", return_value=_fake_sessions()), \
+         patch("photo_workflow.naming._warm_up"):
+        ok = warm_sessions(model_dir=tmp_path / "models")
+
+    assert ok is True
+    cache_key = str((tmp_path / "models").resolve())
+    assert cache_key in nm._session_cache
+
+
+def test_warm_sessions_returns_false_when_model_missing(tmp_path: Path) -> None:
+    """warm_sessions returns False when model directory doesn't contain ONNX files."""
+    import photo_workflow.naming as nm
+    nm._session_cache.clear()
+
+    ok = warm_sessions(model_dir=tmp_path / "no_model_here")
+    assert ok is False
+
+
+def test_relative_and_absolute_paths_share_cache_entry(tmp_path: Path) -> None:
+    """Relative and absolute forms of the same model_dir map to the same cache key."""
+    import os
+    import photo_workflow.naming as nm
+    nm._session_cache.clear()
+
+    abs_model_dir = tmp_path / "models"
+    # Compute a relative path from cwd to the model dir
+    try:
+        rel_model_dir = Path(os.path.relpath(abs_model_dir))
+    except ValueError:
+        pytest.skip("Cannot compute relative path on this OS")
+
+    sessions_obj = _fake_sessions()
+    load_calls = []
+
+    def fake_load(d: Path) -> _Sessions:
+        load_calls.append(d)
+        return sessions_obj
+
+    with patch("photo_workflow.naming._load_sessions", side_effect=fake_load), \
+         patch("photo_workflow.naming._warm_up"):
+        warm_sessions(model_dir=abs_model_dir)
+        warm_sessions(model_dir=rel_model_dir)
+
+    # _load_sessions should have been called exactly once despite two warm_sessions calls
+    assert len(load_calls) == 1, (
+        f"Sessions loaded {len(load_calls)} times — path normalisation not working"
+    )
 
 
 def test_build_empty_past_kv_returns_zero_tensors() -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -87,12 +88,28 @@ def _resolve_onnx_path(onnx_dir: Path, stem: str) -> Path:
     )
 
 
+def _physical_core_count() -> int:
+    """Best-effort estimate of physical (non-HT) core count for AVX2 thread tuning.
+
+    Defaults to half of os.cpu_count() (assumes SMT/HT) with a floor of 2.
+    On the i7-8550U (4P + HT → 8 logical) this gives 4, which matches the
+    physical core count and avoids HT threads competing for AVX2 execution units.
+    """
+    logical = os.cpu_count() or 4
+    return max(2, logical // 2)
+
+
 def _make_ort_session(path: Path) -> object:
     import onnxruntime as ort
 
+    n_threads = _physical_core_count()
     opts = ort.SessionOptions()
-    opts.inter_op_num_threads = 2
-    opts.intra_op_num_threads = 2
+    # intra_op: parallelism within a single op (matrix multiply, conv).
+    # Use physical core count — HT adds latency on AVX2 workloads.
+    opts.intra_op_num_threads = n_threads
+    # inter_op: parallelism between independent graph nodes.
+    # Keep at 1 for sequential single-image inference to avoid scheduler overhead.
+    opts.inter_op_num_threads = 1
     opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
     return ort.InferenceSession(
         str(path),
@@ -170,7 +187,7 @@ def _load_sessions(model_dir: Path) -> _Sessions:
 
     decoder_out_names: list[str] = [o.name for o in decoder_sess.get_outputs()]  # type: ignore[union-attr]
 
-    return _Sessions(
+    sessions = _Sessions(
         vision_encoder=vision_encoder_sess,
         embed_tokens=embed_sess,
         encoder=encoder_sess,
@@ -182,6 +199,26 @@ def _load_sessions(model_dir: Path) -> _Sessions:
         prompt_ids=prompt_ids,
         decoder_out_names=decoder_out_names,
     )
+
+    _warm_up(sessions)
+    return sessions
+
+
+def _warm_up(sessions: _Sessions) -> None:
+    """Run one dummy inference to prime ONNX JIT graph compilation.
+
+    The first real inference after session load includes ORT's graph compilation
+    cost, which can add 1-3 s on i7-class hardware.  A warm-up with a tiny
+    all-zeros image amortises that cost before any timed batch processing starts.
+    """
+    t0 = time.perf_counter()
+    try:
+        h, w = sessions.img_size
+        dummy = np.zeros((1, 3, h, w), dtype=np.float32)
+        _run_inference(sessions, dummy)
+        logger.info("Florence-2 warm-up complete in %.2fs", time.perf_counter() - t0)
+    except Exception as e:
+        logger.debug("Warm-up inference failed (non-fatal): %s", e)
 
 
 def _preprocess_image(path: Path, sessions: _Sessions) -> np.ndarray:
@@ -407,10 +444,28 @@ def _read_shooting_info(path: Path) -> str:
     return " | ".join(parts) if parts else ""
 
 
+def warm_sessions(model_dir: Path = Path("models/florence2_int8")) -> bool:
+    """Pre-load and warm up Florence-2 sessions for the given model directory.
+
+    Call this once before a batch to ensure the first image in the batch is not
+    penalised by session-load and JIT-compilation overhead.  Returns True if
+    sessions loaded successfully, False if the model is unavailable.
+    """
+    cache_key = str(model_dir.resolve())
+    if cache_key not in _session_cache:
+        try:
+            _session_cache[cache_key] = _load_sessions(model_dir)
+        except Exception as e:
+            logger.warning("Florence-2 model unavailable: %s", e)
+            _session_cache[cache_key] = None
+    return _session_cache[cache_key] is not None
+
+
 def generate_name(path: Path, model_dir: Path = Path("models/florence2_int8")) -> str:
     """Generate a semantic description combining Florence-2 caption with EXIF metadata."""
     caption = ""
-    cache_key = str(model_dir)
+    # Always resolve to absolute path so relative vs absolute callers share the same cache entry.
+    cache_key = str(model_dir.resolve())
     if cache_key not in _session_cache:
         try:
             _session_cache[cache_key] = _load_sessions(model_dir)
