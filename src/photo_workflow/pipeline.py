@@ -980,6 +980,205 @@ def recalibrate(
     click.echo(f"✓ Wrote {len(GENRES)} prototypes (version {version}) to {training_db}")
 
 
+@training.command("collect-corrections")
+@click.option("--folder", required=True,
+              help="Folder/table name in photonforge.db (e.g. TEST_1)")
+@click.option("--photon-db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path),
+              help="Path to photonforge.db")
+@click.option("--darktable-library", "dt_library", required=True,
+              type=click.Path(path_type=Path),
+              help="Path to Darktable library.db")
+@click.option("--corpus", default="corpus/genre_labels.jsonl",
+              type=click.Path(path_type=Path), show_default=True,
+              help="Corpus JSONL file — primary corrections appended here")
+@click.option("--secondary-feedback", "secondary_feedback",
+              default="corpus/secondary_feedback.jsonl",
+              type=click.Path(path_type=Path), show_default=True,
+              help="Secondary feedback JSONL — secondary tag add/remove events appended here")
+@click.option("--dry-run", is_flag=True,
+              help="Report corrections without writing to corpus")
+@click.option("--json-progress", is_flag=True,
+              help="Emit newline-delimited JSON progress lines")
+def collect_corrections(
+    folder: str,
+    photon_db: Path,
+    dt_library: Path,
+    corpus: Path,
+    secondary_feedback: Path,
+    dry_run: bool,
+    json_progress: bool,
+) -> None:
+    """Detect tag corrections made in Darktable and feed them to the training corpus.
+
+    Reads photon|primary|<genre> and photon|secondary|<genre> tags from
+    Darktable and compares them against what photonforge.db recorded.
+
+    Primary corrections (user changed photon|primary|* to a different genre)
+    are appended to the corpus JSONL and will improve CLIP prototypes on the
+    next 'training recalibrate' run.
+
+    Secondary feedback (user added/removed photon|secondary|* tags) is logged
+    to a separate JSONL for future threshold calibration.
+    """
+    import getpass
+    import sqlite3 as _sqlite3
+    from datetime import datetime, timezone
+
+    from .darktable_bridge import read_darktable_keywords
+    from .genre_router import GENRES
+    from .photondb import sanitize_table_name
+
+    _PRIMARY_PREFIX = "photon|primary|"
+    _SECONDARY_PREFIX = "photon|secondary|"
+
+    table = sanitize_table_name(folder)
+    conn = _sqlite3.connect(str(photon_db))
+    conn.row_factory = _sqlite3.Row
+
+    exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone()
+    if not exists:
+        click.echo(json.dumps({
+            "step": "collect-corrections", "status": "error",
+            "message": f"Table '{table}' not found in {photon_db}",
+        }))
+        conn.close()
+        return
+
+    rows = conn.execute(
+        f"SELECT filename, primary_genre, genres FROM [{table}] "
+        "WHERE primary_genre IS NOT NULL"
+    ).fetchall()
+    conn.close()
+
+    total = len(rows)
+    done = 0
+    labeler = getpass.getuser() or "anon"
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    corpus_entries: list[dict] = []
+    secondary_entries: list[dict] = []
+
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
+
+    genres_set = set(GENRES)
+
+    for row in rows:
+        filename: str = row["filename"]
+        db_primary: str = row["primary_genre"] or ""
+
+        try:
+            genres_list = json.loads(row["genres"] or "[]")
+        except Exception:
+            genres_list = []
+
+        db_secondaries = {e["g"] for e in genres_list[1:] if e.get("g")}
+
+        # Read current Darktable tags for this image
+        dt_tags = read_darktable_keywords(dt_library, filename)
+
+        dt_primary_genres = [
+            t[len(_PRIMARY_PREFIX):]
+            for t in dt_tags if t.startswith(_PRIMARY_PREFIX)
+        ]
+        dt_secondaries = {
+            t[len(_SECONDARY_PREFIX):]
+            for t in dt_tags if t.startswith(_SECONDARY_PREFIX)
+        } & genres_set
+
+        # No photon|primary|* tag — image not yet scored or tags cleared; skip
+        if not dt_primary_genres:
+            done += 1
+            if json_progress:
+                click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
+            continue
+
+        dt_primary = dt_primary_genres[0]
+
+        # --- Primary correction -----------------------------------------------
+        if dt_primary != db_primary and dt_primary in genres_set:
+            corpus_entries.append({
+                "filename": filename,
+                "genres": [dt_primary],
+                "source_folder": folder,
+                "needs_review": False,
+                "labeled_at": now_iso,
+                "labeler": labeler,
+                "correction_of": db_primary,
+            })
+            if json_progress:
+                click.echo(json.dumps({
+                    "step": "collect-corrections",
+                    "file": filename,
+                    "status": "primary-correction",
+                    "was": db_primary,
+                    "correction": dt_primary,
+                }))
+
+        # --- Secondary feedback -----------------------------------------------
+        added = (dt_secondaries - db_secondaries) & genres_set
+        removed = (db_secondaries - dt_secondaries) & genres_set
+
+        if added or removed:
+            secondary_entries.append({
+                "filename": filename,
+                "source_folder": folder,
+                "db_primary": db_primary,
+                "dt_primary": dt_primary,
+                "added_secondary": sorted(added),
+                "removed_secondary": sorted(removed),
+                "collected_at": now_iso,
+                "labeler": labeler,
+            })
+            if json_progress:
+                click.echo(json.dumps({
+                    "step": "collect-corrections",
+                    "file": filename,
+                    "status": "secondary-feedback",
+                    "added": sorted(added),
+                    "removed": sorted(removed),
+                }))
+
+        done += 1
+        if json_progress:
+            click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
+
+    # --- Write results --------------------------------------------------------
+    if not dry_run:
+        if corpus_entries:
+            corpus.parent.mkdir(parents=True, exist_ok=True)
+            with corpus.open("a", encoding="utf-8") as f:
+                for entry in corpus_entries:
+                    f.write(json.dumps(entry) + "\n")
+
+        if secondary_entries:
+            secondary_feedback.parent.mkdir(parents=True, exist_ok=True)
+            with secondary_feedback.open("a", encoding="utf-8") as f:
+                for entry in secondary_entries:
+                    f.write(json.dumps(entry) + "\n")
+
+    if not json_progress:
+        dry_label = " [DRY RUN]" if dry_run else ""
+        click.echo(f"Checked {total} images{dry_label}")
+        click.echo(f"  Primary corrections:  {len(corpus_entries):3d}  → {corpus}")
+        click.echo(f"  Secondary feedback:   {len(secondary_entries):3d}  → {secondary_feedback}")
+        if corpus_entries:
+            click.echo("\nPrimary corrections:")
+            for e in corpus_entries:
+                click.echo(f"  {e['filename']:40s}  {e['correction_of']:12s} → {e['genres'][0]}")
+    else:
+        click.echo(json.dumps({
+            "step": "collect-corrections",
+            "status": "summary",
+            "primary_corrections": len(corpus_entries),
+            "secondary_feedback": len(secondary_entries),
+            "dry_run": dry_run,
+        }))
+
+
 def _cleanup_sentinel(temp_dir: Path | None = None) -> None:
     """Remove sentinel file on clean exit. PID file is left for kill reference."""
     if temp_dir is None:

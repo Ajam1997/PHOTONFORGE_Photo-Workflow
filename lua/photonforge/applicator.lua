@@ -36,8 +36,9 @@ function M.apply(rec, folder)
     return
   end
 
-  -- sync-tags writes directly to library.db from Python; no Lua action needed.
-  if rec.step == "sync-tags" then
+  -- sync-tags and collect-corrections write directly to DB from Python;
+  -- no Lua action needed for either.
+  if rec.step == "sync-tags" or rec.step == "collect-corrections" then
     return
   end
 

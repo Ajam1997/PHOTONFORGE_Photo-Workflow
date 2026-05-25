@@ -86,6 +86,7 @@ function M.build()
     orientation = "vertical",
     make_path_row("SD card path:",  "sd_path"),
     make_path_row("Destination:",   "dest_path"),
+    make_path_row("Corpus JSONL:",  "corpus_path"),
   }
 
   local tz_label = dt.new_widget("label") { label = "TZ offset (hrs):" }
@@ -240,6 +241,31 @@ function M.build()
     end,
   }
 
+  local collect_btn = dt.new_widget("button") {
+    label = "\u{21C5} Collect Corrections",
+    tooltip = "Detect tag corrections made in Darktable and feed them back to "
+           .. "the training corpus.  Run after reviewing/changing genre tags in "
+           .. "Darktable, then run 'training recalibrate' to update prototypes.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        append_log("[COLLECT] Scanning Darktable tags for corrections...")
+        dt.control.dispatch(function()
+          local ok2, err2 = pcall(runner.run_step, "collect-corrections", append_log, nil, update_progress)
+          if not ok2 then
+            append_log("[ERROR] collect-corrections: " .. tostring(err2))
+          else
+            append_log("[COLLECT] Done. Run 'training recalibrate' to apply corrections.")
+          end
+          clear_progress()
+        end)
+      end)
+      if not ok then
+        append_log("[ERROR] " .. tostring(err))
+      end
+    end,
+  }
+
   local run_btn = dt.new_widget("button") {
     label = "\u{25B6} Run PHOTONForge",
     tooltip = "Run enabled pipeline steps",
@@ -279,6 +305,7 @@ function M.build()
     orientation = "vertical",
     dt.new_widget("box") { orientation = "horizontal", run_btn, stop_btn },
     sync_tags_btn,
+    collect_btn,
   }
 
   local progress_label = dt.new_widget("label") {

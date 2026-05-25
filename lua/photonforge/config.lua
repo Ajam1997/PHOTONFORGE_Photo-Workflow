@@ -14,6 +14,7 @@ local DEFS = {
   { name = "step_dedup",   type = "bool",    default = true, label = "Dedup" },
   { name = "step_score",   type = "bool",    default = true, label = "Score" },
   { name = "step_name",    type = "bool",    default = true, label = "Name" },
+  { name = "corpus_path",      type = "string",  default = "", label = "Corpus JSONL path" },
   { name = "last_run_ingest",  type = "string",  default = "", label = "" },
   { name = "last_run_import",  type = "string",  default = "", label = "" },
   { name = "last_run_dedup",   type = "string",  default = "", label = "" },

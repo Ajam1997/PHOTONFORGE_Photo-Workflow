@@ -97,6 +97,24 @@ local function build_cmd(step)
     end
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --darktable-library " .. shell_quote(dt_lib)
+
+  elseif step == "collect-corrections" then
+    -- Detect corrections made in Darktable and feed them back to the corpus.
+    local dt_lib = dt.configuration.config_dir
+    if IS_WINDOWS then
+      dt_lib = dt_lib .. "\\library.db"
+    else
+      dt_lib = dt_lib .. "/library.db"
+    end
+    local cmd = "photo-workflow training collect-corrections --json-progress"
+              .. " --photon-db " .. shell_quote(db)
+              .. " --folder "    .. shell_quote(folder)
+              .. " --darktable-library " .. shell_quote(dt_lib)
+    local corpus = config.read("corpus_path")
+    if corpus ~= "" then
+      cmd = cmd .. " --corpus " .. shell_quote(corpus)
+    end
+    return cmd
   end
   error("Unknown step: " .. step)
 end
