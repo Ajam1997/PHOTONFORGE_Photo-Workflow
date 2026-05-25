@@ -117,9 +117,9 @@ _EXIF_PRIORS = {
 }
 
 # Confidence threshold below which a genre is excluded from the output.
-# 0.10 is slightly above the uniform baseline for 12 genres (1/12 ≈ 0.083),
-# letting genuine secondary genres surface while filtering noise.
-_CONFIDENCE_THRESHOLD = 0.10
+# 0.20 is well above the uniform baseline for 12 genres (1/12 ≈ 0.083),
+# ensuring only meaningfully confident secondary genres surface.
+_CONFIDENCE_THRESHOLD = 0.20
 
 # Per-genre Gaussian priors for subject context (face_count, subject_area_ratio, primary class)
 _SUBJECT_CONTEXT_PRIORS = {
