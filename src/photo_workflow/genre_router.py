@@ -396,87 +396,100 @@ def route_genre(
     ctx: SubjectContext,
     genre_prototypes: np.ndarray | None = None,
 ) -> GenreResult:
-    """Classify image genre using 5-signal weighted geometric mean fusion.
+    """Classify image genre using a hybrid 1st-order / 2nd-order tagging strategy.
 
-    Fuses: CLIP similarity, EXIF prior, YOLO object evidence,
-    subject context (faces/area/class), and sharpness profile.
+    **Primary tag (1st order)** — product-of-experts across all 5 signals.
+    The multiplicative fusion is intentionally peaked: it reliably picks the
+    single dominant genre with high confidence.
 
-    Uses weighted geometric mean (log-space weighted sum) rather than a pure
-    product-of-experts so secondary genres can surface for multi-label scenes.
-    CLIP gets the highest weight (0.40) as it is the most semantic signal.
+    **Secondary tags (2nd order)** — weighted geometric mean (log-space weighted
+    sum) across the same 5 signals, excluding the primary genre.  The softer
+    distribution surfaces genuine co-genres (e.g. waterfall + landscape, portrait
+    + event) without the extreme peaking that suppresses them in the product.
+    CLIP carries the highest weight (0.40) as the most semantic signal.
 
-    Returns up to 3 genres above the 0.10 floor, or [("general", 1.0)] with
-    needs_review=True if nothing clears the threshold.
+    Returns: primary genre (PoE confidence) + up to 2 secondary genres
+    (geometric-mean confidence, above 0.10 floor), or [("general", 1.0)] with
+    needs_review=True when the primary confidence itself is below the floor.
 
     Args:
-        ctx: SubjectContext with CLIP embedding, detections, EXIF, and sharpness_contrast.
-        genre_prototypes: Precomputed genre prototype embeddings, shape (num_genres, 512).
+        ctx: SubjectContext with CLIP embedding, detections, EXIF, sharpness_contrast.
+        genre_prototypes: Precomputed prototype embeddings (num_genres, 512).
                           If None, CLIP evidence is uniform.
 
     Returns:
-        GenreResult with up to 3 genres, full distribution, and needs_review flag.
+        GenreResult with primary + secondary genres, full PoE distribution,
+        and needs_review flag.
     """
-    # Evidence source 1: CLIP
-    clip_probs = _compute_clip_similarity(ctx.clip_embedding, genre_prototypes)
-
-    # Evidence source 2: EXIF prior
-    exif_probs = _compute_exif_prior(ctx.exif)
-
-    # Evidence source 3: YOLO
-    image_area = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
-    yolo_probs = _compute_yolo_evidence(ctx.detections, image_area)
-
-    # Evidence source 4: Subject context (faces, area, class)
+    # --- Shared signal computation -------------------------------------------
+    clip_probs    = _compute_clip_similarity(ctx.clip_embedding, genre_prototypes)
+    exif_probs    = _compute_exif_prior(ctx.exif)
+    image_area    = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
+    yolo_probs    = _compute_yolo_evidence(ctx.detections, image_area)
     subject_probs = _compute_subject_context_likelihood(ctx)
+    sharp_probs   = _compute_sharpness_profile_likelihood(ctx.sharpness_contrast)
 
-    # Evidence source 5: Sharpness profile
-    sharpness_probs = _compute_sharpness_profile_likelihood(ctx.sharpness_contrast)
+    # --- 1st order: product-of-experts → primary genre -----------------------
+    # Multiplicative fusion peaks heavily on the dominant genre — this is a
+    # feature for primary selection: whichever genre all signals agree on wins.
+    product = {
+        g: clip_probs[g] * exif_probs[g] * yolo_probs[g]
+           * subject_probs[g] * sharp_probs[g]
+        for g in GENRES
+    }
+    total_poe = sum(product.values())
+    poe_dist = (
+        {g: product[g] / total_poe for g in GENRES}
+        if total_poe > 0
+        else {g: 1.0 / len(GENRES) for g in GENRES}
+    )
 
-    # Weighted geometric mean fusion (log-space weighted sum).
-    # Pure product-of-experts concentrates too heavily on one genre, preventing
-    # secondary genres from surfacing in multi-label scenes.  The geometric mean
-    # with signal-specific weights keeps all signals contributing while staying
-    # much less peaked.  Weights sum to 1.0.
-    _W_CLIP    = 0.40
-    _W_EXIF    = 0.20
-    _W_YOLO    = 0.20
-    _W_SUBJECT = 0.12
-    _W_SHARP   = 0.08
+    primary_genre      = max(poe_dist, key=poe_dist.__getitem__)
+    primary_confidence = poe_dist[primary_genre]
 
-    log_scores = {}
-    for g in GENRES:
-        log_scores[g] = (
-            _W_CLIP    * math.log(max(clip_probs[g],    1e-10)) +
-            _W_EXIF    * math.log(max(exif_probs[g],    1e-10)) +
-            _W_YOLO    * math.log(max(yolo_probs[g],    1e-10)) +
-            _W_SUBJECT * math.log(max(subject_probs[g], 1e-10)) +
-            _W_SHARP   * math.log(max(sharpness_probs[g], 1e-10))
+    # needs_review when even the PoE winner is uncertain
+    if primary_confidence < _CONFIDENCE_THRESHOLD:
+        return GenreResult(
+            genres=[("general", 1.0)],
+            distribution=poe_dist,
+            needs_review=True,
         )
 
-    # Softmax over log scores → final probability distribution
-    max_log = max(log_scores.values())
-    exp_scores = {g: math.exp(log_scores[g] - max_log) for g in GENRES}
-    total = sum(exp_scores.values())
-    if total > 0:
-        distribution = {g: exp_scores[g] / total for g in GENRES}
-    else:
-        distribution = {g: 1.0 / len(GENRES) for g in GENRES}
+    # --- 2nd order: weighted geometric mean → secondary genres ---------------
+    # Weights sum to 1.0.  CLIP gets the largest share as the semantic anchor.
+    _W_CLIP, _W_EXIF, _W_YOLO, _W_SUBJ, _W_SHARP = 0.40, 0.20, 0.20, 0.12, 0.08
 
-    # Top-3 above confidence floor (0.10 — slightly above uniform 1/12 ≈ 0.083)
-    sorted_genres = sorted(distribution.items(), key=lambda x: x[1], reverse=True)
-    top_genres = [
-        (g, conf) for g, conf in sorted_genres[:3]
-        if conf >= _CONFIDENCE_THRESHOLD
-    ]
+    log_scores = {
+        g: (
+            _W_CLIP  * math.log(max(clip_probs[g],    1e-10)) +
+            _W_EXIF  * math.log(max(exif_probs[g],    1e-10)) +
+            _W_YOLO  * math.log(max(yolo_probs[g],    1e-10)) +
+            _W_SUBJ  * math.log(max(subject_probs[g], 1e-10)) +
+            _W_SHARP * math.log(max(sharp_probs[g],   1e-10))
+        )
+        for g in GENRES
+    }
+    max_log   = max(log_scores.values())
+    exp_gm    = {g: math.exp(log_scores[g] - max_log) for g in GENRES}
+    total_gm  = sum(exp_gm.values())
+    gm_dist   = (
+        {g: exp_gm[g] / total_gm for g in GENRES}
+        if total_gm > 0
+        else {g: 1.0 / len(GENRES) for g in GENRES}
+    )
 
-    # If no genre clears the floor, return general with needs_review=True
-    needs_review = False
-    if not top_genres:
-        top_genres = [("general", 1.0)]
-        needs_review = True
+    # Secondary candidates: all genres except primary, sorted by gm confidence,
+    # capped at 2, only above the confidence floor.
+    secondary = [
+        (g, gm_dist[g])
+        for g in sorted(GENRES, key=gm_dist.__getitem__, reverse=True)
+        if g != primary_genre and gm_dist[g] >= _CONFIDENCE_THRESHOLD
+    ][:2]
+
+    genres = [(primary_genre, primary_confidence)] + secondary
 
     return GenreResult(
-        genres=top_genres,
-        distribution=distribution,
-        needs_review=needs_review,
+        genres=genres,
+        distribution=poe_dist,   # PoE distribution stored for calibration
+        needs_review=False,
     )
