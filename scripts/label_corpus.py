@@ -109,6 +109,10 @@ def parse_args() -> argparse.Namespace:
                         "load takes the last entry as the current label.")
     p.add_argument("--labeler", default=None,
                    help="Labeler name recorded in JSONL (default: current user)")
+    p.add_argument("--filter-multi-label", action="store_true",
+                   help="Only re-present images that were previously labeled with "
+                        "more than one genre.  Use with --relabel to fix legacy "
+                        "multi-label corpus entries.  Implies --relabel.")
     return p.parse_args()
 
 
@@ -285,6 +289,7 @@ class CorpusLabeller:
         include_skipped: bool,
         session_limit: int | None,
         relabel: bool = False,
+        filter_multi_label: bool = False,
     ) -> None:
         self.candidates = candidates
         self.source_dir = source_dir
@@ -293,10 +298,17 @@ class CorpusLabeller:
         self.include_skipped = include_skipped
         self.session_limit = session_limit
         self.relabel = relabel
+        self.filter_multi_label = filter_multi_label
 
         if relabel:
-            # Include everything; pre-load existing selection per-image happens in _load_current.
-            self.queue = list(candidates)
+            if filter_multi_label:
+                # Surface only images whose last corpus entry had > 1 genre
+                self.queue = [
+                    c for c in candidates
+                    if len((store.current_label(c["filename"]) or {}).get("genres") or []) > 1
+                ]
+            else:
+                self.queue = list(candidates)
         else:
             self.queue = [c for c in candidates if not store.is_labelled(c["filename"])]
         self.session_started_at = datetime.now(timezone.utc)
@@ -483,10 +495,10 @@ class CorpusLabeller:
 
         if key in BUILTIN_GENRES:
             g = BUILTIN_GENRES[key]
-            if g in self.selection:
-                self.selection.remove(g)
-            else:
-                self.selection.add(g)
+            # Single-label: pressing a key sets the genre (replaces any
+            # previous selection).  The first/only label is the training
+            # signal; secondary genres are no longer stored in corpus.
+            self.selection = {g}
             self._render_info_and_progress()
 
     def _prompt_custom_genre(self) -> None:
@@ -654,6 +666,9 @@ def main() -> int:
     labeler = args.labeler or getpass.getuser() or "anon"
     store = LabelStore(args.output, labeler=labeler)
 
+    # --filter-multi-label implies --relabel
+    do_relabel = args.relabel or args.filter_multi_label
+
     unlabelled = sum(1 for c in candidates if not store.is_labelled(c["filename"]))
     print(f"Loaded {len(candidates)} candidates from [{args.source_folder}], "
           f"{unlabelled} unlabelled, "
@@ -661,9 +676,15 @@ def main() -> int:
     print(f"Existing labels in {args.output}: {len(store._labelled)}")
     if args.filter_router_genre:
         print(f"Filtering to router primary_genre = {args.filter_router_genre!r}")
-    if args.relabel:
+    if do_relabel:
         print("--relabel: already-labelled images will be re-presented with their "
               "previous genres pre-loaded.")
+    if args.filter_multi_label:
+        multi = sum(
+            1 for c in candidates
+            if len((store.current_label(c["filename"]) or {}).get("genres") or []) > 1
+        )
+        print(f"--filter-multi-label: {multi} image(s) with multiple labels to review.")
     history = store.custom_history()
     if history:
         print(f"Custom genres in use so far: {', '.join(history)}")
@@ -676,7 +697,8 @@ def main() -> int:
         store=store,
         include_skipped=args.include_skipped,
         session_limit=args.limit,
-        relabel=args.relabel,
+        relabel=do_relabel,
+        filter_multi_label=args.filter_multi_label,
     )
     app.run()
     return 0

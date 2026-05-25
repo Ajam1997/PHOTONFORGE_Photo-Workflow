@@ -153,7 +153,12 @@ def test_compute_centroids_single_label(tmp_path: Path):
 
 
 def test_compute_centroids_multi_label(tmp_path: Path):
-    """compute_centroids should add multi-label embeddings to all genres."""
+    """compute_centroids primary_only=True (default) uses only genres[0].
+
+    A legacy multi-label entry ["wildlife", "landscape"] should train the
+    wildlife prototype only, not the landscape one.  The secondary label is
+    output metadata, not a training signal.
+    """
     emb = np.random.randn(512).astype(np.float32)
     emb_norm = emb / np.linalg.norm(emb)
 
@@ -164,11 +169,18 @@ def test_compute_centroids_multi_label(tmp_path: Path):
         "A.ARW": emb_norm,
     }
 
+    # Default: primary_only=True — only wildlife gets trained
     result = compute_centroids(filename_to_genres, filename_to_embedding)
     assert len(result["wildlife"]) == 1
-    assert len(result["landscape"]) == 1
+    assert len(result["landscape"]) == 0
     assert np.allclose(result["wildlife"][0], emb_norm)
-    assert np.allclose(result["landscape"][0], emb_norm)
+
+    # Legacy mode: primary_only=False — both genres get trained
+    result_legacy = compute_centroids(
+        filename_to_genres, filename_to_embedding, primary_only=False
+    )
+    assert len(result_legacy["wildlife"]) == 1
+    assert len(result_legacy["landscape"]) == 1
 
 
 def test_compute_centroids_missing_embeddings(tmp_path: Path):

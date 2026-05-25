@@ -145,14 +145,23 @@ def _load_embeddings(
 def compute_centroids(
     filename_to_genres: dict[str, list[str]],
     filename_to_embedding: dict[str, np.ndarray],
+    primary_only: bool = True,
 ) -> dict[str, list[np.ndarray]]:
-    """Group embeddings by genre, handling multi-label assignments.
+    """Group embeddings by genre for prototype calibration.
 
-    For each filename, its embedding is added to ALL of its genres' lists.
+    With primary_only=True (default), only genres[0] is used as the training
+    signal — the single most-discriminative label for each image.  This keeps
+    each prototype clean: a waterfall image labeled ["waterfall", "landscape"]
+    trains the waterfall prototype only, not the landscape one.
+
+    Set primary_only=False to reproduce the legacy behaviour (each image trains
+    every genre in its list).  Useful for auditing how much the prototypes
+    shifted when migrating existing multi-label corpus data.
 
     Args:
         filename_to_genres: dict mapping filename to list of genre strings
         filename_to_embedding: dict mapping filename to np.ndarray (512,)
+        primary_only: If True (default), use only genres[0] per image.
 
     Returns:
         dict mapping genre to list of embeddings (all L2-normalized)
@@ -160,6 +169,8 @@ def compute_centroids(
     genre_embeddings: dict[str, list[np.ndarray]] = {genre: [] for genre in GENRES}
 
     for filename, genres in filename_to_genres.items():
+        if not genres:
+            continue
         embedding = filename_to_embedding.get(filename)
         if embedding is None:
             continue
@@ -171,8 +182,10 @@ def compute_centroids(
         else:
             normalized = embedding
 
-        # Add to all genres this image belongs to
-        for genre in genres:
+        # Primary-only: train only the first/most-discriminative label.
+        # Legacy multi-label: train every genre in the list.
+        training_genres = genres[:1] if primary_only else genres
+        for genre in training_genres:
             if genre in genre_embeddings:
                 genre_embeddings[genre].append(normalized)
 
