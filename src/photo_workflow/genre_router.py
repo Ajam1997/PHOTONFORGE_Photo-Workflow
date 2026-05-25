@@ -21,6 +21,8 @@ GENRES = [
     "event",
     "waterfall",
     "signage",
+    "cat",
+    "vehicle",
     "general",
 ]
 
@@ -90,6 +92,22 @@ _EXIF_PRIORS = {
         "shutter": (-5.5, 1.0),
         "iso": (5.5, 0.8),
     },
+    # Cat: telephoto or mid-range, wide aperture for bokeh, fast shutter
+    # to freeze movement, moderate-high ISO indoors.
+    "cat": {
+        "focal_length": (4.5, 0.8),
+        "aperture": (0.8, 0.5),
+        "shutter": (-6.5, 1.0),
+        "iso": (6.0, 0.8),
+    },
+    # Vehicle: mid-to-wide focal lengths, moderate aperture, fast shutter
+    # (action/panning), variable ISO.
+    "vehicle": {
+        "focal_length": (3.8, 0.7),
+        "aperture": (1.5, 0.5),
+        "shutter": (-6.0, 1.5),
+        "iso": (5.5, 0.8),
+    },
     "general": {
         "focal_length": (3.8, 1.5),
         "aperture": (1.5, 1.0),
@@ -148,6 +166,16 @@ _SUBJECT_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.3, 0.15),  # Sign fills moderate-to-large frame
         "primary_class": {"stop sign": 2.0},  # COCO 'stop sign' is a strong cue
     },
+    "cat": {
+        "face_count": (0.0, 0.5),       # No human faces
+        "subject_area_ratio": (0.25, 0.15),  # Cat fills medium frame
+        "primary_class": {"cat": 3.0},  # COCO cat class is the defining signal
+    },
+    "vehicle": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.3, 0.2),   # Vehicle fills medium-to-large frame
+        "primary_class": {"car": 2.5, "truck": 2.5, "bus": 2.0, "motorcycle": 2.0},
+    },
     "general": {
         "face_count": (0.5, 1.0),       # Uniform (any)
         "subject_area_ratio": (0.2, 0.2),   # Uniform
@@ -166,6 +194,8 @@ _SHARPNESS_PROFILE_PRIORS = {
     "event": (1.5, 0.8),      # Moderate contrast
     "waterfall": (1.3, 0.7),  # Mostly uniform; rocks sharp, water motion-blurred
     "signage": (1.0, 0.5),    # Frontal flat subject — uniform sharpness preferred
+    "cat": (2.5, 1.0),        # High contrast — cat sharp, background blurred
+    "vehicle": (1.5, 0.8),    # Moderate — depends on style (studio vs street)
     "general": (1.5, 1.0),    # Moderate baseline
 }
 
@@ -234,6 +264,11 @@ def _compute_yolo_evidence(detections: list[ObjectDetection], image_area: int) -
         if det.class_id in _ANIMAL_CLASS_IDS and area_ratio > 0.05:
             has_animal = True
             evidence["wildlife"] *= 3.0
+            if det.class_id == 15:  # cat
+                evidence["cat"] *= 4.0
+
+        if det.class_name in ("car", "truck", "bus", "motorcycle") and area_ratio > 0.05:
+            evidence["vehicle"] *= 3.5
 
         if det.class_name == "person":
             person_count += 1

@@ -63,6 +63,8 @@ BUILTIN_GENRES = {
     "e": "event",
     "f": "waterfall",     # 'f' for falls (w is taken by wildlife)
     "i": "signage",       # 'i' for sIgnage (s is taken by street)
+    "c": "cat",
+    "v": "vehicle",
     "g": "general",
 }
 

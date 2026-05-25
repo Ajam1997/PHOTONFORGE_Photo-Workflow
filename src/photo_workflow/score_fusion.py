@@ -94,6 +94,24 @@ GENRE_WEIGHTS: dict[str, dict[str, float]] = {
         "color_contrast": 0.07, "aesthetic_clip": 0.06,
         "negative_space": 0.06,
     },
+    # Cat: eye sharpness critical (same as wildlife), subject isolation
+    # for bokeh backgrounds, aesthetic CLIP for appeal.
+    "cat": {
+        "eye_sharpness": 0.25, "subject_sharpness": 0.15,
+        "subject_isolation": 0.12, "composition_rot": 0.10,
+        "negative_space": 0.08, "exposure_overall": 0.10,
+        "aesthetic_clip": 0.10, "balance": 0.05,
+        "behavior_proxy": 0.05,
+    },
+    # Vehicle: sharpness + composition dominates, motion tolerance for
+    # panning shots, symmetry for static studio-style.
+    "vehicle": {
+        "subject_sharpness": 0.22, "composition_rot": 0.14,
+        "leading_lines": 0.12, "symmetry": 0.10,
+        "exposure_overall": 0.12, "subject_isolation": 0.08,
+        "motion_tolerance": 0.08, "aesthetic_clip": 0.08,
+        "balance": 0.06,
+    },
     "general": {
         "subject_sharpness": 0.20, "exposure_overall": 0.18,
         "composition_rot": 0.15, "subject_isolation": 0.12,

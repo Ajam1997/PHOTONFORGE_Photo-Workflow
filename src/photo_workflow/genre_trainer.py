@@ -236,7 +236,7 @@ def recalibrate_prototypes(
             # Not enough data: use hardcoded with alpha=1.0
             result[genre] = {
                 "prototype": hardcoded.copy(),
-                "n_corrections": 0,
+                "n_corrections": len(embeddings),
                 "alpha": 1.0,
                 "source": "hardcoded",
             }

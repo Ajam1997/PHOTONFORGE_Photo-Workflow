@@ -238,6 +238,8 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
         "event": "a photograph of people at an event, party, or gathering",
         "waterfall": "a photograph of a waterfall with flowing water and rocks",
         "signage": "a photograph of a sign or signboard with text",
+        "cat": "a photograph of a domestic cat",
+        "vehicle": "a photograph of a car, truck, or motorcycle",
         "general": "a general photograph",
     }
 
@@ -252,7 +254,7 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
     # Save as ordered array (10 x 512) — order must match genre_router.GENRES
     genres_ordered = ["wildlife", "landscape", "portrait", "street",
                       "architecture", "macro", "event", "waterfall",
-                      "signage", "general"]
+                      "signage", "cat", "vehicle", "general"]
     proto_matrix = np.stack([embeddings[g] for g in genres_ordered])
     np.save(str(out_file), proto_matrix)
     log.info("Genre prototypes saved: %s (shape %s)", out_file, proto_matrix.shape)

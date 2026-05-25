@@ -45,10 +45,10 @@ def _make_context(
 
 def test_genres_list_complete() -> None:
     """All built-in genres should be defined."""
-    assert len(GENRES) == 10
+    assert len(GENRES) == 12
     for g in ("wildlife", "landscape", "portrait", "street",
               "architecture", "macro", "event", "waterfall",
-              "signage", "general"):
+              "signage", "cat", "vehicle", "general"):
         assert g in GENRES
 
 
@@ -81,6 +81,17 @@ def test_yolo_evidence_cat_boosts_wildlife() -> None:
     evidence = _compute_yolo_evidence([cat_det], image_area=1500 * 1000)
     assert evidence["wildlife"] > evidence["landscape"]
     assert evidence["wildlife"] > evidence["portrait"]
+    assert evidence["cat"] > evidence["wildlife"]
+
+
+def test_yolo_evidence_car_boosts_vehicle() -> None:
+    """YOLO detecting a car should boost vehicle probability."""
+    car_det = ObjectDetection(
+        class_id=2, class_name="car", bbox=(100, 100, 500, 400), confidence=0.85
+    )
+    evidence = _compute_yolo_evidence([car_det], image_area=1500 * 1000)
+    assert evidence["vehicle"] > evidence["landscape"]
+    assert evidence["vehicle"] > evidence["portrait"]
 
 
 def test_yolo_evidence_person_boosts_portrait() -> None:
