@@ -116,8 +116,10 @@ _EXIF_PRIORS = {
     },
 }
 
-# Confidence threshold below which we fall back to "general"
-_CONFIDENCE_THRESHOLD = 0.15  # Floor for top-3 genres
+# Confidence threshold below which a genre is excluded from the output.
+# 0.10 is slightly above the uniform baseline for 12 genres (1/12 ≈ 0.083),
+# letting genuine secondary genres surface while filtering noise.
+_CONFIDENCE_THRESHOLD = 0.10
 
 # Per-genre Gaussian priors for subject context (face_count, subject_area_ratio, primary class)
 _SUBJECT_CONTEXT_PRIORS = {
@@ -394,21 +396,25 @@ def route_genre(
     ctx: SubjectContext,
     genre_prototypes: np.ndarray | None = None,
 ) -> GenreResult:
-    """Classify image genre using 5-signal Bayesian product-of-experts.
+    """Classify image genre using 5-signal weighted geometric mean fusion.
 
     Fuses: CLIP similarity, EXIF prior, YOLO object evidence,
     subject context (faces/area/class), and sharpness profile.
 
-    Returns top-3 genres above 0.15 floor, or [("general", 1.0)] with needs_review=True
-    if nothing clears the threshold.
+    Uses weighted geometric mean (log-space weighted sum) rather than a pure
+    product-of-experts so secondary genres can surface for multi-label scenes.
+    CLIP gets the highest weight (0.40) as it is the most semantic signal.
+
+    Returns up to 3 genres above the 0.10 floor, or [("general", 1.0)] with
+    needs_review=True if nothing clears the threshold.
 
     Args:
         ctx: SubjectContext with CLIP embedding, detections, EXIF, and sharpness_contrast.
-        genre_prototypes: Precomputed genre prototype embeddings, shape (8, 512).
+        genre_prototypes: Precomputed genre prototype embeddings, shape (num_genres, 512).
                           If None, CLIP evidence is uniform.
 
     Returns:
-        GenreResult with top-3 genres, full distribution, and needs_review flag.
+        GenreResult with up to 3 genres, full distribution, and needs_review flag.
     """
     # Evidence source 1: CLIP
     clip_probs = _compute_clip_similarity(ctx.clip_embedding, genre_prototypes)
@@ -426,36 +432,51 @@ def route_genre(
     # Evidence source 5: Sharpness profile
     sharpness_probs = _compute_sharpness_profile_likelihood(ctx.sharpness_contrast)
 
-    # Bayesian product-of-experts fusion (5 signals)
-    fused = {}
+    # Weighted geometric mean fusion (log-space weighted sum).
+    # Pure product-of-experts concentrates too heavily on one genre, preventing
+    # secondary genres from surfacing in multi-label scenes.  The geometric mean
+    # with signal-specific weights keeps all signals contributing while staying
+    # much less peaked.  Weights sum to 1.0.
+    _W_CLIP    = 0.40
+    _W_EXIF    = 0.20
+    _W_YOLO    = 0.20
+    _W_SUBJECT = 0.12
+    _W_SHARP   = 0.08
+
+    log_scores = {}
     for g in GENRES:
-        fused[g] = (
-            clip_probs[g] *
-            exif_probs[g] *
-            yolo_probs[g] *
-            subject_probs[g] *
-            sharpness_probs[g]
+        log_scores[g] = (
+            _W_CLIP    * math.log(max(clip_probs[g],    1e-10)) +
+            _W_EXIF    * math.log(max(exif_probs[g],    1e-10)) +
+            _W_YOLO    * math.log(max(yolo_probs[g],    1e-10)) +
+            _W_SUBJECT * math.log(max(subject_probs[g], 1e-10)) +
+            _W_SHARP   * math.log(max(sharpness_probs[g], 1e-10))
         )
 
-    # Normalize
-    total = sum(fused.values())
+    # Softmax over log scores → final probability distribution
+    max_log = max(log_scores.values())
+    exp_scores = {g: math.exp(log_scores[g] - max_log) for g in GENRES}
+    total = sum(exp_scores.values())
     if total > 0:
-        distribution = {g: fused[g] / total for g in GENRES}
+        distribution = {g: exp_scores[g] / total for g in GENRES}
     else:
         distribution = {g: 1.0 / len(GENRES) for g in GENRES}
 
-    # Extract top-3 above confidence floor (0.15)
+    # Top-3 above confidence floor (0.10 — slightly above uniform 1/12 ≈ 0.083)
     sorted_genres = sorted(distribution.items(), key=lambda x: x[1], reverse=True)
-    top_3 = [(g, conf) for g, conf in sorted_genres if conf >= _CONFIDENCE_THRESHOLD]
+    top_genres = [
+        (g, conf) for g, conf in sorted_genres[:3]
+        if conf >= _CONFIDENCE_THRESHOLD
+    ]
 
     # If no genre clears the floor, return general with needs_review=True
     needs_review = False
-    if not top_3:
-        top_3 = [("general", 1.0)]
+    if not top_genres:
+        top_genres = [("general", 1.0)]
         needs_review = True
 
     return GenreResult(
-        genres=top_3,
+        genres=top_genres,
         distribution=distribution,
         needs_review=needs_review,
     )
