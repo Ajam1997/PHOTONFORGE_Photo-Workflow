@@ -99,6 +99,10 @@ def parse_args() -> argparse.Namespace:
                    help="Stop after labelling N images in this session")
     p.add_argument("--include-skipped", action="store_true",
                    help="Re-prompt for images previously skipped (empty labels)")
+    p.add_argument("--relabel", action="store_true",
+                   help="Include already-labelled images and pre-load their existing "
+                        "genres so you can review and edit. New entry appends to JSONL; "
+                        "load takes the last entry as the current label.")
     p.add_argument("--labeler", default=None,
                    help="Labeler name recorded in JSONL (default: current user)")
     return p.parse_args()
@@ -142,13 +146,20 @@ def load_candidates(
 # --- Persistence ------------------------------------------------------------
 
 class LabelStore:
-    """Append-only JSONL store for genre labels."""
+    """Append-only JSONL store for genre labels.
+
+    On load, the LAST entry for each filename wins (allows --relabel rewrites).
+    Tracks the union of every custom (non-built-in) genre ever used so the
+    UI can offer a consistency picker.
+    """
 
     def __init__(self, path: Path, labeler: str) -> None:
         self.path = path
         self.labeler = labeler
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._labelled: set[str] = set()
+        self._current: dict[str, dict] = {}     # filename -> last record
+        self._custom_history: list[str] = []    # ordered, most-recent-first, deduped
         self._load_existing()
 
     def _load_existing(self) -> None:
@@ -163,11 +174,30 @@ class LabelStore:
                     rec = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if "filename" in rec:
-                    self._labelled.add(rec["filename"])
+                fname = rec.get("filename")
+                if not fname:
+                    continue
+                self._labelled.add(fname)
+                self._current[fname] = rec
+                for g in rec.get("genres", []) or []:
+                    if g not in BUILTIN_GENRES.values() and g not in self._custom_history:
+                        self._custom_history.append(g)
 
     def is_labelled(self, filename: str) -> bool:
         return filename in self._labelled
+
+    def current_label(self, filename: str) -> dict | None:
+        """Return the last record stored for filename, or None."""
+        return self._current.get(filename)
+
+    def custom_history(self) -> list[str]:
+        """Return custom genres ever used, in insertion order."""
+        return list(self._custom_history)
+
+    def record_custom(self, genre: str) -> None:
+        if genre in self._custom_history:
+            self._custom_history.remove(genre)
+        self._custom_history.insert(0, genre)
 
     def commit(
         self,
@@ -250,6 +280,7 @@ class CorpusLabeller:
         store: LabelStore,
         include_skipped: bool,
         session_limit: int | None,
+        relabel: bool = False,
     ) -> None:
         self.candidates = candidates
         self.source_dir = source_dir
@@ -257,10 +288,13 @@ class CorpusLabeller:
         self.store = store
         self.include_skipped = include_skipped
         self.session_limit = session_limit
+        self.relabel = relabel
 
-        self.queue: list[dict] = [
-            c for c in candidates if not store.is_labelled(c["filename"])
-        ]
+        if relabel:
+            # Include everything; pre-load existing selection per-image happens in _load_current.
+            self.queue = list(candidates)
+        else:
+            self.queue = [c for c in candidates if not store.is_labelled(c["filename"])]
         self.session_started_at = datetime.now(timezone.utc)
         self.session_committed = 0
         self.idx = 0
@@ -353,7 +387,13 @@ class CorpusLabeller:
         self.tk_img = ImageTk.PhotoImage(img)
         self.image_label.configure(image=self.tk_img, text="")
 
-        self.selection = set()
+        # In --relabel mode, pre-load the previous selection so the user can
+        # review/edit rather than start from scratch on every file.
+        existing = self.store.current_label(cur["filename"])
+        if self.relabel and existing:
+            self.selection = set(existing.get("genres") or [])
+        else:
+            self.selection = set()
         self._render_info_and_progress()
 
     def _render_info_and_progress(self) -> None:
@@ -372,7 +412,13 @@ class CorpusLabeller:
             f"{e['g']} ({e['c']:.2f})" for e in router_genres
         ) or (cur["primary_genre"] or "(none)")
         nr = " · needs_review" if cur["needs_review"] else ""
-        self.router_var.set(f"router said: {router_summary}{nr}")
+        prev = ""
+        if self.relabel:
+            existing = self.store.current_label(cur["filename"])
+            if existing:
+                prev_genres = existing.get("genres") or []
+                prev = f"    previous: {', '.join(prev_genres) if prev_genres else '(skipped)'}"
+        self.router_var.set(f"router said: {router_summary}{nr}{prev}")
 
         sel_str = "  ".join(f"[{g}]" for g in sorted(self.selection)) or "(none selected)"
         self.selection_var.set(sel_str)
@@ -439,16 +485,78 @@ class CorpusLabeller:
             self._render_info_and_progress()
 
     def _prompt_custom_genre(self) -> None:
-        raw = simpledialog.askstring(
-            "Custom genre",
-            "Genre name (a-z, 0-9, dashes):",
-            parent=self.root,
-        )
-        if not raw:
+        """Open a picker showing previously-used custom genres + a 'new' text entry.
+
+        Spelling drifts (e.g. 'vehicle' vs 'vehicles') are the main consistency
+        risk for custom genres — the picker lists what's already been used so
+        you reuse the same slug instead of typing a near-duplicate.
+        """
+        history = self.store.custom_history()
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Custom genre")
+        dlg.transient(self.root)
+        dlg.grab_set()
+        dlg.geometry("420x360")
+
+        tk.Label(
+            dlg,
+            text="Pick an existing custom genre (or type a new one):",
+            anchor="w",
+            font=("Consolas", 10),
+        ).pack(fill="x", padx=10, pady=(10, 4))
+
+        listbox = tk.Listbox(dlg, height=10, font=("Consolas", 11))
+        for g in history:
+            listbox.insert("end", g)
+        if history:
+            listbox.selection_set(0)
+        listbox.pack(fill="both", expand=True, padx=10)
+
+        tk.Label(
+            dlg,
+            text="Or type a new genre (a-z, 0-9, dashes):",
+            anchor="w",
+            font=("Consolas", 10),
+        ).pack(fill="x", padx=10, pady=(8, 2))
+
+        entry = tk.Entry(dlg, font=("Consolas", 12))
+        entry.pack(fill="x", padx=10)
+
+        chosen: list[str] = []
+
+        def accept(_evt: object = None) -> None:
+            typed = entry.get().strip()
+            if typed:
+                slug = slugify(typed)
+                if slug:
+                    chosen.append(slug)
+            else:
+                sel = listbox.curselection()
+                if sel:
+                    chosen.append(listbox.get(sel[0]))
+            dlg.destroy()
+
+        def cancel(_evt: object = None) -> None:
+            dlg.destroy()
+
+        btn_frame = tk.Frame(dlg)
+        btn_frame.pack(fill="x", padx=10, pady=10)
+        tk.Button(btn_frame, text="Add", command=accept).pack(side="right")
+        tk.Button(btn_frame, text="Cancel", command=cancel).pack(side="right", padx=(0, 8))
+
+        entry.bind("<Return>", accept)
+        listbox.bind("<Double-Button-1>", accept)
+        listbox.bind("<Return>", accept)
+        dlg.bind("<Escape>", cancel)
+
+        # Default focus: the entry box so typing immediately starts a new genre
+        entry.focus_set()
+        self.root.wait_window(dlg)
+
+        if not chosen:
             return
-        g = slugify(raw)
-        if not g:
-            return
+        g = chosen[0]
+        self.store.record_custom(g)
         self.selection.add(g)
         self._render_info_and_progress()
 
@@ -541,11 +649,20 @@ def main() -> int:
     labeler = args.labeler or getpass.getuser() or "anon"
     store = LabelStore(args.output, labeler=labeler)
 
+    unlabelled = sum(1 for c in candidates if not store.is_labelled(c["filename"]))
     print(f"Loaded {len(candidates)} candidates from [{args.source_folder}], "
-          f"{sum(1 for c in candidates if not store.is_labelled(c['filename']))} unlabelled.")
+          f"{unlabelled} unlabelled, "
+          f"{len(candidates) - unlabelled} already labelled.")
     print(f"Existing labels in {args.output}: {len(store._labelled)}")
     if args.filter_router_genre:
         print(f"Filtering to router primary_genre = {args.filter_router_genre!r}")
+    if args.relabel:
+        print("--relabel: already-labelled images will be re-presented with their "
+              "previous genres pre-loaded.")
+    history = store.custom_history()
+    if history:
+        print(f"Custom genres in use so far: {', '.join(history)}")
+        print("  (press 'c' in the UI to pick from this list or type a new one)")
 
     app = CorpusLabeller(
         candidates=candidates,
@@ -554,6 +671,7 @@ def main() -> int:
         store=store,
         include_skipped=args.include_skipped,
         session_limit=args.limit,
+        relabel=args.relabel,
     )
     app.run()
     return 0
