@@ -11,7 +11,9 @@ end
 local function find_image(filename, folder)
   local norm_folder = normalize_path(folder)
   for _, img in ipairs(dt.database) do
-    if img.filename == filename and normalize_path(img.path) == norm_folder then
+    -- Guard: DT5 database proxies can yield nil-like entries
+    if img ~= nil and img.filename == filename
+        and normalize_path(img.path) == norm_folder then
       return img
     end
   end
@@ -31,6 +33,11 @@ function M.apply(rec, folder)
 
   if rec.step == "ingest" then
     dt.print_log(string.format("PHOTONForge ingested: %s", rec.file or ""))
+    return
+  end
+
+  -- sync-tags writes directly to library.db from Python; no Lua action needed.
+  if rec.step == "sync-tags" then
     return
   end
 
