@@ -724,8 +724,9 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
     """Push PHOTONForge genre tags from photonforge.db into Darktable's library.db.
 
     Use this after running the score step from the command line (when the Lua
-    applicator was not running).  Reads the genres JSON column and attaches each
-    genre as a flat tag in Darktable.
+    applicator was not running).  Reads the genres JSON column and writes
+    hierarchical tags: photon|primary|<genre> for the first entry (PoE winner)
+    and photon|secondary|<genre> for subsequent entries (geometric mean co-genres).
     """
     import sqlite3 as _sqlite3
 
@@ -762,7 +763,14 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
         filename: str = row["filename"]
         try:
             genres_list = json.loads(row["genres"])
-            keywords = [entry["g"] for entry in genres_list if entry.get("g")]
+            # Build hierarchical tags: first entry = primary, rest = secondary
+            keywords = []
+            for i, entry in enumerate(genres_list):
+                g = entry.get("g", "")
+                if not g:
+                    continue
+                prefix = "photon|primary|" if i == 0 else "photon|secondary|"
+                keywords.append(prefix + g)
             if keywords:
                 write_darktable_keywords(dt_library, filename, keywords)
             done += 1

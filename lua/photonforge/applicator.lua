@@ -75,18 +75,26 @@ function M.apply(rec, folder)
     end
 
     -- Multi-genre tagging (FR-1.7.2, design D5).
-    -- Prefer rec.genres (list of {g=name, c=confidence}); fall back to rec.genre
-    -- for older score emit payloads.  Tags are flat — no hierarchical prefix.
-    -- The router's 0.15 floor is already the gate; do not add an extra one here.
+    -- Writes hierarchical tags: photon|primary|<genre> for the first entry
+    -- (product-of-experts winner) and photon|secondary|<genre> for the rest
+    -- (geometric mean co-genres).  Falls back to flat rec.genre for legacy
+    -- score payloads that pre-date the genres list.
     if rec.genres ~= nil and #rec.genres > 0 then
-      for _, entry in ipairs(rec.genres) do
+      for i, entry in ipairs(rec.genres) do
         if entry.g ~= nil and entry.g ~= "" then
-          local tag = dt.tags.create(entry.g)
+          local prefix = (i == 1) and "photon|primary|" or "photon|secondary|"
+          local tag = dt.tags.create(prefix .. entry.g)
           dt.tags.attach(tag, img)
         end
       end
     elseif rec.genre ~= nil and rec.genre ~= "" then
-      local tag = dt.tags.create(rec.genre)
+      local tag = dt.tags.create("photon|primary|" .. rec.genre)
+      dt.tags.attach(tag, img)
+    end
+
+    -- needs_review flag
+    if rec.needs_review then
+      local tag = dt.tags.create("photon|needs_review")
       dt.tags.attach(tag, img)
     end
 
