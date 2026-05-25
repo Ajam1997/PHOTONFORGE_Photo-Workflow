@@ -216,6 +216,30 @@ function M.build()
     end,
   }
 
+  local sync_tags_btn = dt.new_widget("button") {
+    label = "\u{21A5} Sync Tags \u{2192} DT",
+    tooltip = "Push PHOTONForge genre tags from photonforge.db into Darktable "
+           .. "(use after scoring from the command line)",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        append_log("[SYNC] Pushing genre tags from DB into Darktable...")
+        dt.control.dispatch(function()
+          local ok2, err2 = pcall(runner.run_step, "sync-tags", append_log, nil, update_progress)
+          if not ok2 then
+            append_log("[ERROR] sync-tags: " .. tostring(err2))
+          else
+            append_log("[SYNC] Done.")
+          end
+          clear_progress()
+        end)
+      end)
+      if not ok then
+        append_log("[ERROR] " .. tostring(err))
+      end
+    end,
+  }
+
   local run_btn = dt.new_widget("button") {
     label = "\u{25B6} Run PHOTONForge",
     tooltip = "Run enabled pipeline steps",
@@ -252,7 +276,9 @@ function M.build()
   }
 
   local btn_box = dt.new_widget("box") {
-    orientation = "horizontal", run_btn, stop_btn,
+    orientation = "vertical",
+    dt.new_widget("box") { orientation = "horizontal", run_btn, stop_btn },
+    sync_tags_btn,
   }
 
   local progress_label = dt.new_widget("label") {

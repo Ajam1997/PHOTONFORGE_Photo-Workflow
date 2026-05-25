@@ -708,6 +708,82 @@ def status(db_path: Path, folder: str) -> None:
     click.echo(f"  Errors:        {error_count}")
 
 
+@cli.command("sync-tags")
+@click.option("--db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path),
+              help="photonforge.db path")
+@click.option("--folder", required=True,
+              help="Folder/table name in photonforge.db (e.g. TEST_1)")
+@click.option("--darktable-library", "dt_library", required=True,
+              type=click.Path(path_type=Path),
+              help="Darktable library.db path")
+@click.option("--json-progress", is_flag=True,
+              help="Emit newline-delimited JSON progress lines.")
+def sync_tags(photon_db: Path, folder: str, dt_library: Path,
+              json_progress: bool) -> None:
+    """Push PHOTONForge genre tags from photonforge.db into Darktable's library.db.
+
+    Use this after running the score step from the command line (when the Lua
+    applicator was not running).  Reads the genres JSON column and attaches each
+    genre as a flat tag in Darktable.
+    """
+    import sqlite3 as _sqlite3
+
+    from .darktable_bridge import write_darktable_keywords
+    from .photondb import sanitize_table_name
+
+    table = sanitize_table_name(folder)
+    conn = _sqlite3.connect(str(photon_db))
+    conn.row_factory = _sqlite3.Row
+
+    # Verify table exists
+    exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone()
+    if not exists:
+        click.echo(json.dumps({"step": "sync-tags", "status": "error",
+                               "message": f"Table '{table}' not found in {photon_db}"}))
+        conn.close()
+        return
+
+    rows = conn.execute(
+        f"SELECT filename, genres FROM [{table}] "
+        "WHERE genres IS NOT NULL AND genres != '[]'"
+    ).fetchall()
+    conn.close()
+
+    total = len(rows)
+    done = 0
+
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
+
+    for row in rows:
+        filename: str = row["filename"]
+        try:
+            genres_list = json.loads(row["genres"])
+            keywords = [entry["g"] for entry in genres_list if entry.get("g")]
+            if keywords:
+                write_darktable_keywords(dt_library, filename, keywords)
+            done += 1
+            if json_progress:
+                click.echo(json.dumps({
+                    "step": "sync-tags", "file": filename,
+                    "status": "ok", "tags": keywords,
+                }))
+        except Exception as exc:
+            if json_progress:
+                click.echo(json.dumps({
+                    "step": "sync-tags", "file": filename,
+                    "status": "error", "message": str(exc),
+                }))
+
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
+    else:
+        click.echo(f"Synced tags for {done}/{total} photos in '{folder}'.")
+
+
 @cli.command()
 @click.option("--source", required=True, type=click.Path(exists=True, path_type=Path))
 @click.option("--output", required=True, type=click.Path(path_type=Path))

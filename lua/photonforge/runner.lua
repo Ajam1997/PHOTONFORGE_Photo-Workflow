@@ -85,6 +85,18 @@ local function build_cmd(step)
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest)
               .. mode_flag
+
+  elseif step == "sync-tags" then
+    -- Push genres from photonforge.db into Darktable's library.db.
+    -- Darktable always writes library.db next to its config dir.
+    local dt_lib = dt.configuration.config_dir
+    if IS_WINDOWS then
+      dt_lib = dt_lib .. "\\library.db"
+    else
+      dt_lib = dt_lib .. "/library.db"
+    end
+    return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+              .. " --darktable-library " .. shell_quote(dt_lib)
   end
   error("Unknown step: " .. step)
 end

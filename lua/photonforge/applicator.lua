@@ -1,9 +1,17 @@
 local dt = require "darktable"
 local M = {}
 
+local function normalize_path(p)
+  if p == nil then return "" end
+  p = p:gsub("\\", "/")   -- backslash → forward slash
+  p = p:gsub("/+$", "")   -- strip trailing slashes
+  return p:lower()         -- case-insensitive on Windows
+end
+
 local function find_image(filename, folder)
+  local norm_folder = normalize_path(folder)
   for _, img in ipairs(dt.database) do
-    if img.filename == filename and img.path == folder then
+    if img.filename == filename and normalize_path(img.path) == norm_folder then
       return img
     end
   end
