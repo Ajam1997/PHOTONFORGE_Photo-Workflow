@@ -977,7 +977,7 @@ def recalibrate(
         )
 
     conn.close()
-    click.echo(f"✓ Wrote {len(GENRES)} prototypes (version {version}) to {training_db}")
+    click.echo(f"OK: Wrote {len(GENRES)} prototypes (version {version}) to {training_db}")
 
 
 @training.command("collect-corrections")
