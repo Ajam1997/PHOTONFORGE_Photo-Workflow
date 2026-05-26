@@ -13,6 +13,12 @@ from typing import TYPE_CHECKING
 import click
 import numpy as np
 
+# Absolute corpus paths resolved from the package location so they work
+# regardless of the working directory (e.g. when launched via Darktable .bat).
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_DEFAULT_CORPUS = str(_REPO_ROOT / "corpus" / "genre_labels.jsonl")
+_DEFAULT_SECONDARY_FEEDBACK = str(_REPO_ROOT / "corpus" / "secondary_feedback.jsonl")
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -844,9 +850,9 @@ def training() -> None:
 @training.command("recalibrate")
 @click.option(
     "--corpus",
-    default="corpus/genre_labels.jsonl",
+    default=_DEFAULT_CORPUS,
     type=click.Path(path_type=Path),
-    help="Path to genre_labels.jsonl (default: corpus/genre_labels.jsonl)",
+    help="Path to genre_labels.jsonl",
 )
 @click.option(
     "--photon-db",
@@ -989,11 +995,11 @@ def recalibrate(
 @click.option("--darktable-library", "dt_library", required=True,
               type=click.Path(path_type=Path),
               help="Path to Darktable library.db")
-@click.option("--corpus", default="corpus/genre_labels.jsonl",
+@click.option("--corpus", default=_DEFAULT_CORPUS,
               type=click.Path(path_type=Path), show_default=True,
               help="Corpus JSONL file — primary corrections appended here")
 @click.option("--secondary-feedback", "secondary_feedback",
-              default="corpus/secondary_feedback.jsonl",
+              default=_DEFAULT_SECONDARY_FEEDBACK,
               type=click.Path(path_type=Path), show_default=True,
               help="Secondary feedback JSONL — secondary tag add/remove events appended here")
 @click.option("--dry-run", is_flag=True,
