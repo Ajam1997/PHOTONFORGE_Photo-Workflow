@@ -194,6 +194,9 @@ function M.build()
   end
 
   local function update_status(step, result, timestamp, file_count)
+    -- Steps outside the main pipeline (recalibrate, rescore, etc.) have no
+    -- last_run_label widget — silently skip them.
+    if last_run_labels[step] == nil then return end
     if result == "running" then
       last_run_labels[step].label = "Running..."
       return
@@ -301,11 +304,63 @@ function M.build()
     end,
   }
 
+  local recalibrate_btn = dt.new_widget("button") {
+    label = "\u{2605} Recalibrate",
+    tooltip = "Recalibrate genre prototypes from the corpus JSONL. "
+           .. "Run after collect-corrections to update training weights.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        append_log("[RECAL] Recalibrating genre prototypes...")
+        dt.control.dispatch(function()
+          local ok2, err2 = pcall(runner.run_step, "recalibrate", append_log, nil, nil)
+          if not ok2 then
+            append_log("[ERROR] recalibrate: " .. tostring(err2))
+          else
+            append_log("[RECAL] Done. Re-score to apply new prototypes.")
+          end
+          clear_progress()
+        end)
+      end)
+      if not ok then
+        append_log("[ERROR] " .. tostring(err))
+      end
+    end,
+  }
+
+  local correction_loop_btn = dt.new_widget("button") {
+    label = "\u{21BB} Full Correction Loop",
+    tooltip = "Runs the full feedback loop in sequence:\n"
+           .. "1. Collect Corrections (harvest DT tag changes)\n"
+           .. "2. Recalibrate (update CLIP prototypes)\n"
+           .. "3. Re-score (apply new prototypes to all images)\n"
+           .. "4. Sync Tags (push updated genres back to Darktable)\n\n"
+           .. "Run after reviewing and correcting photon|primary|* tags.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        append_log("[LOOP] Starting full correction loop...")
+        dt.control.dispatch(function()
+          local steps = {"collect-corrections", "recalibrate", "rescore", "sync-tags"}
+          local ok2, err2 = pcall(runner.run_all, steps, append_log, update_status, update_progress)
+          if not ok2 then
+            append_log("[ERROR] correction loop: " .. tostring(err2))
+          end
+          clear_progress()
+        end)
+      end)
+      if not ok then
+        append_log("[ERROR] " .. tostring(err))
+      end
+    end,
+  }
+
   local btn_box = dt.new_widget("box") {
     orientation = "vertical",
     dt.new_widget("box") { orientation = "horizontal", run_btn, stop_btn },
     sync_tags_btn,
     collect_btn,
+    dt.new_widget("box") { orientation = "horizontal", recalibrate_btn, correction_loop_btn },
   }
 
   local progress_label = dt.new_widget("label") {

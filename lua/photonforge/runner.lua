@@ -98,6 +98,37 @@ local function build_cmd(step)
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --darktable-library " .. shell_quote(dt_lib)
 
+  elseif step == "recalibrate" then
+    -- Recalibrate genre prototypes from corpus labels.
+    -- --model-dir omitted: auto-detected from package location.
+    -- Output is plain text (no --json-progress); runner logs it as-is.
+    local drive = get_drive_root(dest)
+    local training_db = drive .. "training_weights.db"
+    local cmd = "photo-workflow training recalibrate"
+              .. " --photon-db " .. shell_quote(db)
+              .. " --training-db " .. shell_quote(training_db)
+    local corpus = config.read("corpus_path")
+    if corpus ~= "" then
+      cmd = cmd .. " --corpus " .. shell_quote(corpus)
+    end
+    return cmd
+
+  elseif step == "rescore" then
+    -- Re-score with --force and calibrated prototypes (used in correction loop).
+    local cmd = "photo-workflow score --json-progress"
+              .. " --db "         .. shell_quote(db)
+              .. " --folder "     .. shell_quote(folder)
+              .. " --source-dir " .. shell_quote(dest)
+              .. " --force"
+    local drive = get_drive_root(dest)
+    local training_db = drive .. "training_weights.db"
+    local fh = io.open(training_db, "r")
+    if fh then
+      fh:close()
+      cmd = cmd .. " --training-db " .. shell_quote(training_db)
+    end
+    return cmd
+
   elseif step == "collect-corrections" then
     -- Detect corrections made in Darktable and feed them back to the corpus.
     local dt_lib = dt.configuration.config_dir
