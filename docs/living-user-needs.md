@@ -35,14 +35,14 @@ Status: DEFINED
 Acceptance: cluster_sessions() correctly groups fixture images by time and location.
 KPM: NONE
 Stage: 2
-Status: DEFINED
+Status: VERIFIED
 Decomposes to: [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49)
 
 [UN-011](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/33): Near-duplicate photos are archived.
 Acceptance: deduplicate() archives images with dHash Hamming <= 2. No false positives.
 KPM: NONE
 Stage: 2
-Status: DEFINED
+Status: VERIFIED
 Decomposes to: [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50)
 
 [UN-012](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/34): Each photo receives a sharpness score.
