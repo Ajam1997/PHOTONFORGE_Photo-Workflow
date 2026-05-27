@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import sqlite3
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -34,6 +35,10 @@ XMP_TEMPLATE = """\
       <photon:Genre>{genre}</photon:Genre>
       <photon:GenreConfidence>{genre_confidence}</photon:GenreConfidence>
       <photon:MasterScore>{master_score}</photon:MasterScore>
+      <photon:Genres>
+        <rdf:Bag>{genres_bag}</rdf:Bag>
+      </photon:Genres>
+      <photon:NeedsReview>{needs_review}</photon:NeedsReview>
       <photon:EyeSharpness>{eye_sharpness}</photon:EyeSharpness>
       <photon:SubjectSharpness>{subject_sharpness}</photon:SubjectSharpness>
       <photon:SubjectIsolation>{subject_isolation}</photon:SubjectIsolation>
@@ -116,6 +121,19 @@ def _write_xmp(record: "PhotoRecord") -> None:
     xmp_path = record.path.with_suffix(".xmp")
     original_filename = record.metadata.get("original_filename", record.path.name)
     ss = record.sub_scores
+
+    # Build genres rdf:Bag (multi-genre entries)
+    genres_bag = ""
+    if hasattr(record, "genres") and record.genres:
+        genres_bag = "\n        ".join(
+            f'<rdf:li>{g}</rdf:li>' for g, _ in record.genres
+        )
+    else:
+        # Fallback to primary genre
+        genres_bag = f'<rdf:li>{record.genre}</rdf:li>'
+
+    needs_review = "true" if getattr(record, "needs_review", False) else "false"
+
     xmp_content = XMP_TEMPLATE.format(
         sharpness=record.sharpness_score,
         composition=record.composition_score,
@@ -127,6 +145,8 @@ def _write_xmp(record: "PhotoRecord") -> None:
         genre=record.genre,
         genre_confidence=record.genre_confidence,
         master_score=record.master_score,
+        genres_bag=genres_bag,
+        needs_review=needs_review,
         eye_sharpness=ss.get("eye_sharpness", 0.0),
         subject_sharpness=ss.get("subject_sharpness", 0.0),
         subject_isolation=ss.get("subject_isolation", 0.0),
@@ -169,6 +189,144 @@ def validate_xmp(xmp_path: Path) -> bool:
     except ValueError as e:
         logger.warning("XMP field value error in %s: %s", xmp_path, e)
         return False
+
+
+def _get_data_db_path(library_db_path: Path) -> Path:
+    """Return the path to Darktable's data.db (same directory as library.db).
+
+    Darktable 5.x splits tag storage across two databases:
+      library.db  — images, tagged_images (imgid, tagid, position)
+      data.db     — tags (id, name, synonyms, flags)
+    """
+    return library_db_path.parent / "data.db"
+
+
+def write_darktable_keywords(
+    library_db_path: Path,
+    filename: str,
+    keywords: list[str],
+) -> None:
+    """Write flat keyword entries to Darktable's databases for a given file.
+
+    Compatible with Darktable 5.x which splits tag storage:
+      tags            → data.db   (id, name, synonyms, flags)
+      tagged_images   → library.db (imgid, tagid, position)
+      images          → library.db
+
+    Uses SQLite ATTACH so both files are accessed in a single connection,
+    keeping the writes atomic.
+
+    Args:
+        library_db_path: Path to Darktable's library.db
+        filename: Image filename (basename only, not full path)
+        keywords: List of keyword strings to apply (e.g., ["wildlife", "portrait"])
+    """
+    data_db_path = _get_data_db_path(library_db_path)
+    try:
+        conn = sqlite3.connect(str(library_db_path))
+        conn.row_factory = sqlite3.Row
+
+        # Attach data.db so we can read/write tags in the same connection
+        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
+
+        # Find the image
+        image_row = conn.execute(
+            "SELECT id FROM images WHERE filename=?",
+            (filename,)
+        ).fetchone()
+
+        if not image_row:
+            logger.warning("Image not found in Darktable library: %s", filename)
+            conn.close()
+            return
+
+        image_id = image_row["id"]
+
+        for keyword in keywords:
+            # Get or create tag in data.db
+            tag_row = conn.execute(
+                "SELECT id FROM data.tags WHERE name=?",
+                (keyword,)
+            ).fetchone()
+
+            if tag_row:
+                tag_id = tag_row["id"]
+            else:
+                conn.execute(
+                    "INSERT INTO data.tags (name, synonyms, flags) VALUES (?, '', 0)",
+                    (keyword,)
+                )
+                conn.commit()
+                tag_id = conn.execute(
+                    "SELECT id FROM data.tags WHERE name=?",
+                    (keyword,)
+                ).fetchone()["id"]
+
+            # Check if already tagged
+            existing = conn.execute(
+                "SELECT imgid FROM tagged_images WHERE imgid=? AND tagid=?",
+                (image_id, tag_id)
+            ).fetchone()
+
+            if not existing:
+                conn.execute(
+                    "INSERT INTO tagged_images (imgid, tagid, position) VALUES (?, ?, 0)",
+                    (image_id, tag_id)
+                )
+                conn.commit()
+
+        conn.close()
+    except Exception as e:
+        logger.error("Failed to write Darktable keywords for %s: %s", filename, e)
+
+
+def read_darktable_keywords(
+    library_db_path: Path,
+    filename: str,
+) -> list[str]:
+    """Read flat keyword entries from Darktable's databases for a given file.
+
+    Compatible with Darktable 5.x (tags in data.db, tagged_images in library.db).
+
+    Args:
+        library_db_path: Path to Darktable's library.db
+        filename: Image filename (basename only)
+
+    Returns:
+        List of keyword strings currently tagged on the image.
+    """
+    data_db_path = _get_data_db_path(library_db_path)
+    keywords: list[str] = []
+    try:
+        conn = sqlite3.connect(str(library_db_path))
+        conn.row_factory = sqlite3.Row
+        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
+
+        image_row = conn.execute(
+            "SELECT id FROM images WHERE filename=?",
+            (filename,)
+        ).fetchone()
+
+        if not image_row:
+            logger.warning("Image not found in Darktable library: %s", filename)
+            conn.close()
+            return keywords
+
+        image_id = image_row["id"]
+
+        tag_rows = conn.execute(
+            "SELECT data.tags.name FROM data.tags "
+            "INNER JOIN tagged_images ON tagged_images.tagid = data.tags.id "
+            "WHERE tagged_images.imgid=?",
+            (image_id,)
+        ).fetchall()
+
+        keywords = [row["name"] for row in tag_rows]
+        conn.close()
+    except Exception as e:
+        logger.error("Failed to read Darktable keywords for %s: %s", filename, e)
+
+    return keywords
 
 
 def sync_to_darktable(records: list["PhotoRecord"], verbose: bool = False) -> int:

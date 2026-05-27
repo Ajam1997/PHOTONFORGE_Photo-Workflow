@@ -1,9 +1,19 @@
 local dt = require "darktable"
 local M = {}
 
+local function normalize_path(p)
+  if p == nil then return "" end
+  p = p:gsub("\\", "/")   -- backslash → forward slash
+  p = p:gsub("/+$", "")   -- strip trailing slashes
+  return p:lower()         -- case-insensitive on Windows
+end
+
 local function find_image(filename, folder)
+  local norm_folder = normalize_path(folder)
   for _, img in ipairs(dt.database) do
-    if img.filename == filename and img.path == folder then
+    -- Guard: DT5 database proxies can yield nil-like entries
+    if img ~= nil and img.filename == filename
+        and normalize_path(img.path) == norm_folder then
       return img
     end
   end
@@ -23,6 +33,12 @@ function M.apply(rec, folder)
 
   if rec.step == "ingest" then
     dt.print_log(string.format("PHOTONForge ingested: %s", rec.file or ""))
+    return
+  end
+
+  -- sync-tags and collect-corrections write directly to DB from Python;
+  -- no Lua action needed for either.
+  if rec.step == "sync-tags" or rec.step == "collect-corrections" then
     return
   end
 
@@ -59,12 +75,28 @@ function M.apply(rec, folder)
       img.notes = table.concat(parts, " | ")
     end
 
-    if rec.genre ~= nil and rec.genre ~= "" then
-      local confidence = tonumber(rec.genre_confidence) or 0
-      if confidence >= 0.5 then
-        local tag = dt.tags.create("PHOTONForge|" .. rec.genre)
-        dt.tags.attach(tag, img)
+    -- Multi-genre tagging (FR-1.7.2, design D5).
+    -- Writes hierarchical tags: photon|primary|<genre> for the first entry
+    -- (product-of-experts winner) and photon|secondary|<genre> for the rest
+    -- (geometric mean co-genres).  Falls back to flat rec.genre for legacy
+    -- score payloads that pre-date the genres list.
+    if rec.genres ~= nil and #rec.genres > 0 then
+      for i, entry in ipairs(rec.genres) do
+        if entry.g ~= nil and entry.g ~= "" then
+          local prefix = (i == 1) and "photon|primary|" or "photon|secondary|"
+          local tag = dt.tags.create(prefix .. entry.g)
+          dt.tags.attach(tag, img)
+        end
       end
+    elseif rec.genre ~= nil and rec.genre ~= "" then
+      local tag = dt.tags.create("photon|primary|" .. rec.genre)
+      dt.tags.attach(tag, img)
+    end
+
+    -- needs_review flag
+    if rec.needs_review then
+      local tag = dt.tags.create("photon|needs_review")
+      dt.tags.attach(tag, img)
     end
 
     if rec.original_name ~= nil then

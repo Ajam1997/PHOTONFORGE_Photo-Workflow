@@ -2,7 +2,14 @@
 
 **Date:** 2026-05-24
 **Author:** @architect
-**Status:** Final
+**Status:** Final (Tauri references superseded 2026-05-25)
+
+> **Note (2026-05-25):** The Tauri UI was deprecated in favour of a Darktable Lua
+> plugin. All "Tauri UI" references in Task 5 should be read as Darktable Lua
+> plugin actions. Correction collection happens by syncing user edits from
+> Darktable tags back into `training_weights.db.genre_corrections`. See the
+> implementation design at
+> `docs/superpowers/specs/2026-05-25-multi-genre-and-back-training-design.md`.
 
 ---
 
@@ -207,7 +214,7 @@ CREATE TABLE genre_adapter (
 **Recommended Workflow:**
 
 ```
-USER CORRECTS TAG (Darktable or Tauri UI)
+USER CORRECTS TAG (Darktable keyword edits — synced via Lua plugin button)
         |
         v
 System logs correction to genre_corrections table
@@ -238,9 +245,12 @@ Correction count check: >= threshold per genre? (10 minimum)
 
 **Retraining cadence:** Batch, not real-time. Recalibration triggers when the user explicitly requests it OR when accumulated corrections since last calibration exceed a threshold (e.g., 20 new corrections). Never recalibrate during a live ingest pipeline run -- it's an offline operation.
 
-**Feedback mechanism:** Two paths:
-1. **Darktable tag correction:** User changes the genre tag in Darktable's keyword panel. The darktable_bridge detects the mismatch on next sync and logs to `genre_corrections`.
-2. **Tauri UI dropdown:** Library Browser panel shows genre badge per image. User clicks badge -> dropdown -> selects correct genre. Logged immediately.
+**Feedback mechanism (revised 2026-05-25):** One path — Darktable Lua plugin.
+
+1. **Darktable tag correction:** User edits genre keywords on photos in Darktable's keyword panel normally. Multi-genre is expressed by adding multiple flat keywords (e.g. `wildlife`, `portrait`).
+2. **Lua plugin "Sync Corrections" button:** Spawns the `photo-workflow correct-genres` CLI. The CLI reads each photo's current Darktable tags, compares to the stored genres in `photonforge.db`, and writes deltas to `training_weights.db.genre_corrections`. Unknown tags appearing on `needs_review` photos are tracked in `custom_genres` for possible promotion to a real genre once they accumulate 10+ examples.
+
+The Tauri-based "Library Browser badge dropdown" approach is no longer planned.
 
 **UI signals:**
 - Genre confidence rendered as opacity on the genre badge (high confidence = solid, low = faded)

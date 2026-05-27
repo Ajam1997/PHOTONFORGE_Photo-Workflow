@@ -13,6 +13,12 @@ from typing import TYPE_CHECKING
 import click
 import numpy as np
 
+# Absolute corpus paths resolved from the package location so they work
+# regardless of the working directory (e.g. when launched via Darktable .bat).
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+_DEFAULT_CORPUS = str(_REPO_ROOT / "corpus" / "genre_labels.jsonl")
+_DEFAULT_SECONDARY_FEEDBACK = str(_REPO_ROOT / "corpus" / "secondary_feedback.jsonl")
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -46,6 +52,9 @@ class PhotoRecord:
     sub_scores: dict = field(default_factory=dict)
     hard_reject: bool = False
     hard_reject_reason: str = ""
+    genres: list[tuple[str, float]] = field(default_factory=list)  # Multi-genre output
+    needs_review: bool = False  # True when low-confidence fallback
+    clip_embedding: bytes | None = None  # Raw CLIP embedding bytes
 
 
 @dataclass
@@ -173,6 +182,9 @@ class AnalysisPipeline:
                 record.sub_scores = fusion.sub_scores
                 record.hard_reject = fusion.hard_reject
                 record.hard_reject_reason = fusion.hard_reject_reason
+                record.genres = fusion.genres
+                record.needs_review = fusion.needs_review
+                record.clip_embedding = ctx.clip_embedding.tobytes() if ctx.clip_embedding is not None else None
 
                 # Semantic name (old path still works)
                 record.semantic_name = generate_name(record.path, model_dir=self.config.model_dir)
@@ -428,10 +440,12 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
               help="Directory containing the photo files.")
 @click.option("--model-dir", default=None, type=click.Path(path_type=Path),
               help="Scoring model directory (for genre-aware scoring).")
+@click.option("--training-db", default=None, type=click.Path(exists=True, path_type=Path),
+              help="Optional path to training_weights.db (to use calibrated prototypes).")
 @click.option("--resume", is_flag=True, default=False)
 @click.option("--force", is_flag=True, default=False)
 @click.option("--json-progress", "json_progress", is_flag=True, default=False)
-def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, resume: bool, force: bool, json_progress: bool) -> None:
+def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, training_db: Path | None, resume: bool, force: bool, json_progress: bool) -> None:
     """Score photos for sharpness, composition, exposure, and genre."""
     import sqlite3
 
@@ -468,7 +482,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
         return
 
     # Initialize model sessions for genre-aware scoring
-    model_sessions = ModelSessions(model_dir)
+    model_sessions = ModelSessions(model_dir, training_db_path=training_db)
 
     errors = 0
     for i, row in enumerate(to_score, 1):
@@ -510,9 +524,14 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 master = fusion.master_score
 
                 update_scores(conn, table, row["filename"], sharp, comp, expo, auto_commit=False)
+                clip_embedding_bytes = ctx.clip_embedding.tobytes() if ctx.clip_embedding is not None else None
                 update_genre_scores(
                     conn, table, row["filename"],
                     fusion.genre, fusion.genre_confidence, master, fusion.sub_scores,
+                    genres=fusion.genres,
+                    primary_genre=fusion.genre,
+                    needs_review=fusion.needs_review,
+                    clip_embedding=clip_embedding_bytes,
                     auto_commit=False,
                 )
                 update_stages(conn, table, row["filename"], "score", auto_commit=False)
@@ -522,10 +541,16 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 color_label = fusion.color_label
 
                 if json_progress:
+                    # Emit multi-genre data so the Lua applicator can write all tags.
+                    # genres = list of {"g": <name>, "c": <confidence>}, top-3 above 0.15 floor.
+                    genres_payload = [
+                        {"g": g, "c": round(c, 3)} for g, c in fusion.genres
+                    ]
                     emit("score", row["filename"], "ok", json_progress=True,
                          sharpness=round(sharp, 4), composition=round(comp, 4),
                          exposure=round(expo, 4), master=round(master, 4),
                          genre=fusion.genre, genre_confidence=round(fusion.genre_confidence, 3),
+                         genres=genres_payload, needs_review=fusion.needs_review,
                          stars=stars, color_label=color_label,
                          original_name=row["original_name"])
             except Exception as genre_error:
@@ -617,6 +642,11 @@ def name(
         conn.close()
         return
 
+    # Pre-warm Florence-2 sessions once before the batch so the first image
+    # is not penalised by ONNX JIT compilation (KPM-1.2).
+    from .naming import warm_sessions
+    warm_sessions(model_dir)
+
     errors = 0
     for i, row in enumerate(to_name, 1):
         p = source_dir / row["filename"]
@@ -684,6 +714,90 @@ def status(db_path: Path, folder: str) -> None:
     click.echo(f"  Errors:        {error_count}")
 
 
+@cli.command("sync-tags")
+@click.option("--db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path),
+              help="photonforge.db path")
+@click.option("--folder", required=True,
+              help="Folder/table name in photonforge.db (e.g. TEST_1)")
+@click.option("--darktable-library", "dt_library", required=True,
+              type=click.Path(path_type=Path),
+              help="Darktable library.db path")
+@click.option("--json-progress", is_flag=True,
+              help="Emit newline-delimited JSON progress lines.")
+def sync_tags(photon_db: Path, folder: str, dt_library: Path,
+              json_progress: bool) -> None:
+    """Push PHOTONForge genre tags from photonforge.db into Darktable's library.db.
+
+    Use this after running the score step from the command line (when the Lua
+    applicator was not running).  Reads the genres JSON column and writes
+    hierarchical tags: photon|primary|<genre> for the first entry (PoE winner)
+    and photon|secondary|<genre> for subsequent entries (geometric mean co-genres).
+    """
+    import sqlite3 as _sqlite3
+
+    from .darktable_bridge import write_darktable_keywords
+    from .photondb import sanitize_table_name
+
+    table = sanitize_table_name(folder)
+    conn = _sqlite3.connect(str(photon_db))
+    conn.row_factory = _sqlite3.Row
+
+    # Verify table exists
+    exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone()
+    if not exists:
+        click.echo(json.dumps({"step": "sync-tags", "status": "error",
+                               "message": f"Table '{table}' not found in {photon_db}"}))
+        conn.close()
+        return
+
+    rows = conn.execute(
+        f"SELECT filename, genres FROM [{table}] "
+        "WHERE genres IS NOT NULL AND genres != '[]'"
+    ).fetchall()
+    conn.close()
+
+    total = len(rows)
+    done = 0
+
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
+
+    for row in rows:
+        filename: str = row["filename"]
+        try:
+            genres_list = json.loads(row["genres"])
+            # Build hierarchical tags: first entry = primary, rest = secondary
+            keywords = []
+            for i, entry in enumerate(genres_list):
+                g = entry.get("g", "")
+                if not g:
+                    continue
+                prefix = "photon|primary|" if i == 0 else "photon|secondary|"
+                keywords.append(prefix + g)
+            if keywords:
+                write_darktable_keywords(dt_library, filename, keywords)
+            done += 1
+            if json_progress:
+                click.echo(json.dumps({
+                    "step": "sync-tags", "file": filename,
+                    "status": "ok", "tags": keywords,
+                }))
+        except Exception as exc:
+            if json_progress:
+                click.echo(json.dumps({
+                    "step": "sync-tags", "file": filename,
+                    "status": "error", "message": str(exc),
+                }))
+
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
+    else:
+        click.echo(f"Synced tags for {done}/{total} photos in '{folder}'.")
+
+
 @cli.command()
 @click.option("--source", required=True, type=click.Path(exists=True, path_type=Path))
 @click.option("--output", required=True, type=click.Path(path_type=Path))
@@ -723,6 +837,352 @@ def _write_sentinel(temp_dir: Path | None = None) -> None:
     sentinel = temp_dir / "photonforge.running"
     pid_file.write_text(str(os.getpid()))
     sentinel.write_text("")
+
+
+# --- Training subcommand group -----------------------------------------------
+
+@cli.group()
+def training() -> None:
+    """Genre prototype calibration and model management."""
+    pass
+
+
+@training.command("recalibrate")
+@click.option(
+    "--corpus",
+    default=_DEFAULT_CORPUS,
+    type=click.Path(path_type=Path),
+    help="Path to genre_labels.jsonl",
+)
+@click.option(
+    "--photon-db",
+    required=True,
+    type=click.Path(exists=True, path_type=Path),
+    help="Path to photonforge.db (to load CLIP embeddings)",
+)
+@click.option(
+    "--training-db",
+    required=True,
+    type=click.Path(path_type=Path),
+    help="Path to training_weights.db (output: where to store recalibrated prototypes)",
+)
+@click.option(
+    "--model-dir",
+    default=None,
+    type=click.Path(path_type=Path),
+    help="Scoring model directory (for hardcoded genre_prototypes.npy). "
+    "Defaults to <repo>/models",
+)
+@click.option(
+    "--source-folders",
+    multiple=True,
+    help="Limit corpus to these source_folder values; default: all",
+)
+@click.option(
+    "--min-samples",
+    default=10,
+    type=int,
+    help="Minimum samples per genre to re-estimate (default: 10)",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Print per-genre report without writing to database",
+)
+def recalibrate(
+    corpus: Path,
+    photon_db: Path,
+    training_db: Path,
+    model_dir: Path | None,
+    source_folders: tuple[str, ...],
+    min_samples: int,
+    dry_run: bool,
+) -> None:
+    """Recalibrate genre prototypes by blending hardcoded + user corrections."""
+    from .genre_trainer import recalibrate_prototypes
+    from .training_weights_db import open_training_db, ensure_schema, next_version, upsert_prototype
+    from .genre_router import GENRES
+
+    if model_dir is None:
+        model_dir = Path(__file__).resolve().parent.parent.parent / "models"
+
+    # Load hardcoded prototypes
+    proto_path = model_dir / "genre_prototypes.npy"
+    if not proto_path.exists():
+        click.echo(
+            f"ERROR: genre_prototypes.npy not found at {proto_path}\n"
+            "Please rerun: python -m photo_workflow.provision provision_scoring_models "
+            "--only clip --force",
+            err=True,
+        )
+        raise SystemExit(1)
+
+    hardcoded_prototypes = np.load(str(proto_path))
+
+    # Recalibrate
+    source_folders_list = list(source_folders) if source_folders else None
+    result = recalibrate_prototypes(
+        corpus,
+        photon_db,
+        hardcoded_prototypes,
+        source_folders=source_folders_list,
+        min_samples=min_samples,
+    )
+
+    # Print report
+    click.echo("\n=== Genre Calibration Report ===")
+    click.echo(f"Hardcoded prototypes: {proto_path}")
+    click.echo(f"Corpus: {corpus}")
+    click.echo(f"Embeddings DB: {photon_db}")
+    if source_folders_list:
+        click.echo(f"Filtered to folders: {source_folders_list}")
+    click.echo()
+
+    for genre in GENRES:
+        if genre not in result:
+            click.echo(f"{genre}: SKIPPED (not in result)")
+            continue
+
+        info = result[genre]
+        source = info["source"]
+        n_corrections = info["n_corrections"]
+        alpha = info["alpha"]
+        proto = info["prototype"]
+
+        # Cosine similarity to hardcoded
+        hardcoded_idx = GENRES.index(genre)
+        hardcoded = hardcoded_prototypes[hardcoded_idx]
+        cosine_sim = float(np.dot(proto, hardcoded))
+
+        click.echo(
+            f"{genre:15} | n={n_corrections:3} | alpha={alpha:.3f} | "
+            f"source={source:10} | cosine_sim={cosine_sim:.4f}"
+        )
+
+    if dry_run:
+        click.echo("\n[DRY RUN] No changes written to database.")
+        return
+
+    # Write to database
+    click.echo(f"\nWriting to {training_db}...")
+    conn = open_training_db(training_db)
+    ensure_schema(conn)
+    version = next_version(conn)
+
+    for genre in GENRES:
+        if genre not in result:
+            continue
+        info = result[genre]
+        upsert_prototype(
+            conn,
+            version,
+            genre,
+            info["prototype"].astype(np.float32).tobytes(),
+            info["n_corrections"],
+            info["alpha"],
+        )
+
+    conn.close()
+    click.echo(f"OK: Wrote {len(GENRES)} prototypes (version {version}) to {training_db}")
+
+
+@training.command("collect-corrections")
+@click.option("--folder", required=True,
+              help="Folder/table name in photonforge.db (e.g. TEST_1)")
+@click.option("--photon-db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path),
+              help="Path to photonforge.db")
+@click.option("--darktable-library", "dt_library", required=True,
+              type=click.Path(path_type=Path),
+              help="Path to Darktable library.db")
+@click.option("--corpus", default=_DEFAULT_CORPUS,
+              type=click.Path(path_type=Path), show_default=True,
+              help="Corpus JSONL file — primary corrections appended here")
+@click.option("--secondary-feedback", "secondary_feedback",
+              default=_DEFAULT_SECONDARY_FEEDBACK,
+              type=click.Path(path_type=Path), show_default=True,
+              help="Secondary feedback JSONL — secondary tag add/remove events appended here")
+@click.option("--dry-run", is_flag=True,
+              help="Report corrections without writing to corpus")
+@click.option("--json-progress", is_flag=True,
+              help="Emit newline-delimited JSON progress lines")
+def collect_corrections(
+    folder: str,
+    photon_db: Path,
+    dt_library: Path,
+    corpus: Path,
+    secondary_feedback: Path,
+    dry_run: bool,
+    json_progress: bool,
+) -> None:
+    """Detect tag corrections made in Darktable and feed them to the training corpus.
+
+    Reads photon|primary|<genre> and photon|secondary|<genre> tags from
+    Darktable and compares them against what photonforge.db recorded.
+
+    Primary corrections (user changed photon|primary|* to a different genre)
+    are appended to the corpus JSONL and will improve CLIP prototypes on the
+    next 'training recalibrate' run.
+
+    Secondary feedback (user added/removed photon|secondary|* tags) is logged
+    to a separate JSONL for future threshold calibration.
+    """
+    import getpass
+    import sqlite3 as _sqlite3
+    from datetime import datetime, timezone
+
+    from .darktable_bridge import read_darktable_keywords
+    from .genre_router import GENRES
+    from .photondb import sanitize_table_name
+
+    _PRIMARY_PREFIX = "photon|primary|"
+    _SECONDARY_PREFIX = "photon|secondary|"
+
+    table = sanitize_table_name(folder)
+    conn = _sqlite3.connect(str(photon_db))
+    conn.row_factory = _sqlite3.Row
+
+    exists = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+    ).fetchone()
+    if not exists:
+        click.echo(json.dumps({
+            "step": "collect-corrections", "status": "error",
+            "message": f"Table '{table}' not found in {photon_db}",
+        }))
+        conn.close()
+        return
+
+    rows = conn.execute(
+        f"SELECT filename, primary_genre, genres FROM [{table}] "
+        "WHERE primary_genre IS NOT NULL"
+    ).fetchall()
+    conn.close()
+
+    total = len(rows)
+    done = 0
+    labeler = getpass.getuser() or "anon"
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    corpus_entries: list[dict] = []
+    secondary_entries: list[dict] = []
+
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
+
+    genres_set = set(GENRES)
+
+    for row in rows:
+        filename: str = row["filename"]
+        db_primary: str = row["primary_genre"] or ""
+
+        try:
+            genres_list = json.loads(row["genres"] or "[]")
+        except Exception:
+            genres_list = []
+
+        db_secondaries = {e["g"] for e in genres_list[1:] if e.get("g")}
+
+        # Read current Darktable tags for this image
+        dt_tags = read_darktable_keywords(dt_library, filename)
+
+        dt_primary_genres = [
+            t[len(_PRIMARY_PREFIX):]
+            for t in dt_tags if t.startswith(_PRIMARY_PREFIX)
+        ]
+        dt_secondaries = {
+            t[len(_SECONDARY_PREFIX):]
+            for t in dt_tags if t.startswith(_SECONDARY_PREFIX)
+        } & genres_set
+
+        # No photon|primary|* tag — image not yet scored or tags cleared; skip
+        if not dt_primary_genres:
+            done += 1
+            if json_progress:
+                click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
+            continue
+
+        dt_primary = dt_primary_genres[0]
+
+        # --- Primary correction -----------------------------------------------
+        if dt_primary != db_primary and dt_primary in genres_set:
+            corpus_entries.append({
+                "filename": filename,
+                "genres": [dt_primary],
+                "source_folder": folder,
+                "needs_review": False,
+                "labeled_at": now_iso,
+                "labeler": labeler,
+                "correction_of": db_primary,
+            })
+            if json_progress:
+                click.echo(json.dumps({
+                    "step": "collect-corrections",
+                    "file": filename,
+                    "status": "primary-correction",
+                    "was": db_primary,
+                    "correction": dt_primary,
+                }))
+
+        # --- Secondary feedback -----------------------------------------------
+        added = (dt_secondaries - db_secondaries) & genres_set
+        removed = (db_secondaries - dt_secondaries) & genres_set
+
+        if added or removed:
+            secondary_entries.append({
+                "filename": filename,
+                "source_folder": folder,
+                "db_primary": db_primary,
+                "dt_primary": dt_primary,
+                "added_secondary": sorted(added),
+                "removed_secondary": sorted(removed),
+                "collected_at": now_iso,
+                "labeler": labeler,
+            })
+            if json_progress:
+                click.echo(json.dumps({
+                    "step": "collect-corrections",
+                    "file": filename,
+                    "status": "secondary-feedback",
+                    "added": sorted(added),
+                    "removed": sorted(removed),
+                }))
+
+        done += 1
+        if json_progress:
+            click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
+
+    # --- Write results --------------------------------------------------------
+    if not dry_run:
+        if corpus_entries:
+            corpus.parent.mkdir(parents=True, exist_ok=True)
+            with corpus.open("a", encoding="utf-8") as f:
+                for entry in corpus_entries:
+                    f.write(json.dumps(entry) + "\n")
+
+        if secondary_entries:
+            secondary_feedback.parent.mkdir(parents=True, exist_ok=True)
+            with secondary_feedback.open("a", encoding="utf-8") as f:
+                for entry in secondary_entries:
+                    f.write(json.dumps(entry) + "\n")
+
+    if not json_progress:
+        dry_label = " [DRY RUN]" if dry_run else ""
+        click.echo(f"Checked {total} images{dry_label}")
+        click.echo(f"  Primary corrections:  {len(corpus_entries):3d}  → {corpus}")
+        click.echo(f"  Secondary feedback:   {len(secondary_entries):3d}  → {secondary_feedback}")
+        if corpus_entries:
+            click.echo("\nPrimary corrections:")
+            for e in corpus_entries:
+                click.echo(f"  {e['filename']:40s}  {e['correction_of']:12s} → {e['genres'][0]}")
+    else:
+        click.echo(json.dumps({
+            "step": "collect-corrections",
+            "status": "summary",
+            "primary_corrections": len(corpus_entries),
+            "secondary_feedback": len(secondary_entries),
+            "dry_run": dry_run,
+        }))
 
 
 def _cleanup_sentinel(temp_dir: Path | None = None) -> None:

@@ -19,3 +19,4 @@ test_tmp/
 .claude/settings.local.json
 yolov8n.pt
 site/
+corpus/

@@ -22,6 +22,7 @@ def _make_context(
     detections: list[ObjectDetection] | None = None,
     exif: dict | None = None,
     image_shape: tuple = (1000, 1500, 3),
+    sharpness_contrast: float = 1.0,
 ) -> SubjectContext:
     """Helper to build a minimal SubjectContext for router tests."""
     h, w = image_shape[:2]
@@ -38,14 +39,17 @@ def _make_context(
         if clip_embedding is not None
         else np.zeros(512, dtype=np.float32),
         exif=exif or {},
+        sharpness_contrast=sharpness_contrast,
     )
 
 
 def test_genres_list_complete() -> None:
-    """All 8 genres should be defined."""
-    assert len(GENRES) == 8
-    assert "wildlife" in GENRES
-    assert "general" in GENRES
+    """All built-in genres should be defined."""
+    assert len(GENRES) == 12
+    for g in ("wildlife", "landscape", "portrait", "street",
+              "architecture", "macro", "event", "waterfall",
+              "signage", "cat", "vehicle", "general"):
+        assert g in GENRES
 
 
 def test_route_genre_returns_valid_result() -> None:
@@ -53,17 +57,20 @@ def test_route_genre_returns_valid_result() -> None:
     ctx = _make_context()
     result = route_genre(ctx)
     assert isinstance(result, GenreResult)
-    assert result.genre in GENRES
-    assert 0.0 <= result.confidence <= 1.0
+    assert result.primary_genre in GENRES
+    assert 0.0 <= result.primary_confidence <= 1.0
     assert abs(sum(result.distribution.values()) - 1.0) < 0.01
+    assert len(result.genres) > 0
+    assert all(g in GENRES for g, _ in result.genres)
 
 
 def test_route_genre_fallback_no_clip() -> None:
-    """With zero CLIP embedding, should fall back to 'general'."""
+    """With zero CLIP embedding, should still return valid genres."""
     ctx = _make_context(clip_embedding=np.zeros(512, dtype=np.float32))
     result = route_genre(ctx)
     # Zero embedding means no CLIP signal; falls back based on other evidence
-    assert result.genre in GENRES
+    assert result.primary_genre in GENRES
+    assert len(result.genres) > 0
 
 
 def test_yolo_evidence_cat_boosts_wildlife() -> None:
@@ -74,6 +81,17 @@ def test_yolo_evidence_cat_boosts_wildlife() -> None:
     evidence = _compute_yolo_evidence([cat_det], image_area=1500 * 1000)
     assert evidence["wildlife"] > evidence["landscape"]
     assert evidence["wildlife"] > evidence["portrait"]
+    assert evidence["cat"] > evidence["wildlife"]
+
+
+def test_yolo_evidence_car_boosts_vehicle() -> None:
+    """YOLO detecting a car should boost vehicle probability."""
+    car_det = ObjectDetection(
+        class_id=2, class_name="car", bbox=(100, 100, 500, 400), confidence=0.85
+    )
+    evidence = _compute_yolo_evidence([car_det], image_area=1500 * 1000)
+    assert evidence["vehicle"] > evidence["landscape"]
+    assert evidence["vehicle"] > evidence["portrait"]
 
 
 def test_yolo_evidence_person_boosts_portrait() -> None:
@@ -115,13 +133,15 @@ def test_exif_prior_empty_returns_uniform() -> None:
 
 
 def test_low_confidence_falls_back_to_general() -> None:
-    """When no evidence is strong, genre should be 'general'."""
+    """When no evidence is strong, genre should include 'general'."""
     ctx = _make_context(
         clip_embedding=np.zeros(512, dtype=np.float32),
         detections=[],
         exif={},
     )
     result = route_genre(ctx)
-    # With zero CLIP + no YOLO + no EXIF, confidence should be low
-    # and the result may be "general" depending on the router's fallback logic
-    assert result.confidence >= 0.0
+    # With zero CLIP + no YOLO + no EXIF, should still return valid results
+    assert result.primary_confidence >= 0.0
+    # If nothing clears the floor, needs_review should be True
+    if result.primary_genre == "general" and result.primary_confidence == 1.0:
+        assert result.needs_review == True

@@ -56,13 +56,13 @@ MOCK_KPM_ISSUES = [
 
 
 def test_render_user_needs_section_count():
-    md = render_user_needs_section(MOCK_UN_ISSUES)
+    md = render_user_needs_section(MOCK_UN_ISSUES, [], [], {})
     assert "UN-001" in md
     assert "UN-010" in md
 
 
 def test_render_user_needs_section_status():
-    md = render_user_needs_section(MOCK_UN_ISSUES)
+    md = render_user_needs_section(MOCK_UN_ISSUES, [], [], {})
     assert "status: defined" in md or "DEFINED" in md
 
 

@@ -105,8 +105,7 @@ def test_exposure_scores_construction() -> None:
 
 def test_genre_result_construction() -> None:
     result = GenreResult(
-        genre="wildlife",
-        confidence=0.87,
+        genres=[("wildlife", 0.87), ("landscape", 0.05), ("portrait", 0.03)],
         distribution={
             "wildlife": 0.87,
             "landscape": 0.05,
@@ -117,9 +116,41 @@ def test_genre_result_construction() -> None:
             "event": 0.005,
             "general": 0.005,
         },
+        needs_review=False,
     )
-    assert result.genre == "wildlife"
+    assert result.primary_genre == "wildlife"
+    assert result.primary_confidence == 0.87
     assert abs(sum(result.distribution.values()) - 1.0) < 0.01
+    assert len(result.genres) == 3
+
+
+def test_genre_result_properties() -> None:
+    """Test primary_genre and primary_confidence properties."""
+    result = GenreResult(
+        genres=[("portrait", 0.92), ("event", 0.05)],
+        distribution={"portrait": 0.92, "event": 0.05, "general": 0.03},
+        needs_review=False,
+    )
+    assert result.primary_genre == "portrait"
+    assert result.primary_confidence == 0.92
+
+
+def test_subject_context_sharpness_contrast() -> None:
+    """SubjectContext should have sharpness_contrast field with default 0.0."""
+    ctx = SubjectContext(
+        image_bgr=np.zeros((100, 100, 3), dtype=np.uint8),
+        image_gray=np.zeros((100, 100), dtype=np.uint8),
+        thumbnail_rgb=np.zeros((384, 384, 3), dtype=np.uint8),
+        subject_mask=np.ones((100, 100), dtype=np.uint8),
+        subject_area_ratio=0.3,
+        faces=[],
+        detections=[],
+        primary_subject_bbox=None,
+        clip_embedding=np.zeros(512, dtype=np.float32),
+        exif={},
+        sharpness_contrast=2.5,
+    )
+    assert ctx.sharpness_contrast == 2.5
 
 
 def test_fusion_result_construction() -> None:

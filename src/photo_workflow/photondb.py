@@ -81,6 +81,22 @@ def ensure_table(conn: sqlite3.Connection, table: str) -> None:
         conn.execute(f"ALTER TABLE [{table}] ADD COLUMN dhash TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
+    try:
+        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN genres TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN primary_genre TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN needs_review INTEGER DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN clip_embedding BLOB")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
 
 
@@ -201,15 +217,54 @@ def update_genre_scores(
     master_score: float,
     sub_scores: dict,
     *,
+    genres: list[tuple[str, float]] | None = None,
+    primary_genre: str | None = None,
+    needs_review: bool = False,
+    clip_embedding: bytes | None = None,
     auto_commit: bool = True,
 ) -> None:
-    """Write genre-aware scoring results."""
+    """Write genre-aware scoring results including multi-genre data.
+
+    Args:
+        conn: SQLite connection
+        table: Table name
+        filename: Filename to update
+        genre: Primary genre (for backward compatibility)
+        genre_confidence: Primary genre confidence
+        master_score: Master score
+        sub_scores: Sub-scores dictionary
+        genres: Multi-genre list [(genre_name, confidence), ...]
+        primary_genre: Primary genre (alias for genre column)
+        needs_review: Whether image needs review (low-confidence fallback)
+        clip_embedding: Raw bytes of CLIP embedding (float32 numpy array)
+        auto_commit: Whether to auto-commit
+    """
     import json
     table = sanitize_table_name(table)
     sub_scores_json = json.dumps(sub_scores) if sub_scores else ""
+
+    # Serialize genres list as JSON
+    genres_json = ""
+    if genres:
+        genres_json = json.dumps([{"g": g, "c": c} for g, c in genres])
+
+    # Use primary_genre if provided, otherwise use genre
+    primary_genre_val = primary_genre if primary_genre else genre
+
     conn.execute(
-        f"UPDATE [{table}] SET genre=?, genre_confidence=?, master_score=?, sub_scores=? WHERE filename=?",
-        (genre, genre_confidence, master_score, sub_scores_json, filename),
+        f"UPDATE [{table}] SET genre=?, genre_confidence=?, master_score=?, sub_scores=?, "
+        f"genres=?, primary_genre=?, needs_review=?, clip_embedding=? WHERE filename=?",
+        (
+            genre,
+            genre_confidence,
+            master_score,
+            sub_scores_json,
+            genres_json,
+            primary_genre_val,
+            1 if needs_review else 0,
+            clip_embedding,
+            filename,
+        ),
     )
     if auto_commit:
         conn.commit()

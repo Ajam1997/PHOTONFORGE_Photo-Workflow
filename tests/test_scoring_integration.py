@@ -61,8 +61,8 @@ def test_full_scoring_flow_no_models(sharp_color_image: Path, tmp_path: Path) ->
 
     assert isinstance(result, FusionResult)
     assert 0.0 <= result.master_score <= 1.0
-    assert result.genre in ("general", "landscape", "architecture", "wildlife",
-                             "portrait", "street", "macro", "event")
+    from photo_workflow.genre_router import GENRES
+    assert result.genre in GENRES
     assert result.star_rating in range(1, 6)
     assert not result.hard_reject
 

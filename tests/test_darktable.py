@@ -12,8 +12,11 @@ from photo_workflow.darktable_bridge import (
     sync_to_darktable,
     validate_xmp,
     _write_xmp,
+    write_darktable_keywords,
+    read_darktable_keywords,
 )
 from photo_workflow.pipeline import PhotoRecord
+import sqlite3
 
 
 _SAMPLE_SUB_SCORES = {
@@ -213,3 +216,128 @@ def test_compute_color_label_hard_reject_returns_none() -> None:
 
 def test_compute_color_label_sharpness_only_fallback() -> None:
     assert compute_color_label(0.8) == 3  # > 0.75 → blue
+
+
+# ---------------------------------------------------------------------------
+# Multi-genre XMP tests
+# ---------------------------------------------------------------------------
+
+def test_xmp_contains_multi_genre_bag(tmp_path: Path) -> None:
+    """XMP should contain multi-genre rdf:Bag with entries for each genre."""
+    rec = _make_record(tmp_path)
+    rec.genres = [("wildlife", 0.87), ("landscape", 0.05)]
+    rec.needs_review = False
+    _write_xmp(rec)
+    content = rec.path.with_suffix(".xmp").read_text()
+    assert "<rdf:Bag>" in content
+    assert "<rdf:li>wildlife</rdf:li>" in content
+    assert "<rdf:li>landscape</rdf:li>" in content
+    assert "<photon:NeedsReview>false</photon:NeedsReview>" in content
+
+
+def test_xmp_contains_needs_review_flag(tmp_path: Path) -> None:
+    """XMP should contain needs_review flag."""
+    rec = _make_record(tmp_path)
+    rec.genres = [("general", 1.0)]
+    rec.needs_review = True
+    _write_xmp(rec)
+    content = rec.path.with_suffix(".xmp").read_text()
+    assert "<photon:NeedsReview>true</photon:NeedsReview>" in content
+
+
+# ---------------------------------------------------------------------------
+# Darktable keyword tests  (Darktable 5.x split-DB schema)
+# ---------------------------------------------------------------------------
+# DT5 stores tag names in data.db and tag links in library.db.
+# Helpers below create both files so tests match production behaviour.
+
+def _make_dt5_dbs(tmp_path: Path) -> tuple[Path, Path]:
+    """Create minimal Darktable 5.x library.db + data.db in tmp_path."""
+    lib = tmp_path / "library.db"
+    data = tmp_path / "data.db"
+
+    conn = sqlite3.connect(str(lib))
+    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY, filename TEXT)")
+    conn.execute(
+        "CREATE TABLE tagged_images (imgid INTEGER, tagid INTEGER, position INTEGER)"
+    )
+    conn.commit()
+    conn.close()
+
+    conn = sqlite3.connect(str(data))
+    conn.execute(
+        "CREATE TABLE tags (id INTEGER PRIMARY KEY, name TEXT UNIQUE, "
+        "synonyms TEXT, flags INTEGER)"
+    )
+    conn.commit()
+    conn.close()
+
+    return lib, data
+
+
+def test_write_darktable_keywords_creates_tags(tmp_path: Path) -> None:
+    """write_darktable_keywords should create tags in data.db and links in library.db."""
+    lib, data = _make_dt5_dbs(tmp_path)
+
+    conn = sqlite3.connect(str(lib))
+    conn.execute("INSERT INTO images (filename) VALUES ('test.jpg')")
+    conn.commit()
+    conn.close()
+
+    write_darktable_keywords(lib, "test.jpg", ["wildlife", "portrait"])
+
+    # Tags written to data.db
+    conn = sqlite3.connect(str(data))
+    tag_names = {r[0] for r in conn.execute("SELECT name FROM tags").fetchall()}
+    conn.close()
+    assert "wildlife" in tag_names
+    assert "portrait" in tag_names
+
+    # Links written to library.db
+    conn = sqlite3.connect(str(lib))
+    links = conn.execute("SELECT COUNT(*) FROM tagged_images").fetchone()[0]
+    conn.close()
+    assert links == 2
+
+
+def test_read_darktable_keywords_retrieves_tags(tmp_path: Path) -> None:
+    """read_darktable_keywords should retrieve tags across the split databases."""
+    lib, data = _make_dt5_dbs(tmp_path)
+
+    conn = sqlite3.connect(str(lib))
+    conn.execute("INSERT INTO images (filename) VALUES ('test.jpg')")
+    conn.execute("INSERT INTO tagged_images (imgid, tagid, position) VALUES (1, 1, 0)")
+    conn.execute("INSERT INTO tagged_images (imgid, tagid, position) VALUES (1, 2, 0)")
+    conn.commit()
+    conn.close()
+
+    conn = sqlite3.connect(str(data))
+    conn.execute("INSERT INTO tags (name, synonyms, flags) VALUES ('wildlife', '', 0)")
+    conn.execute("INSERT INTO tags (name, synonyms, flags) VALUES ('landscape', '', 0)")
+    conn.commit()
+    conn.close()
+
+    keywords = read_darktable_keywords(lib, "test.jpg")
+    assert set(keywords) == {"wildlife", "landscape"}
+
+
+def test_read_darktable_keywords_nonexistent_image(tmp_path: Path) -> None:
+    """read_darktable_keywords should return empty list for missing image."""
+    lib, _ = _make_dt5_dbs(tmp_path)
+    keywords = read_darktable_keywords(lib, "nonexistent.jpg")
+    assert keywords == []
+
+
+def test_keywords_round_trip(tmp_path: Path) -> None:
+    """Writing then reading keywords should preserve the list."""
+    lib, _ = _make_dt5_dbs(tmp_path)
+
+    conn = sqlite3.connect(str(lib))
+    conn.execute("INSERT INTO images (filename) VALUES ('photo.jpg')")
+    conn.commit()
+    conn.close()
+
+    original = ["macro", "nature", "insect"]
+    write_darktable_keywords(lib, "photo.jpg", original)
+    retrieved = read_darktable_keywords(lib, "photo.jpg")
+    assert set(retrieved) == set(original)

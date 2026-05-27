@@ -74,6 +74,44 @@ GENRE_WEIGHTS: dict[str, dict[str, float]] = {
         "composition_rot": 0.10, "exposure_overall": 0.10,
         "aesthetic_clip": 0.08, "balance": 0.07,
     },
+    # Waterfall: leading lines (flow), motion tolerance (long-exposure silk),
+    # sharp surrounding rock, balanced composition. Sits between landscape
+    # and macro in subject-emphasis terms.
+    "waterfall": {
+        "leading_lines": 0.15, "subject_sharpness": 0.15,
+        "composition_rot": 0.12, "motion_tolerance": 0.12,
+        "exposure_overall": 0.10, "dynamic_range": 0.10,
+        "balance": 0.08, "negative_space": 0.08,
+        "aesthetic_clip": 0.08, "highlight_clip": 0.02,
+    },
+    # Signage: legibility is paramount — sharp subject + good exposure.
+    # Symmetry/balance secondary (signs are often centred). Composition
+    # weight modest since signage shots are often documentary, not artistic.
+    "signage": {
+        "subject_sharpness": 0.25, "exposure_overall": 0.18,
+        "symmetry": 0.12, "balance": 0.10,
+        "composition_rot": 0.08, "highlight_clip": 0.08,
+        "color_contrast": 0.07, "aesthetic_clip": 0.06,
+        "negative_space": 0.06,
+    },
+    # Cat: eye sharpness critical (same as wildlife), subject isolation
+    # for bokeh backgrounds, aesthetic CLIP for appeal.
+    "cat": {
+        "eye_sharpness": 0.25, "subject_sharpness": 0.15,
+        "subject_isolation": 0.12, "composition_rot": 0.10,
+        "negative_space": 0.08, "exposure_overall": 0.10,
+        "aesthetic_clip": 0.10, "balance": 0.05,
+        "behavior_proxy": 0.05,
+    },
+    # Vehicle: sharpness + composition dominates, motion tolerance for
+    # panning shots, symmetry for static studio-style.
+    "vehicle": {
+        "subject_sharpness": 0.22, "composition_rot": 0.14,
+        "leading_lines": 0.12, "symmetry": 0.10,
+        "exposure_overall": 0.12, "subject_isolation": 0.08,
+        "motion_tolerance": 0.08, "aesthetic_clip": 0.08,
+        "balance": 0.06,
+    },
     "general": {
         "subject_sharpness": 0.20, "exposure_overall": 0.18,
         "composition_rot": 0.15, "subject_isolation": 0.12,
@@ -171,14 +209,27 @@ def _compute_master_score(
     sub_scores: dict[str, float],
     genre: GenreResult,
 ) -> float:
-    """Compute the genre-weighted master score via soft blending."""
+    """Compute the genre-weighted master score via soft blending.
+
+    Blends GENRE_WEIGHTS across all entries in genre.genres,
+    weighted by their confidence scores (normalized to sum to 1).
+    """
+    # Normalize genre confidences so they sum to 1
+    total_confidence = sum(conf for _, conf in genre.genres)
+    if total_confidence <= 0:
+        # Fallback to equal weighting
+        normalized_genres = [(g, 1.0 / len(genre.genres)) for g, _ in genre.genres]
+    else:
+        normalized_genres = [(g, conf / total_confidence) for g, conf in genre.genres]
+
     effective_weights: dict[str, float] = {}
 
-    for genre_name, prob in genre.distribution.items():
+    # Accumulate weights from all genres in the list
+    for genre_name, normalized_conf in normalized_genres:
         if genre_name not in GENRE_WEIGHTS:
             continue
         for key, weight in GENRE_WEIGHTS[genre_name].items():
-            effective_weights[key] = effective_weights.get(key, 0.0) + prob * weight
+            effective_weights[key] = effective_weights.get(key, 0.0) + normalized_conf * weight
 
     master = 0.0
     for key, weight in effective_weights.items():
@@ -247,11 +298,11 @@ def fuse_scores(
         sharpness: Enhanced sharpness analysis results.
         composition: Enhanced composition analysis results.
         exposure: Enhanced exposure analysis results.
-        genre: Genre classification result with probability distribution.
+        genre: Genre classification result with multi-genre list and distribution.
         aesthetic: CLIP aesthetic head score in [0, 1].
 
     Returns:
-        FusionResult with master score, sub-scores, and classification labels.
+        FusionResult with master score, sub-scores, classification labels, and multi-genre data.
     """
     sub_scores = _build_sub_score_dict(
         sharpness, composition, exposure, aesthetic, faces, image_gray,
@@ -263,11 +314,13 @@ def fuse_scores(
 
     return FusionResult(
         master_score=round(master_score, 4),
-        genre=genre.genre,
-        genre_confidence=round(genre.confidence, 4),
+        genre=genre.primary_genre,  # Backward compatibility
+        genre_confidence=round(genre.primary_confidence, 4),  # Backward compatibility
         sub_scores=sub_scores,
         hard_reject=hard_reject,
         hard_reject_reason=reject_reason,
         star_rating=star_rating,
         color_label=color_label,
+        genres=genre.genres,  # Multi-genre data
+        needs_review=genre.needs_review,
     )

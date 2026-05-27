@@ -19,6 +19,10 @@ GENRES = [
     "architecture",
     "macro",
     "event",
+    "waterfall",
+    "signage",
+    "cat",
+    "vehicle",
     "general",
 ]
 
@@ -71,6 +75,39 @@ _EXIF_PRIORS = {
         "shutter": (-5.5, 0.8),
         "iso": (6.0, 0.8),
     },
+    # Waterfall: wide-to-mid focal lengths, narrow apertures (f/8-f/16),
+    # shutter is bimodal (long-exposure silk OR fast-freeze droplets) so
+    # std is wide; low ISO typical of tripod/landscape shooting.
+    "waterfall": {
+        "focal_length": (3.2, 0.7),
+        "aperture": (2.3, 0.4),
+        "shutter": (-2.0, 2.5),
+        "iso": (4.6, 0.6),
+    },
+    # Signage: handheld mid focal lengths (24-50mm), moderate aperture,
+    # fast handheld shutter, variable ISO (indoor/outdoor mix).
+    "signage": {
+        "focal_length": (3.5, 0.6),
+        "aperture": (1.5, 0.5),
+        "shutter": (-5.5, 1.0),
+        "iso": (5.5, 0.8),
+    },
+    # Cat: telephoto or mid-range, wide aperture for bokeh, fast shutter
+    # to freeze movement, moderate-high ISO indoors.
+    "cat": {
+        "focal_length": (4.5, 0.8),
+        "aperture": (0.8, 0.5),
+        "shutter": (-6.5, 1.0),
+        "iso": (6.0, 0.8),
+    },
+    # Vehicle: mid-to-wide focal lengths, moderate aperture, fast shutter
+    # (action/panning), variable ISO.
+    "vehicle": {
+        "focal_length": (3.8, 0.7),
+        "aperture": (1.5, 0.5),
+        "shutter": (-6.0, 1.5),
+        "iso": (5.5, 0.8),
+    },
     "general": {
         "focal_length": (3.8, 1.5),
         "aperture": (1.5, 1.0),
@@ -79,8 +116,90 @@ _EXIF_PRIORS = {
     },
 }
 
-# Confidence threshold below which we fall back to "general"
-_CONFIDENCE_THRESHOLD = 0.3
+# Confidence threshold below which a genre is excluded from the output.
+# 0.20 is well above the uniform baseline for 12 genres (1/12 ≈ 0.083),
+# ensuring only meaningfully confident secondary genres surface.
+_CONFIDENCE_THRESHOLD = 0.20
+
+# Per-genre Gaussian priors for subject context (face_count, subject_area_ratio, primary class)
+_SUBJECT_CONTEXT_PRIORS = {
+    "wildlife": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.2, 0.15),  # Medium subject size
+        "primary_class": {"bird": 1.5, "elephant": 1.5, "giraffe": 1.5},  # Multipliers
+    },
+    "landscape": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.1, 0.1),   # Small subject
+        "primary_class": {},             # Indifferent to class
+    },
+    "portrait": {
+        "face_count": (1.0, 0.3),       # One face
+        "subject_area_ratio": (0.2, 0.1),   # Focused face
+        "primary_class": {"person": 2.0},   # Person preferred
+    },
+    "street": {
+        "face_count": (0.5, 0.4),       # Few faces
+        "subject_area_ratio": (0.15, 0.1),  # Mixed subject size
+        "primary_class": {"person": 1.3},
+    },
+    "architecture": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.25, 0.15), # Medium-large
+        "primary_class": {},             # Indifferent
+    },
+    "macro": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.4, 0.15),  # Large subject zoom
+        "primary_class": {"insect": 1.5, "flower": 1.5},
+    },
+    "event": {
+        "face_count": (3.0, 1.0),       # Multiple faces
+        "subject_area_ratio": (0.2, 0.15),  # Varied
+        "primary_class": {"person": 1.5},
+    },
+    "waterfall": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.3, 0.2),   # Waterfall fills mid-to-large frame
+        "primary_class": {},             # YOLO COCO has no waterfall class
+    },
+    "signage": {
+        "face_count": (0.0, 0.4),       # Signs rarely have faces
+        "subject_area_ratio": (0.3, 0.15),  # Sign fills moderate-to-large frame
+        "primary_class": {"stop sign": 2.0},  # COCO 'stop sign' is a strong cue
+    },
+    "cat": {
+        "face_count": (0.0, 0.5),       # No human faces
+        "subject_area_ratio": (0.25, 0.15),  # Cat fills medium frame
+        "primary_class": {"cat": 3.0},  # COCO cat class is the defining signal
+    },
+    "vehicle": {
+        "face_count": (0.0, 0.5),       # No faces
+        "subject_area_ratio": (0.3, 0.2),   # Vehicle fills medium-to-large frame
+        "primary_class": {"car": 2.5, "truck": 2.5, "bus": 2.0, "motorcycle": 2.0},
+    },
+    "general": {
+        "face_count": (0.5, 1.0),       # Uniform (any)
+        "subject_area_ratio": (0.2, 0.2),   # Uniform
+        "primary_class": {},             # Indifferent
+    },
+}
+
+# Per-genre sharpness profile (subject/background contrast preference)
+_SHARPNESS_PROFILE_PRIORS = {
+    "wildlife": (2.5, 1.0),   # High contrast preferred
+    "landscape": (1.0, 0.5),  # Uniform sharpness
+    "portrait": (3.0, 1.2),   # High contrast (bokeh)
+    "street": (1.5, 0.8),     # Moderate contrast
+    "architecture": (1.0, 0.5),  # Uniform
+    "macro": (3.5, 1.2),      # Very high contrast
+    "event": (1.5, 0.8),      # Moderate contrast
+    "waterfall": (1.3, 0.7),  # Mostly uniform; rocks sharp, water motion-blurred
+    "signage": (1.0, 0.5),    # Frontal flat subject — uniform sharpness preferred
+    "cat": (2.5, 1.0),        # High contrast — cat sharp, background blurred
+    "vehicle": (1.5, 0.8),    # Moderate — depends on style (studio vs street)
+    "general": (1.5, 1.0),    # Moderate baseline
+}
 
 
 def _compute_exif_prior(exif: dict) -> dict[str, float]:
@@ -147,6 +266,11 @@ def _compute_yolo_evidence(detections: list[ObjectDetection], image_area: int) -
         if det.class_id in _ANIMAL_CLASS_IDS and area_ratio > 0.05:
             has_animal = True
             evidence["wildlife"] *= 3.0
+            if det.class_id == 15:  # cat
+                evidence["cat"] *= 4.0
+
+        if det.class_name in ("car", "truck", "bus", "motorcycle") and area_ratio > 0.05:
+            evidence["vehicle"] *= 3.5
 
         if det.class_name == "person":
             person_count += 1
@@ -192,64 +316,180 @@ def _compute_clip_similarity(
     # Cosine similarity (embedding is already L2-normalized)
     similarities = genre_prototypes @ clip_embedding  # (num_genres,)
 
-    # Temperature-scaled softmax
-    temperature = 0.1
+    # Temperature-scaled softmax.
+    # 0.1 is too peaked (concentrates on 1 genre) — 0.35 gives useful spread
+    # across multi-genre scenes while still being discriminative.
+    temperature = 0.35
     exp_sim = np.exp((similarities - similarities.max()) / temperature)
     probs = exp_sim / exp_sim.sum()
 
     return {GENRES[i]: float(probs[i]) for i in range(len(GENRES))}
 
 
+def _compute_subject_context_likelihood(ctx: SubjectContext) -> dict[str, float]:
+    """Compute per-genre likelihood from subject context.
+
+    Uses face_count, subject_area_ratio, and primary detection class.
+    Returns dict of genre -> unnormalized probability.
+    """
+    face_count = len(ctx.faces)
+    area_ratio = ctx.subject_area_ratio
+
+    # Determine primary detection class
+    primary_class = ""
+    if ctx.detections:
+        largest = max(ctx.detections, key=lambda d: d.bbox[2] * d.bbox[3])
+        primary_class = largest.class_name
+
+    evidence = {g: 1.0 for g in GENRES}
+
+    for genre in GENRES:
+        priors = _SUBJECT_CONTEXT_PRIORS.get(genre, {})
+
+        # Face count Gaussian likelihood
+        face_mean, face_std = priors.get("face_count", (0.0, 1.0))
+        face_diff = face_count - face_mean
+        face_likelihood = math.exp(-0.5 * (face_diff / max(face_std, 0.1)) ** 2)
+        evidence[genre] *= face_likelihood
+
+        # Subject area ratio Gaussian likelihood
+        area_mean, area_std = priors.get("subject_area_ratio", (0.2, 0.2))
+        area_diff = area_ratio - area_mean
+        area_likelihood = math.exp(-0.5 * (area_diff / max(area_std, 0.1)) ** 2)
+        evidence[genre] *= area_likelihood
+
+        # Primary class bonus (if applicable)
+        if primary_class:
+            class_bonus = priors.get("primary_class", {}).get(primary_class, 1.0)
+            evidence[genre] *= class_bonus
+
+    # Normalize
+    total = sum(evidence.values())
+    if total > 0:
+        return {g: evidence[g] / total for g in GENRES}
+    return {g: 1.0 / len(GENRES) for g in GENRES}
+
+
+def _compute_sharpness_profile_likelihood(sharpness_contrast: float) -> dict[str, float]:
+    """Compute per-genre likelihood from sharpness contrast.
+
+    Higher contrast (subject sharp, background blurred) favors portrait/macro.
+    Uniform sharpness favors landscape/architecture.
+    Returns dict of genre -> unnormalized probability.
+    """
+    evidence = {g: 1.0 for g in GENRES}
+
+    for genre in GENRES:
+        mean, std = _SHARPNESS_PROFILE_PRIORS.get(genre, (1.5, 1.0))
+        diff = sharpness_contrast - mean
+        likelihood = math.exp(-0.5 * (diff / max(std, 0.1)) ** 2)
+        evidence[genre] = likelihood
+
+    # Normalize
+    total = sum(evidence.values())
+    if total > 0:
+        return {g: evidence[g] / total for g in GENRES}
+    return {g: 1.0 / len(GENRES) for g in GENRES}
+
+
 def route_genre(
     ctx: SubjectContext,
     genre_prototypes: np.ndarray | None = None,
 ) -> GenreResult:
-    """Classify image genre using Bayesian product-of-experts.
+    """Classify image genre using a hybrid 1st-order / 2nd-order tagging strategy.
 
-    Fuses CLIP similarity, EXIF prior, and YOLO object evidence.
-    Falls back to "general" when confidence is below threshold.
+    **Primary tag (1st order)** — product-of-experts across all 5 signals.
+    The multiplicative fusion is intentionally peaked: it reliably picks the
+    single dominant genre with high confidence.
+
+    **Secondary tags (2nd order)** — weighted geometric mean (log-space weighted
+    sum) across the same 5 signals, excluding the primary genre.  The softer
+    distribution surfaces genuine co-genres (e.g. waterfall + landscape, portrait
+    + event) without the extreme peaking that suppresses them in the product.
+    CLIP carries the highest weight (0.40) as the most semantic signal.
+
+    Returns: primary genre (PoE confidence) + up to 2 secondary genres
+    (geometric-mean confidence, above 0.10 floor), or [("general", 1.0)] with
+    needs_review=True when the primary confidence itself is below the floor.
 
     Args:
-        ctx: SubjectContext with CLIP embedding, detections, and EXIF.
-        genre_prototypes: Precomputed genre prototype embeddings, shape (8, 512).
+        ctx: SubjectContext with CLIP embedding, detections, EXIF, sharpness_contrast.
+        genre_prototypes: Precomputed prototype embeddings (num_genres, 512).
                           If None, CLIP evidence is uniform.
 
     Returns:
-        GenreResult with top genre, confidence, and full distribution.
+        GenreResult with primary + secondary genres, full PoE distribution,
+        and needs_review flag.
     """
-    # Evidence source 1: CLIP
-    clip_probs = _compute_clip_similarity(ctx.clip_embedding, genre_prototypes)
+    # --- Shared signal computation -------------------------------------------
+    clip_probs    = _compute_clip_similarity(ctx.clip_embedding, genre_prototypes)
+    exif_probs    = _compute_exif_prior(ctx.exif)
+    image_area    = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
+    yolo_probs    = _compute_yolo_evidence(ctx.detections, image_area)
+    subject_probs = _compute_subject_context_likelihood(ctx)
+    sharp_probs   = _compute_sharpness_profile_likelihood(ctx.sharpness_contrast)
 
-    # Evidence source 2: EXIF prior
-    exif_probs = _compute_exif_prior(ctx.exif)
+    # --- 1st order: product-of-experts → primary genre -----------------------
+    # Multiplicative fusion peaks heavily on the dominant genre — this is a
+    # feature for primary selection: whichever genre all signals agree on wins.
+    product = {
+        g: clip_probs[g] * exif_probs[g] * yolo_probs[g]
+           * subject_probs[g] * sharp_probs[g]
+        for g in GENRES
+    }
+    total_poe = sum(product.values())
+    poe_dist = (
+        {g: product[g] / total_poe for g in GENRES}
+        if total_poe > 0
+        else {g: 1.0 / len(GENRES) for g in GENRES}
+    )
 
-    # Evidence source 3: YOLO
-    image_area = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
-    yolo_probs = _compute_yolo_evidence(ctx.detections, image_area)
+    primary_genre      = max(poe_dist, key=poe_dist.__getitem__)
+    primary_confidence = poe_dist[primary_genre]
 
-    # Bayesian product-of-experts fusion
-    fused = {}
-    for g in GENRES:
-        fused[g] = clip_probs[g] * exif_probs[g] * yolo_probs[g]
+    # needs_review when even the PoE winner is uncertain
+    if primary_confidence < _CONFIDENCE_THRESHOLD:
+        return GenreResult(
+            genres=[("general", 1.0)],
+            distribution=poe_dist,
+            needs_review=True,
+        )
 
-    # Normalize
-    total = sum(fused.values())
-    if total > 0:
-        distribution = {g: fused[g] / total for g in GENRES}
-    else:
-        distribution = {g: 1.0 / len(GENRES) for g in GENRES}
+    # --- 2nd order: weighted geometric mean → secondary genres ---------------
+    # Weights sum to 1.0.  CLIP gets the largest share as the semantic anchor.
+    _W_CLIP, _W_EXIF, _W_YOLO, _W_SUBJ, _W_SHARP = 0.40, 0.20, 0.20, 0.12, 0.08
 
-    # Find top genre
-    top_genre = max(distribution, key=lambda g: distribution[g])
-    confidence = distribution[top_genre]
+    log_scores = {
+        g: (
+            _W_CLIP  * math.log(max(clip_probs[g],    1e-10)) +
+            _W_EXIF  * math.log(max(exif_probs[g],    1e-10)) +
+            _W_YOLO  * math.log(max(yolo_probs[g],    1e-10)) +
+            _W_SUBJ  * math.log(max(subject_probs[g], 1e-10)) +
+            _W_SHARP * math.log(max(sharp_probs[g],   1e-10))
+        )
+        for g in GENRES
+    }
+    max_log   = max(log_scores.values())
+    exp_gm    = {g: math.exp(log_scores[g] - max_log) for g in GENRES}
+    total_gm  = sum(exp_gm.values())
+    gm_dist   = (
+        {g: exp_gm[g] / total_gm for g in GENRES}
+        if total_gm > 0
+        else {g: 1.0 / len(GENRES) for g in GENRES}
+    )
 
-    # Fallback to general if confidence is too low
-    if confidence < _CONFIDENCE_THRESHOLD:
-        top_genre = "general"
-        confidence = distribution["general"]
+    # Secondary candidates: all genres except primary, sorted by gm confidence,
+    # capped at 2, only above the confidence floor.
+    secondary = [
+        (g, gm_dist[g])
+        for g in sorted(GENRES, key=gm_dist.__getitem__, reverse=True)
+        if g != primary_genre and gm_dist[g] >= _CONFIDENCE_THRESHOLD
+    ][:2]
+
+    genres = [(primary_genre, primary_confidence)] + secondary
 
     return GenreResult(
-        genre=top_genre,
-        confidence=confidence,
-        distribution=distribution,
+        genres=genres,
+        distribution=poe_dist,   # PoE distribution stored for calibration
+        needs_review=False,
     )
