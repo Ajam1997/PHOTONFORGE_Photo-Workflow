@@ -9,8 +9,8 @@ __pycache__/
 dist/
 build/
 *.pid
-docs/PlanningBriefs/
-docs/ValidationReports/PhotoWorkFlowTestOutput/
+dev-docs/PlanningBriefs/
+dev-docs/ValidationReports/PhotoWorkFlowTestOutput/
 .worktrees/
 .env
 test_tmp/

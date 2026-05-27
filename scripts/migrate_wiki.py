@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Migrate docs/ markdown files to GitHub Wiki format.
+"""Migrate dev-docs/ markdown files to GitHub Wiki format.
 
-Wiki is a flat namespace — all pages live at root level.
+Wiki is a flat namespace â€” all pages live at root level.
 This script:
   1. Clones the wiki repo to a temp dir
-  2. Copies docs/ files with remapped names
+  2. Copies dev-docs/ files with remapped names
   3. Rewrites internal .md links to wiki page names
   4. Generates _Sidebar.md from mkdocs.yml nav
   5. Commits and pushes
@@ -20,7 +20,7 @@ REPO = "Ajam1997/PHOTONFORGE_Photo-Workflow"
 WIKI_URL = f"https://github.com/{REPO}.wiki.git"
 DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
 
-# Map from docs-relative path → wiki page name (no .md)
+# Map from docs-relative path â†’ wiki page name (no .md)
 PAGE_MAP: dict[str, str] = {
     "index.md": "Home",
     "roadmap.md": "Roadmap",
@@ -68,8 +68,8 @@ def resolve_link(source_rel: str, link_target: str) -> str | None:
     # Try exact match
     if resolved in PAGE_MAP:
         return PAGE_MAP[resolved] + anchor
-    # Try stripping leading docs/ prefix if accidentally present
-    stripped = re.sub(r"^docs/", "", resolved)
+    # Try stripping leading dev-docs/ prefix if accidentally present
+    stripped = re.sub(r"^dev-docs/", "", resolved)
     if stripped in PAGE_MAP:
         return PAGE_MAP[stripped] + anchor
     return None
@@ -203,7 +203,7 @@ def main() -> None:
     )
     wiki_dir = tmpdir / "wiki"
     if clone_result.returncode != 0:
-        # Wiki repo may be empty on first use — init it manually
+        # Wiki repo may be empty on first use â€” init it manually
         print("Wiki appears empty, initialising...")
         wiki_dir.mkdir(exist_ok=True)
         run(["git", "init"], cwd=wiki_dir)
@@ -229,7 +229,7 @@ def main() -> None:
     # Write sidebar and footer
     (wiki_dir / "_Sidebar.md").write_text(SIDEBAR, encoding="utf-8")
     (wiki_dir / "_Footer.md").write_text(
-        "_PHOTONForge — private repo, collaborators only. "
+        "_PHOTONForge â€” private repo, collaborators only. "
         f"[Source](https://github.com/{REPO})_\n",
         encoding="utf-8",
     )

@@ -78,7 +78,7 @@ def render_drift_report(stale: list[dict], date: str) -> str:
         Markdown string.
     """
     lines = [
-        f"# Drift Report — {date}",
+        f"# Drift Report â€” {date}",
         "",
         f"{len(stale)} stale FR(s) detected: unverified, no source reference, no update in 90+ days.",
         "",
@@ -91,7 +91,7 @@ def render_drift_report(stale: list[dict], date: str) -> str:
 
 
 def update_drift_index(drift_dir: Path) -> None:
-    """Regenerate docs/drift-reports/index.md listing all reports newest-first."""
+    """Regenerate dev-docs/drift-reports/index.md listing all reports newest-first."""
     reports = sorted(
         [f for f in drift_dir.glob("*.md") if f.name != "index.md"],
         reverse=True,
@@ -108,7 +108,7 @@ def update_drift_index(drift_dir: Path) -> None:
             date = r.stem
             lines.append(f"| {date} | [View]({r.name}) |")
     else:
-        lines.append("No drift reports yet — all requirements are current.")
+        lines.append("No drift reports yet â€” all requirements are current.")
     (drift_dir / "index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -132,13 +132,13 @@ def main() -> None:
         print(f"Wrote drift report: {report_path}")
 
         drift_issue_body = (
-            f"## Drift Detected — {today}\n\n"
+            f"## Drift Detected â€” {today}\n\n"
             f"{len(stale)} FR/NFR items are unverified with no source reference and no activity in 90+ days.\n\n"
-            f"See `docs/drift-reports/{today}.md` for details.\n\n"
+            f"See `dev-docs/drift-reports/{today}.md` for details.\n\n"
             + "\n".join(f"- [{s['id']}]({s['url']}): {s['title']}" for s in stale)
         )
         client.create_issue(
-            f"[drift] Stale requirements detected — {today}",
+            f"[drift] Stale requirements detected â€” {today}",
             drift_issue_body,
             ["type: drift-report"],
         )

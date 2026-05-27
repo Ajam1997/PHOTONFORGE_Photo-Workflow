@@ -19,7 +19,7 @@ Instructions:
 
 2. Map Stage [STAGE_NUMBER] to its UN-IDs using the Stage-to-Requirement Map
    in your agent definition. Pull each UN-ID by targeted grep from
-   docs/living-user-needs.md -- do not read the full document.
+   dev-docs/living-user-needs.md -- do not read the full document.
 
 3. Run the E2E pipeline and validate all observable outputs per your
    agent definition Steps 2 through 3.
@@ -31,7 +31,7 @@ Instructions:
 5. Run all edge case scenarios (empty SD, no images, SSD absent, corrupt EXIF).
 
 6. Write the validation report to:
-     docs/ValidationReports/YYYY-MM-DD-stage[STAGE_NUMBER]-validation.md
+     dev-docs/ValidationReports/YYYY-MM-DD-stage[STAGE_NUMBER]-validation.md
 
 7. If any UN-ID fails, escalate to @architect. Do not escalate to @engineer.
 
@@ -58,8 +58,8 @@ Invocation context:
   Yoga 910: alex@<yoga-ip> (SSH accessible, hardware tests active)
 
 Instructions:
-1. Pull each UN-ID listed above by targeted grep from docs/living-user-needs.md:
-     ssh alex@<yoga-ip> 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md'
+1. Pull each UN-ID listed above by targeted grep from dev-docs/living-user-needs.md:
+     ssh alex@<yoga-ip> 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/dev-docs/living-user-needs.md'
    Do not read the full document.
 
 2. For each UN-ID pulled, run the relevant validation checks per your agent
@@ -73,7 +73,7 @@ Instructions:
    run edge cases for UN-IDs not listed above.
 
 5. Write the validation report to:
-     docs/ValidationReports/YYYY-MM-DD-manual-validation.md
+     dev-docs/ValidationReports/YYYY-MM-DD-manual-validation.md
 
 6. Update Status field in living-user-needs.md for each UN-ID that passes:
    DEFINED -> VALIDATED

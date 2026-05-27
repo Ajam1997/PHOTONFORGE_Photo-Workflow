@@ -16,9 +16,9 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 | @validation (inherit) | milestone E2E validation, user need compliance | **mandate**: `verification-before-completion` |
 | @systemmaster (operator-only) | deep cross-cutting reviews | n/a |
 
-Start every session with `docs/start-work-checklist.md` (≈60s).
+Start every session with `dev-docs/start-work-checklist.md` (â‰ˆ60s).
 The full pairing rationale lives in
-`docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` §6.4.
+`dev-docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` Â§6.4.
 
 ## Architecture Decisions
 - Composition over inheritance. AnalysisPipeline delegates to module functions.
@@ -26,7 +26,7 @@ The full pairing rationale lives in
 - onnxruntime CPU provider only. No GPU paths.
 
 ## Constraints
-- NFR-2.1: 100% offline at runtime. No network calls during pipeline execution. Initial machine provisioning (OS, packages, model downloads, quantization) may use the internet — see scripts/provision_models.sh.
+- NFR-2.1: 100% offline at runtime. No network calls during pipeline execution. Initial machine provisioning (OS, packages, model downloads, quantization) may use the internet â€” see scripts/provision_models.sh.
 - NFR-2.2: Total RSS <= 1.5 GB; CPU affinity capped at 80%.
 - NFR-2.3: library.db + user config live on external SSD, not host.
 - NFR-2.4: zenity dialog when SD inserted without SSD connected.
@@ -58,31 +58,33 @@ scripts/   -- safe_eject.sh, manage_ssd.sh, install_udev.sh
 deploy/    -- Dockerfile, docker-compose.yml, udev/
 tests/     -- fixtures/, test_*.py
 models/    -- florence2_int8/ (vendored, not downloaded)
+dev-docs/  -- developer documentation (markdown source for the GitHub Wiki)
+docs/      -- placeholder for future end-user documentation (currently empty)
 
 ## Build Sequence
-1. Scaffold (@architect): pyproject.toml, directory structure, empty modules ✓
-2. Core Engine (@engineer): grouping, dedup, sharpness, composition, exposure + tests ✓
-3. Inference + Bridge (@engineer): Florence-2-base-ft naming + Darktable SQLite/XMP ✓
-4. Host Integration (@devops): udev rules, SSD cartridge scripts, Dockerfile ✓
-5. Integration (@engineer + @architect): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
-6. Scoring System Modularization (@engineer, in progress): replace the monolithic `score_fusion.py` with a five-module pipeline (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) driven by the 16-Subject × 12-Photo-Type taxonomy. Subject is the region router; Type is the aesthetic weighter; master score is `min(technical, aesthetic)` with a swappable fusion strategy. Per-Type weights live in SQLite (`aesthetic_weights` table) bootstrapped from `docs/research/scoring-redesign.md §5`. Interfaces are locked in `docs/architecture/scoring-module-contracts.md`; execute the 6-step migration checklist at the bottom of that doc, one independently revertable step per PR. Backward compatibility for `pipeline.py` / `darktable_bridge.py` / XMP writer is preserved via `FusionResult`'s existing flat fields and `SubScoreBundle.as_flat_dict()`. Step 1 brief: `docs/architecture/stage-6-engineer-brief.md`.
+1. Scaffold (@architect): pyproject.toml, directory structure, empty modules âœ“
+2. Core Engine (@engineer): grouping, dedup, sharpness, composition, exposure + tests âœ“
+3. Inference + Bridge (@engineer): Florence-2-base-ft naming + Darktable SQLite/XMP âœ“
+4. Host Integration (@devops): udev rules, SSD cartridge scripts, Dockerfile âœ“
+5. Integration (@engineer + @architect): wire pipeline.py â€” PipelineSummary telemetry, --model-dir CLI flag, SDâ†’SSD staging path; 10 integration tests covering groupingâ†’dedupâ†’scoringâ†’namingâ†’Darktable flow with 6 synthetic fixture images âœ“
+6. Scoring System Modularization (@engineer, in progress): replace the monolithic `score_fusion.py` with a five-module pipeline (`region_router` â†’ `sub_scores/*` â†’ `technical_gate` + `aesthetic_weighter` â†’ `fusion`) driven by the 16-Subject Ã— 12-Photo-Type taxonomy. Subject is the region router; Type is the aesthetic weighter; master score is `min(technical, aesthetic)` with a swappable fusion strategy. Per-Type weights live in SQLite (`aesthetic_weights` table) bootstrapped from `dev-docs/research/scoring-redesign.md Â§5`. Interfaces are locked in `dev-docs/architecture/scoring-module-contracts.md`; execute the 6-step migration checklist at the bottom of that doc, one independently revertable step per PR. Backward compatibility for `pipeline.py` / `darktable_bridge.py` / XMP writer is preserved via `FusionResult`'s existing flat fields and `SubScoreBundle.as_flat_dict()`. Step 1 brief: `dev-docs/architecture/stage-6-engineer-brief.md`.
 
-Full spec: docs/photo-workflow-architecture-v4.docx
+Full spec: dev-docs/Archive/photo-workflow-architecture-v4.docx
 
 ## Agent Write-back Protocol
 
-**Canonical source of truth: GitHub Issues.** `docs/` is a render target via
+**Canonical source of truth: GitHub Issues.** `dev-docs/` is a render target via
 `scripts/generate_docs.py`; the wiki is a one-way export. Agents post evidence
-as Issue comments. Agents do **not** edit `docs/living-user-needs.md` or any
-other AUTO-managed file by hand, and they do **not** move status labels — that
-is `pr_rollup.py`'s job on PR merge. See `docs/architecture/doc-source-of-truth.md`.
+as Issue comments. Agents do **not** edit `dev-docs/living-user-needs.md` or any
+other AUTO-managed file by hand, and they do **not** move status labels â€” that
+is `pr_rollup.py`'s job on PR merge. See `dev-docs/architecture/doc-source-of-truth.md`.
 
 Agents write results via `scripts/github_comment.py`. **Never call the GitHub
 API directly.** All commands read GITHUB_TOKEN from environment. Requirement
 IDs (FR-X.Y, UN-XXX, KPM-X.Y) are resolved live via `gh issue list --search`;
 no local map file is required.
 
-Every comment **must** end with a `**Next action:** ...` line (HB-8 — enables
+Every comment **must** end with a `**Next action:** ...` line (HB-8 â€” enables
 SOP-B "resume mid-flight work"). Every agent comment carries a `via: @<agent>`
 footer so the writer's origin is legible to the next reader (HB-7).
 
@@ -98,7 +100,7 @@ python scripts/github_comment.py regress-fr FR-1.2 \
   --next-action "@engineer revisit blur kernel threshold"
 # After benchmark:
 python scripts/github_comment.py update-kpm KPM-1.2 \
-  "1.8s on i7-7500U — 2026-05-23" passing \
+  "1.8s on i7-7500U â€” 2026-05-23" passing \
   --next-action "no action; KPM still inside budget"
 ```
 
@@ -110,7 +112,7 @@ python scripts/github_comment.py validate-un UN-010 \
   --next-action "stage 2 closes; ready to start stage 3"
 # On E2E failure:
 python scripts/github_comment.py validation-failure UN-010 \
-  "wrong clusters on burst shots — 4 grouped, expected 1" \
+  "wrong clusters on burst shots â€” 4 grouped, expected 1" \
   --next-action "@architect to reassess FR-1.1 dHash threshold"
 ```
 

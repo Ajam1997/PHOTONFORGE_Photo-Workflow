@@ -2,14 +2,14 @@
 """Agent-safe CLI for writing back to GitHub Issues.
 
 Agents (verification, validation) use this script to post results.
-Never call the GitHub API directly — this script holds the token.
+Never call the GitHub API directly â€” this script holds the token.
 
 This script posts **comments only**. It never moves status labels.
 - `status: verified` on FR/NFR/UN is owned by `scripts/pr_rollup.py` on PR merge.
 - `status: validated` follows from the Epic rollup in `pr_rollup.py`.
 - A regression posts an evidence comment; it does NOT downgrade the label.
 
-Every ID-based command requires --next-action — the next reader uses that
+Every ID-based command requires --next-action â€” the next reader uses that
 line to resume work (HB-8 enables SOP-B "resume mid-flight work"). Every
 comment carries a `via: @<agent>` footer so writer origin is legible (HB-7).
 
@@ -38,7 +38,7 @@ Low-level commands (Issue number directly; --next-action still required):
   set-labels <issue_number> <label1> [<label2> ...]    (no footer / no next-action)
   close <issue_number>                                  (no footer / no next-action)
 
-ID resolution falls back from `docs/github-issue-map.json` to a live
+ID resolution falls back from `dev-docs/github-issue-map.json` to a live
 `gh issue list --search` so a stale map never blocks a handoff (HB-6).
 """
 import argparse
@@ -51,7 +51,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.github_client import GitHubClient
 
-MAP_PATH = Path("docs/github-issue-map.json")
+MAP_PATH = Path("dev-docs/github-issue-map.json")
 
 
 def load_map() -> dict:
@@ -78,7 +78,7 @@ def lookup_req(client: GitHubClient, issue_map: dict, req_id: str) -> int:
         return issue_map[section][req_id]["number"]
 
     # Fallback: live search by title prefix `[<REQ-ID>]`
-    print(f"note: {req_id} not in local issue map — searching live", file=sys.stderr)
+    print(f"note: {req_id} not in local issue map â€” searching live", file=sys.stderr)
     found = client.find_issue_by_title(f"[{req_id}]")
     if found:
         return found["number"]
@@ -127,25 +127,25 @@ def render_footer(via: str, next_action: str) -> str:
 def cmd_verify_fr(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
     num = lookup_req(client, issue_map, args.id)
     body = (
-        f"## Verification — {today_str()}\n\n"
-        f"**{args.id}** · {args.summary}"
+        f"## Verification â€” {today_str()}\n\n"
+        f"**{args.id}** Â· {args.summary}"
         f"{render_footer(args.via, args.next_action)}"
     )
     client.post_comment(num, body)
     print(f"posted verification comment on {args.id} (#{num})")
-    print("note: status label NOT moved — pr_rollup.py owns that on PR merge.")
+    print("note: status label NOT moved â€” pr_rollup.py owns that on PR merge.")
 
 
 def cmd_regress_fr(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
     num = lookup_req(client, issue_map, args.id)
     body = (
-        f"## Regression — {today_str()}\n\n"
-        f"**{args.id}** · {args.reason}"
+        f"## Regression â€” {today_str()}\n\n"
+        f"**{args.id}** Â· {args.reason}"
         f"{render_footer(args.via, args.next_action)}"
     )
     client.post_comment(num, body)
     print(f"posted regression comment on {args.id} (#{num})")
-    print("note: status label NOT downgraded — this is evidence only. "
+    print("note: status label NOT downgraded â€” this is evidence only. "
           "Open an issue or revert the PR if the regression is real.")
 
 
@@ -156,8 +156,8 @@ def cmd_update_kpm(client: GitHubClient, issue_map: dict, args: argparse.Namespa
 
     num = lookup_req(client, issue_map, args.id)
     body = (
-        f"## KPM Update — {today_str()}\n\n"
-        f"**{args.id}** · `{args.last_measured}` · **{args.kpm_status}**"
+        f"## KPM Update â€” {today_str()}\n\n"
+        f"**{args.id}** Â· `{args.last_measured}` Â· **{args.kpm_status}**"
         f"{render_footer(args.via, args.next_action)}"
     )
     client.post_comment(num, body)
@@ -165,12 +165,12 @@ def cmd_update_kpm(client: GitHubClient, issue_map: dict, args: argparse.Namespa
 
     project_id, last_measured_field_id, status_field_id = kpm_project_meta(issue_map)
     if not project_id or not last_measured_field_id or not status_field_id:
-        print("note: KPM Dashboard board fields not in issue map — skipping board update")
+        print("note: KPM Dashboard board fields not in issue map â€” skipping board update")
         return
 
     item_id = client.find_project_item_by_issue_number(project_id, num)
     if not item_id:
-        print(f"note: {args.id} (#{num}) not found on KPM Dashboard board — skipping board update")
+        print(f"note: {args.id} (#{num}) not found on KPM Dashboard board â€” skipping board update")
         return
 
     client.update_project_text_field(project_id, item_id, last_measured_field_id, args.last_measured)
@@ -179,33 +179,33 @@ def cmd_update_kpm(client: GitHubClient, issue_map: dict, args: argparse.Namespa
         client.update_project_select_field(project_id, item_id, status_field_id, option_id)
         print(f"updated KPM board: last_measured='{args.last_measured}', status='{args.kpm_status}'")
     else:
-        print(f"note: could not find option '{args.kpm_status}' on KPM Status field — text field updated only")
+        print(f"note: could not find option '{args.kpm_status}' on KPM Status field â€” text field updated only")
 
 
 def cmd_validate_un(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
     num = lookup_req(client, issue_map, args.id)
     body = (
-        f"## Validation — {today_str()}\n\n"
-        f"**{args.id}** · {args.summary}"
+        f"## Validation â€” {today_str()}\n\n"
+        f"**{args.id}** Â· {args.summary}"
         f"{render_footer(args.via, args.next_action)}"
     )
     client.post_comment(num, body)
     print(f"posted validation comment on {args.id} (#{num})")
-    print("note: status label NOT moved — pr_rollup.py + Epic merge own that transition.")
+    print("note: status label NOT moved â€” pr_rollup.py + Epic merge own that transition.")
 
 
 def cmd_validation_failure(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
     num = lookup_req(client, issue_map, args.id)
     body = (
-        f"## Validation Failure — {today_str()}\n\n"
-        f"**{args.id}** · {args.reason}\n\n"
+        f"## Validation Failure â€” {today_str()}\n\n"
+        f"**{args.id}** Â· {args.reason}\n\n"
         f"Escalating to @architect for requirement reassessment."
         f"{render_footer(args.via, args.next_action)}"
     )
     client.post_comment(num, body)
 
     failure_body = (
-        f"## Validation Failure — {args.id}\n\n"
+        f"## Validation Failure â€” {args.id}\n\n"
         f"**Date:** {today_str()}\n"
         f"**User Need:** {args.id}\n"
         f"**Reason:** {args.reason}\n\n"
@@ -213,7 +213,7 @@ def cmd_validation_failure(client: GitHubClient, issue_map: dict, args: argparse
         f"**Next action:** {args.next_action}\n\n*via: @{args.via}*"
     )
     new_issue = client.create_issue(
-        f"[validation-failure] {args.id} — {today_str()}",
+        f"[validation-failure] {args.id} â€” {today_str()}",
         failure_body,
         ["type: validation-failure"],
     )
@@ -242,14 +242,14 @@ def cmd_close(client: GitHubClient, args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="github_comment",
-        description="Agent-safe CLI for writing GitHub Issue comments. Comments only — never moves status labels.",
+        description="Agent-safe CLI for writing GitHub Issue comments. Comments only â€” never moves status labels.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def add_next_action(sp: argparse.ArgumentParser, default_via: str) -> None:
         sp.add_argument("--next-action", required=True,
-                        help="One-line next-step breadcrumb (HB-8 — required).")
+                        help="One-line next-step breadcrumb (HB-8 â€” required).")
         sp.add_argument("--via", default=default_via,
                         help=f"Agent footer name (default: {default_via}).")
 
@@ -290,7 +290,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_next_action(sp, "operator")
     sp.set_defaults(func=cmd_comment, needs_map=False)
 
-    # low-level: set-labels (no breadcrumb — operational maintenance, not handoff)
+    # low-level: set-labels (no breadcrumb â€” operational maintenance, not handoff)
     sp = sub.add_parser("set-labels", help="Set labels on Issue (no breadcrumb required)")
     sp.add_argument("issue_number", type=int); sp.add_argument("labels", nargs="+")
     sp.set_defaults(func=cmd_set_labels, needs_map=False)

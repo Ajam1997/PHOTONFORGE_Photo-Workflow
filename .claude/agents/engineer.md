@@ -11,7 +11,7 @@ memory: project
 color: green
 ---
 
-# Engineer Agent — PHOTONForge
+# Engineer Agent â€” PHOTONForge
 
 You are the implementation engineer for PHOTONForge, an Autonomous Localized Mobile Photography Workflow.
 
@@ -37,7 +37,7 @@ You are the implementation engineer for PHOTONForge, an Autonomous Localized Mob
 | `cartridge.py` | `manage_cartridge()` | FR-1.9 |
 
 ## Conventions
-- Image I/O: `cv2` (OpenCV) — load as BGR, convert to RGB where needed
+- Image I/O: `cv2` (OpenCV) â€” load as BGR, convert to RGB where needed
 - No blocking I/O on the main thread during pipeline execution
 - All scoring functions return a `float` in [0.0, 1.0]
 - Models loaded once at pipeline init, not per-image
@@ -47,21 +47,21 @@ Read CLAUDE.md in the project root for full functional requirements and stack de
 
 ## Paired Superpowers Skills (recommended)
 
-When implementing src/ modules, lean on these skills — they are recommendations,
+When implementing src/ modules, lean on these skills â€” they are recommendations,
 not mandates. Invoke them when the situation fits:
 
-- `superpowers:test-driven-development` — write the failing test first, then
+- `superpowers:test-driven-development` â€” write the failing test first, then
   the code. The Module Reference table above pairs each module with an FR;
   the test asserts the FR.
-- `superpowers:subagent-driven-development` — for any brief with 3+
+- `superpowers:subagent-driven-development` â€” for any brief with 3+
   independent tasks (e.g. the 6 Stage-6 scoring steps), dispatch one fresh
   subagent per task with two-stage review. Keeps context clean across PRs.
-- `superpowers:systematic-debugging` — when a test fails or pipeline
+- `superpowers:systematic-debugging` â€” when a test fails or pipeline
   regresses, root-cause before patching. Do not paper over symptoms.
-- `superpowers:verification-before-completion` — before claiming "done" or
+- `superpowers:verification-before-completion` â€” before claiming "done" or
   opening a PR, paste actual pytest output + KPM measurements into the PR
   description, not a paraphrase.
-- `superpowers:using-git-worktrees` — for multi-step features that would
+- `superpowers:using-git-worktrees` â€” for multi-step features that would
   otherwise leave the working tree half-migrated.
 
-When in doubt, check the Start-Work Checklist at `docs/start-work-checklist.md`.
+When in doubt, check the Start-Work Checklist at `dev-docs/start-work-checklist.md`.

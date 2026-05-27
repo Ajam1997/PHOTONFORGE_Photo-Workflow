@@ -59,8 +59,8 @@ Florence-2 ONNX sessions (all 4 must be present before inference benchmarks):
 3. NO FULL REPO SCANS: Never use Glob or Grep across the entire repo.
    Scope all searches to files identified in the diff.
 
-4. LIVING USER NEED DOCUMENT: Do not read it for requirement context — that is
-   @validation scope. You may make targeted Status writes (DEFINED → VERIFIED)
+4. LIVING USER NEED DOCUMENT: Do not read it for requirement context â€” that is
+   @validation scope. You may make targeted Status writes (DEFINED â†’ VERIFIED)
    after all tests pass for a module. See Step 6.
 
 5. SKIP IF CLEAN: If all tests passed on the previous run AND the current
@@ -186,7 +186,7 @@ If any test failed:
 - Test design issue: fix the test, re-run, update report
 - Implementation bug: do NOT fix it. Write an @engineer error report:
 
-  Write to: ~/PHOTONFORGE_Photo-Workflow/docs/VerificationReports/YYYY-MM-DD-failure-[hash].md
+  Write to: ~/PHOTONFORGE_Photo-Workflow/dev-docs/VerificationReports/YYYY-MM-DD-failure-[hash].md
 
   ---
   VERIFICATION FAILURE -- [DATE] [COMMIT HASH]
@@ -202,10 +202,10 @@ If any test failed:
 
 ## Step 5: Post Results as Issue Comments
 
-You do **not** write `docs/VerificationReports/*.md` files. GitHub Issues are
-the canonical record (see `docs/architecture/doc-source-of-truth.md`).
+You do **not** write `dev-docs/VerificationReports/*.md` files. GitHub Issues are
+the canonical record (see `dev-docs/architecture/doc-source-of-truth.md`).
 Per affected FR/KPM, post one comment via `scripts/github_comment.py`. Every
-call **must** include `--next-action "..."` — the next reader (operator or
+call **must** include `--next-action "..."` â€” the next reader (operator or
 @engineer) uses that line to resume work without re-deriving context.
 
 Examples:
@@ -217,7 +217,7 @@ Examples:
 
   # FR regression
   python scripts/github_comment.py regress-fr FR-1.4 \
-    "test_grouping failed: expected 3 clusters got 4 — see traceback below" \
+    "test_grouping failed: expected 3 clusters got 4 â€” see traceback below" \
     --next-action "@engineer revisit cluster_sessions time threshold"
 
   # KPM measurement
@@ -231,21 +231,21 @@ origin is legible to the next reader (HB-7).
 You do **not** move status labels. Label transitions are owned by
 `pr_rollup.py` on PR merge (for `verified`) and by @validation (for
 `validated`). If a verification reveals that an FR is *not* verified, post a
-`regress-fr` comment — that emits the comment without flipping the label.
+`regress-fr` comment â€” that emits the comment without flipping the label.
 
 ---
 
-## Step 6: Living User Need Document — DO NOT EDIT
+## Step 6: Living User Need Document â€” DO NOT EDIT
 
-The Living User Need Document (`docs/living-user-needs.md`) is auto-generated
+The Living User Need Document (`dev-docs/living-user-needs.md`) is auto-generated
 from Issue labels by `scripts/generate_docs.py`. You **do not** edit it with
 `re.sub`, `sed`, or any other write. Your job is to post the evidence on the
 Issue; the label transition happens on PR merge via `pr_rollup.py`; the doc
 regenerates from the Issue state on the next `regen-docs.yml` run.
 
-If you find yourself opening `docs/living-user-needs.md` for a write, stop —
+If you find yourself opening `dev-docs/living-user-needs.md` for a write, stop â€”
 that path is removed by HB-1 (see
-`docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md`).
+`dev-docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md`).
 
 ---
 
@@ -253,7 +253,7 @@ that path is removed by HB-1 (see
 - src/ and models/ changes only
 - Do not read Living User Need Document for requirement context
 - Do not modify src/ implementation code
-- Do not modify docs/living-user-needs.md or any other AUTO-managed doc
+- Do not modify dev-docs/living-user-needs.md or any other AUTO-managed doc
 - Do not move status labels (pr_rollup.py owns that transition)
 - Do not run full repo scans
 - Do not interact with planning briefs or approval flags
@@ -263,10 +263,10 @@ that path is removed by HB-1 (see
 
 ## Paired Superpowers Skills
 
-**Mandatory:** `superpowers:verification-before-completion` — its "evidence
+**Mandatory:** `superpowers:verification-before-completion` â€” its "evidence
 before claims" rubric is the philosophical match for this agent. Apply on
 every verification run: paste the actual pytest/benchmark output into the
 Issue comment, not a paraphrase. If you cannot produce evidence, the
 verification has not happened.
 
-This pairing is also surfaced in CLAUDE.md → Agent Roster.
+This pairing is also surfaced in CLAUDE.md â†’ Agent Roster.

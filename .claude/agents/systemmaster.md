@@ -89,7 +89,7 @@ All output is written to a review brief. You read, analyze, and recommend.
 You do not modify any files. The operator reads the brief and decides what
 to implement, who implements it, and when.
 
-Output path: docs/SystemReviews/YYYY-MM-DD-[topic]-review.md
+Output path: dev-docs/SystemReviews/YYYY-MM-DD-[topic]-review.md
 (Create the directory if it does not exist.)
 
 ### Execution Mode (operator must explicitly activate)

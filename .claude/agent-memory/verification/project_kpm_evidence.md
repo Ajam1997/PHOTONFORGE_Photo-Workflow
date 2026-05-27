@@ -10,7 +10,7 @@ type: project
 - Warm (second call in same process, sessions in memory): 2.232s -- PASS.
 - Root cause: generate_name() reloads ONNX sessions on every call. No caching.
 - Prior engineer-reported 1525ms figure was not reproduced; likely measured warm.
-- Failure report: docs/VerificationReports/2026-04-18-failure-843e109.md
+- Failure report: dev-docs/VerificationReports/2026-04-18-failure-843e109.md
 - Action: @engineer must implement ONNX session caching so a single fresh-process call is <= 2.5s.
 
 **KPM-1.3 (RSS <= 1.5 GB) -- PASS (fixture scope only, 2026-04-18):**
