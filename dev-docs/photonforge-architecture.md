@@ -116,6 +116,69 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | [KPM-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/73) | CPU Cap Compliance | Peak CPU utilisation <= 80% of available cores during full pipeline run | @devops | @verification | untested | untested |
 <!-- /AUTO:kpm_table -->
 
+### 3.4 V&V Matrix
+
+The «verify» relationship between requirements and their proofs. Lines
+in each row are auto-extracted from the `**Verified By:**` /
+`**Validated By:**` sections of the Issue body — see
+[V&V format spec](architecture/vv-matrix.md). Coverage column: ✓ fully
+covered, ⚠ partial, ✗ unverified.
+
+<!-- AUTO:vv_matrix -->
+| ID | Type | Verified By | Validated By | Coverage |
+|:---|:---|:---|:---|:---:|
+| [UN-001](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/30) | UN | — | — | ⚠ |
+| [UN-002](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/31) | UN | — | — | ⚠ |
+| [UN-003](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/14) | UN | — | — | ⚠ |
+| [UN-010](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/32) | UN | — | — | ⚠ |
+| [UN-011](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/33) | UN | — | — | ⚠ |
+| [UN-012](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/34) | UN | — | `E2E: Stage 2 milestone — every photo in library.db has a non-null sharpness score`<br>`inspection: dev-docs/photonforge-architecture.md V&V matrix shows FR-1.4 fully verified` | ✓ |
+| [UN-013](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/35) | UN | — | — | ⚠ |
+| [UN-014](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/36) | UN | — | — | ⚠ |
+| [UN-020](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/37) | UN | — | — | ⚠ |
+| [UN-021](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/38) | UN | — | — | ⚠ |
+| [UN-022](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/16) | UN | — | — | ⚠ |
+| [UN-030](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/39) | UN | — | — | ⚠ |
+| [UN-031](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/40) | UN | — | — | ⚠ |
+| [UN-032](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/41) | UN | — | — | ⚠ |
+| [UN-040](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/42) | UN | — | — | ⚠ |
+| [UN-041](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/43) | UN | — | — | ⚠ |
+| [UN-050](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/44) | UN | — | — | ⚠ |
+| [UN-051](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/45) | UN | — | — | ⚠ |
+| [UN-052](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/46) | UN | — | — | ⚠ |
+| [UN-053](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/47) | UN | — | — | ⚠ |
+| [UN-054](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/48) | UN | — | — | ⚠ |
+| [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | FR | — | — | ✗ |
+| [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | FR | — | — | ✗ |
+| [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | FR | — | — | ✗ |
+| [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | FR | — | — | ✗ |
+| [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | FR | `pytest: tests/test_sharpness.py::test_sharp_image_scores_high`<br>`pytest: tests/test_sharpness.py::test_blurry_image_scores_low`<br>`pytest: tests/test_sharpness.py::test_score_is_normalized`<br>`pytest: tests/test_sharpness.py::test_missing_image_returns_zero`<br>`pytest: tests/test_sharpness.py::test_fixture_sharp_scores_high`<br>`pytest: tests/test_sharpness.py::test_fixture_blurry_scores_low` | `E2E: Stage 2 milestone — sharpness column populated for all fixture images` | ✓ |
+| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | FR | — | — | ✗ |
+| [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | FR | — | — | ✗ |
+| [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | FR | — | — | ✗ |
+| [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | FR | — | — | ✗ |
+| [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | FR | — | — | ✗ |
+| [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | FR | — | — | ✗ |
+| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | FR | — | — | ✗ |
+| [[Fixture Corpus] Labeled reference image set for KPM measurement](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/75) | FR | — | — | ✗ |
+| [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59) | NFR | — | — | ✗ |
+| [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | NFR | — | — | ✗ |
+| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62) | NFR | — | — | ✗ |
+| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60) | NFR | — | — | ✗ |
+| [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | KPM | — | — | ✗ |
+| [KPM-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74) | KPM | — | — | ✗ |
+| [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | KPM | — | — | ✗ |
+| [KPM-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/68) | KPM | — | — | ✗ |
+| [KPM-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/65) | KPM | — | — | ✗ |
+| [KPM-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/69) | KPM | — | — | ✗ |
+| [KPM-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/70) | KPM | — | — | ✗ |
+| [KPM-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/71) | KPM | — | — | ✗ |
+| [KPM-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/72) | KPM | — | — | ✗ |
+| [KPM-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/73) | KPM | — | — | ✗ |
+
+_Coverage: **2 / 48** requirements fully verified+validated. Per `dev-docs/architecture/vv-matrix.md`._
+<!-- /AUTO:vv_matrix -->
+
 ---
 
 ## 4. Intelligence Engine

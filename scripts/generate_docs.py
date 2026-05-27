@@ -33,6 +33,28 @@ def _body_field(body: str, field: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+def _body_list_field(body: str, field: str) -> list[str]:
+    """Extract a bullet-list field. Example:
+
+        **Verified By:**
+        - pytest: tests/test_sharpness.py::test_x
+        - pytest: tests/test_sharpness.py::test_y
+
+    Returns ["pytest: tests/test_sharpness.py::test_x", "pytest: tests/test_sharpness.py::test_y"].
+    Blank line or next `**Field:**` heading ends the section.
+    """
+    pattern = rf"\*\*{re.escape(field)}:\*\*\s*\n((?:[ \t]*-\s*.+\n?)+)"
+    m = re.search(pattern, body)
+    if not m:
+        return []
+    items: list[str] = []
+    for line in m.group(1).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            items.append(stripped[2:].strip())
+    return items
+
+
 def render_user_needs_section(
     issues: list[dict],
     fr_issues: list[dict],
@@ -121,6 +143,69 @@ def render_kpm_table(issues: list[dict]) -> str:
     return "\n".join(rows)
 
 
+def render_vv_matrix(
+    un_issues: list[dict],
+    fr_issues: list[dict],
+    nfr_issues: list[dict],
+    kpm_issues: list[dict],
+) -> str:
+    """Render the V&V matrix table.
+
+    Columns: ID · Type · Verified By · Validated By · Coverage
+    Coverage flags: ✓ verified+validated, ⚠ partial, ✗ neither (unverified).
+    """
+    rows = [
+        "| ID | Type | Verified By | Validated By | Coverage |",
+        "|:---|:---|:---|:---|:---:|",
+    ]
+
+    def coverage(verified: list[str], validated: list[str], req_type: str) -> str:
+        # UNs derive verification from children — no direct check here.
+        # KPMs are self-validating.
+        if req_type == "user-need":
+            return "✓" if validated else "⚠"
+        if req_type == "kpm":
+            return "✓" if verified else "✗"
+        if verified and validated:
+            return "✓"
+        if verified or validated:
+            return "⚠"
+        return "✗"
+
+    def row_for(issue: dict, req_type_label: str, req_type_key: str) -> str:
+        req_id = _extract_id(issue["title"])
+        body = issue.get("body", "") or ""
+        verified = _body_list_field(body, "Verified By")
+        validated = _body_list_field(body, "Validated By")
+        cov = coverage(verified, validated, req_type_key)
+        v_cell = "<br>".join(f"`{x}`" for x in verified) if verified else "—"
+        va_cell = "<br>".join(f"`{x}`" for x in validated) if validated else "—"
+        url = issue["html_url"]
+        return f"| [{req_id}]({url}) | {req_type_label} | {v_cell} | {va_cell} | {cov} |"
+
+    grouped = (
+        [(i, "UN", "user-need") for i in sorted(un_issues, key=lambda i: _extract_id(i["title"]))]
+        + [(i, "FR", "fr") for i in sorted(fr_issues, key=lambda i: _extract_id(i["title"]))]
+        + [(i, "NFR", "nfr") for i in sorted(nfr_issues, key=lambda i: _extract_id(i["title"]))]
+        + [(i, "KPM", "kpm") for i in sorted(kpm_issues, key=lambda i: _extract_id(i["title"]))]
+    )
+    for issue, label, key in grouped:
+        rows.append(row_for(issue, label, key))
+
+    # Footer: coverage summary
+    total = len(grouped)
+    full = sum(
+        1 for issue, _, key in grouped
+        if coverage(_body_list_field(issue.get("body") or "", "Verified By"),
+                    _body_list_field(issue.get("body") or "", "Validated By"),
+                    key) == "✓"
+    )
+    rows.append("")
+    rows.append(f"_Coverage: **{full} / {total}** requirements fully verified+validated. "
+                f"Per `dev-docs/architecture/vv-matrix.md`._")
+    return "\n".join(rows)
+
+
 def render_roadmap_section(epic_issues: list[dict]) -> str:
     """Render roadmap table with stage, title, status."""
     lines = ["| Stage | Title | Status |", "|:---|:---|:---|"]
@@ -171,6 +256,10 @@ def main() -> None:
     text = inject_auto_section(text, "fr_table", render_fr_table(fr_issues))
     text = inject_auto_section(text, "nfr_table", render_nfr_table(nfr_issues))
     text = inject_auto_section(text, "kpm_table", render_kpm_table(kpm_issues))
+    text = inject_auto_section(
+        text, "vv_matrix",
+        render_vv_matrix(un_issues, fr_issues, nfr_issues, kpm_issues),
+    )
     arch_path.write_text(text, encoding="utf-8")
     print(f"Updated {arch_path}")
 
