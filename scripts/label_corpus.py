@@ -1,31 +1,27 @@
-r"""Keyboard-driven corpus labelling tool.
+r"""Corpus labelling tool with clickable genre buttons.
 
-Tab through images in a photonforge.db folder and assign multi-genre labels
-via single keystrokes. Used to build the calibration corpus for FR-1.7.1.
+Browse images in a photonforge.db folder and assign a single primary genre
+label via buttons or keyboard shortcuts.  Used to build the calibration
+corpus for FR-1.7.1.
 
-Example (filter to images the router called "general", since those are the
-ones we most need to relabel):
+Example:
 
     python scripts/label_corpus.py \
         --cartridge H:\ \
         --source-folder TEST_1 \
-        --source-dir H:\TEST_1 \
-        --output corpus/genre_labels.jsonl
+        --source-dir H:\TEST_1
 
 Labels are appended to the JSONL output file as you commit each image.
-You can stop and resume — already-labelled filenames are skipped on restart.
+You can stop and resume -- already-labelled filenames are skipped on restart.
 
-Key bindings inside the window:
-    w wildlife    l landscape   p portrait   s street
-    a architecture   m macro    e event      f waterfall
-    i signage     g general
-    c custom genre (free text)
-    SPACE / ENTER  commit selection and advance
-    BACKSPACE      clear current selection
-    TAB            skip image (records empty label)
-    R              mark as needs_review and advance
-    LEFT           go back to previous labelled image
-    ESC / Q        quit (already-committed images are saved)
+Keyboard shortcuts (optional -- you can use buttons instead):
+    1-9, 0, -, =, \  select genre by position
+    SPACE / ENTER     commit selection and advance
+    BACKSPACE         clear current selection
+    TAB               skip image
+    R                 mark as needs_review and advance
+    LEFT              go back to previous labelled image
+    ESC / Q           quit
 """
 
 from __future__ import annotations
@@ -39,34 +35,24 @@ import sys
 import tkinter as tk
 from datetime import datetime, timezone
 from pathlib import Path
-from tkinter import simpledialog
+from tkinter import ttk
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from PIL import Image
 
-# Allow running as a standalone script from the repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
+from photo_workflow.genre_router import SUBJECTS, PHOTO_TYPES
 
-WINDOW_W = 1000
-WINDOW_H = 900
-PREVIEW_H = 600
+WINDOW_W = 1100
+WINDOW_H = 980
+PREVIEW_H = 520
 
-BUILTIN_GENRES = {
-    "w": "wildlife",
-    "l": "landscape",
-    "p": "portrait",
-    "s": "street",
-    "a": "architecture",
-    "m": "macro",
-    "e": "event",
-    "f": "waterfall",     # 'f' for falls (w is taken by wildlife)
-    "i": "signage",       # 'i' for sIgnage (s is taken by street)
-    "c": "cat",
-    "v": "vehicle",
-    "g": "general",
-}
+# Subject keys: 1-6
+_SUBJECT_KEYS = ["1", "2", "3", "4", "5", "6"]
+# Type keys: q, w, e, r, t, y, u, i
+_TYPE_KEYS = ["q", "w", "e", "r", "t", "y", "u", "i"]
 
 RAW_EXTS = {".arw", ".cr2", ".cr3", ".nef", ".dng", ".raf", ".rw2", ".orf",
             ".pef", ".srw", ".3fr", ".mef"}
@@ -75,7 +61,6 @@ _SLUG_RE = re.compile(r"[^a-z0-9-]+")
 
 
 def slugify(name: str) -> str:
-    """Coerce a free-text genre name into a-z0-9- only."""
     s = name.strip().lower().replace(" ", "-")
     s = _SLUG_RE.sub("-", s)
     s = re.sub(r"-+", "-", s).strip("-")
@@ -95,24 +80,21 @@ def parse_args() -> argparse.Namespace:
                    help="Directory containing the actual photo files")
     p.add_argument("--output", default="corpus/genre_labels.jsonl", type=Path,
                    help="JSONL labels file (default: corpus/genre_labels.jsonl)")
-    p.add_argument("--filter-router-genre", default="general",
-                   help="Only label images whose router primary_genre matches this "
-                        "(default: 'general' — the most error-prone bucket). "
-                        "Pass '' to label all images.")
+    p.add_argument("--filter-router-genre", default="",
+                   help="Only label images whose router primary_genre matches this. "
+                        "Pass '' (default) to label all images.")
     p.add_argument("--limit", type=int, default=None,
                    help="Stop after labelling N images in this session")
     p.add_argument("--include-skipped", action="store_true",
                    help="Re-prompt for images previously skipped (empty labels)")
     p.add_argument("--relabel", action="store_true",
                    help="Include already-labelled images and pre-load their existing "
-                        "genres so you can review and edit. New entry appends to JSONL; "
-                        "load takes the last entry as the current label.")
+                        "genres so you can review and edit.")
     p.add_argument("--labeler", default=None,
                    help="Labeler name recorded in JSONL (default: current user)")
     p.add_argument("--filter-multi-label", action="store_true",
-                   help="Only re-present images that were previously labeled with "
-                        "more than one genre.  Use with --relabel to fix legacy "
-                        "multi-label corpus entries.  Implies --relabel.")
+                   help="Only re-present images with more than one genre label. "
+                        "Implies --relabel.")
     return p.parse_args()
 
 
@@ -124,12 +106,6 @@ def load_candidates(
     source_dir: Path,
     filter_router_genre: str,
 ) -> list[dict]:
-    """Read candidate rows from the photonforge.db folder table.
-
-    Returns a list of dicts with filename, original_name, primary_genre,
-    genre_confidence, exif_timestamp — for each row whose file exists on disk
-    and matches the --filter-router-genre constraint.
-    """
     if not db_path.exists():
         raise SystemExit(f"photonforge.db not found at {db_path}")
 
@@ -154,20 +130,13 @@ def load_candidates(
 # --- Persistence ------------------------------------------------------------
 
 class LabelStore:
-    """Append-only JSONL store for genre labels.
-
-    On load, the LAST entry for each filename wins (allows --relabel rewrites).
-    Tracks the union of every custom (non-built-in) genre ever used so the
-    UI can offer a consistency picker.
-    """
-
     def __init__(self, path: Path, labeler: str) -> None:
         self.path = path
         self.labeler = labeler
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._labelled: set[str] = set()
-        self._current: dict[str, dict] = {}     # filename -> last record
-        self._custom_history: list[str] = []    # ordered, most-recent-first, deduped
+        self._current: dict[str, dict] = {}
+        self._custom_history: list[str] = []
         self._load_existing()
 
     def _load_existing(self) -> None:
@@ -187,19 +156,14 @@ class LabelStore:
                     continue
                 self._labelled.add(fname)
                 self._current[fname] = rec
-                for g in rec.get("genres", []) or []:
-                    if g not in BUILTIN_GENRES.values() and g not in self._custom_history:
-                        self._custom_history.append(g)
 
     def is_labelled(self, filename: str) -> bool:
         return filename in self._labelled
 
     def current_label(self, filename: str) -> dict | None:
-        """Return the last record stored for filename, or None."""
         return self._current.get(filename)
 
     def custom_history(self) -> list[str]:
-        """Return custom genres ever used, in insertion order."""
         return list(self._custom_history)
 
     def record_custom(self, genre: str) -> None:
@@ -210,13 +174,15 @@ class LabelStore:
     def commit(
         self,
         filename: str,
-        genres: list[str],
+        subject: str,
+        photo_type: str,
         source_folder: str,
         needs_review: bool,
     ) -> None:
         rec = {
             "filename": filename,
-            "genres": genres,
+            "subject": subject,
+            "photo_type": photo_type,
             "source_folder": source_folder,
             "needs_review": needs_review,
             "labeled_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -230,7 +196,6 @@ class LabelStore:
 # --- Image loading ----------------------------------------------------------
 
 def load_image_for_preview(path: Path) -> "Image.Image":
-    """Decode a photo file to a Pillow Image at half size for RAW formats."""
     from PIL import Image
 
     if path.suffix.lower() in RAW_EXTS:
@@ -248,10 +213,8 @@ def load_image_for_preview(path: Path) -> "Image.Image":
 
 
 def read_exif_summary(path: Path) -> str:
-    """Read a short EXIF summary string for the info bar."""
     try:
         import exifread
-
         with open(path, "rb") as f:
             tags = exifread.process_file(f, details=False)
     except Exception:
@@ -279,6 +242,18 @@ def read_exif_summary(path: Path) -> str:
 
 # --- Tk UI ------------------------------------------------------------------
 
+# Button colors
+_BG_NORMAL = "#333"
+_BG_HOVER = "#444"
+_BG_SUBJ_SELECTED = "#1a6b1a"
+_BG_TYPE_SELECTED = "#1a4b6b"
+_FG_NORMAL = "#ccc"
+_FG_SELECTED = "#fff"
+
+_SUBJECT_KEY_LABELS = ["1", "2", "3", "4", "5", "6"]
+_TYPE_KEY_LABELS = ["Q", "W", "E", "R", "T", "Y", "U", "I"]
+
+
 class CorpusLabeller:
     def __init__(
         self,
@@ -302,10 +277,10 @@ class CorpusLabeller:
 
         if relabel:
             if filter_multi_label:
-                # Surface only images whose last corpus entry had > 1 genre
                 self.queue = [
                     c for c in candidates
-                    if len((store.current_label(c["filename"]) or {}).get("genres") or []) > 1
+                    if (store.current_label(c["filename"]) or {}).get("subject", "general") != "general"
+                    and (store.current_label(c["filename"]) or {}).get("photo_type", "general") != "general"
                 ]
             else:
                 self.queue = list(candidates)
@@ -314,69 +289,224 @@ class CorpusLabeller:
         self.session_started_at = datetime.now(timezone.utc)
         self.session_committed = 0
         self.idx = 0
-        self.selection: set[str] = set()
-        self.history: list[tuple[int, set[str], bool]] = []  # for LEFT undo
+        self.subject_sel: str | None = None
+        self.type_sel: str | None = None
+        self.history: list[tuple[int, str | None, str | None, bool]] = []
 
         self._build_ui()
         self._load_current()
-
-    # --- UI ----------------------------------------------------------------
 
     def _build_ui(self) -> None:
         self.root = tk.Tk()
         self.root.title("PHOTONForge Corpus Labeller")
         self.root.geometry(f"{WINDOW_W}x{WINDOW_H}")
         self.root.resizable(False, False)
-        self.root.configure(bg="#222")
+        self.root.configure(bg="#1a1a1a")
 
+        # --- Image preview ---
         self.image_label = tk.Label(self.root, bg="#000")
         self.image_label.place(x=0, y=0, width=WINDOW_W, height=PREVIEW_H)
 
+        # --- Info bar ---
+        y = PREVIEW_H
         self.info_var = tk.StringVar()
-        info = tk.Label(
+        tk.Label(
             self.root, textvariable=self.info_var, fg="#ddd", bg="#333",
             anchor="w", padx=10, font=("Consolas", 10),
-        )
-        info.place(x=0, y=PREVIEW_H, width=WINDOW_W, height=40)
+        ).place(x=0, y=y, width=WINDOW_W, height=32)
+        y += 32
 
+        # --- Router prediction ---
         self.router_var = tk.StringVar()
-        router = tk.Label(
+        tk.Label(
             self.root, textvariable=self.router_var, fg="#aaa", bg="#2a2a2a",
             anchor="w", padx=10, font=("Consolas", 10),
-        )
-        router.place(x=0, y=PREVIEW_H + 40, width=WINDOW_W, height=30)
+        ).place(x=0, y=y, width=WINDOW_W, height=26)
+        y += 26
 
+        # --- Subject buttons ---
+        tk.Label(
+            self.root, text="SUBJECT (what)", fg="#8f8", bg="#1a1a1a",
+            anchor="w", padx=10, font=("Consolas", 10, "bold"),
+        ).place(x=0, y=y + 4, width=WINDOW_W, height=20)
+        y += 24
+
+        subj_frame = tk.Frame(self.root, bg="#1a1a1a")
+        subj_frame.place(x=10, y=y, width=WINDOW_W - 20, height=46)
+
+        self.subject_buttons: dict[str, tk.Button] = {}
+        btn_w = (WINDOW_W - 40) // len(SUBJECTS)
+        btn_h = 42
+
+        for i, subj in enumerate(SUBJECTS):
+            key_hint = _SUBJECT_KEY_LABELS[i] if i < len(_SUBJECT_KEY_LABELS) else ""
+            label = f"[{key_hint}] {subj}" if key_hint else subj
+            btn = tk.Button(
+                subj_frame, text=label,
+                font=("Consolas", 10, "bold"),
+                fg=_FG_NORMAL, bg=_BG_NORMAL,
+                activeforeground=_FG_SELECTED, activebackground=_BG_SUBJ_SELECTED,
+                relief="flat", bd=0, padx=4, pady=2,
+                command=lambda s=subj: self._select_subject(s),
+            )
+            btn.place(x=i * btn_w, y=0, width=btn_w - 4, height=btn_h)
+            self.subject_buttons[subj] = btn
+
+        y += 50
+
+        # --- Photo type buttons ---
+        tk.Label(
+            self.root, text="PHOTO TYPE (how)", fg="#8bf", bg="#1a1a1a",
+            anchor="w", padx=10, font=("Consolas", 10, "bold"),
+        ).place(x=0, y=y + 2, width=WINDOW_W, height=20)
+        y += 22
+
+        type_frame = tk.Frame(self.root, bg="#1a1a1a")
+        type_frame.place(x=10, y=y, width=WINDOW_W - 20, height=46)
+
+        self.type_buttons: dict[str, tk.Button] = {}
+        btn_w = (WINDOW_W - 40) // len(PHOTO_TYPES)
+
+        for i, ptype in enumerate(PHOTO_TYPES):
+            key_hint = _TYPE_KEY_LABELS[i] if i < len(_TYPE_KEY_LABELS) else ""
+            label = f"[{key_hint}] {ptype}" if key_hint else ptype
+            btn = tk.Button(
+                type_frame, text=label,
+                font=("Consolas", 10, "bold"),
+                fg=_FG_NORMAL, bg=_BG_NORMAL,
+                activeforeground=_FG_SELECTED, activebackground=_BG_TYPE_SELECTED,
+                relief="flat", bd=0, padx=4, pady=2,
+                command=lambda t=ptype: self._select_type(t),
+            )
+            btn.place(x=i * btn_w, y=0, width=btn_w - 4, height=btn_h)
+            self.type_buttons[ptype] = btn
+
+        y += 50
+
+        # --- Custom genre entry ---
+        custom_frame = tk.Frame(self.root, bg="#1a1a1a")
+        custom_frame.place(x=10, y=y, width=WINDOW_W - 20, height=34)
+
+        tk.Label(
+            custom_frame, text="Custom:", fg="#888", bg="#1a1a1a",
+            font=("Consolas", 10),
+        ).place(x=0, y=4, width=60, height=26)
+
+        self.custom_entry = tk.Entry(
+            custom_frame, font=("Consolas", 11), bg="#2a2a2a", fg="#fff",
+            insertbackground="#fff",
+        )
+        self.custom_entry.place(x=65, y=4, width=250, height=26)
+
+        tk.Button(
+            custom_frame, text="Apply Subject", font=("Consolas", 10),
+            fg="#ccc", bg="#444", relief="flat",
+            command=self._apply_custom,
+        ).place(x=325, y=4, width=110, height=26)
+
+        self.custom_combo = ttk.Combobox(
+            custom_frame, font=("Consolas", 10), state="readonly",
+            values=self.store.custom_history(),
+        )
+        self.custom_combo.place(x=450, y=4, width=200, height=26)
+        self.custom_combo.bind("<<ComboboxSelected>>", self._on_custom_combo)
+
+        y += 40
+
+        # --- Selection display ---
         self.selection_var = tk.StringVar()
-        sel = tk.Label(
+        tk.Label(
             self.root, textvariable=self.selection_var, fg="#7df", bg="#1a1a1a",
             anchor="w", padx=10, font=("Consolas", 14, "bold"),
-        )
-        sel.place(x=0, y=PREVIEW_H + 70, width=WINDOW_W, height=44)
+        ).place(x=0, y=y, width=WINDOW_W, height=36)
+        y += 38
 
+        # --- Action buttons ---
+        action_frame = tk.Frame(self.root, bg="#1a1a1a")
+        action_frame.place(x=10, y=y, width=WINDOW_W - 20, height=44)
+
+        buttons = [
+            ("Commit [Space]", "#1a6b1a", self._commit_current),
+            ("Skip [Tab]", "#555", self._skip_current),
+            ("Needs Review [R]", "#6b5b1a", self._review_current),
+            ("Back [<-]", "#444", self._go_back),
+            ("Quit [Esc]", "#6b1a1a", self._quit),
+        ]
+        btn_x = 0
+        btn_widths = [160, 120, 170, 120, 100]
+        for (label, bg, cmd), w in zip(buttons, btn_widths):
+            tk.Button(
+                action_frame, text=label, font=("Consolas", 10, "bold"),
+                fg="#fff", bg=bg, activebackground=bg, relief="flat",
+                command=cmd,
+            ).place(x=btn_x, y=2, width=w, height=38)
+            btn_x += w + 8
+        y += 48
+
+        # --- Progress bar ---
         self.progress_var = tk.StringVar()
-        prog = tk.Label(
+        tk.Label(
             self.root, textvariable=self.progress_var, fg="#888", bg="#1a1a1a",
-            anchor="w", padx=10, font=("Consolas", 10),
-        )
-        prog.place(x=0, y=PREVIEW_H + 114, width=WINDOW_W, height=26)
-
-        legend = (
-            "w wildlife   l landscape   p portrait   s street   "
-            "a architecture   m macro   e event   f waterfall   "
-            "i signage   g general\n"
-            "c custom    SPACE commit    BACKSPACE clear    "
-            "TAB skip    R needs_review    LEFT back    ESC quit"
-        )
-        legend_lbl = tk.Label(
-            self.root, text=legend, fg="#888", bg="#222",
-            anchor="w", padx=10, justify="left", font=("Consolas", 9),
-        )
-        legend_lbl.place(x=0, y=PREVIEW_H + 140, width=WINDOW_W,
-                         height=WINDOW_H - PREVIEW_H - 140)
+            anchor="w", padx=10, font=("Consolas", 9),
+        ).place(x=0, y=y, width=WINDOW_W, height=24)
 
         self.root.bind("<KeyPress>", self._on_key)
 
-    # --- State -------------------------------------------------------------
+    # --- Selection ---
+
+    def _select_subject(self, subj: str) -> None:
+        self.subject_sel = subj
+        self._update_button_highlights()
+        self._update_selection_display()
+
+    def _select_type(self, ptype: str) -> None:
+        self.type_sel = ptype
+        self._update_button_highlights()
+        self._update_selection_display()
+
+    def _update_button_highlights(self) -> None:
+        for s, btn in self.subject_buttons.items():
+            if s == self.subject_sel:
+                btn.configure(bg=_BG_SUBJ_SELECTED, fg=_FG_SELECTED)
+            else:
+                btn.configure(bg=_BG_NORMAL, fg=_FG_NORMAL)
+        for t, btn in self.type_buttons.items():
+            if t == self.type_sel:
+                btn.configure(bg=_BG_TYPE_SELECTED, fg=_FG_SELECTED)
+            else:
+                btn.configure(bg=_BG_NORMAL, fg=_FG_NORMAL)
+
+    def _update_selection_display(self) -> None:
+        parts = []
+        if self.subject_sel:
+            parts.append(f"Subject: {self.subject_sel}")
+        if self.type_sel:
+            parts.append(f"Type: {self.type_sel}")
+        if parts:
+            self.selection_var.set("  |  ".join(parts))
+        else:
+            self.selection_var.set("(no selection)")
+
+    def _apply_custom(self) -> None:
+        typed = self.custom_entry.get().strip()
+        if typed:
+            slug = slugify(typed)
+            if slug:
+                self.store.record_custom(slug)
+                self.custom_combo["values"] = self.store.custom_history()
+                self.subject_sel = slug
+                self.custom_entry.delete(0, "end")
+                self._update_button_highlights()
+                self._update_selection_display()
+
+    def _on_custom_combo(self, _evt: object = None) -> None:
+        val = self.custom_combo.get()
+        if val:
+            self.subject_sel = val
+            self._update_button_highlights()
+            self._update_selection_display()
+
+    # --- State ---
 
     def _current(self) -> dict | None:
         if self.idx >= len(self.queue):
@@ -393,9 +523,10 @@ class CorpusLabeller:
         try:
             img = load_image_for_preview(path)
         except Exception as e:
-            self.image_label.configure(text=f"<could not load {path.name}: {e}>",
-                                       image="", fg="#f88")
-            self._render_info_and_progress()
+            self.image_label.configure(
+                text=f"<could not load {path.name}: {e}>", image="", fg="#f88",
+            )
+            self._render_info()
             return
 
         from PIL import ImageTk
@@ -404,16 +535,22 @@ class CorpusLabeller:
         self.tk_img = ImageTk.PhotoImage(img)
         self.image_label.configure(image=self.tk_img, text="")
 
-        # In --relabel mode, pre-load the previous selection so the user can
-        # review/edit rather than start from scratch on every file.
         existing = self.store.current_label(cur["filename"])
         if self.relabel and existing:
-            self.selection = set(existing.get("genres") or [])
+            self.subject_sel = existing.get("subject")
+            self.type_sel = existing.get("photo_type")
+            if self.subject_sel == "general":
+                self.subject_sel = None
+            if self.type_sel == "general":
+                self.type_sel = None
         else:
-            self.selection = set()
-        self._render_info_and_progress()
+            self.subject_sel = None
+            self.type_sel = None
+        self._update_button_highlights()
+        self._update_selection_display()
+        self._render_info()
 
-    def _render_info_and_progress(self) -> None:
+    def _render_info(self) -> None:
         cur = self._current()
         if cur is None:
             return
@@ -422,175 +559,151 @@ class CorpusLabeller:
         self.info_var.set(f"{cur['filename']}    {exif}")
 
         try:
-            router_genres = json.loads(cur["genres"]) if cur["genres"] else []
+            genre_data = json.loads(cur["genres"]) if cur["genres"] else {}
         except (TypeError, json.JSONDecodeError):
-            router_genres = []
-        router_summary = ", ".join(
-            f"{e['g']} ({e['c']:.2f})" for e in router_genres
-        ) or (cur["primary_genre"] or "(none)")
-        nr = " · needs_review" if cur["needs_review"] else ""
+            genre_data = {}
+
+        if isinstance(genre_data, dict) and "subject" in genre_data:
+            router_summary = (
+                f"subj={genre_data.get('subject', '?')} "
+                f"({genre_data.get('subject_confidence', 0):.2f})  "
+                f"type={genre_data.get('photo_type', '?')} "
+                f"({genre_data.get('type_confidence', 0):.2f})"
+            )
+        elif isinstance(genre_data, list):
+            router_summary = ", ".join(
+                f"{g.get('g', '?')}({g.get('c', 0):.2f})" for g in genre_data
+            ) or "(no genres)"
+        else:
+            router_summary = cur.get("primary_genre") or "(none)"
+
+        nr = " * needs_review" if cur["needs_review"] else ""
         prev = ""
         if self.relabel:
             existing = self.store.current_label(cur["filename"])
             if existing:
-                prev_genres = existing.get("genres") or []
-                prev = f"    previous: {', '.join(prev_genres) if prev_genres else '(skipped)'}"
-        self.router_var.set(f"router said: {router_summary}{nr}{prev}")
-
-        sel_str = "  ".join(f"[{g}]" for g in sorted(self.selection)) or "(none selected)"
-        self.selection_var.set(sel_str)
+                ps = existing.get("subject") or "general"
+                pt = existing.get("photo_type") or "general"
+                prev = f"    previous: {ps}/{pt}"
+        self.router_var.set(f"router: {router_summary}{nr}{prev}")
 
         done = self.session_committed
         total_session = self.session_limit or len(self.queue)
         remaining = max(0, total_session - done)
         elapsed = (datetime.now(timezone.utc) - self.session_started_at).total_seconds()
         per_item = (elapsed / done) if done else 0.0
-        eta = f"{(per_item * remaining) / 60:.1f} min" if per_item > 0 else "—"
+        eta = f"{(per_item * remaining) / 60:.1f} min" if per_item > 0 else "-"
         self.progress_var.set(
-            f"{done}/{total_session} this session   "
-            f"avg {per_item:.1f}s/img   eta {eta}   "
+            f"{done}/{total_session} this session    "
+            f"avg {per_item:.1f}s/img    eta {eta}    "
             f"queue position {self.idx + 1}/{len(self.queue)}"
         )
 
-    # --- Key handlers ------------------------------------------------------
+    # --- Key handler ---
 
     def _on_key(self, event: tk.Event) -> None:
+        if self.custom_entry == self.root.focus_get():
+            if event.keysym == "Return":
+                self._apply_custom()
+            return
+
         cur = self._current()
         if cur is None:
             return
 
         key = event.keysym.lower()
 
-        if key in ("escape", "q"):
-            self.root.destroy()
+        if key in ("escape",):
+            self._quit()
             return
-
         if key == "tab":
-            self._commit(genres=[], needs_review=False, skipped=True)
+            self._skip_current()
             return
-
         if key == "r":
-            self._commit(genres=sorted(self.selection), needs_review=True, skipped=False)
+            self._review_current()
             return
-
         if key in ("space", "return"):
-            if not self.selection:
-                # Refuse empty commit unless TAB or R
-                return
-            self._commit(genres=sorted(self.selection), needs_review=False, skipped=False)
+            self._commit_current()
             return
-
         if key == "backspace":
-            self.selection.clear()
-            self._render_info_and_progress()
+            self.subject_sel = None
+            self.type_sel = None
+            self._update_button_highlights()
+            self._update_selection_display()
             return
-
         if key == "left":
             self._go_back()
             return
 
-        if key == "c":
-            self._prompt_custom_genre()
+        # Number keys 1-6 select subject
+        if key in _SUBJECT_KEYS:
+            idx = _SUBJECT_KEYS.index(key)
+            if idx < len(SUBJECTS):
+                self._select_subject(SUBJECTS[idx])
             return
 
-        if key in BUILTIN_GENRES:
-            g = BUILTIN_GENRES[key]
-            # Single-label: pressing a key sets the genre (replaces any
-            # previous selection).  The first/only label is the training
-            # signal; secondary genres are no longer stored in corpus.
-            self.selection = {g}
-            self._render_info_and_progress()
-
-    def _prompt_custom_genre(self) -> None:
-        """Open a picker showing previously-used custom genres + a 'new' text entry.
-
-        Spelling drifts (e.g. 'vehicle' vs 'vehicles') are the main consistency
-        risk for custom genres — the picker lists what's already been used so
-        you reuse the same slug instead of typing a near-duplicate.
-        """
-        history = self.store.custom_history()
-        dlg = tk.Toplevel(self.root)
-        dlg.title("Custom genre")
-        dlg.transient(self.root)
-        dlg.grab_set()
-        dlg.geometry("420x360")
-
-        tk.Label(
-            dlg,
-            text="Pick an existing custom genre (or type a new one):",
-            anchor="w",
-            font=("Consolas", 10),
-        ).pack(fill="x", padx=10, pady=(10, 4))
-
-        listbox = tk.Listbox(dlg, height=10, font=("Consolas", 11))
-        for g in history:
-            listbox.insert("end", g)
-        if history:
-            listbox.selection_set(0)
-        listbox.pack(fill="both", expand=True, padx=10)
-
-        tk.Label(
-            dlg,
-            text="Or type a new genre (a-z, 0-9, dashes):",
-            anchor="w",
-            font=("Consolas", 10),
-        ).pack(fill="x", padx=10, pady=(8, 2))
-
-        entry = tk.Entry(dlg, font=("Consolas", 12))
-        entry.pack(fill="x", padx=10)
-
-        chosen: list[str] = []
-
-        def accept(_evt: object = None) -> None:
-            typed = entry.get().strip()
-            if typed:
-                slug = slugify(typed)
-                if slug:
-                    chosen.append(slug)
-            else:
-                sel = listbox.curselection()
-                if sel:
-                    chosen.append(listbox.get(sel[0]))
-            dlg.destroy()
-
-        def cancel(_evt: object = None) -> None:
-            dlg.destroy()
-
-        btn_frame = tk.Frame(dlg)
-        btn_frame.pack(fill="x", padx=10, pady=10)
-        tk.Button(btn_frame, text="Add", command=accept).pack(side="right")
-        tk.Button(btn_frame, text="Cancel", command=cancel).pack(side="right", padx=(0, 8))
-
-        entry.bind("<Return>", accept)
-        listbox.bind("<Double-Button-1>", accept)
-        listbox.bind("<Return>", accept)
-        dlg.bind("<Escape>", cancel)
-
-        # Default focus: the entry box so typing immediately starts a new genre
-        entry.focus_set()
-        self.root.wait_window(dlg)
-
-        if not chosen:
+        # Letter keys q,w,e,r,t,y,u,i select photo type
+        if key in _TYPE_KEYS:
+            idx = _TYPE_KEYS.index(key)
+            if idx < len(PHOTO_TYPES):
+                self._select_type(PHOTO_TYPES[idx])
             return
-        g = chosen[0]
-        self.store.record_custom(g)
-        self.selection.add(g)
-        self._render_info_and_progress()
 
-    def _commit(self, genres: list[str], needs_review: bool, skipped: bool) -> None:
+    # --- Actions ---
+
+    def _commit_current(self) -> None:
+        if not self.subject_sel:
+            return
         cur = self._current()
         if cur is None:
             return
-        self.history.append((self.idx, set(self.selection), needs_review))
+        self.history.append((self.idx, self.subject_sel, self.type_sel, False))
         self.store.commit(
             filename=cur["filename"],
-            genres=list(genres),
+            subject=self.subject_sel,
+            photo_type=self.type_sel or "general",
             source_folder=self.source_folder,
-            needs_review=needs_review,
+            needs_review=False,
         )
-        if not skipped or self.include_skipped is False:
-            # Both committed-with-genres and skipped count toward session progress.
-            self.session_committed += 1
+        self.session_committed += 1
+        if self.session_limit and self.session_committed >= self.session_limit:
+            self._finish()
+            return
+        self.idx += 1
+        self._load_current()
+
+    def _skip_current(self) -> None:
+        cur = self._current()
+        if cur is None:
+            return
+        self.history.append((self.idx, self.subject_sel, self.type_sel, False))
+        self.store.commit(
+            filename=cur["filename"],
+            subject="",
+            photo_type="",
+            source_folder=self.source_folder,
+            needs_review=False,
+        )
+        self.session_committed += 1
+        if self.session_limit and self.session_committed >= self.session_limit:
+            self._finish()
+            return
+        self.idx += 1
+        self._load_current()
+
+    def _review_current(self) -> None:
+        cur = self._current()
+        if cur is None:
+            return
+        self.history.append((self.idx, self.subject_sel, self.type_sel, True))
+        self.store.commit(
+            filename=cur["filename"],
+            subject=self.subject_sel or "",
+            photo_type=self.type_sel or "",
+            source_folder=self.source_folder,
+            needs_review=True,
+        )
+        self.session_committed += 1
         if self.session_limit and self.session_committed >= self.session_limit:
             self._finish()
             return
@@ -600,19 +713,19 @@ class CorpusLabeller:
     def _go_back(self) -> None:
         if self.idx == 0 or not self.history:
             return
-        # Remove the most recent label from the JSONL by rewriting (uncommon path)
-        prev_idx, prev_sel, _ = self.history.pop()
+        prev_idx, prev_subj, prev_type, _ = self.history.pop()
         self._rewind_label(self.queue[prev_idx]["filename"])
         self.idx = prev_idx
-        self.selection = prev_sel
+        self.subject_sel = prev_subj
+        self.type_sel = prev_type
+        self._update_button_highlights()
+        self._update_selection_display()
         self._load_current()
 
     def _rewind_label(self, filename: str) -> None:
-        """Remove the most recent JSONL entry for filename so it can be re-labeled."""
         if not self.store.path.exists():
             return
         lines = self.store.path.read_text(encoding="utf-8").splitlines()
-        # Drop the LAST line matching this filename
         for i in range(len(lines) - 1, -1, -1):
             line = lines[i].strip()
             if not line:
@@ -628,7 +741,8 @@ class CorpusLabeller:
         self.store._labelled.discard(filename)
         self.session_committed = max(0, self.session_committed - 1)
 
-    # --- Lifecycle ---------------------------------------------------------
+    def _quit(self) -> None:
+        self.root.destroy()
 
     def _finish(self) -> None:
         elapsed = (datetime.now(timezone.utc) - self.session_started_at).total_seconds()
@@ -641,7 +755,7 @@ class CorpusLabeller:
 
     def run(self) -> None:
         if not self.queue:
-            print("Nothing to label — all candidates are already in the labels file.")
+            print("Nothing to label -- all candidates are already in the labels file.")
             return
         self.root.mainloop()
 
@@ -666,7 +780,6 @@ def main() -> int:
     labeler = args.labeler or getpass.getuser() or "anon"
     store = LabelStore(args.output, labeler=labeler)
 
-    # --filter-multi-label implies --relabel
     do_relabel = args.relabel or args.filter_multi_label
 
     unlabelled = sum(1 for c in candidates if not store.is_labelled(c["filename"]))
@@ -677,18 +790,17 @@ def main() -> int:
     if args.filter_router_genre:
         print(f"Filtering to router primary_genre = {args.filter_router_genre!r}")
     if do_relabel:
-        print("--relabel: already-labelled images will be re-presented with their "
-              "previous genres pre-loaded.")
+        print("--relabel: already-labelled images will be re-presented.")
     if args.filter_multi_label:
         multi = sum(
             1 for c in candidates
-            if len((store.current_label(c["filename"]) or {}).get("genres") or []) > 1
+            if (store.current_label(c["filename"]) or {}).get("subject", "general") != "general"
+            and (store.current_label(c["filename"]) or {}).get("photo_type", "general") != "general"
         )
-        print(f"--filter-multi-label: {multi} image(s) with multiple labels to review.")
+        print(f"--filter-multi-label: {multi} image(s) with both axes set to review.")
     history = store.custom_history()
     if history:
-        print(f"Custom genres in use so far: {', '.join(history)}")
-        print("  (press 'c' in the UI to pick from this list or type a new one)")
+        print(f"Custom genres in use: {', '.join(history)}")
 
     app = CorpusLabeller(
         candidates=candidates,

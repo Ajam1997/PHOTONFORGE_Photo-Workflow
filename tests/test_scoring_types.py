@@ -105,34 +105,36 @@ def test_exposure_scores_construction() -> None:
 
 def test_genre_result_construction() -> None:
     result = GenreResult(
-        genres=[("wildlife", 0.87), ("landscape", 0.05), ("portrait", 0.03)],
-        distribution={
-            "wildlife": 0.87,
-            "landscape": 0.05,
-            "portrait": 0.03,
-            "street": 0.02,
-            "architecture": 0.01,
-            "macro": 0.01,
-            "event": 0.005,
-            "general": 0.005,
-        },
+        subject="wildlife",
+        subject_confidence=0.87,
+        photo_type="landscape",
+        type_confidence=0.65,
+        subject_distribution={"wildlife": 0.87, "general": 0.13},
+        type_distribution={"landscape": 0.65, "general": 0.35},
         needs_review=False,
     )
     assert result.primary_genre == "wildlife"
     assert result.primary_confidence == 0.87
-    assert abs(sum(result.distribution.values()) - 1.0) < 0.01
-    assert len(result.genres) == 3
+    assert result.subject == "wildlife"
+    assert result.photo_type == "landscape"
+    assert abs(sum(result.subject_distribution.values()) - 1.0) < 0.01
+    assert len(result.genres) == 2  # wildlife + landscape
 
 
 def test_genre_result_properties() -> None:
-    """Test primary_genre and primary_confidence properties."""
+    """Test primary_genre and primary_confidence backward-compat properties."""
     result = GenreResult(
-        genres=[("portrait", 0.92), ("event", 0.05)],
-        distribution={"portrait": 0.92, "event": 0.05, "general": 0.03},
+        subject="people",
+        subject_confidence=0.92,
+        photo_type="portrait",
+        type_confidence=0.80,
+        subject_distribution={"people": 0.92, "general": 0.08},
+        type_distribution={"portrait": 0.80, "general": 0.20},
         needs_review=False,
     )
-    assert result.primary_genre == "portrait"
+    assert result.primary_genre == "people"
     assert result.primary_confidence == 0.92
+    assert result.genres == [("people", 0.92), ("portrait", 0.80)]
 
 
 def test_subject_context_sharpness_contrast() -> None:
@@ -156,8 +158,10 @@ def test_subject_context_sharpness_contrast() -> None:
 def test_fusion_result_construction() -> None:
     result = FusionResult(
         master_score=0.72,
-        genre="wildlife",
-        genre_confidence=0.87,
+        subject="wildlife",
+        subject_confidence=0.87,
+        photo_type="landscape",
+        type_confidence=0.65,
         sub_scores={"eye_sharpness": 0.90, "subject_sharpness": 0.85},
         hard_reject=False,
         hard_reject_reason="",
@@ -166,3 +170,6 @@ def test_fusion_result_construction() -> None:
     )
     assert result.star_rating == 4
     assert not result.hard_reject
+    assert result.genre == "wildlife"  # backward compat
+    assert result.subject == "wildlife"
+    assert result.photo_type == "landscape"

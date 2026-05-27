@@ -1,4 +1,4 @@
-"""Genre trainer — prototype calibration and centroid blending."""
+"""Genre trainer — two-axis prototype calibration and centroid blending."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from .genre_router import GENRES
+from .genre_router import ALL_LABELS, SUBJECTS, PHOTO_TYPES
 
 logger = logging.getLogger(__name__)
 
@@ -35,19 +35,17 @@ def _load_corpus(
 ) -> dict[str, list[str]]:
     """Load genre labels from JSONL corpus.
 
-    Implements last-write-wins per filename: if the same filename appears
-    multiple times, the last entry wins. Entries with empty genres list
-    are skipped.
-
-    Args:
-        corpus_path: Path to genre_labels.jsonl
-        source_folders: Optional list of source_folder values to include.
-                       If None, all entries are included.
+    Implements last-write-wins per filename. Handles both old format
+    ({"genres": ["wildlife"]}) and new format ({"subject": "wildlife"}).
 
     Returns:
-        dict mapping filename to list of genres (e.g., {"P001ICE0001.ARW": ["wildlife", "landscape"]})
+        dict mapping filename to list of genre labels (each label is a
+        subject or photo_type string). GENRES = SUBJECTS + PHOTO_TYPES.
     """
-    result = {}
+    subjects_set = set(SUBJECTS)
+    types_set = set(PHOTO_TYPES)
+
+    result: dict[str, list[str]] = {}
     if not corpus_path.exists():
         logger.warning("Corpus file not found: %s", corpus_path)
         return result
@@ -60,19 +58,29 @@ def _load_corpus(
                     continue
                 entry = json.loads(line)
                 filename = entry.get("filename")
-                genres = entry.get("genres", [])
                 source_folder = entry.get("source_folder")
 
-                # Skip entries with no genres
-                if not genres:
-                    continue
-
-                # Filter by source_folder if specified
                 if source_folders is not None and source_folder not in source_folders:
                     continue
 
-                # Last-write-wins
-                result[filename] = genres
+                # New two-axis format
+                if "subject" in entry:
+                    labels = [entry["subject"]]
+                    if "photo_type" in entry and entry["photo_type"] != "general":
+                        labels.append(entry["photo_type"])
+                    result[filename] = labels
+                    continue
+
+                # Old flat format: classify each label as subject or type
+                genres = entry.get("genres", [])
+                if not genres:
+                    continue
+                labels = []
+                for g in genres:
+                    if g in subjects_set or g in types_set:
+                        labels.append(g)
+                if labels:
+                    result[filename] = labels
     except Exception as e:
         logger.error("Failed to load corpus: %s", e)
         return {}
@@ -142,52 +150,72 @@ def _load_embeddings(
     return result
 
 
+def _load_secondary_feedback(
+    secondary_feedback_path: Path,
+) -> dict[str, list[str]]:
+    """Load added_secondary events from secondary_feedback.jsonl.
+
+    Each entry is one user-confirmed secondary genre for a filename.
+    Only "added_secondary" events are used (positive signal only).
+
+    Returns:
+        dict mapping filename to list of genres the user added as secondary
+    """
+    result: dict[str, list[str]] = {}
+    if not secondary_feedback_path.exists():
+        return result
+
+    try:
+        with open(secondary_feedback_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                entry = json.loads(line)
+                if entry.get("event") != "added_secondary":
+                    continue
+                filename = entry.get("filename")
+                genre = entry.get("genre")
+                if filename and genre:
+                    result.setdefault(filename, []).append(genre)
+    except Exception as e:
+        logger.error("Failed to load secondary feedback: %s", e)
+        return {}
+
+    return result
+
+
 def compute_centroids(
     filename_to_genres: dict[str, list[str]],
     filename_to_embedding: dict[str, np.ndarray],
-    primary_only: bool = True,
 ) -> dict[str, list[np.ndarray]]:
-    """Group embeddings by genre for prototype calibration.
+    """Group embeddings by label for prototype calibration.
 
-    With primary_only=True (default), only genres[0] is used as the training
-    signal — the single most-discriminative label for each image.  This keeps
-    each prototype clean: a waterfall image labeled ["waterfall", "landscape"]
-    trains the waterfall prototype only, not the landscape one.
-
-    Set primary_only=False to reproduce the legacy behaviour (each image trains
-    every genre in its list).  Useful for auditing how much the prototypes
-    shifted when migrating existing multi-label corpus data.
-
-    Args:
-        filename_to_genres: dict mapping filename to list of genre strings
-        filename_to_embedding: dict mapping filename to np.ndarray (512,)
-        primary_only: If True (default), use only genres[0] per image.
+    Each image trains every label in its list — typically one subject and
+    optionally one photo type.
 
     Returns:
-        dict mapping genre to list of embeddings (all L2-normalized)
+        dict mapping label (from GENRES = SUBJECTS + PHOTO_TYPES) to
+        list of L2-normalized embeddings.
     """
-    genre_embeddings: dict[str, list[np.ndarray]] = {genre: [] for genre in GENRES}
+    genre_embeddings: dict[str, list[np.ndarray]] = {label: [] for label in ALL_LABELS}
 
-    for filename, genres in filename_to_genres.items():
-        if not genres:
+    for filename, labels in filename_to_genres.items():
+        if not labels:
             continue
         embedding = filename_to_embedding.get(filename)
         if embedding is None:
             continue
 
-        # Ensure embedding is L2-normalized
         embedding_norm = np.linalg.norm(embedding)
         if embedding_norm > 0:
             normalized = embedding / embedding_norm
         else:
             normalized = embedding
 
-        # Primary-only: train only the first/most-discriminative label.
-        # Legacy multi-label: train every genre in the list.
-        training_genres = genres[:1] if primary_only else genres
-        for genre in training_genres:
-            if genre in genre_embeddings:
-                genre_embeddings[genre].append(normalized)
+        for label in labels:
+            if label in genre_embeddings:
+                genre_embeddings[label].append(normalized)
 
     return genre_embeddings
 
@@ -198,13 +226,15 @@ def recalibrate_prototypes(
     hardcoded_prototypes: np.ndarray,
     source_folders: list[str] | None = None,
     min_samples: int = 10,
+    secondary_feedback_path: Path | None = None,
 ) -> dict[str, dict]:
     """Reblend genre prototypes from user corrections.
 
     Full pipeline:
     1. Load corpus (JSONL) and embeddings (from photonforge.db)
     2. Compute centroids per genre (L2-normalized)
-    3. For each genre: blend hardcoded + learned, compute alpha, return metadata
+    3. Merge added_secondary events from secondary_feedback.jsonl (if provided)
+    4. For each genre: blend hardcoded + learned, compute alpha, return metadata
 
     Args:
         corpus_path: Path to genre_labels.jsonl
@@ -212,6 +242,8 @@ def recalibrate_prototypes(
         hardcoded_prototypes: np.ndarray (num_genres, 512) float32 hardcoded prototypes
         source_folders: Optional list of source_folder values to include
         min_samples: Minimum embeddings per genre to re-estimate (default 10)
+        secondary_feedback_path: Optional path to secondary_feedback.jsonl; when
+            provided, user-confirmed secondary genres augment prototype centroids.
 
     Returns:
         dict mapping genre to {
@@ -225,78 +257,112 @@ def recalibrate_prototypes(
     filename_to_genres = _load_corpus(corpus_path, source_folders=source_folders)
     logger.info("Loaded %d unique filenames from corpus", len(filename_to_genres))
 
-    filename_to_embedding = _load_embeddings(photon_db_path, list(filename_to_genres.keys()))
+    # Collect all filenames we need embeddings for (primary corpus + secondary feedback)
+    all_filenames = set(filename_to_genres.keys())
+    secondary_feedback: dict[str, list[str]] = {}
+    if secondary_feedback_path is not None:
+        secondary_feedback = _load_secondary_feedback(secondary_feedback_path)
+        all_filenames.update(secondary_feedback.keys())
+        logger.info(
+            "Loaded secondary feedback: %d filenames with added secondary genres",
+            len(secondary_feedback),
+        )
+
+    filename_to_embedding = _load_embeddings(photon_db_path, list(all_filenames))
     logger.info("Loaded %d embeddings from photonforge.db", len(filename_to_embedding))
 
-    # Compute centroids per genre
+    # Compute centroids per genre from primary corpus
     genre_embeddings = compute_centroids(filename_to_genres, filename_to_embedding)
+
+    # Augment with secondary feedback (user-confirmed secondary genres)
+    for filename, genres in secondary_feedback.items():
+        embedding = filename_to_embedding.get(filename)
+        if embedding is None:
+            continue
+        norm = np.linalg.norm(embedding)
+        normalized = embedding / norm if norm > 0 else embedding
+        for genre in genres:
+            if genre in genre_embeddings:
+                genre_embeddings[genre].append(normalized)
+    if secondary_feedback:
+        total_augmented = sum(len(g) for g in secondary_feedback.values())
+        logger.info("Augmented centroids with %d secondary feedback samples", total_augmented)
 
     result = {}
 
-    # Validate hardcoded prototypes shape
-    if hardcoded_prototypes.shape[0] != len(GENRES) or hardcoded_prototypes.shape[1] != 512:
+    expected_rows = len(SUBJECTS) + len(PHOTO_TYPES)
+    if hardcoded_prototypes.shape[0] != expected_rows or hardcoded_prototypes.shape[1] != 512:
         raise ValueError(
             f"Hardcoded prototypes shape {hardcoded_prototypes.shape} does not match "
-            f"expected ({len(GENRES)}, 512). Please rerun provision_scoring_models.py "
+            f"expected ({expected_rows}, 512). Please rerun provision_scoring_models.py "
             f"with --only clip --force to regenerate genre_prototypes.npy"
         )
 
-    for i, genre in enumerate(GENRES):
-        embeddings = genre_embeddings[genre]
-        hardcoded = hardcoded_prototypes[i]
+    # Build index mapping: label -> row in prototype file.
+    # "general" appears in both halves; average the two hardcoded vectors.
+    label_to_hardcoded: dict[str, np.ndarray] = {}
+    for i, subj in enumerate(SUBJECTS):
+        label_to_hardcoded[subj] = hardcoded_prototypes[i]
+    n_subj = len(SUBJECTS)
+    for i, ptype in enumerate(PHOTO_TYPES):
+        if ptype in label_to_hardcoded:
+            # Average subject and type versions (only "general")
+            label_to_hardcoded[ptype] = (
+                label_to_hardcoded[ptype] + hardcoded_prototypes[n_subj + i]
+            ) / 2.0
+            norm = np.linalg.norm(label_to_hardcoded[ptype])
+            if norm > 0:
+                label_to_hardcoded[ptype] = label_to_hardcoded[ptype] / norm
+        else:
+            label_to_hardcoded[ptype] = hardcoded_prototypes[n_subj + i]
+
+    for label in ALL_LABELS:
+        embeddings = genre_embeddings[label]
+        hardcoded = label_to_hardcoded[label]
 
         if len(embeddings) < min_samples:
-            # Not enough data: use hardcoded with alpha=1.0
-            result[genre] = {
+            result[label] = {
                 "prototype": hardcoded.copy(),
                 "n_corrections": len(embeddings),
                 "alpha": 1.0,
                 "source": "hardcoded",
             }
             logger.info(
-                "Genre '%s': %d samples < %d threshold, keeping hardcoded",
-                genre,
-                len(embeddings),
-                min_samples,
+                "'%s': %d samples < %d threshold, keeping hardcoded",
+                label, len(embeddings), min_samples,
             )
         else:
-            # Compute learned centroid
             learned_centroid = np.mean(embeddings, axis=0)
             learned_norm = np.linalg.norm(learned_centroid)
             if learned_norm > 0:
                 learned_centroid = learned_centroid / learned_norm
             else:
-                # Degenerate: all-zero embeddings; fall back to hardcoded
-                result[genre] = {
+                result[label] = {
                     "prototype": hardcoded.copy(),
                     "n_corrections": len(embeddings),
                     "alpha": 1.0,
                     "source": "hardcoded",
                 }
-                logger.info("Genre '%s': learned centroid is zero, keeping hardcoded", genre)
+                logger.info("'%s': learned centroid is zero, keeping hardcoded", label)
                 continue
 
-            # Blend
             alpha = compute_alpha(len(embeddings))
             blended = alpha * hardcoded + (1.0 - alpha) * learned_centroid
             blended_norm = np.linalg.norm(blended)
             if blended_norm > 0:
                 blended = blended / blended_norm
             else:
-                # Degenerate blend; keep hardcoded
                 blended = hardcoded.copy()
 
-            result[genre] = {
+            result[label] = {
                 "prototype": blended,
                 "n_corrections": len(embeddings),
                 "alpha": alpha,
                 "source": "blended",
             }
             logger.info(
-                "Genre '%s': %d samples, alpha=%.3f, cosine_sim_to_hardcoded=%.3f",
-                genre,
-                len(embeddings),
-                alpha,
+                "'%s': %d samples, alpha=%.3f, cosine_sim=%.3f",
+                label, len(embeddings), alpha,
                 float(np.dot(blended, hardcoded)),
             )
 

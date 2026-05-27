@@ -94,7 +94,7 @@ log "Listing:"
 find "$MODELS_DIR" -name '*.onnx' -exec ls -lh {} \;
 
 # --- Genre prototypes: precompute 8×512 CLIP text embeddings ----------------
-CLIP_TEXT_ENCODER="${REPO_ROOT}/models/mobileclip_s0_int8/text_encoder.onnx"
+CLIP_TEXT_ENCODER="${REPO_ROOT}/models/mobileclip_s2_int8/text_encoder.onnx"
 GENRE_PROTO="${REPO_ROOT}/models/genre_prototypes.npy"
 
 if [ -f "$CLIP_TEXT_ENCODER" ]; then
@@ -109,17 +109,17 @@ import os
 import numpy as np
 
 repo_root = Path(os.environ.get("REPO_ROOT", "."))
-text_encoder_path = repo_root / "models" / "mobileclip_s0_int8" / "text_encoder.onnx"
+text_encoder_path = repo_root / "models" / "mobileclip_s2_int8" / "text_encoder.onnx"
 output_path = repo_root / "models" / "genre_prototypes.npy"
 
 import onnxruntime as ort
 
 try:
     from transformers import CLIPTokenizer
-    tokenizer = CLIPTokenizer.from_pretrained("apple/MobileCLIP-S0-OpenCLIP", cache_dir=str(repo_root / "models" / ".cache" / "tokenizer"))
+    tokenizer = CLIPTokenizer.from_pretrained("apple/MobileCLIP-S2-OpenCLIP", cache_dir=str(repo_root / "models" / ".cache" / "tokenizer"))
 except Exception:
     from open_clip import get_tokenizer
-    tokenizer = get_tokenizer("MobileCLIP-S0")
+    tokenizer = get_tokenizer("MobileCLIP-S2")
 
 sess = ort.InferenceSession(str(text_encoder_path), providers=["CPUExecutionProvider"])
 input_name = sess.get_inputs()[0].name

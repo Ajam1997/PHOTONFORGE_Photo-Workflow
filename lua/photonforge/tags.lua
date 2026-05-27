@@ -1,22 +1,18 @@
 local dt = require "darktable"
 local M = {}
 
--- All genres recognised by the genre router (must match GENRES in genre_router.py)
-local GENRES = {
-  "wildlife", "landscape", "portrait", "street",
-  "architecture", "macro", "event", "waterfall",
-  "signage", "cat", "vehicle", "general",
+-- Two-axis genre system: Subject (what) x Photo Type (how)
+local SUBJECTS = {
+  "person", "people", "child", "wildlife", "pet",
+  "plant", "landscape", "seascape", "cityscape", "building",
+  "vehicle", "food", "object", "text", "night-sky", "abstract",
 }
 
--- Full tag tree written to the Darktable tag library on plugin start.
--- Hierarchy uses the pipe separator darktable uses for tag trees:
---   photon|primary|<genre>   — 1st-order (product-of-experts winner)
---   photon|secondary|<genre> — 2nd-order (geometric mean co-genres)
---   photon|needs_review      — router was uncertain; human review requested
---
--- Pre-seeding means the tree is visible in the tag panel before any image
--- is scored, and correction detection can reliably query photon|primary|*
--- and photon|secondary|* without worrying about missing nodes.
+local PHOTO_TYPES = {
+  "portrait", "candid", "landscape", "street", "wildlife",
+  "macro", "architecture", "action", "aerial", "long-exposure",
+  "still-life", "documentary",
+}
 
 local STATIC_TAGS = {
   "photon|needs_review",
@@ -24,23 +20,25 @@ local STATIC_TAGS = {
 
 function M.seed_tag_library()
   local created = 0
+  local all_names = {}
 
-  -- Primary and secondary namespaces for every genre
-  for _, genre in ipairs(GENRES) do
-    local tags = {
-      "photon|primary|"   .. genre,
-      "photon|secondary|" .. genre,
-    }
-    for _, name in ipairs(tags) do
-      local tag = dt.tags.create(name)
-      if tag then created = created + 1 end
-    end
+  for _, subj in ipairs(SUBJECTS) do
+    table.insert(all_names, "photon|subject|" .. subj)
   end
 
-  -- Static utility tags
+  for _, ptype in ipairs(PHOTO_TYPES) do
+    table.insert(all_names, "photon|type|" .. ptype)
+  end
+
   for _, name in ipairs(STATIC_TAGS) do
-    local tag = dt.tags.create(name)
-    if tag then created = created + 1 end
+    table.insert(all_names, name)
+  end
+
+  for _, name in ipairs(all_names) do
+    local ok, tag = pcall(dt.tags.create, name)
+    if ok and tag then
+      created = created + 1
+    end
   end
 
   dt.print_log(string.format("PHOTONForge: seeded %d tag(s) into library", created))

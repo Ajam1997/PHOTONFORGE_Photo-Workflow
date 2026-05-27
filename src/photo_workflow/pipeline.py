@@ -105,7 +105,7 @@ class AnalysisPipeline:
         from .exposure import score_exposure
         from .naming import generate_name
         from .darktable_bridge import sync_to_darktable
-        from .subject_context import ModelSessions, build_subject_context
+        from .subject_context import ModelSessions, build_subject_context, _run_nima
         from .sharpness import score_sharpness_detailed
         from .composition import score_composition_detailed
         from .exposure import score_exposure_detailed
@@ -146,17 +146,11 @@ class AnalysisPipeline:
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
 
-                # Get aesthetic score (fallback to 0.5 if not available)
+                # Get aesthetic score using NIMA (fallback to 0.5 if not available)
                 aesthetic_score = 0.5
-                if model_sessions.clip_aesthetic_head is not None:
+                if model_sessions.aesthetic_head is not None:
                     try:
-                        input_name = model_sessions.clip_aesthetic_head.get_inputs()[0].name
-                        # Use CLIP embedding as input to aesthetic head
-                        aesthetic_output = model_sessions.clip_aesthetic_head.run(
-                            None, {input_name: np.expand_dims(ctx.clip_embedding, axis=0)}
-                        )
-                        aesthetic_score = float(aesthetic_output[0][0])
-                        aesthetic_score = max(0.0, min(1.0, aesthetic_score))
+                        aesthetic_score = _run_nima(ctx.image_rgb, model_sessions.aesthetic_head)
                     except Exception as e:
                         logger.warning("Aesthetic scoring failed: %s", e)
                         aesthetic_score = 0.5
@@ -175,9 +169,9 @@ class AnalysisPipeline:
                 record.composition_score = composition_result.overall
                 record.exposure_score = exposure_result.overall
 
-                # Populate new genre-aware fields
-                record.genre = fusion.genre
-                record.genre_confidence = fusion.genre_confidence
+                # Populate genre fields
+                record.genre = fusion.subject
+                record.genre_confidence = fusion.subject_confidence
                 record.master_score = fusion.master_score
                 record.sub_scores = fusion.sub_scores
                 record.hard_reject = fusion.hard_reject
@@ -444,16 +438,21 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
               help="Optional path to training_weights.db (to use calibrated prototypes).")
 @click.option("--resume", is_flag=True, default=False)
 @click.option("--force", is_flag=True, default=False)
+@click.option("--only-files", "only_files", default=None, type=click.Path(exists=True, path_type=Path),
+              help="Text file with one filename per line; only re-score these images.")
+@click.option("--skip-genre", "skip_genre", is_flag=True, default=False,
+              help="Recalculate ratings only; preserve existing genres from the DB.")
 @click.option("--json-progress", "json_progress", is_flag=True, default=False)
-def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, training_db: Path | None, resume: bool, force: bool, json_progress: bool) -> None:
+def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, training_db: Path | None, resume: bool, force: bool, only_files: Path | None, skip_genre: bool, json_progress: bool) -> None:
     """Score photos for sharpness, composition, exposure, and genre."""
     import sqlite3
 
-    from .subject_context import ModelSessions, build_subject_context
+    from .subject_context import ModelSessions, build_subject_context, _run_nima
     from .sharpness import score_sharpness, score_sharpness_detailed
     from .composition import score_composition, score_composition_detailed
     from .exposure import score_exposure, score_exposure_detailed
     from .genre_router import route_genre
+    from .scoring_types import GenreResult
     from .score_fusion import fuse_scores
     from .darktable_bridge import compute_color_label
     from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_genre_scores, update_stages, clear_stage
@@ -466,7 +465,24 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     conn.row_factory = sqlite3.Row
     ensure_table(conn, table)
 
-    if force:
+    if only_files:
+        # Selective rescore: clear score stage only for listed filenames
+        target_filenames = set(
+            line.strip() for line in only_files.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        )
+        for fn in target_filenames:
+            row = conn.execute(
+                f"SELECT filename, stages FROM [{table}] WHERE filename=?", (fn,)
+            ).fetchone()
+            if row:
+                parts = [s for s in (row["stages"] or "").split(",") if s and s != "score"]
+                conn.execute(
+                    f"UPDATE [{table}] SET stages=? WHERE filename=?",
+                    (",".join(parts), fn),
+                )
+        conn.commit()
+    elif force:
         clear_stage(conn, table, "score")
 
     pending = get_pending(conn, table, "score")
@@ -491,21 +507,33 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
             # Try genre-aware scoring first
             try:
                 ctx = build_subject_context(p, model_sessions)
-                genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes)
+                if skip_genre:
+                    # Preserve existing genres from DB; only recalculate ratings
+                    db_genres_json = row["genres"] or "{}"
+                    try:
+                        db_genre_data = json.loads(db_genres_json)
+                    except (json.JSONDecodeError, TypeError):
+                        db_genre_data = {}
+                    genre_result = GenreResult(
+                        subject=db_genre_data.get("subject", row.get("primary_genre") or "general"),
+                        subject_confidence=db_genre_data.get("subject_confidence", 1.0),
+                        photo_type=db_genre_data.get("photo_type", "general"),
+                        type_confidence=db_genre_data.get("type_confidence", 0.5),
+                        subject_distribution={},
+                        type_distribution={},
+                        needs_review=bool(row["needs_review"]),
+                    )
+                else:
+                    genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes)
                 sharpness_result = score_sharpness_detailed(ctx)
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
 
-                # Aesthetic score
+                # Aesthetic score using NIMA
                 aesthetic_score = 0.5
-                if model_sessions.clip_aesthetic_head is not None:
+                if model_sessions.aesthetic_head is not None:
                     try:
-                        input_name = model_sessions.clip_aesthetic_head.get_inputs()[0].name
-                        aesthetic_output = model_sessions.clip_aesthetic_head.run(
-                            None, {input_name: np.expand_dims(ctx.clip_embedding, axis=0)}
-                        )
-                        aesthetic_score = float(aesthetic_output[0][0])
-                        aesthetic_score = max(0.0, min(1.0, aesthetic_score))
+                        aesthetic_score = _run_nima(ctx.image_rgb, model_sessions.aesthetic_head)
                     except Exception:
                         aesthetic_score = 0.5
 
@@ -525,11 +553,17 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
 
                 update_scores(conn, table, row["filename"], sharp, comp, expo, auto_commit=False)
                 clip_embedding_bytes = ctx.clip_embedding.tobytes() if ctx.clip_embedding is not None else None
+                genres_data = {
+                    "subject": fusion.subject,
+                    "subject_confidence": round(fusion.subject_confidence, 4),
+                    "photo_type": fusion.photo_type,
+                    "type_confidence": round(fusion.type_confidence, 4),
+                }
                 update_genre_scores(
                     conn, table, row["filename"],
-                    fusion.genre, fusion.genre_confidence, master, fusion.sub_scores,
-                    genres=fusion.genres,
-                    primary_genre=fusion.genre,
+                    fusion.subject, fusion.subject_confidence, master, fusion.sub_scores,
+                    genres=genres_data,
+                    primary_genre=fusion.subject,
                     needs_review=fusion.needs_review,
                     clip_embedding=clip_embedding_bytes,
                     auto_commit=False,
@@ -541,16 +575,14 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 color_label = fusion.color_label
 
                 if json_progress:
-                    # Emit multi-genre data so the Lua applicator can write all tags.
-                    # genres = list of {"g": <name>, "c": <confidence>}, top-3 above 0.15 floor.
-                    genres_payload = [
-                        {"g": g, "c": round(c, 3)} for g, c in fusion.genres
-                    ]
                     emit("score", row["filename"], "ok", json_progress=True,
                          sharpness=round(sharp, 4), composition=round(comp, 4),
                          exposure=round(expo, 4), master=round(master, 4),
-                         genre=fusion.genre, genre_confidence=round(fusion.genre_confidence, 3),
-                         genres=genres_payload, needs_review=fusion.needs_review,
+                         subject=fusion.subject,
+                         subject_confidence=round(fusion.subject_confidence, 3),
+                         photo_type=fusion.photo_type,
+                         type_confidence=round(fusion.type_confidence, 3),
+                         needs_review=fusion.needs_review,
                          stars=stars, color_label=color_label,
                          original_name=row["original_name"])
             except Exception as genre_error:
@@ -731,19 +763,17 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
 
     Use this after running the score step from the command line (when the Lua
     applicator was not running).  Reads the genres JSON column and writes
-    hierarchical tags: photon|primary|<genre> for the first entry (PoE winner)
-    and photon|secondary|<genre> for subsequent entries (geometric mean co-genres).
+    hierarchical tags: photon|subject|<name> and photon|type|<name>.
     """
     import sqlite3 as _sqlite3
 
-    from .darktable_bridge import write_darktable_keywords
+    from .darktable_bridge import clear_photon_tags, write_darktable_keywords
     from .photondb import sanitize_table_name
 
     table = sanitize_table_name(folder)
     conn = _sqlite3.connect(str(photon_db))
     conn.row_factory = _sqlite3.Row
 
-    # Verify table exists
     exists = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
     ).fetchone()
@@ -755,7 +785,7 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
 
     rows = conn.execute(
         f"SELECT filename, genres FROM [{table}] "
-        "WHERE genres IS NOT NULL AND genres != '[]'"
+        "WHERE genres IS NOT NULL AND genres != '{{}}' AND genres != ''"
     ).fetchall()
     conn.close()
 
@@ -768,23 +798,29 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
     for row in rows:
         filename: str = row["filename"]
         try:
-            genres_list = json.loads(row["genres"])
-            # Build hierarchical tags: first entry = primary, rest = secondary
-            keywords = []
-            for i, entry in enumerate(genres_list):
-                g = entry.get("g", "")
-                if not g:
-                    continue
-                prefix = "photon|primary|" if i == 0 else "photon|secondary|"
-                keywords.append(prefix + g)
-            if keywords:
-                write_darktable_keywords(dt_library, filename, keywords)
-            done += 1
+            genre_data = json.loads(row["genres"])
+            subject = genre_data.get("subject")
+            photo_type = genre_data.get("photo_type")
+
             if json_progress:
+                # Emit JSON for Lua applicator to apply via DT API
                 click.echo(json.dumps({
                     "step": "sync-tags", "file": filename,
-                    "status": "ok", "tags": keywords,
+                    "status": "ok",
+                    "subject": subject or "",
+                    "photo_type": photo_type or "",
                 }))
+            else:
+                # CLI mode: write directly to SQLite (DT must be closed)
+                keywords = []
+                if subject:
+                    keywords.append("photon|subject|" + subject)
+                if photo_type:
+                    keywords.append("photon|type|" + photo_type)
+                if keywords:
+                    clear_photon_tags(dt_library, filename)
+                    write_darktable_keywords(dt_library, filename, keywords)
+            done += 1
         except Exception as exc:
             if json_progress:
                 click.echo(json.dumps({
@@ -885,6 +921,14 @@ def training() -> None:
     help="Minimum samples per genre to re-estimate (default: 10)",
 )
 @click.option(
+    "--secondary-feedback",
+    "secondary_feedback",
+    default=_DEFAULT_SECONDARY_FEEDBACK,
+    type=click.Path(path_type=Path),
+    help="Path to secondary_feedback.jsonl (user-confirmed secondary genres "
+    "used to augment prototype centroids)",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Print per-genre report without writing to database",
@@ -896,94 +940,99 @@ def recalibrate(
     model_dir: Path | None,
     source_folders: tuple[str, ...],
     min_samples: int,
+    secondary_feedback: Path,
     dry_run: bool,
 ) -> None:
     """Recalibrate genre prototypes by blending hardcoded + user corrections."""
     from .genre_trainer import recalibrate_prototypes
     from .training_weights_db import open_training_db, ensure_schema, next_version, upsert_prototype
-    from .genre_router import GENRES
+    from .genre_router import SUBJECTS, PHOTO_TYPES, ALL_LABELS
 
     if model_dir is None:
         model_dir = Path(__file__).resolve().parent.parent.parent / "models"
 
-    # Load hardcoded prototypes
     proto_path = model_dir / "genre_prototypes.npy"
     if not proto_path.exists():
         click.echo(
             f"ERROR: genre_prototypes.npy not found at {proto_path}\n"
-            "Please rerun: python -m photo_workflow.provision provision_scoring_models "
-            "--only clip --force",
+            "Please rerun: python scripts/provision_scoring_models.py --only clip --force",
             err=True,
         )
         raise SystemExit(1)
 
     hardcoded_prototypes = np.load(str(proto_path))
 
-    # Recalibrate
     source_folders_list = list(source_folders) if source_folders else None
+    sf_path = secondary_feedback if secondary_feedback.exists() else None
+
     result = recalibrate_prototypes(
         corpus,
         photon_db,
         hardcoded_prototypes,
         source_folders=source_folders_list,
         min_samples=min_samples,
+        secondary_feedback_path=sf_path,
     )
 
-    # Print report
     click.echo("\n=== Genre Calibration Report ===")
     click.echo(f"Hardcoded prototypes: {proto_path}")
     click.echo(f"Corpus: {corpus}")
     click.echo(f"Embeddings DB: {photon_db}")
+    if sf_path:
+        click.echo(f"Secondary feedback: {sf_path}")
     if source_folders_list:
         click.echo(f"Filtered to folders: {source_folders_list}")
     click.echo()
 
-    for genre in GENRES:
-        if genre not in result:
-            click.echo(f"{genre}: SKIPPED (not in result)")
+    click.echo("--- Subjects ---")
+    for i, label in enumerate(SUBJECTS):
+        if label not in result:
+            click.echo(f"  {label}: SKIPPED")
             continue
-
-        info = result[genre]
-        source = info["source"]
-        n_corrections = info["n_corrections"]
-        alpha = info["alpha"]
-        proto = info["prototype"]
-
-        # Cosine similarity to hardcoded
-        hardcoded_idx = GENRES.index(genre)
-        hardcoded = hardcoded_prototypes[hardcoded_idx]
-        cosine_sim = float(np.dot(proto, hardcoded))
-
+        info = result[label]
+        cosine_sim = float(np.dot(info["prototype"], hardcoded_prototypes[i]))
         click.echo(
-            f"{genre:15} | n={n_corrections:3} | alpha={alpha:.3f} | "
-            f"source={source:10} | cosine_sim={cosine_sim:.4f}"
+            f"  {label:15} | n={info['n_corrections']:3} | alpha={info['alpha']:.3f} | "
+            f"source={info['source']:10} | cosine_sim={cosine_sim:.4f}"
+        )
+
+    click.echo("\n--- Photo Types ---")
+    n_subj = len(SUBJECTS)
+    for i, label in enumerate(PHOTO_TYPES):
+        if label not in result:
+            click.echo(f"  {label}: SKIPPED")
+            continue
+        info = result[label]
+        cosine_sim = float(np.dot(info["prototype"], hardcoded_prototypes[n_subj + i]))
+        click.echo(
+            f"  {label:15} | n={info['n_corrections']:3} | alpha={info['alpha']:.3f} | "
+            f"source={info['source']:10} | cosine_sim={cosine_sim:.4f}"
         )
 
     if dry_run:
         click.echo("\n[DRY RUN] No changes written to database.")
         return
 
-    # Write to database
     click.echo(f"\nWriting to {training_db}...")
     conn = open_training_db(training_db)
     ensure_schema(conn)
     version = next_version(conn)
 
-    for genre in GENRES:
-        if genre not in result:
+    for label in ALL_LABELS:
+        if label not in result:
             continue
-        info = result[genre]
+        info = result[label]
         upsert_prototype(
             conn,
             version,
-            genre,
+            label,
             info["prototype"].astype(np.float32).tobytes(),
             info["n_corrections"],
             info["alpha"],
         )
 
     conn.close()
-    click.echo(f"OK: Wrote {len(GENRES)} prototypes (version {version}) to {training_db}")
+    click.echo(f"OK: Wrote {len(ALL_LABELS)} prototypes (version {version}) to {training_db}")
 
 
 @training.command("collect-corrections")
@@ -1017,26 +1066,26 @@ def collect_corrections(
 ) -> None:
     """Detect tag corrections made in Darktable and feed them to the training corpus.
 
-    Reads photon|primary|<genre> and photon|secondary|<genre> tags from
-    Darktable and compares them against what photonforge.db recorded.
+    Reads photon|subject|<name> and photon|type|<name> tags from Darktable
+    and compares them against what photonforge.db recorded.
 
-    Primary corrections (user changed photon|primary|* to a different genre)
-    are appended to the corpus JSONL and will improve CLIP prototypes on the
-    next 'training recalibrate' run.
-
-    Secondary feedback (user added/removed photon|secondary|* tags) is logged
-    to a separate JSONL for future threshold calibration.
+    Subject corrections are appended to the corpus JSONL and improve CLIP
+    prototypes on the next 'training recalibrate' run.
+    Type feedback is logged to a separate JSONL for future calibration.
     """
     import getpass
     import sqlite3 as _sqlite3
     from datetime import datetime, timezone
 
     from .darktable_bridge import read_darktable_keywords
-    from .genre_router import GENRES
+    from .genre_router import SUBJECTS, PHOTO_TYPES
     from .photondb import sanitize_table_name
 
-    _PRIMARY_PREFIX = "photon|primary|"
-    _SECONDARY_PREFIX = "photon|secondary|"
+    _SUBJECT_PREFIX = "photon|subject|"
+    _TYPE_PREFIX = "photon|type|"
+
+    subjects_set = set(SUBJECTS)
+    types_set = set(PHOTO_TYPES)
 
     table = sanitize_table_name(folder)
     conn = _sqlite3.connect(str(photon_db))
@@ -1065,87 +1114,74 @@ def collect_corrections(
     now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     corpus_entries: list[dict] = []
-    secondary_entries: list[dict] = []
+    type_entries: list[dict] = []
 
     if json_progress:
         click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
 
-    genres_set = set(GENRES)
-
     for row in rows:
         filename: str = row["filename"]
-        db_primary: str = row["primary_genre"] or ""
-
         try:
-            genres_list = json.loads(row["genres"] or "[]")
+            db_genre_data = json.loads(row["genres"] or "{}")
         except Exception:
-            genres_list = []
+            db_genre_data = {}
 
-        db_secondaries = {e["g"] for e in genres_list[1:] if e.get("g")}
+        db_subject = db_genre_data.get("subject", row["primary_genre"] or "general")
+        db_type = db_genre_data.get("photo_type", "general")
 
-        # Read current Darktable tags for this image
         dt_tags = read_darktable_keywords(dt_library, filename)
 
-        dt_primary_genres = [
-            t[len(_PRIMARY_PREFIX):]
-            for t in dt_tags if t.startswith(_PRIMARY_PREFIX)
+        dt_subjects = [
+            t[len(_SUBJECT_PREFIX):]
+            for t in dt_tags if t.startswith(_SUBJECT_PREFIX)
         ]
-        dt_secondaries = {
-            t[len(_SECONDARY_PREFIX):]
-            for t in dt_tags if t.startswith(_SECONDARY_PREFIX)
-        } & genres_set
+        dt_types = [
+            t[len(_TYPE_PREFIX):]
+            for t in dt_tags if t.startswith(_TYPE_PREFIX)
+        ]
 
-        # No photon|primary|* tag — image not yet scored or tags cleared; skip
-        if not dt_primary_genres:
+        if not dt_subjects:
             done += 1
             if json_progress:
                 click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
             continue
 
-        dt_primary = dt_primary_genres[0]
+        dt_subject = dt_subjects[0] if dt_subjects[0] in subjects_set else None
+        dt_type = dt_types[0] if dt_types and dt_types[0] in types_set else None
 
-        # --- Primary correction -----------------------------------------------
-        if dt_primary != db_primary and dt_primary in genres_set:
+        # --- Subject correction -----------------------------------------------
+        if dt_subject and dt_subject != db_subject:
             corpus_entries.append({
                 "filename": filename,
-                "genres": [dt_primary],
+                "subject": dt_subject,
                 "source_folder": folder,
                 "needs_review": False,
                 "labeled_at": now_iso,
                 "labeler": labeler,
-                "correction_of": db_primary,
+                "correction_of": db_subject,
             })
             if json_progress:
                 click.echo(json.dumps({
-                    "step": "collect-corrections",
-                    "file": filename,
-                    "status": "primary-correction",
-                    "was": db_primary,
-                    "correction": dt_primary,
+                    "step": "collect-corrections", "file": filename,
+                    "status": "subject-correction",
+                    "was": db_subject, "correction": dt_subject,
                 }))
 
-        # --- Secondary feedback -----------------------------------------------
-        added = (dt_secondaries - db_secondaries) & genres_set
-        removed = (db_secondaries - dt_secondaries) & genres_set
-
-        if added or removed:
-            secondary_entries.append({
+        # --- Type correction --------------------------------------------------
+        if dt_type and dt_type != db_type:
+            type_entries.append({
                 "filename": filename,
+                "photo_type": dt_type,
                 "source_folder": folder,
-                "db_primary": db_primary,
-                "dt_primary": dt_primary,
-                "added_secondary": sorted(added),
-                "removed_secondary": sorted(removed),
+                "db_type": db_type,
                 "collected_at": now_iso,
                 "labeler": labeler,
             })
             if json_progress:
                 click.echo(json.dumps({
-                    "step": "collect-corrections",
-                    "file": filename,
-                    "status": "secondary-feedback",
-                    "added": sorted(added),
-                    "removed": sorted(removed),
+                    "step": "collect-corrections", "file": filename,
+                    "status": "type-correction",
+                    "was": db_type, "correction": dt_type,
                 }))
 
         done += 1
@@ -1160,27 +1196,78 @@ def collect_corrections(
                 for entry in corpus_entries:
                     f.write(json.dumps(entry) + "\n")
 
-        if secondary_entries:
+        if type_entries:
             secondary_feedback.parent.mkdir(parents=True, exist_ok=True)
             with secondary_feedback.open("a", encoding="utf-8") as f:
-                for entry in secondary_entries:
+                for entry in type_entries:
                     f.write(json.dumps(entry) + "\n")
+
+        # Update photonforge.db so genres reflect the user's corrections.
+        update_conn = _sqlite3.connect(str(photon_db))
+        corrected_filenames: list[str] = []
+        for entry in corpus_entries:
+            fn = entry["filename"]
+            corrected_subject = entry["subject"]
+            row = update_conn.execute(
+                f"SELECT genres FROM [{table}] WHERE filename=?", (fn,)
+            ).fetchone()
+            try:
+                old_data = json.loads(row[0]) if row and row[0] else {}
+            except Exception:
+                old_data = {}
+            old_data["subject"] = corrected_subject
+            old_data["subject_confidence"] = 1.0
+            # Check if we also have a type correction for this file
+            for te in type_entries:
+                if te["filename"] == fn:
+                    old_data["photo_type"] = te["photo_type"]
+                    old_data["type_confidence"] = 1.0
+                    break
+            update_conn.execute(
+                f"UPDATE [{table}] SET primary_genre=?, genres=? WHERE filename=?",
+                (corrected_subject, json.dumps(old_data), fn),
+            )
+            corrected_filenames.append(fn)
+        # Type-only corrections (no subject change)
+        for entry in type_entries:
+            fn = entry["filename"]
+            if fn in {e["filename"] for e in corpus_entries}:
+                continue
+            row = update_conn.execute(
+                f"SELECT genres FROM [{table}] WHERE filename=?", (fn,)
+            ).fetchone()
+            try:
+                old_data = json.loads(row[0]) if row and row[0] else {}
+            except Exception:
+                old_data = {}
+            old_data["photo_type"] = entry["photo_type"]
+            old_data["type_confidence"] = 1.0
+            update_conn.execute(
+                f"UPDATE [{table}] SET genres=? WHERE filename=?",
+                (json.dumps(old_data), fn),
+            )
+            corrected_filenames.append(fn)
+        update_conn.commit()
+        update_conn.close()
+
+        manifest = _get_temp_dir() / "photonforge_corrected_files.txt"
+        manifest.write_text("\n".join(corrected_filenames), encoding="utf-8")
 
     if not json_progress:
         dry_label = " [DRY RUN]" if dry_run else ""
         click.echo(f"Checked {total} images{dry_label}")
-        click.echo(f"  Primary corrections:  {len(corpus_entries):3d}  → {corpus}")
-        click.echo(f"  Secondary feedback:   {len(secondary_entries):3d}  → {secondary_feedback}")
+        click.echo(f"  Subject corrections:  {len(corpus_entries):3d}  -> {corpus}")
+        click.echo(f"  Type corrections:     {len(type_entries):3d}  -> {secondary_feedback}")
         if corpus_entries:
-            click.echo("\nPrimary corrections:")
+            click.echo("\nSubject corrections:")
             for e in corpus_entries:
-                click.echo(f"  {e['filename']:40s}  {e['correction_of']:12s} → {e['genres'][0]}")
+                click.echo(f"  {e['filename']:40s}  {e['correction_of']:12s} -> {e['subject']}")
     else:
         click.echo(json.dumps({
             "step": "collect-corrections",
             "status": "summary",
-            "primary_corrections": len(corpus_entries),
-            "secondary_feedback": len(secondary_entries),
+            "subject_corrections": len(corpus_entries),
+            "type_corrections": len(type_entries),
             "dry_run": dry_run,
         }))
 

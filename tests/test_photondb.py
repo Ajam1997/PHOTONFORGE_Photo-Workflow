@@ -175,13 +175,17 @@ def test_mark_duplicate(tmp_path: Path):
 
 
 def test_update_genre_scores_with_multi_genre(tmp_path: Path):
-    """Test update_genre_scores with new multi-genre fields."""
+    """Test update_genre_scores with two-axis genre dict."""
     conn = open_db(tmp_path)
     ensure_table(conn, "T")
     insert_photo(conn, "T", "a.jpg", "a.jpg", None)
 
-    # Update with multi-genre data
-    genres = [("wildlife", 0.87), ("landscape", 0.05)]
+    genres = {
+        "subject": "wildlife",
+        "subject_confidence": 0.87,
+        "photo_type": "landscape",
+        "type_confidence": 0.65,
+    }
     update_genre_scores(
         conn, "T", "a.jpg",
         genre="wildlife",
@@ -202,12 +206,12 @@ def test_update_genre_scores_with_multi_genre(tmp_path: Path):
     assert row["primary_genre"] == "wildlife"
     assert row["needs_review"] == 0
     assert row["clip_embedding"] == b"fake_embedding_bytes"
-    # genres is stored as JSON
     import json
     genres_parsed = json.loads(row["genres"])
-    assert len(genres_parsed) == 2
-    assert genres_parsed[0]["g"] == "wildlife"
-    assert genres_parsed[0]["c"] == 0.87
+    assert genres_parsed["subject"] == "wildlife"
+    assert genres_parsed["subject_confidence"] == 0.87
+    assert genres_parsed["photo_type"] == "landscape"
+    assert genres_parsed["type_confidence"] == 0.65
 
     conn.close()
 
