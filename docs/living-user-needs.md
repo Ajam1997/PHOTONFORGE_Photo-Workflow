@@ -89,21 +89,21 @@ Status: DEFINED
 [UN-030](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/39): Photos ingest automatically from SD card on insertion.
 Acceptance: SD insertion triggers rsync to SSD within 10 seconds.
 KPM: KPM-1.1
-Stage: 4
+Stage: ?
 Status: DEFINED
 Decomposes to: [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56), [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59), [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60)
 
 [UN-031](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/40): SSD cartridges function as portable photo libraries.
 Acceptance: SSD mounts at /mnt/photon_ssd/001. library.db resides at /mnt/photon_ssd/001/darktable/library.db on cartridge.
 KPM: NONE
-Stage: 4
+Stage: ?
 Status: DEFINED
 Decomposes to: [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57), [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61)
 
 [UN-032](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/41): SSD cartridges eject safely without data loss.
 Acceptance: safe_eject.sh flushes SQLite WAL. Zero corruption over 50 eject cycles.
 KPM: KPM-1.4
-Stage: 4
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58)
 
