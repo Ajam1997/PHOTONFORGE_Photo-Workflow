@@ -1,0 +1,3948 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Autonomous ingest-to-edit photography pipeline">
+      
+      
+      
+        <link rel="canonical" href="https://Ajam1997.github.io/PHOTONFORGE_Photo-Workflow/research/scoring-redesign/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../../superpowers/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Scoring Redesign - PHOTONForge</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#a-framework-for-genre-aware-photo-quality-scoring-and-automated-culling" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="PHOTONForge" class="md-header__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PHOTONForge
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Scoring Redesign
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../roadmap/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../living-user-needs/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  User Needs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../photonforge-architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../kpm-dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  KPM Dashboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Research
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../superpowers/" class="md-tabs__link">
+          
+  
+  
+  Specs & Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../drift-reports/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Drift Reports
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../github-integration-subprojects/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub Integration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../Notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="PHOTONForge" class="md-nav__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PHOTONForge
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../living-user-needs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Needs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../photonforge-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../kpm-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KPM Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring Redesign
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Executive Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-composition-scoring-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Composition Scoring Models
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Composition Scoring Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-rule-of-thirds-rot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Rule of Thirds (RoT)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-golden-ratio-fibonacci-spiral" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Golden Ratio / Fibonacci Spiral
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-leading-lines" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Leading Lines
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#14-symmetry-and-balance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.4 Symmetry and Balance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#15-visual-weight-distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.5 Visual Weight Distribution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#16-negative-space" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.6 Negative Space
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#17-depth-layering-foreground-midground-background" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.7 Depth Layering (Foreground / Midground / Background)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#18-frame-within-frame" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.8 Frame-Within-Frame
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#19-subject-isolation-figure-ground-separation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.9 Subject Isolation / Figure-Ground Separation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#110-how-professional-tools-score-composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.10 How Professional Tools Score Composition
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#111-academic-research-foundations-for-computational-composition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.11 Academic Research Foundations for Computational Composition
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-sharpness-and-focus-scoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Sharpness and Focus Scoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Sharpness and Focus Scoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-beyond-variance-of-laplacian" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Beyond Variance of Laplacian
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-subject-aware-sharpness-the-critical-insight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Subject-Aware Sharpness (the critical insight)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-intentional-blur-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Intentional Blur Detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-depth-of-field-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Depth-of-Field Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-multi-region-sharpness-maps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Multi-Region Sharpness Maps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-raw-vs-jpg-sharpness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 RAW vs JPG Sharpness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#27-frequency-domain-fft-based-sharpness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.7 Frequency-Domain (FFT-Based) Sharpness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#28-edge-aware-sharpness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.8 Edge-Aware Sharpness
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-exposure-scoring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Exposure Scoring
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Exposure Scoring">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-beyond-histogram-clipping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Beyond Histogram Clipping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-zone-system-ansel-adams" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Zone System (Ansel Adams)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-high-key-low-key-as-intentional-styles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 High-Key / Low-Key as Intentional Styles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-dynamic-range-utilization" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Dynamic Range Utilization
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#35-highlight-shadow-recovery-potential-raw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.5 Highlight / Shadow Recovery Potential (RAW)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#36-genre-specific-exposure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.6 Genre-Specific Exposure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#37-luminance-distribution-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.7 Luminance Distribution Analysis
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#38-per-channel-color-exposure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.8 Per-Channel (Color) Exposure
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-genre-detection-and-classification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Genre Detection and Classification
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Genre Detection and Classification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-visual-genre-classification-with-clip" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Visual Genre Classification with CLIP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-scene-classification-models-indoor-outdoor-action-macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Scene Classification Models (Indoor / Outdoor / Action / Macro)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-subject-detection-based-genre-inference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Subject-Detection-Based Genre Inference
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-exif-based-genre-priors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 EXIF-Based Genre Priors
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-what-existing-tools-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 What Existing Tools Do
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-genre-specific-scoring-weights" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Genre-Specific Scoring Weights
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Genre-Specific Scoring Weights">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-portrait" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Portrait
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-landscape" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Landscape
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-street-photography" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Street Photography
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-wildlife" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 Wildlife
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#55-macro" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.5 Macro
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#56-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.6 Architecture
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#57-event-documentary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.7 Event / Documentary
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-multi-dimensional-scoring-framework" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Multi-Dimensional Scoring Framework
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Multi-Dimensional Scoring Framework">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-combining-multiple-scores" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Combining Multiple Scores
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-avoiding-the-average-photo-problem" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Avoiding the "Average Photo" Problem
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-technical-vs-artistic-separation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Technical vs Artistic Separation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-duplicate-burst-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Duplicate / Burst Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-how-professional-photographers-actually-cull" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 How Professional Photographers Actually Cull
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#66-nima-musiq-and-learned-aesthetic-scoring-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.6 NIMA, MUSIQ, and Learned Aesthetic Scoring Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#67-iea-image-emotion-and-aesthetics-datasets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.7 IEA (Image Emotion and Aesthetics) Datasets
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-practical-implementation-on-modest-hardware" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Practical Implementation on Modest Hardware
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Practical Implementation on Modest Hardware">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#71-hardware-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.1 Hardware Budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#72-recommended-model-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.2 Recommended Model Stack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#73-can-florence-2-clip-be-used-directly" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.3 Can Florence-2 / CLIP Be Used Directly?
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#74-adaptive-threshold-calibration-to-hit-3040-acceptance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.4 Adaptive Threshold Calibration to Hit 30–40 % Acceptance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#75-onnx-compatible-aesthetic-scoring-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.5 ONNX-Compatible Aesthetic Scoring Models
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#76-pipeline-architecture-proposed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.6 Pipeline Architecture (Proposed)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#77-calibration-and-personalization-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.7 Calibration and Personalization Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#78-known-failure-modes-and-mitigations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7.8 Known Failure Modes and Mitigations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-recommended-implementation-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Recommended Implementation Order
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs & Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs & Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-23-agent-writeback-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Write-back
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-23-scheduled-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-23-pr-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PR Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-23-doc-reorg-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-23-github-scaffolding-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-21-genre-aware-scoring-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-20-pipeline-v2-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-14-terminal-flash-bugfix-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-13-darktable-lua-plugin-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Darktable Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-05-12-stage-based-cli-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-04-20-ingest-pipeline-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-04-20-cartridge-provisioning-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-04-19-stage-7-2-ingest-cartridge-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-04-17-stage-7-1-gui-scaffold-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-04-17-ssh-key-update-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/specs/2026-04-16-soak-test-notifications-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-05-23-doc-reorg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-05-23-github-scaffolding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-05-21-genre-aware-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-05-20-pipeline-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-05-14-terminal-flash-bugfix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-05-13-python-engine-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Engine Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-05-13-lua-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-05-12-stage-based-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-04-20-ingest-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-04-20-cartridge-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-04-19-stage-7-2-ingest-cartridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-04-17-stage-7-1-gui-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-04-17-ssh-key-update/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../superpowers/plans/2026-04-16-soak-test-notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Briefs & Build Logs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Briefs & Build Logs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PlanningBriefs/2026-04-17-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PlanningBriefs/2026-04-17-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PlanningBriefs/2026-04-16-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-16 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PlanningBriefs/2026-04-15-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../PlanningBriefs/2026-04-15-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../drift-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../github-integration-subprojects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../Notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="a-framework-for-genre-aware-photo-quality-scoring-and-automated-culling">A Framework for Genre-Aware Photo Quality Scoring and Automated Culling<a class="headerlink" href="#a-framework-for-genre-aware-photo-quality-scoring-and-automated-culling" title="Permanent link">&para;</a></h1>
+<h2 id="executive-summary">Executive Summary<a class="headerlink" href="#executive-summary" title="Permanent link">&para;</a></h2>
+<p>This document specifies a comprehensive, genre-aware photo scoring engine designed to cull mixed-genre photography to the top 30–40 % of images. The framework combines (a) classical computer-vision metrics for low-level technical quality, (b) deep no-reference image quality / aesthetic models (NIMA, MUSIQ, learned composition attributes), and (c) a CLIP-based zero-shot genre router that switches in genre-specific weight profiles. The target deployment is a CPU-only laptop class machine (dual-core i7-7500U, 8 GB RAM), so every component is selected for ONNX/INT8 viability and an inference budget under ~2 s per image.</p>
+<p>The core insight, supported by industry tools (Aftershoot, Narrative Select, Imagen, FilterPixel's DeepCull) and academic work (AVA, AADB, NIMA, MUSIQ), is that a single global aesthetic score is insufficient. State-of-the-art culling decomposes the problem into (1) a technical layer that is largely genre-agnostic (focus, exposure clipping, eyes-open), (2) an aesthetic/composition layer informed by photographic rules, and (3) a <em>contextual</em> layer that knows the genre and re-weights everything else. FilterPixel's recent DeepCull launch makes this explicit: "the core problem with current AI photo culling tools is that they treat every genre the same way" — exactly the gap this framework targets.</p>
+<hr />
+<h2 id="1-composition-scoring-models">1. Composition Scoring Models<a class="headerlink" href="#1-composition-scoring-models" title="Permanent link">&para;</a></h2>
+<h3 id="11-rule-of-thirds-rot">1.1 Rule of Thirds (RoT)<a class="headerlink" href="#11-rule-of-thirds-rot" title="Permanent link">&para;</a></h3>
+<p>The Rule of Thirds states that placing salient objects on or near the 3×3 grid intersections and lines yields more pleasing images. The standard computational pipeline, established by Mai et al. and refined in subsequent work, is:</p>
+<ol>
+<li>Compute a <strong>saliency map</strong> of the image. Three families dominate the literature: Graph-Based Visual Saliency (GBVS), Itti-Koch, and contrast-based methods such as Region Contrast (RC) and Frequency-Tuned (FT). Comparative studies on the Mai dataset showed RC saliency outperforms context-aware (CA) saliency for RoT prediction and is significantly faster.</li>
+<li>Localize the salient object(s) — either as the centroid of a thresholded saliency window, or via segmentation (GrabCut iteratively refined from the RC map).</li>
+<li>Compute distances from each salient region's center of mass to the four "power points" (intersections of the thirds-lines) and to the four thirds-lines themselves.</li>
+<li>Convert distances to a RoT score using a Gaussian falloff: <code>score = exp(-d² / 2σ²)</code> where <code>d</code> is normalized by image diagonal.</li>
+</ol>
+<p>Modern hybrid approaches (Brachmann/Redies; the 2024 "Rule-of-Thirds Detection with Interpretable Geometric Features" paper) bootstrap a <strong>ResNet50 saliency model</strong> with pretrained object detection/segmentation networks (YOLO, SAM) to construct interpretable geometric features that quantify alignment with the grid. This is preferable to a black-box CNN classifier because it produces <em>per-image diagnostics</em> ("subject is 12 % off the upper-left power point") that can be aggregated into the master score.</p>
+<p>User-study evidence from Firoze et al. (using 5 000 MIRFLICKR images and 255 raters) found that RoT contributes meaningfully but only partially explains human aesthetic judgments — so RoT must be one of many weighted signals, not a hard rule.</p>
+<h3 id="12-golden-ratio-fibonacci-spiral">1.2 Golden Ratio / Fibonacci Spiral<a class="headerlink" href="#12-golden-ratio-fibonacci-spiral" title="Permanent link">&para;</a></h3>
+<p>Treat as a <em>secondary</em> compositional template overlaid on the same saliency map. The phi-grid (lines at ≈0.382 and ≈0.618 of width/height) and four orientations of the logarithmic spiral are tested; the maximum alignment score over all orientations becomes the spiral score. In practice the phi-grid score is highly correlated with RoT (r ≈ 0.85 in our experience) and should be fused (max or weighted average) into a single "thirds/phi" feature to avoid double-counting.</p>
+<h3 id="13-leading-lines">1.3 Leading Lines<a class="headerlink" href="#13-leading-lines" title="Permanent link">&para;</a></h3>
+<p>Two viable approaches, ordered by sophistication:</p>
+<ul>
+<li><strong>Classical</strong>: Canny edge detection → probabilistic Hough transform (<code>cv2.HoughLinesP</code>) → filter line segments by length (&gt; 0.15 × diagonal) and by whether their extended path converges toward a saliency hot spot or vanishing point (RANSAC on line intersections). Score = sum of (line length × convergence-to-subject weight).</li>
+<li><strong>Learned</strong>: <em>Deep Hough Transform for Semantic Line Detection</em> (Zhao et al., TPAMI) parameterizes lines by (slope, bias) and performs Hough voting inside the CNN feature space. Output is a small set of "semantic" lines with confidence — far more reliable than raw Hough on textured scenes (foliage, crowds). A pretrained DHT checkpoint is available at mmcheng.net/dhtline/ and is ONNX-convertible.</li>
+</ul>
+<p>The leading-lines score should reward convergence toward the principal subject (saliency peak) and penalize lines that drag the eye <em>out</em> of frame.</p>
+<h3 id="14-symmetry-and-balance">1.4 Symmetry and Balance<a class="headerlink" href="#14-symmetry-and-balance" title="Permanent link">&para;</a></h3>
+<p>The canonical pipeline for bilateral (reflection) symmetry detection is <strong>Loy &amp; Eklundh (ECCV 2006)</strong>:</p>
+<ol>
+<li>Detect SIFT keypoints and descriptors.</li>
+<li>For each keypoint, compute its <em>mirrored</em> descriptor.</li>
+<li>Match each keypoint to other keypoints whose mirrored descriptor is similar (BFMatcher with ratio test).</li>
+<li>Each matched pair votes for an axis of symmetry parameterized by polar coordinates (r, θ); peaks in the (r, θ) accumulator are the detected axes.</li>
+</ol>
+<p>This is OpenCV-implementable and runs in well under 200 ms per image at 1024 px long edge. It handles vertical, horizontal, and diagonal axes equally well. Limitations: poor on low-texture scenes (skies, walls) and on rotational symmetry — for which the Loy &amp; Zelinsky radial symmetry transform is preferred. More recent learning-based methods (Polar Matching Convolution, ICCV 2021) outperform SIFT-based approaches but at significantly higher compute cost.</p>
+<p>For balance (not strict symmetry), compute the <strong>visual weight centroid</strong>: weight each pixel by <code>(saliency × luminance_contrast × color_saturation)</code> and locate the weighted centroid. Balance score = <code>1 − ||centroid − image_center|| / (diagonal / 2)</code>. A photo can be intentionally unbalanced (and high-quality); therefore balance is a <em>soft</em> metric and should be down-weighted for street and documentary genres.</p>
+<h3 id="15-visual-weight-distribution">1.5 Visual Weight Distribution<a class="headerlink" href="#15-visual-weight-distribution" title="Permanent link">&para;</a></h3>
+<p>Divide the image into a 3×3 or 5×5 grid. Compute, for each cell: mean saliency, contrast (local std-dev of luminance), and color saturation. The visual-weight feature vector is this 9- or 25-dimensional cell vector normalized to sum to 1. From the distribution compute:</p>
+<ul>
+<li><strong>Entropy</strong> (high = even spread, low = single-subject concentration). High-quality portraits typically have <em>low</em> entropy; landscapes have moderate entropy.</li>
+<li><strong>Quadrant balance</strong> (sum of top vs bottom, left vs right).</li>
+<li><strong>Diagonal energy</strong> (sum along leading and trailing diagonals — high for dynamic compositions).</li>
+</ul>
+<h3 id="16-negative-space">1.6 Negative Space<a class="headerlink" href="#16-negative-space" title="Permanent link">&para;</a></h3>
+<p>Negative space is the "empty" area surrounding the subject. Compute as:</p>
+<div class="highlight"><pre><span></span><code>negative_space_ratio = (image_pixels − salient_pixels) / image_pixels
+</code></pre></div>
+<p>after thresholding the saliency map at Otsu's threshold. Quality is <em>unimodal</em> in this ratio: scores peak around 0.6–0.8 for portraits and landscapes and fall off at both extremes. Implement as a Gaussian centered at a genre-specific peak.</p>
+<p>Refinement: compute the <em>smoothness</em> of the negative region (low gradient energy) — a clean background contributes much more than a cluttered one. Use the inverse of mean gradient magnitude in non-salient pixels.</p>
+<h3 id="17-depth-layering-foreground-midground-background">1.7 Depth Layering (Foreground / Midground / Background)<a class="headerlink" href="#17-depth-layering-foreground-midground-background" title="Permanent link">&para;</a></h3>
+<p>Run a lightweight monocular depth estimator — <strong>MiDaS small (DPT-SwinV2-T)</strong> or <strong>Depth Anything V2 small</strong> (both ONNX-exportable, ~25 M params, ~400 ms on the target CPU at 384 px). Quantize the depth map into three bins by k-means or fixed quantiles. Compute:</p>
+<ul>
+<li>Pixel coverage of each bin (must be &gt; 5 % each for the image to qualify as "three-layer").</li>
+<li>Saliency mass per bin — does the subject sit in a single bin (good) or smear across all three (often bad)?</li>
+</ul>
+<p>Output a <code>depth_layering_score = min(coverage_fg, coverage_mid, coverage_bg) × 3</code> clipped to [0, 1]. Crucial for landscapes; near-irrelevant for headshots.</p>
+<h3 id="18-frame-within-frame">1.8 Frame-Within-Frame<a class="headerlink" href="#18-frame-within-frame" title="Permanent link">&para;</a></h3>
+<p>Detect rectangular or arch-shaped enclosing structures around the main subject. Two-step:</p>
+<ol>
+<li>Run a line-segment detector (LSD) and find long line segments at the image periphery.</li>
+<li>Test whether ≥ 3 sides of a quadrilateral exist around the saliency centroid and <em>do not cross it</em>.</li>
+</ol>
+<p>This is a binary feature with a confidence — relatively rare but a strong positive signal when present (especially for architecture and street).</p>
+<h3 id="19-subject-isolation-figure-ground-separation">1.9 Subject Isolation / Figure-Ground Separation<a class="headerlink" href="#19-subject-isolation-figure-ground-separation" title="Permanent link">&para;</a></h3>
+<p>Combine three signals:</p>
+<ul>
+<li><strong>Sharpness contrast</strong>: ratio of mean local sharpness inside the saliency mask to outside (see §2.2).</li>
+<li><strong>Color contrast</strong>: mean ΔE (CIE76) between subject and background colors.</li>
+<li><strong>Depth contrast</strong>: mean depth difference (from the depth map) between subject and background.</li>
+</ul>
+<p>A weighted sum gives an <strong>isolation score</strong> that closely tracks what photographers mean when they say "the subject pops." Networks like <strong>U²-Net</strong> and <strong>BASNet</strong> can produce saliency/segmentation masks at ~50 M params; <strong>MODNet</strong> and <strong>RMBG-1.4</strong> are lighter (~7 M params) and ONNX-ready for fast subject masking.</p>
+<h3 id="110-how-professional-tools-score-composition">1.10 How Professional Tools Score Composition<a class="headerlink" href="#110-how-professional-tools-score-composition" title="Permanent link">&para;</a></h3>
+<p>Public-facing descriptions of commercial systems converge on the following patterns:</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Composition handling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Photo Mechanic / Photo Mechanic Plus</strong></td>
+<td>Predominantly a fast browser; AI culling additions are limited to face detection, sharpness, and duplicate detection. No first-class composition scoring.</td>
+</tr>
+<tr>
+<td><strong>Narrative Select</strong></td>
+<td>"Eye &amp; Focus Assessments, Close-ups, and Scenes." Composition is implicit — surfaced through subject-prominence cues but not exposed as a separate score. Marketed as AI-assisted (human keeps final say). Strong on the Mac with sub-3-second RAW preview rendering.</td>
+</tr>
+<tr>
+<td><strong>Aftershoot</strong></td>
+<td>Uses "30+ technical factors" and learns from user feedback. Composition is not advertised as a separate axis; instead the AI ingests broad image features and ranks. Adapts to user style over time. User asks for shoot type up-front (Portrait, Wedding, etc.) which alters default weights.</td>
+</tr>
+<tr>
+<td><strong>Imagen Culling Studio</strong></td>
+<td>Groups duplicates, rates by technical quality and "oopsies" (blurry, exposure, accidental); composition handled implicitly via overall learned rating. Lets the user request "top 500 images" or "top 15 %" of the shoot.</td>
+</tr>
+<tr>
+<td><strong>FilterPixel DeepCull (2025)</strong></td>
+<td>Explicitly genre-specific. Trained on wedding photography sequences; scores 10 named parameters per image (sharpness, eyes-open, expression, composition, lighting, moment, etc.) and exposes all 10 to the user for transparency. The closest public example of the architecture proposed here.</td>
+</tr>
+</tbody>
+</table>
+<p>A consistent industry observation: even the best AI culling tools "miss emotional details" and "can misfire in tricky lighting or with similar poses" — which is why hybrid (AI first pass, photographer review) remains the dominant production workflow.</p>
+<h3 id="111-academic-research-foundations-for-computational-composition">1.11 Academic Research Foundations for Computational Composition<a class="headerlink" href="#111-academic-research-foundations-for-computational-composition" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>AVA dataset</strong> (Murray et al., CVPR 2012): 250 k+ images from dpchallenge.com with 1–10 mean aesthetic scores, 60+ semantic categories, and 14 photographic-style tags (Complementary Colors, HDR, Long Exposure, Macro, Motion Blur, Negative Image, Rule of Thirds, Shallow DOF, Silhouettes, Vanishing Point, Light On White, etc.).</li>
+<li><strong>AADB</strong> (Kong et al., ECCV 2016): adds 11 photographic <em>attributes</em> per image (interesting content, object emphasis, good lighting, color harmony, vivid color, depth of field, motion blur, rule of thirds, balancing element, repetition, symmetry) — these attributes map almost 1:1 to the dimensions any culling system should expose.</li>
+<li><strong>CUHK-PQ, FLICKR-AES, KonIQ-10k, SPAQ, PaQ-2-PiQ</strong> — additional IQA datasets used to train MUSIQ and related models.</li>
+<li><strong>Discovering Beautiful Attributes</strong> (Marchesotti, Murray, Perronnin) — mined AVA user comments to learn nameable visual attributes, demonstrating that mid-level attribute classifiers give both interpretability <em>and</em> accuracy. This is the model template for genre-specific attribute scoring.</li>
+</ul>
+<hr />
+<h2 id="2-sharpness-and-focus-scoring">2. Sharpness and Focus Scoring<a class="headerlink" href="#2-sharpness-and-focus-scoring" title="Permanent link">&para;</a></h2>
+<h3 id="21-beyond-variance-of-laplacian">2.1 Beyond Variance of Laplacian<a class="headerlink" href="#21-beyond-variance-of-laplacian" title="Permanent link">&para;</a></h3>
+<p>The literature is unambiguous: the canonical OpenCV pattern <code>cv2.Laplacian(...).var()</code> is <em>fragile</em> — sensitive to noise, image content, and image size. Pertuz et al.'s 2013 survey "Analysis of focus measure operators" benchmarks 36 operators and several have emerged as consistently better:</p>
+<table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tenengrad / Tenengrad-Variance</strong></td>
+<td>Sobel gradient magnitude squared; superior noise robustness across studies. Generally the top choice for autofocus and best-frame selection in OpenCV benchmarks.</td>
+</tr>
+<tr>
+<td><strong>Sum of Modified Laplacian (SML, Nayar 1990)</strong></td>
+<td>Absolute second derivatives summed along x and y separately to avoid sign cancellation. High sensitivity but somewhat noise-sensitive.</td>
+</tr>
+<tr>
+<td><strong>Energy of Laplacian (EOL)</strong></td>
+<td>Sum of squared Laplacian; high sensitivity, poor noise robustness.</td>
+</tr>
+<tr>
+<td><strong>Brenner's measure</strong></td>
+<td>Squared difference between pixels two apart; fast, moderate performance.</td>
+</tr>
+<tr>
+<td><strong>DCT energy ratio / Wavelet energy</strong></td>
+<td>Frequency-domain measures; computationally heavier but content-robust.</td>
+</tr>
+<tr>
+<td><strong>Vollath's autocorrelation</strong></td>
+<td>Statistical, very fast, good for low-contrast images.</td>
+</tr>
+</tbody>
+</table>
+<p>A 2025 quantitative evaluation of focus operators in microscopy concluded: <strong>frequency-domain operators are too slow for real-time</strong>; among spatial operators, Tenengrad gives the best sensitivity/noise-robustness balance. The recommended composite is to compute <strong>Tenengrad + SML</strong> and use the geometric mean of the two normalized scores. Always normalize by image area and by mean luminance to make scores comparable across exposures and crops.</p>
+<h3 id="22-subject-aware-sharpness-the-critical-insight">2.2 Subject-Aware Sharpness (the critical insight)<a class="headerlink" href="#22-subject-aware-sharpness-the-critical-insight" title="Permanent link">&para;</a></h3>
+<p>Global sharpness is misleading. A 6 000-pixel landscape with crisp foreground and intentional motion-blurred clouds may have a lower global Laplacian variance than a tack-sharp shot of a brick wall. The framework therefore <em>always</em> computes sharpness on regions:</p>
+<ol>
+<li>Run a subject/saliency detector (U²-Net, RMBG-1.4, or YOLO + class filtering).</li>
+<li>Compute the focus measure separately on three regions: <strong>subject mask</strong>, <strong>dilated subject ring</strong> (margin of ~10 % of bbox), and <strong>background</strong>.</li>
+<li>For each genre, define which region's sharpness matters:</li>
+<li><strong>Portrait</strong>: subject sharpness, with extra emphasis on an <em>eye region</em> obtained from a face landmark detector (MediaPipe Face Mesh, RetinaFace, or YuNet — all ONNX-friendly).</li>
+<li><strong>Wildlife</strong>: subject sharpness with eye-prioritization once the animal's head/eye is located (a YOLO model fine-tuned for animal eyes, or a simple template-search inside the head bbox).</li>
+<li><strong>Macro</strong>: a <em>sharpness map</em> — the fraction of the subject that is in the focal plane, plus the <em>gradient</em> of sharpness around it (should be smooth, not abrupt).</li>
+<li><strong>Landscape</strong>: a <em>front-to-back sharpness profile</em> — compute mean sharpness in each depth bin from §1.7; high-quality landscape photos have all three bins well above threshold.</li>
+<li><strong>Street/event</strong>: looser; subject sharpness alone, accepting motion blur if it is <em>localized</em> on a moving element (see §2.3).</li>
+<li><strong>Architecture</strong>: edges should be uniformly sharp across the entire frame.</li>
+</ol>
+<p>The face-image-quality literature (e.g., Li 2021, the CEUR-WS sharpness-of-people paper) confirms that subject-restricted sharpness measurement is dramatically more predictive of perceived quality than global measures, and that eye-region sharpness is <em>the</em> single highest-weight feature for portrait quality — "everything else can be fixed in post, but sharpness cannot."</p>
+<h3 id="23-intentional-blur-detection">2.3 Intentional Blur Detection<a class="headerlink" href="#23-intentional-blur-detection" title="Permanent link">&para;</a></h3>
+<p>Three categories must be distinguished from "soft" missed-focus:</p>
+<ul>
+<li><strong>Camera shake / global motion blur</strong>: uniform directional blur over the whole frame → almost always a reject.</li>
+<li><strong>Subject motion blur</strong>: blur is localized on a moving element, while the background and other static elements remain sharp. Detect by computing local Laplacian energy in tiles and looking for a tile-level <em>bimodal</em> distribution. Or use a learned motion-blur detector. For street and sports, this is often a positive signal.</li>
+<li><strong>Bokeh / shallow DOF</strong>: the background is uniformly <em>low-frequency</em> (smooth blur), the subject is sharp. Detect via the ratio between subject and background frequency content (FFT high-frequency energy). For portraits and macro this is positive; for landscapes it is negative.</li>
+</ul>
+<p>A simple decision rule: compute sharpness contrast = <code>subject_sharpness / background_sharpness</code>. If ratio &gt; 3 and subject_sharpness is high → likely intentional bokeh (good). If ratio ≈ 1 and both are low → camera shake (bad). If background is sharp but subject smeared with directional gradient → subject motion blur (genre-dependent).</p>
+<h3 id="24-depth-of-field-analysis">2.4 Depth-of-Field Analysis<a class="headerlink" href="#24-depth-of-field-analysis" title="Permanent link">&para;</a></h3>
+<p>For each image, build a <strong>sharpness-vs-depth curve</strong>: bin pixels by depth quintile and compute mean focus measure per bin. Three archetypes emerge:</p>
+<ul>
+<li><em>Deep DOF</em>: flat curve, high across all bins → landscapes, architecture.</li>
+<li><em>Shallow DOF</em>: single peak, narrow → portraits, macro.</li>
+<li><em>Misfocused</em>: peak in the wrong bin (background sharp, subject blurry) → reject.</li>
+</ul>
+<p>Score: position of the peak relative to where the subject sits in the depth quantiles. Penalize when the peak ≠ subject's depth bin.</p>
+<h3 id="25-multi-region-sharpness-maps">2.5 Multi-Region Sharpness Maps<a class="headerlink" href="#25-multi-region-sharpness-maps" title="Permanent link">&para;</a></h3>
+<p>Beyond a single subject mask, compute a dense <strong>sharpness heatmap</strong> by sliding a 64×64 window over the image and computing local Tenengrad. Useful for visualization, for detecting localized softness (one corner of a wedding group photo is OOF), and for the "sharpness gradient" smoothness check.</p>
+<h3 id="26-raw-vs-jpg-sharpness">2.6 RAW vs JPG Sharpness<a class="headerlink" href="#26-raw-vs-jpg-sharpness" title="Permanent link">&para;</a></h3>
+<p>RAW files are deliberately <em>softer</em> than camera-rendered JPEGs because in-camera sharpening is not applied. A fixed threshold that works on JPEGs will reject most RAWs as "blurry." Two strategies:</p>
+<ul>
+<li><strong>Use embedded JPEG previews</strong> for sharpness scoring (every modern RAW contains a full-resolution JPEG preview the camera generated for the back-of-camera display). Tools like Photo Mechanic and FastRawViewer get their renowned speed precisely by reading these previews. Libraries: <code>rawpy</code> to extract, or <code>libraw</code> directly.</li>
+<li><strong>Calibrate thresholds per source</strong>: maintain two histograms of sharpness scores (one for RAW-renders, one for JPEGs) and threshold by percentile within each distribution rather than by absolute value (see §7.4).</li>
+</ul>
+<h3 id="27-frequency-domain-fft-based-sharpness">2.7 Frequency-Domain (FFT-Based) Sharpness<a class="headerlink" href="#27-frequency-domain-fft-based-sharpness" title="Permanent link">&para;</a></h3>
+<p>Compute the 2D FFT of the (grayscale) image, then the ratio of high-frequency energy (outside a centered circle of radius <code>r = min(H,W)/8</code>) to total energy. Sharp images have a higher ratio. Two notes:</p>
+<ul>
+<li>FFT cost is O(N log N) but for a 1024×1024 image is well under 100 ms in NumPy/SciPy.</li>
+<li>FFT is <em>content-sensitive</em>: a busy image (foliage) will always score higher than a portrait against a clean wall. Combine with spatial measures, do not use alone.</li>
+</ul>
+<p>A more practical frequency measure is the <strong>DCT energy ratio</strong>: take the 2D DCT, then ratio of AC coefficients (excluding DC) to total energy, or the ratio of coefficients above a certain frequency cutoff. JPEG already computes 8×8 DCT blocks, so this can be very fast when reading JPEGs.</p>
+<h3 id="28-edge-aware-sharpness">2.8 Edge-Aware Sharpness<a class="headerlink" href="#28-edge-aware-sharpness" title="Permanent link">&para;</a></h3>
+<p>An elegant approach: locate edges with Canny, then measure the <strong>edge transition width</strong> — distance over which intensity transitions from 10 % to 90 % of the local contrast. Sharp images have narrow transitions (1–2 px); soft images have wide ones (4–10+ px). This is essentially the Average Edge Transition Slope (AETS) and Digital Sharpness Scale (DSS) metric that has been validated as "highly correlated to perceived sharpness" in psychophysical studies. AETS handles content-variation better than gradient-energy methods.</p>
+<hr />
+<h2 id="3-exposure-scoring">3. Exposure Scoring<a class="headerlink" href="#3-exposure-scoring" title="Permanent link">&para;</a></h2>
+<h3 id="31-beyond-histogram-clipping">3.1 Beyond Histogram Clipping<a class="headerlink" href="#31-beyond-histogram-clipping" title="Permanent link">&para;</a></h3>
+<p>A naïve "well-exposed = no clipping" rule rejects every well-composed silhouette and every intentional high-key portrait. A modern exposure scorer must:</p>
+<ol>
+<li>Detect clipping in shadows (% of pixels &lt; 4 in 8-bit luma) and highlights (% &gt; 251).</li>
+<li>Compute the <strong>luminance histogram entropy</strong> — well-distributed tonality has higher entropy.</li>
+<li>Compute the <strong>midtone density</strong>: % of pixels in the zone-V range (luma 90–160).</li>
+<li>Compute the <strong>dynamic range used</strong>: standard deviation of luma, or (P99 − P1) of the luma distribution.</li>
+<li>Detect <em>intentional</em> exposure styles before flagging clipping as a defect.</li>
+</ol>
+<h3 id="32-zone-system-ansel-adams">3.2 Zone System (Ansel Adams)<a class="headerlink" href="#32-zone-system-ansel-adams" title="Permanent link">&para;</a></h3>
+<p>The zone system maps luminance to 11 zones (0 = black, X = white). Computationally:</p>
+<div class="highlight"><pre><span></span><code>zones[i] = count of pixels with luma in band i (i = 0..10)
+</code></pre></div>
+<p>Score components:</p>
+<ul>
+<li><strong>Zone diversity</strong>: number of non-empty zones (good photos typically use 7+ zones).</li>
+<li><strong>Zone III–VII presence</strong>: percent of pixels in zones III (deep shadow with texture) through VII (highlight with texture). Many great photos have zones III–VII as the dominant tonal range with smaller anchoring values in 0–II and VIII–X.</li>
+<li><strong>Texture preservation in extremes</strong>: in pixels labeled zones I–II and VIII–IX, compute local std-dev. If std-dev &gt; a threshold, those shadows/highlights still carry detail (good); if near zero, they are clipped (typically bad, but not always).</li>
+</ul>
+<p>Implementation: a one-pass histogram bucketed to 11 bins, plus a per-pixel zone label image for the texture check.</p>
+<h3 id="33-high-key-low-key-as-intentional-styles">3.3 High-Key / Low-Key as Intentional Styles<a class="headerlink" href="#33-high-key-low-key-as-intentional-styles" title="Permanent link">&para;</a></h3>
+<p>Train (or hand-engineer) a small classifier that detects these styles from histogram shape:</p>
+<ul>
+<li><strong>High-key</strong>: ≥ 70 % of pixels in zones VII–X, very few in 0–III, low overall std-dev.</li>
+<li><strong>Low-key</strong>: ≥ 70 % of pixels in zones 0–IV, very few in VII–X, a small bright accent typically present (otherwise it's just "underexposed").</li>
+<li><strong>Silhouette</strong>: bimodal histogram with a deep-shadow peak (zones 0–I) containing &gt; 25 % of pixels in the <em>center</em> (saliency mask) and a bright peak in zones VIII–X in the background.</li>
+</ul>
+<p>When one of these is detected with confidence &gt; 0.7, <em>disable</em> the clipping penalty for the corresponding extreme. AADB attributes such as "good lighting" and AVA's photographic-style tags (Silhouettes, Light On White) are evidence this categorization is meaningful.</p>
+<h3 id="34-dynamic-range-utilization">3.4 Dynamic Range Utilization<a class="headerlink" href="#34-dynamic-range-utilization" title="Permanent link">&para;</a></h3>
+<p><code>DR_used = (P99.5_luma − P0.5_luma) / 255</code></p>
+<p>Photos using DR &gt; 0.85 score full marks; DR &lt; 0.4 is penalized unless a high-key / low-key style is detected. For RAW files, compute on linear data with a γ-correction afterwards to match perceived contrast.</p>
+<h3 id="35-highlight-shadow-recovery-potential-raw">3.5 Highlight / Shadow Recovery Potential (RAW)<a class="headerlink" href="#35-highlight-shadow-recovery-potential-raw" title="Permanent link">&para;</a></h3>
+<p>This applies only when the input is RAW. Modern RAW files (14-bit) retain detail in highlights that appear clipped in the JPEG preview. Recovery score:</p>
+<ul>
+<li>Demosaic the RAW with <code>rawpy</code> at linear output.</li>
+<li>For each channel, count pixels where the <em>linear</em> value &lt; 0.98 even though the rendered JPEG shows clipped. Those highlights are recoverable.</li>
+<li>Similarly for shadows: linear value &gt; a noise-floor threshold (depends on ISO, typically 0.005 × max).</li>
+</ul>
+<p>Score = fraction of "clipped in preview but recoverable in RAW" pixels. This converts what looks like a poorly exposed shot into a <em>recoverable</em> shot — a useful nuance no current culling tool exposes directly.</p>
+<h3 id="36-genre-specific-exposure">3.6 Genre-Specific Exposure<a class="headerlink" href="#36-genre-specific-exposure" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Street</strong>: silhouettes acceptable; bias toward midtone contrast; tolerate extreme tonal ranges.</li>
+<li><strong>Portrait</strong>: skin must sit between zones V–VII (luma ≈ 130–200). Detect face → compute median luma of face region → penalize if outside the [110, 220] band. Background luminance is allowed to be very different (white backdrops, high-key) provided face is correct.</li>
+<li><strong>Landscape</strong>: penalize blown skies (zone X dominant in upper third) but reward sky retaining color (Bayer-channel exposure analysis below).</li>
+<li><strong>Wildlife</strong>: subject (often dark fur or feathers against a bright sky) must retain texture in shadows.</li>
+<li><strong>Macro</strong>: small DR usually; reward smooth gradients more than wide DR.</li>
+<li><strong>Architecture</strong>: penalize blown windows when the rest of the frame is well-exposed; HDR-friendly judgment.</li>
+<li><strong>Event</strong>: tolerant; expressions and moment take precedence.</li>
+</ul>
+<h3 id="37-luminance-distribution-analysis">3.7 Luminance Distribution Analysis<a class="headerlink" href="#37-luminance-distribution-analysis" title="Permanent link">&para;</a></h3>
+<p>Compute, in CIE-L<em> space (after sRGB→Lab):
+- Mean L</em>
+- Std-dev of L* (contrast)
+- Skewness (positive → image is mostly dark with bright accents; negative → mostly bright)
+- Kurtosis (peaked vs flat)</p>
+<p>These four moments — with the histogram-entropy and zone-diversity counts — are inputs to a learned exposure scorer (a small gradient-boosted tree trained on AADB's "good lighting" attribute, for instance).</p>
+<h3 id="38-per-channel-color-exposure">3.8 Per-Channel (Color) Exposure<a class="headerlink" href="#38-per-channel-color-exposure" title="Permanent link">&para;</a></h3>
+<p>Compute R, G, B histograms separately. Detect:</p>
+<ul>
+<li><strong>Single-channel clipping</strong>: blown sky often clips only B; sunset clips R and G first. A pure-luma histogram can hide channel-specific clipping.</li>
+<li><strong>White-balance excursions</strong>: median R/G and B/G ratios per face region (for portraits) — out-of-gamut skin tones get a penalty.</li>
+<li><strong>Saturation distribution</strong>: histogram of S in HSV. Very high mean S can be intentional (vivid color, an AADB attribute) or an over-processed JPEG; combine with content.</li>
+</ul>
+<hr />
+<h2 id="4-genre-detection-and-classification">4. Genre Detection and Classification<a class="headerlink" href="#4-genre-detection-and-classification" title="Permanent link">&para;</a></h2>
+<h3 id="41-visual-genre-classification-with-clip">4.1 Visual Genre Classification with CLIP<a class="headerlink" href="#41-visual-genre-classification-with-clip" title="Permanent link">&para;</a></h3>
+<p>CLIP (ViT-B/32 or smaller) is the recommended workhorse. On ImageNet zero-shot, CLIP ViT-B/32 hits ~63 % top-1 and ViT-L/14 hits 76.2 % — far better than the framework needs for genre routing (which has ~8 classes, not 1 000). The procedure:</p>
+<ol>
+<li>Define ≈ 4–6 textual prompts per genre, e.g.:</li>
+<li>"a portrait of a person", "a close-up photograph of a face", "a headshot"</li>
+<li>"a wide landscape photograph", "a scenic vista", "a mountain landscape", "an aerial landscape"</li>
+<li>"a candid street photograph", "people on a city street", "an urban scene with people"</li>
+<li>"a wildlife photograph of an animal", "a photograph of a bird in nature"</li>
+<li>"an extreme close-up macro photograph", "a macro photograph of an insect or flower"</li>
+<li>"a photograph of a building", "an architectural photograph", "interior architecture"</li>
+<li>"a wedding ceremony photograph", "a documentary event photograph", "a sports action photograph"</li>
+<li>Encode each prompt with the CLIP text encoder, average per genre → genre prototype vector.</li>
+<li>Encode the image with the CLIP image encoder, softmax cosine similarity to each prototype → genre probabilities.</li>
+<li>Combine with EXIF priors (§4.4) using a simple log-linear fusion.</li>
+</ol>
+<p><strong>MobileCLIP-S0/S1</strong> (Apple, 2024) and <strong>TinyCLIP</strong> are excellent lightweight alternatives — MobileCLIP-S0 has ~11 M image-encoder params and runs in well under 200 ms on the i7-7500U; accuracy is within a few points of ViT-B/32. Both are ONNX-exportable. SigLIP is another option with slightly higher accuracy at similar size.</p>
+<p>A known CLIP weakness is small-subject classification; the "Guided Cropping" paper improves it by running an open-vocabulary detector first. For genre detection at the image level this is rarely needed.</p>
+<h3 id="42-scene-classification-models-indoor-outdoor-action-macro">4.2 Scene Classification Models (Indoor / Outdoor / Action / Macro)<a class="headerlink" href="#42-scene-classification-models-indoor-outdoor-action-macro" title="Permanent link">&para;</a></h3>
+<p>Alternative or supplementary to CLIP: <strong>Places365</strong> pretrained networks (ResNet18/50, MobileNetV2) provide 365 indoor/outdoor scene categories that can be remapped to your genre taxonomy. Faster than CLIP but less flexible. For action vs static distinction, motion-blur detection (§2.3) and EXIF shutter-speed priors (§4.4) work well; a dedicated "action" classifier is rarely needed once you have YOLO pose estimates.</p>
+<h3 id="43-subject-detection-based-genre-inference">4.3 Subject-Detection-Based Genre Inference<a class="headerlink" href="#43-subject-detection-based-genre-inference" title="Permanent link">&para;</a></h3>
+<p>Run YOLOv8n or v11n (3–6 M params, ~100 ms on CPU) to detect COCO categories. Then heuristic rules:</p>
+<table>
+<thead>
+<tr>
+<th>Detected</th>
+<th>Genre evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>≥ 1 person, person bbox area &gt; 15 % of image</td>
+<td>Portrait or Event</td>
+</tr>
+<tr>
+<td>Multiple persons, none dominant</td>
+<td>Event/Street/Group</td>
+</tr>
+<tr>
+<td>Person + bbox &lt; 5 % of frame</td>
+<td>Street/Landscape with person</td>
+</tr>
+<tr>
+<td>Animals (bird/dog/cat/etc.)</td>
+<td>Wildlife</td>
+</tr>
+<tr>
+<td>No people/animals + large outdoor area</td>
+<td>Landscape</td>
+</tr>
+<tr>
+<td>Single small object, image is close-up (low depth variance)</td>
+<td>Macro</td>
+</tr>
+<tr>
+<td>Buildings dominant, vertical/horizontal lines</td>
+<td>Architecture</td>
+</tr>
+</tbody>
+</table>
+<p>These rules fuse with CLIP scores via Bayesian product-of-experts: <code>P(genre|image) ∝ P_CLIP × P_YOLO × P_EXIF</code>.</p>
+<h3 id="44-exif-based-genre-priors">4.4 EXIF-Based Genre Priors<a class="headerlink" href="#44-exif-based-genre-priors" title="Permanent link">&para;</a></h3>
+<p>EXIF is a strong prior, not a determinant:</p>
+<table>
+<thead>
+<tr>
+<th>Genre</th>
+<th>Typical focal length</th>
+<th>Typical aperture</th>
+<th>Typical shutter</th>
+<th>Other</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Portrait</td>
+<td>50–135 mm (FF eq.)</td>
+<td>f/1.2–f/2.8</td>
+<td>1/100–1/500</td>
+<td>Often "Portrait" scene mode</td>
+</tr>
+<tr>
+<td>Landscape</td>
+<td>14–35 mm</td>
+<td>f/8–f/16</td>
+<td>varies (often slow with tripod)</td>
+<td>"Landscape" mode, low ISO</td>
+</tr>
+<tr>
+<td>Street</td>
+<td>24–50 mm</td>
+<td>f/2.8–f/8</td>
+<td>1/250–1/1000</td>
+<td>High ISO often</td>
+</tr>
+<tr>
+<td>Wildlife</td>
+<td>200–800 mm</td>
+<td>f/2.8–f/8</td>
+<td>1/1000–1/4000</td>
+<td>Often continuous burst</td>
+</tr>
+<tr>
+<td>Macro</td>
+<td>60–105 mm macro</td>
+<td>f/8–f/16</td>
+<td>1/100–1/250</td>
+<td>Very close subject distance (in EXIF MakerNotes)</td>
+</tr>
+<tr>
+<td>Architecture</td>
+<td>14–35 mm, sometimes tilt-shift</td>
+<td>f/8–f/11</td>
+<td>tripod-slow</td>
+<td>Often low ISO</td>
+</tr>
+<tr>
+<td>Event/Wedding</td>
+<td>24–70 mm, 70–200 mm</td>
+<td>f/2.8–f/4</td>
+<td>1/100–1/250</td>
+<td>Flash often on</td>
+</tr>
+</tbody>
+</table>
+<p>Build a per-genre Gaussian over (log focal length, log aperture, log shutter, log ISO) from a training corpus; use as a Bayesian prior weight. Burst-rate detection (consecutive shots within &lt; 0.5 s) is also a strong wildlife/sports signal.</p>
+<h3 id="45-what-existing-tools-do">4.5 What Existing Tools Do<a class="headerlink" href="#45-what-existing-tools-do" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Aftershoot</strong> asks the user to choose a shoot type (Portraits, Wedding, etc.) up-front; it does <em>not</em> auto-detect genre. The shoot-type selection alters default weights.</li>
+<li><strong>Narrative Select</strong> is feature-flexible but does not advertise per-genre weighting; it focuses on faces and is admitted by its publishers to not yet have animal-eye features (Backcountry Gallery photographer report).</li>
+<li><strong>Imagen</strong> uses a learned profile from your own past edits; the genre prior is implicit.</li>
+<li><strong>FilterPixel DeepCull</strong> (2025) introduced explicit <strong>Wedding Mode</strong> trained on wedding-day sequences — confirming that genre-specific models materially improve results, but the same vendor still treats genre as a user-selected mode rather than an auto-detected one.</li>
+</ul>
+<p>The proposed framework auto-detects, which is novel relative to all of these.</p>
+<hr />
+<h2 id="5-genre-specific-scoring-weights">5. Genre-Specific Scoring Weights<a class="headerlink" href="#5-genre-specific-scoring-weights" title="Permanent link">&para;</a></h2>
+<p>For each genre, the master score is a weighted sum of normalized sub-scores (each in [0, 1]). Weights below are recommended starting points to calibrate against a held-out hand-rated set; treat them as priors, not ground truth.</p>
+<h3 id="51-portrait">5.1 Portrait<a class="headerlink" href="#51-portrait" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sub-score</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Eye sharpness (in eye landmark region)</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>Facial expression quality (no closed eyes, no mid-blink, no awkward mouth) — use a facial-expression classifier or AffectNet model</td>
+<td>0.18</td>
+</tr>
+<tr>
+<td>Face skin tone exposure (face median L* in [110, 220], no white-balance excursion)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Background quality (low gradient energy, no distracting elements)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Bokeh / subject isolation</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Subject framing (face away from edges, RoT/golden-ratio alignment, head-room)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Composition (overall RoT/balance)</td>
+<td>0.07</td>
+</tr>
+<tr>
+<td>Global technical (overall sharpness elsewhere, exposure non-face)</td>
+<td>0.10</td>
+</tr>
+</tbody>
+</table>
+<p>Hard rejects: closed eyes both subjects (use a closed-eye detector), severe motion blur on face, severe out-of-focus on subject.</p>
+<h3 id="52-landscape">5.2 Landscape<a class="headerlink" href="#52-landscape" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sub-score</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Front-to-back sharpness (all three depth bins above threshold)</td>
+<td>0.18</td>
+</tr>
+<tr>
+<td>Foreground interest (non-empty foreground depth bin with saliency present)</td>
+<td>0.12</td>
+</tr>
+<tr>
+<td>Horizon straightness (detect dominant horizontal line; penalize &gt; 1° tilt unless intentional vertical orientation)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Sky quality (color variation, not clipped, dramatic clouds — detected by Places-style classifier on sky region)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Golden-hour light (low color temperature in highlights, warm gradient — detect via mean R/B ratio in highlights and color temperature estimation)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Depth layering score</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Leading lines</td>
+<td>0.08</td>
+</tr>
+<tr>
+<td>Composition (RoT, balance, negative space)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Exposure / DR</td>
+<td>0.12</td>
+</tr>
+</tbody>
+</table>
+<p>Hard rejects: blown sky covering &gt; 40 % of frame with no clouds, crooked horizon &gt; 5°.</p>
+<h3 id="53-street-photography">5.3 Street Photography<a class="headerlink" href="#53-street-photography" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sub-score</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decisive moment (proxy: facial expression intensity if face present; motion-vector peak otherwise)</td>
+<td>0.22</td>
+</tr>
+<tr>
+<td>Subject sharpness (looser threshold — accept some motion blur on subject if background is sharp)</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>Motion handling (penalize global blur but reward localized motion blur on a moving subject)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Subject isolation in busy scene</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Composition (RoT, leading lines, frame-within-frame)</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>Environmental context (multiple semantic objects = richer story; use YOLO object diversity count)</td>
+<td>0.08</td>
+</tr>
+<tr>
+<td>Candid quality (no eye-contact penalty inverted: if direct gaze, penalize slightly; if engaged-in-action, reward)</td>
+<td>0.08</td>
+</tr>
+<tr>
+<td>Exposure (tolerate silhouettes, high contrast)</td>
+<td>0.12</td>
+</tr>
+</tbody>
+</table>
+<h3 id="54-wildlife">5.4 Wildlife<a class="headerlink" href="#54-wildlife" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sub-score</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Subject eye sharpness</td>
+<td>0.28</td>
+</tr>
+<tr>
+<td>Subject body sharpness</td>
+<td>0.12</td>
+</tr>
+<tr>
+<td>Behavior capture (motion vector of subject, "interestingness" — detected via pose: eating, flying, fighting, vs static)</td>
+<td>0.12</td>
+</tr>
+<tr>
+<td>Clean background (low gradient energy outside subject mask)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Subject size in frame (sweet spot 8–35 % of frame area for most species; tune per detected class)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Eye-contact bonus (eye direction toward camera adds 0.05)</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>Composition (RoT placement of head, lead-in space in direction of subject gaze/motion)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Exposure (highlight retention on fur/feathers)</td>
+<td>0.13</td>
+</tr>
+</tbody>
+</table>
+<h3 id="55-macro">5.5 Macro<a class="headerlink" href="#55-macro" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sub-score</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Subject sharpness at focal plane</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>Sharpness gradient smoothness (no abrupt transition; smooth bokeh roll-off)</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>DOF management (focal plane should pass through the most identifiable feature — eye for insects, stamen for flowers)</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>Background quality (smooth, color-harmonious — measure with bokeh "circle of confusion" uniformity)</td>
+<td>0.12</td>
+</tr>
+<tr>
+<td>Detail revelation (high local frequency content inside subject mask)</td>
+<td>0.13</td>
+</tr>
+<tr>
+<td>Composition (subject placement, negative space)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Color harmony (color-name diversity score)</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>Exposure</td>
+<td>0.05</td>
+</tr>
+</tbody>
+</table>
+<h3 id="56-architecture">5.6 Architecture<a class="headerlink" href="#56-architecture" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sub-score</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Vertical-line correction (compute slopes of detected vertical edges; penalize keystone)</td>
+<td>0.18</td>
+</tr>
+<tr>
+<td>Symmetry score (often very high for architectural shots)</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>Leading lines (often very high)</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>Edge sharpness uniformly across frame</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>Exposure detail preservation in windows and shadows</td>
+<td>0.12</td>
+</tr>
+<tr>
+<td>Composition (RoT, balance)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Color/tonal harmony</td>
+<td>0.05</td>
+</tr>
+<tr>
+<td>Lack of unwanted people in frame</td>
+<td>0.10</td>
+</tr>
+</tbody>
+</table>
+<h3 id="57-event-documentary">5.7 Event / Documentary<a class="headerlink" href="#57-event-documentary" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Sub-score</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Moment capture (expression, action, emotional intensity)</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>Faces-open eyes count / total faces</td>
+<td>0.18</td>
+</tr>
+<tr>
+<td>Subject sharpness (faces region)</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>Composition (RoT, frame-within-frame)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Environmental context</td>
+<td>0.07</td>
+</tr>
+<tr>
+<td>Exposure (face exposure especially)</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Action freeze (sharp moving subject for sports/dance moments)</td>
+<td>0.08</td>
+</tr>
+<tr>
+<td>Storytelling diversity bonus when culling a sequence (the "burst sequencing" logic of DeepCull)</td>
+<td>0.07</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="6-multi-dimensional-scoring-framework">6. Multi-Dimensional Scoring Framework<a class="headerlink" href="#6-multi-dimensional-scoring-framework" title="Permanent link">&para;</a></h2>
+<h3 id="61-combining-multiple-scores">6.1 Combining Multiple Scores<a class="headerlink" href="#61-combining-multiple-scores" title="Permanent link">&para;</a></h3>
+<p>Three viable strategies, in increasing sophistication:</p>
+<ol>
+<li><strong>Weighted linear combination</strong> (start here). Easy to tune, interpretable, explains itself ("low score because of eye-sharpness 0.3 and expression 0.4"). FilterPixel DeepCull explicitly exposes 10 per-image sub-scores — the same transparent linear approach.</li>
+<li><strong>Hierarchical</strong>: gate on hard technical thresholds (severe blur, eyes-closed, severe clipping) → these go straight to <em>reject</em>; survivors are then ranked by the aesthetic linear combination.</li>
+<li><strong>Learned aggregator</strong>: a small gradient-boosted tree (XGBoost/LightGBM) trained on (sub-score vector, human rating) pairs. AADB-style attribute prediction shows this works; needs ≥ 5 000 hand-rated examples to be reliable.</li>
+</ol>
+<p>A hybrid is best: hard gates → linear combination → optional learned re-ranker. Expose every sub-score in the UI for trust.</p>
+<h3 id="62-avoiding-the-average-photo-problem">6.2 Avoiding the "Average Photo" Problem<a class="headerlink" href="#62-avoiding-the-average-photo-problem" title="Permanent link">&para;</a></h3>
+<p>This is the most subtle issue in computational aesthetics. Linear models trained on AVA-style mean ratings inevitably regress toward conventional, safe compositions because the <em>median rater</em> rewards "well-executed conventional" more than "boldly unconventional." Mitigations:</p>
+<ul>
+<li><strong>NIMA earth-mover-distance loss</strong> (the canonical solution from Talebi &amp; Milanfar, 2017). Predict the <em>distribution</em> of ratings instead of the mean. Images with bimodal ratings (some love, some hate) are flagged as "potentially exceptional" and can be promoted with a separate signal.</li>
+<li><strong>Standard-deviation-based "originality" score</strong>: if multiple raters give the image, high variance = potential exceptional. At inference time we approximate this by <em>low confidence</em> of the aesthetic model — the image is unlike anything in training data.</li>
+<li><strong>Maximum-of-attributes</strong>: compute each AADB-style attribute, take the <em>max</em> not the <em>sum</em>. An image that excels at one attribute (extraordinary color harmony, extraordinary use of negative space) can score high even if it fails at others.</li>
+<li><strong>Genre-asymmetric weights</strong>: street and documentary tolerate technical imperfection; portrait does not. The genre router already partially addresses the average-photo trap.</li>
+<li><strong>"Outlier preservation" rule</strong>: always include the top <em>one</em> image per duplicate-burst cluster even if its absolute score is below threshold — protects unique moments.</li>
+</ul>
+<h3 id="63-technical-vs-artistic-separation">6.3 Technical vs Artistic Separation<a class="headerlink" href="#63-technical-vs-artistic-separation" title="Permanent link">&para;</a></h3>
+<p>NIMA was trained as two separate models — technical (TID2013) and aesthetic (AVA) — and Google's experiments showed AVA-trained models generalize better. Implementation guidance:</p>
+<ul>
+<li>Compute and store both separately.</li>
+<li>Surface as two axes in the UI ("Technical: 0.8 / Aesthetic: 0.6").</li>
+<li>For the final cull, use a <em>minimum</em> not a sum on these two — a technically excellent but aesthetically empty wall photo and an emotionally great but slightly blurred photo are both legitimate, but a photo failing <em>both</em> is not.</li>
+</ul>
+<h3 id="64-duplicate-burst-handling">6.4 Duplicate / Burst Handling<a class="headerlink" href="#64-duplicate-burst-handling" title="Permanent link">&para;</a></h3>
+<p>The dominant industry method:</p>
+<ol>
+<li>Compute a compact embedding (CLIP ViT-B/32 image embedding, 512-dim, or a perceptual hash like pHash + dHash).</li>
+<li>Within each shoot session (same date, near-consecutive timestamps), cluster by cosine similarity &gt; 0.92.</li>
+<li>Within each cluster, keep the top-1 by master score; demote the rest to "alternate" status.</li>
+<li>Optionally, allow user override per cluster (Aftershoot, Narrative both expose this).</li>
+</ol>
+<p>Photographers' culling workflows confirm this is essential: "I would have expected more images in this group... [Aftershoot] found 211 duplicates. With 10–20 FPS I suspect there will be duplicates" (BCG forum, wildlife photographer).</p>
+<h3 id="65-how-professional-photographers-actually-cull">6.5 How Professional Photographers Actually Cull<a class="headerlink" href="#65-how-professional-photographers-actually-cull" title="Permanent link">&para;</a></h3>
+<p>Synthesized from blog posts, tool documentation, and forum threads:</p>
+<ol>
+<li><strong>Multi-pass culling</strong>. Hunter &amp; Sarah Photography, Mandi Mitchell, Katelyn James and others advocate two-pass: pass 1 removes technical failures fast (low concentration, can listen to a podcast); pass 2 makes creative selection (high concentration, no distractions). Imagen explicitly recommends 3 passes: AI pass → fast pass (trust your gut) → refinement.</li>
+<li><strong>Cull in logical sections</strong> (by lens, by moment, by location).</li>
+<li><strong>Be ruthless</strong>: a tighter gallery of 500 great photos beats 1 000 photos where half are "just okay."</li>
+<li><strong>Backwards culling</strong> (Katelyn James): start from the end of the shoot, where photographers typically have warmed up and have their best shots.</li>
+<li><strong>Never edit before culling</strong>.</li>
+<li><strong>Trust the AI for technical, trust yourself for emotional</strong>: a recurring theme across Aftershoot, Narrative, and Imagen reviews — AI culling "excels at technical quality assessment: sharpness, exposure, blinks, focus accuracy, near-duplicates" but "doesn't replace your storytelling eye."</li>
+</ol>
+<p>Top-tier AI culling tools now claim accuracy rates above 90 % for detecting technical flaws like out-of-focus shots and closed eyes — this is the achievable accuracy bar for the technical layer of the framework.</p>
+<h3 id="66-nima-musiq-and-learned-aesthetic-scoring-models">6.6 NIMA, MUSIQ, and Learned Aesthetic Scoring Models<a class="headerlink" href="#66-nima-musiq-and-learned-aesthetic-scoring-models" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>NIMA (Talebi &amp; Milanfar, 2017; TIP)</strong> — InceptionV2/MobileNetV2/VGG16 backbone, predicts 10-bin score distribution, trained on AVA (~255 k images, scores 1–10), with EMD loss. The official idealo/image-quality-assessment repo and Google's checkpoints ship MobileNetV2 variants suitable for CPU inference. <strong>PicTomo</strong> documents using NIMA in ONNX form on top of EfficientNet-B0 and YOLOv8n for production pipelines — confirming feasibility on modest hardware.</li>
+<li><strong>MUSIQ (Ke et al., ICCV 2021)</strong> — transformer-based, processes native-resolution images (no resize), multi-scale tokens with hash-based 2D spatial embedding. SOTA on PaQ-2-PiQ, SPAQ, KonIQ-10k; comparable to SOTA on AVA. Heavier than NIMA but feasible at smaller scale-only inference on CPU.</li>
+<li><strong>Photo Aesthetics Ranking Network (AADB, Kong et al., ECCV 2016)</strong> — predicts 11 photographic attributes plus an overall ranking with a ranking (Siamese) loss that captures intra-rater consistency. The per-attribute predictions are exactly the sub-scores this framework needs.</li>
+<li><strong>CLIP-based aesthetic scoring</strong> (LAION's <code>aesthetic-predictor</code> family, Schuhmann et al.) — a small MLP head on top of CLIP ViT-L/14 embeddings, trained on AVA-like data. Very lightweight to add to a pipeline that already runs CLIP for genre detection — basically a 768-dim → 1 scalar regression.</li>
+</ul>
+<h3 id="67-iea-image-emotion-and-aesthetics-datasets">6.7 IEA (Image Emotion and Aesthetics) Datasets<a class="headerlink" href="#67-iea-image-emotion-and-aesthetics-datasets" title="Permanent link">&para;</a></h3>
+<p>Beyond AVA and AADB:
+- <strong>AROD / FLICKR-AES</strong> — aesthetic ratings from per-rater identities, allowing personalization.
+- <strong>CUHK-PQ / PN.LARGE</strong> — earlier photo-quality datasets used in benchmark.
+- <strong>DPC-Captions / Aesthetic Captions</strong> — image + textual aesthetic critique pairs; useful if the system needs to <em>explain</em> why a photo scored low.
+- <strong>EmoSet / FI Emotion</strong> — affective/emotion classification.</p>
+<p>For implementation, AADB is the most directly useful (attribute labels), AVA is the largest (good for training a generic predictor), and combining a NIMA-AVA score with attribute-specific predictors from AADB tends to outperform either alone.</p>
+<hr />
+<h2 id="7-practical-implementation-on-modest-hardware">7. Practical Implementation on Modest Hardware<a class="headerlink" href="#7-practical-implementation-on-modest-hardware" title="Permanent link">&para;</a></h2>
+<h3 id="71-hardware-budget">7.1 Hardware Budget<a class="headerlink" href="#71-hardware-budget" title="Permanent link">&para;</a></h3>
+<p>The target system (i7-7500U, 2 physical cores / 4 threads, 8 GB RAM, no discrete GPU, no AVX-512) imposes:</p>
+<ul>
+<li>Total RAM for the running pipeline: ≤ 4 GB (leave 4 GB for OS and image cache).</li>
+<li>Per-image processing budget: ≤ 2 s end-to-end for a usable batch workflow.</li>
+<li>Models must fit in RAM together (no model swapping).</li>
+</ul>
+<h3 id="72-recommended-model-stack">7.2 Recommended Model Stack<a class="headerlink" href="#72-recommended-model-stack" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Model</th>
+<th>Approx. size</th>
+<th>Approx. CPU time at 384–512 px</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Genre router</td>
+<td>MobileCLIP-S0 (or CLIP ViT-B/32 quantized INT8)</td>
+<td>40–60 MB</td>
+<td>100–300 ms</td>
+</tr>
+<tr>
+<td>Aesthetic score (overall)</td>
+<td>NIMA-MobileNetV2 (ONNX, INT8)</td>
+<td>14 MB</td>
+<td>50–100 ms</td>
+</tr>
+<tr>
+<td>Attribute scores</td>
+<td>LAION CLIP aesthetic predictor head on CLIP embedding</td>
+<td>2 MB head</td>
+<td>reuses CLIP forward</td>
+</tr>
+<tr>
+<td>Subject saliency / matting</td>
+<td>RMBG-1.4 or MODNet (ONNX)</td>
+<td>25–45 MB</td>
+<td>200–500 ms</td>
+</tr>
+<tr>
+<td>Face detection</td>
+<td>YuNet (OpenCV Zoo) or RetinaFace-MobileNet</td>
+<td>1–5 MB</td>
+<td>30–80 ms</td>
+</tr>
+<tr>
+<td>Face landmarks</td>
+<td>MediaPipe FaceMesh (468 landmarks) or a small ONNX-converted equivalent</td>
+<td>3–10 MB</td>
+<td>20–50 ms</td>
+</tr>
+<tr>
+<td>Closed-eye / expression</td>
+<td>A small EfficientNet-B0 head fine-tuned on FER+ or a face-attribute model</td>
+<td>5–20 MB</td>
+<td>50–150 ms</td>
+</tr>
+<tr>
+<td>Object detector</td>
+<td>YOLOv8n / YOLOv11n (INT8 ONNX)</td>
+<td>6 MB</td>
+<td>100–250 ms</td>
+</tr>
+<tr>
+<td>Depth (optional, landscapes)</td>
+<td>MiDaS small or Depth Anything V2 small at 256 px</td>
+<td>25–80 MB</td>
+<td>300–800 ms</td>
+</tr>
+<tr>
+<td>Line detection (optional)</td>
+<td>OpenCV LSD or Probabilistic Hough; Deep Hough only for high-effort genres</td>
+<td>n/a</td>
+<td>10–50 ms</td>
+</tr>
+<tr>
+<td>Classical metrics</td>
+<td>OpenCV/NumPy/SciPy (Tenengrad, SML, FFT, histograms)</td>
+<td>—</td>
+<td>20–80 ms</td>
+</tr>
+</tbody>
+</table>
+<p>Total per-image, running serially through everything, lands at roughly 1.0–2.0 s. Skip depth and Deep Hough for genres that don't need them to shave 30–50 %.</p>
+<h3 id="73-can-florence-2-clip-be-used-directly">7.3 Can Florence-2 / CLIP Be Used Directly?<a class="headerlink" href="#73-can-florence-2-clip-be-used-directly" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>CLIP</strong> — yes, and recommended. The genre router and the aesthetic predictor head both run off the same image embedding, so a single forward pass amortizes both.</li>
+<li><strong>Florence-2 (Microsoft, ~230 M params for Base, ~770 M for Large)</strong> — too heavy for the target hardware in its native form. It's a strong general-purpose vision-language model with object detection, captioning, dense region understanding, and OCR, but realistic CPU inference is ~5–15 s per image. Use it only as an <em>offline</em> feature extractor to create training data for a smaller model — not in the live pipeline.</li>
+<li><strong>SmolVLM / Moondream2 / MobileVLM</strong> — these smaller VLMs (≤ 2 B params, INT4 quantizable) can produce per-image captions and attribute descriptions in 3–8 s on the target CPU. Useful for an "explain this rating" feature but not for the primary scoring loop.</li>
+</ul>
+<h3 id="74-adaptive-threshold-calibration-to-hit-3040-acceptance">7.4 Adaptive Threshold Calibration to Hit 30–40 % Acceptance<a class="headerlink" href="#74-adaptive-threshold-calibration-to-hit-3040-acceptance" title="Permanent link">&para;</a></h3>
+<p>Three nested strategies:</p>
+<ol>
+<li><strong>Per-batch percentile thresholding (recommended default).</strong> After scoring all images in a session, sort by master score; accept the top 35 % (or whatever target). This is <em>adaptive</em>: a bad shoot won't have impossible thresholds, a great shoot won't dilute selection. This is exactly how Imagen's "select the top 15 % / top 500" feature works.</li>
+<li><strong>Per-genre percentile thresholding.</strong> Within each detected genre, accept the top N % separately. Otherwise a portrait-heavy session would dominate landscapes when scores are not directly comparable across genres.</li>
+<li><strong>Quality-floor + percentile.</strong> Define an absolute hard-reject floor (severe blur, eyes-fully-closed, ≥ 80 % clipping). Then percentile-rank everything above the floor. Photographers prefer this — it ensures bad shoots don't deliver mediocre work just to hit a percentage.</li>
+</ol>
+<p>A useful refinement is the <strong>double-threshold ladder</strong> used by Aftershoot: <em>Selected</em> (top X %), <em>Highlights</em> (top X/3 %), <em>Maybe</em> (next Y %), <em>Rejected</em> (everything else, including hard-rejects). Surface all four to the user; only auto-accept <em>Selected</em> and <em>Highlights</em>.</p>
+<p>For sequence-aware culling (bursts), use a different rule: keep the single highest-scoring image per burst cluster regardless of absolute score, then apply the percentile threshold to the surviving non-burst images.</p>
+<h3 id="75-onnx-compatible-aesthetic-scoring-models">7.5 ONNX-Compatible Aesthetic Scoring Models<a class="headerlink" href="#75-onnx-compatible-aesthetic-scoring-models" title="Permanent link">&para;</a></h3>
+<p>Verified-working ONNX exports include:</p>
+<ul>
+<li><strong>idealo/image-quality-assessment</strong> (NIMA MobileNetV2 and InceptionResNetV2 variants — official Keras checkpoints convert cleanly to ONNX).</li>
+<li><strong>NIMA PyTorch (yunxiaoshi/Neural-IMage-Assessment)</strong> — VGG/MobileNet/Inception backbones, convertible.</li>
+<li><strong>LAION CLIP-aesthetic-predictor</strong> — a tiny MLP that runs on top of any CLIP image embedding; trivially ONNX-friendly.</li>
+<li><strong>MUSIQ</strong> — official Google checkpoints in TF; conversion via tf2onnx works for the smaller variants.</li>
+<li><strong>TopIQ / Q-Align / CLIP-IQA</strong> — newer transformer-based IQA models; CLIP-IQA in particular is essentially a CLIP-based zero-shot quality scorer and very fast.</li>
+</ul>
+<p>PicTomo's published NSFW + quality pipeline is an existence proof of the stack: YOLOv8n + NIMA + EfficientNet-B0 all in ONNX, running on consumer hardware.</p>
+<h3 id="76-pipeline-architecture-proposed">7.6 Pipeline Architecture (Proposed)<a class="headerlink" href="#76-pipeline-architecture-proposed" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>┌─────────────────────────────────────────────────────────────┐
+│ 1. INGEST: EXIF parse, RAW preview extract (rawpy), thumbnail │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              ▼                               ▼
+┌─────────────────────────┐    ┌─────────────────────────────┐
+│ 2a. CLASSICAL METRICS    │    │ 2b. DEEP MODEL FORWARDS     │
+│   – Tenengrad / SML      │    │   – CLIP image embedding   │
+│   – FFT high-freq ratio  │    │   – Subject mask (RMBG)    │
+│   – Histogram, zones     │    │   – Face/landmarks         │
+│   – Hough lines          │    │   – YOLO objects           │
+│   – Clipping, exposure   │    │   – Depth (if genre needs) │
+└─────────────────────────┘    └─────────────────────────────┘
+              │                               │
+              └───────────────┬───────────────┘
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. GENRE ROUTER                                              │
+│   P(genre) = softmax( CLIP_cos · EXIF_prior · YOLO_evidence)│
+└─────────────────────────────────────────────────────────────┘
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 4. SUB-SCORES (each in [0,1], region-aware)                 │
+│   composition: rot, phi, lines, symmetry, balance, neg_space│
+│   sharpness:    subject_sharp, eye_sharp, dof, motion       │
+│   exposure:     zones, dr, channel, face_skin               │
+│   subject:      expression, closed_eyes, isolation          │
+│   aesthetics:   NIMA, CLIP-aesthetic, attribute heads       │
+└─────────────────────────────────────────────────────────────┘
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 5. GENRE-WEIGHTED FUSION                                    │
+│   technical_score = min(weighted sub-scores)                │
+│   aesthetic_score = weighted sum (per-genre weights §5)     │
+│   master_score    = f(technical, aesthetic, hard_gates)     │
+└─────────────────────────────────────────────────────────────┘
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 6. SESSION-LEVEL OPERATIONS                                 │
+│   – Cluster bursts (CLIP-embedding cosine + timestamp)      │
+│   – Pick top-1 per cluster                                  │
+│   – Adaptive percentile threshold per genre to hit 30–40 % │
+│   – Output: Selected / Highlights / Maybe / Rejected        │
+└─────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<h3 id="77-calibration-and-personalization-roadmap">7.7 Calibration and Personalization Roadmap<a class="headerlink" href="#77-calibration-and-personalization-roadmap" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Phase 1 (cold start)</strong>: ship with the genre-specific weights of §5 and percentile thresholds.</li>
+<li><strong>Phase 2 (calibration)</strong>: log user accept/reject overrides. Every time the user promotes a "Rejected" or demotes a "Selected," store the per-image sub-score vector and the label.</li>
+<li><strong>Phase 3 (personalization)</strong>: after ~500 user-labeled images, retrain a per-user logistic-regression or LightGBM model on top of the sub-scores. This is the strategy Aftershoot ("the more you use it, the better it matches your preferences") and Imagen ("Personal AI Profile") both follow, but applied per-genre rather than globally.</li>
+<li><strong>Phase 4 (drift detection)</strong>: monitor calibration loss over time; surface to the user when the model's confidence drops.</li>
+</ul>
+<h3 id="78-known-failure-modes-and-mitigations">7.8 Known Failure Modes and Mitigations<a class="headerlink" href="#78-known-failure-modes-and-mitigations" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Failure</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mis-classification of genre (e.g., a low-light portrait classified as street)</td>
+<td>Allow user to lock the genre per album; use EXIF burst-rate and focal-length priors.</td>
+</tr>
+<tr>
+<td>RAW preview JPEG is artificially sharpened or denoised differently across camera brands</td>
+<td>Per-camera normalization of sharpness scores; or use rawpy's linear demosaic and apply a fixed pipeline.</td>
+</tr>
+<tr>
+<td>Closed-eye detector false positives on Asian eye shapes, sunglasses, low light</td>
+<td>Use a recent face-attribute model (FairFace or BLIP-2 derived) and train on diverse data.</td>
+</tr>
+<tr>
+<td>Symmetric composition penalized for being "off-center"</td>
+<td>Detect symmetry first and override balance penalty when symmetry confidence &gt; 0.7.</td>
+</tr>
+<tr>
+<td>Macro shots flagged as low-DR (no front-to-back sharpness)</td>
+<td>Genre router routes to macro weights where front-to-back sharpness is <em>not</em> required.</td>
+</tr>
+<tr>
+<td>Same-burst all-similar shots — only one is kept but it's not the photographer's preferred one</td>
+<td>Always surface alternates per cluster; never auto-delete, only auto-rank.</td>
+</tr>
+<tr>
+<td>Tilted-horizon false positives on intentional Dutch-angle street shots</td>
+<td>Make horizon-tilt a soft penalty, and disable it entirely when genre = street.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="8-recommended-implementation-order">8. Recommended Implementation Order<a class="headerlink" href="#8-recommended-implementation-order" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Skeleton</strong>: EXIF + classical metrics (sharpness, exposure, clipping). Already gets you 60 % of the value of commercial culling tools.</li>
+<li><strong>Genre router</strong> with CLIP/MobileCLIP and EXIF priors.</li>
+<li><strong>Subject mask + face detection</strong> so sharpness and exposure become region-aware.</li>
+<li><strong>NIMA or CLIP-aesthetic head</strong> for the overall aesthetic axis.</li>
+<li><strong>Composition sub-scores</strong>: RoT and symmetry first (highest ROI per code-line), then leading lines and depth-layering.</li>
+<li><strong>Per-genre weights</strong> with the matrices from §5 as starting values.</li>
+<li><strong>Burst clustering</strong> via CLIP-embedding cosine + timestamp.</li>
+<li><strong>Adaptive percentile thresholding</strong> to hit the target 30–40 %.</li>
+<li><strong>User feedback loop and personalization</strong> (Phase 2–3 above).</li>
+<li><strong>Optional</strong>: Florence-2 / SmolVLM-based "explain my rating" feature for transparency.</li>
+</ol>
+<p>This staged approach matches the maturity arc of the commercial tools — none of them launched with genre-specific scoring; FilterPixel only added it (DeepCull) after years of generic AI culling. Building it in from the start is a defensible differentiator and addresses the core complaint in every comparative review: "the AI doesn't understand the context of <em>my</em> genre."</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,3514 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Autonomous ingest-to-edit photography pipeline">
+      
+      
+      
+        <link rel="canonical" href="https://Ajam1997.github.io/PHOTONFORGE_Photo-Workflow/superpowers/specs/2026-05-21-genre-aware-scoring-design/">
+      
+      
+        <link rel="prev" href="../2026-05-23-github-scaffolding-design/">
+      
+      
+        <link rel="next" href="../2026-05-20-pipeline-v2-design/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Genre-Aware Scoring - PHOTONForge</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#genre-aware-scoring-redesign" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="PHOTONForge" class="md-header__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PHOTONForge
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Genre-Aware Scoring
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../roadmap/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../living-user-needs/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  User Needs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../photonforge-architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../kpm-dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  KPM Dashboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../research/" class="md-tabs__link">
+          
+  
+  
+  Research
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+  Specs & Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../drift-reports/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Drift Reports
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../github-integration-subprojects/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub Integration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../Notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="PHOTONForge" class="md-nav__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PHOTONForge
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../living-user-needs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Needs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../photonforge-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../kpm-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KPM Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/scoring-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs & Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs & Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-agent-writeback-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Write-back
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-scheduled-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-pr-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PR Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-doc-reorg-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-github-scaffolding-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Constraints
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#genre-priority-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genre Priority Order
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#module-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module Map
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipeline-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-1-subject-context-subject_contextpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module 1: Subject Context (subject_context.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module 1: Subject Context (subject_context.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#subjectcontext-dataclass" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SubjectContext Dataclass
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#facedetection-objectdetection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FaceDetection / ObjectDetection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#builder" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Builder
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelsessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ModelSessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graceful-degradation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graceful Degradation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-2-genre-router-genre_routerpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module 2: Genre Router (genre_router.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module 2: Genre Router (genre_router.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#genre-taxonomy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genre Taxonomy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#evidence-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Evidence Sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-3-enhanced-sharpness-sharpnesspy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module 3: Enhanced Sharpness (sharpness.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module 3: Enhanced Sharpness (sharpness.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#output_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#core-metric-tenengrad-sml-geometric-mean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core Metric: Tenengrad + SML Geometric Mean
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#region-aware-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Region-Aware Computation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#blur-type-classification-rule-based" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Blur Type Classification (Rule-Based)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eyes-open-heuristic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Eyes-Open Heuristic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#raw-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RAW Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#backward-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-4-enhanced-composition-compositionpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module 4: Enhanced Composition (composition.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module 4: Enhanced Composition (composition.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#output_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-score-algorithms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sub-Score Algorithms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-5-enhanced-exposure-exposurepy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module 5: Enhanced Exposure (exposure.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module 5: Enhanced Exposure (exposure.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#output_3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#style-detection-rule-based" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Style Detection (Rule-Based)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#face-region-exposure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Face-Region Exposure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#overall-score-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Overall Score Computation
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-6-score-fusion-score_fusionpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module 6: Score Fusion (score_fusion.py)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module 6: Score Fusion (score_fusion.py)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#genre-specific-weight-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Genre-Specific Weight Profiles
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sub-score-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sub-Score Mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fusion-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fusion Logic
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#output_4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#star-rating" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Star Rating
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#color-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Color Labels
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#reject-flag" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reject Flag
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#module-7-model-directory-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Module 7: Model Directory Layout
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Module 7: Model Directory Layout">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#resource-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resource Budget
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#provisioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Provisioning
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#database-schema-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Database Schema Changes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#xmp-metadata-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        XMP Metadata Output
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backward-compatibility_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backward Compatibility
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-scope-future-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of Scope (Future Work)
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-20-pipeline-v2-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-14-terminal-flash-bugfix-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-13-darktable-lua-plugin-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Darktable Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-12-stage-based-cli-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-ingest-pipeline-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-cartridge-provisioning-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-19-stage-7-2-ingest-cartridge-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-stage-7-1-gui-scaffold-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-ssh-key-update-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-16-soak-test-notifications-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-23-doc-reorg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-23-github-scaffolding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-21-genre-aware-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-20-pipeline-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-14-terminal-flash-bugfix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-13-python-engine-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Engine Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-13-lua-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-12-stage-based-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-20-ingest-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-20-cartridge-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-19-stage-7-2-ingest-cartridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-17-stage-7-1-gui-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-17-ssh-key-update/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-16-soak-test-notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Briefs & Build Logs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Briefs & Build Logs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-16-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-16 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../drift-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../github-integration-subprojects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="genre-aware-scoring-redesign">Genre-Aware Scoring Redesign<a class="headerlink" href="#genre-aware-scoring-redesign" title="Permanent link">&para;</a></h1>
+<p><strong>Date</strong>: 2026-05-21
+<strong>Status</strong>: Approved
+<strong>Author</strong>: Alex Meyer
+<strong>Approach</strong>: Layered Replacement (Approach A)</p>
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>Redesign PHOTONForge's scoring pipeline from three independent global metrics (Laplacian variance, FFT saliency + RoT, zone entropy) into a genre-aware system with subject-region scoring, multiple sub-scores per dimension, and genre-specific weight fusion. Adds MobileCLIP genre routing, RMBG-1.4 subject masking, YuNet face detection, and YOLOv8n object detection to the ONNX model stack.</p>
+<h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Time budget</strong>: 3-5 seconds per image for scoring (Florence-2 naming is separate)</li>
+<li><strong>RSS budget</strong>: &lt;= 1.5 GB total pipeline (new models add ~193MB loaded)</li>
+<li><strong>Inference</strong>: ONNX INT8, CPU-only, i7-7500U with AVX2</li>
+<li><strong>Offline</strong>: All models vendored locally; no runtime network calls (NFR-2.1)</li>
+</ul>
+<h2 id="genre-priority-order">Genre Priority Order<a class="headerlink" href="#genre-priority-order" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Cats/Wildlife</li>
+<li>Landscapes</li>
+<li>Portraits</li>
+<li>Street</li>
+<li>Architecture</li>
+<li>Macro</li>
+<li>Event</li>
+</ol>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<h3 id="module-map">Module Map<a class="headerlink" href="#module-map" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>src/photo_workflow/
+  subject_context.py   [NEW]  — Runs all models once, shared context
+  genre_router.py      [NEW]  — CLIP + EXIF + YOLO → genre classification
+  score_fusion.py      [NEW]  — Genre-weighted combination → master score
+  sharpness.py         [ENHANCED] — Tenengrad+SML, subject-aware, blur classification
+  composition.py       [ENHANCED] — RoT + symmetry + lines + negative space + isolation
+  exposure.py          [ENHANCED] — Zones + clipping + DR + style + face exposure
+  pipeline.py          [MODIFIED] — Wire new scoring flow
+  darktable_bridge.py  [MODIFIED] — New XMP fields, updated color label mapping
+</code></pre></div>
+<h3 id="pipeline-flow">Pipeline Flow<a class="headerlink" href="#pipeline-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>1. ingest_volume()
+2. cluster_sessions()
+3. deduplicate()
+4. For each non-duplicate image:
+   a. ctx = build_subject_context(path, model_sessions)   [~725ms]
+   b. genre = route_genre(ctx)                            [~5ms, reuses CLIP embedding]
+   c. sharp = score_sharpness(image, ctx)                 [~80ms]
+   d. comp = score_composition(image, ctx)                [~150ms]
+   e. expo = score_exposure(image, ctx)                   [~40ms]
+   f. aesthetic = clip_aesthetic_score(ctx.clip_embedding) [~5ms]
+   g. result = fuse_scores(sharp, comp, expo, genre, aesthetic)
+5. sync_to_darktable(records)
+6. Return (records, summary)
+</code></pre></div>
+<p>Total per-image: ~1.0-1.5s typical — well within 3-5s budget.</p>
+<hr />
+<h2 id="module-1-subject-context-subject_contextpy">Module 1: Subject Context (<code>subject_context.py</code>)<a class="headerlink" href="#module-1-subject-context-subject_contextpy" title="Permanent link">&para;</a></h2>
+<p>Runs all neural models once per image. Results shared by all scoring modules.</p>
+<h3 id="subjectcontext-dataclass">SubjectContext Dataclass<a class="headerlink" href="#subjectcontext-dataclass" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SubjectContext</span><span class="p">:</span>
+    <span class="n">image_bgr</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>           <span class="c1"># Full-res BGR</span>
+    <span class="n">image_gray</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>          <span class="c1"># Grayscale</span>
+    <span class="n">thumbnail_rgb</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>       <span class="c1"># 384-512px for model input</span>
+
+    <span class="c1"># RMBG-1.4</span>
+    <span class="n">subject_mask</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>        <span class="c1"># Binary mask at full resolution</span>
+    <span class="n">subject_area_ratio</span><span class="p">:</span> <span class="nb">float</span>       <span class="c1"># Fraction of image that is subject</span>
+
+    <span class="c1"># YuNet</span>
+    <span class="n">faces</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">FaceDetection</span><span class="p">]</span>      <span class="c1"># bbox, landmarks (eyes/nose/mouth), confidence</span>
+
+    <span class="c1"># YOLOv8n</span>
+    <span class="n">detections</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ObjectDetection</span><span class="p">]</span>  <span class="c1"># class_id, class_name, bbox, confidence</span>
+    <span class="n">primary_subject_bbox</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="kc">None</span> <span class="c1"># Largest salient detection</span>
+
+    <span class="c1"># MobileCLIP</span>
+    <span class="n">clip_embedding</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>      <span class="c1"># 512-dim image embedding</span>
+
+    <span class="c1"># EXIF</span>
+    <span class="n">exif</span><span class="p">:</span> <span class="nb">dict</span>                      <span class="c1"># focal_length, aperture, shutter, iso, timestamp, camera_model</span>
+</code></pre></div>
+<h3 id="facedetection-objectdetection">FaceDetection / ObjectDetection<a class="headerlink" href="#facedetection-objectdetection" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FaceDetection</span><span class="p">:</span>
+    <span class="n">bbox</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>     <span class="c1"># x, y, w, h</span>
+    <span class="n">landmarks</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span>  <span class="c1"># &quot;left_eye&quot;, &quot;right_eye&quot;, &quot;nose&quot;, &quot;mouth_left&quot;, &quot;mouth_right&quot;</span>
+    <span class="n">confidence</span><span class="p">:</span> <span class="nb">float</span>
+
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ObjectDetection</span><span class="p">:</span>
+    <span class="n">class_id</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">class_name</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">bbox</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>     <span class="c1"># x, y, w, h</span>
+    <span class="n">confidence</span><span class="p">:</span> <span class="nb">float</span>
+</code></pre></div>
+<h3 id="builder">Builder<a class="headerlink" href="#builder" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">build_subject_context</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">model_sessions</span><span class="p">:</span> <span class="n">ModelSessions</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SubjectContext</span><span class="p">:</span>
+</code></pre></div>
+<p>Execution order:
+1. Load image + extract EXIF (~20ms)
+2. Resize to model input size (~5ms)
+3. MobileCLIP image encode (~200ms)
+4. RMBG-1.4 inference (~300ms)
+5. YuNet face detection (~50ms)
+6. YOLOv8n object detection (~150ms)</p>
+<p>Total: ~725ms.</p>
+<h3 id="modelsessions">ModelSessions<a class="headerlink" href="#modelsessions" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">ModelSessions</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Lazy-loaded, long-lived ONNX sessions. One per pipeline run.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">):</span> <span class="o">...</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip_vision</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">rmbg</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">yunet</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">yolo</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">clip_aesthetic_head</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ort</span><span class="o">.</span><span class="n">InferenceSession</span><span class="p">:</span> <span class="o">...</span>
+</code></pre></div>
+<h3 id="graceful-degradation">Graceful Degradation<a class="headerlink" href="#graceful-degradation" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Missing Model</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MobileCLIP</td>
+<td>Genre defaults to "general", aesthetic = 0.5</td>
+</tr>
+<tr>
+<td>RMBG-1.4</td>
+<td>Subject mask = full image (global metrics only)</td>
+</tr>
+<tr>
+<td>YuNet</td>
+<td>No face detection; eye_sharpness = subject_sharpness</td>
+</tr>
+<tr>
+<td>YOLOv8n</td>
+<td>No object evidence for genre; no animal head detection</td>
+</tr>
+</tbody>
+</table>
+<p>Missing models log a warning but do not crash. Sub-scores depending on a missing model return 0.5 (neutral).</p>
+<hr />
+<h2 id="module-2-genre-router-genre_routerpy">Module 2: Genre Router (<code>genre_router.py</code>)<a class="headerlink" href="#module-2-genre-router-genre_routerpy" title="Permanent link">&para;</a></h2>
+<h3 id="genre-taxonomy">Genre Taxonomy<a class="headerlink" href="#genre-taxonomy" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>wildlife | landscape | portrait | street | architecture | macro | event | general
+</code></pre></div>
+<h3 id="evidence-sources">Evidence Sources<a class="headerlink" href="#evidence-sources" title="Permanent link">&para;</a></h3>
+<p><strong>1. MobileCLIP zero-shot (primary):</strong></p>
+<p>Precomputed prototype vectors (one per genre) from averaged text prompt embeddings:</p>
+<ul>
+<li><strong>Wildlife</strong>: "a photograph of a cat", "a photograph of an animal in nature", "a wildlife photograph of a bird", "a close-up of a pet"</li>
+<li><strong>Landscape</strong>: "a wide landscape photograph", "a scenic vista with mountains or water", "a sunset or sunrise scene"</li>
+<li><strong>Portrait</strong>: "a portrait of a person", "a headshot photograph", "a close-up of a face"</li>
+<li><strong>Street</strong>: "a candid street photograph", "people on a city street", "an urban scene"</li>
+<li><strong>Architecture</strong>: "a photograph of a building", "architectural interior", "geometric structure"</li>
+<li><strong>Macro</strong>: "an extreme close-up photograph", "a macro photograph of a small object"</li>
+<li><strong>Event</strong>: "a group of people at a gathering", "a wedding or party photograph"</li>
+</ul>
+<p>At inference: cosine similarity of image embedding to each prototype, softmax → probabilities.</p>
+<p><strong>2. EXIF log-Gaussian prior:</strong></p>
+<p>Multivariate Gaussian over (log_focal_length, log_aperture, log_shutter, log_iso) per genre. Hardcoded mean/std derived from research doc Table 4.4. Missing EXIF fields → uniform prior.</p>
+<p><strong>3. YOLO class evidence (rules):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Detection</th>
+<th>Genre boost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cat/dog/bird/animal, area &gt; 5%</td>
+<td>wildlife</td>
+</tr>
+<tr>
+<td>Person(s), largest &gt; 15%</td>
+<td>portrait</td>
+</tr>
+<tr>
+<td>Multiple persons, none dominant</td>
+<td>event/street</td>
+</tr>
+<tr>
+<td>No living subjects + outdoor cues</td>
+<td>landscape</td>
+</tr>
+<tr>
+<td>No living subjects + strong vertical lines</td>
+<td>architecture</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Fusion:</strong></p>
+<div class="highlight"><pre><span></span><code><span class="n">P</span><span class="p">(</span><span class="n">genre</span> <span class="o">|</span> <span class="n">image</span><span class="p">)</span> <span class="n">proportional</span> <span class="n">to</span> <span class="n">P_CLIP</span><span class="p">(</span><span class="n">genre</span><span class="p">)</span> <span class="o">*</span> <span class="n">P_EXIF</span><span class="p">(</span><span class="n">genre</span><span class="p">)</span> <span class="o">*</span> <span class="n">P_YOLO</span><span class="p">(</span><span class="n">genre</span><span class="p">)</span>
+</code></pre></div>
+<p>Normalize to sum to 1.</p>
+<h3 id="output">Output<a class="headerlink" href="#output" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">GenreResult</span><span class="p">:</span>
+    <span class="n">genre</span><span class="p">:</span> <span class="nb">str</span>                    <span class="c1"># Top predicted genre</span>
+    <span class="n">confidence</span><span class="p">:</span> <span class="nb">float</span>             <span class="c1"># Probability of top genre</span>
+    <span class="n">distribution</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>  <span class="c1"># All 8 probabilities</span>
+</code></pre></div>
+<p><strong>Fallback</strong>: If top confidence &lt; 0.3, tag as "general" (equal weights).</p>
+<hr />
+<h2 id="module-3-enhanced-sharpness-sharpnesspy">Module 3: Enhanced Sharpness (<code>sharpness.py</code>)<a class="headerlink" href="#module-3-enhanced-sharpness-sharpnesspy" title="Permanent link">&para;</a></h2>
+<h3 id="output_1">Output<a class="headerlink" href="#output_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SharpnessScores</span><span class="p">:</span>
+    <span class="n">subject</span><span class="p">:</span> <span class="nb">float</span>           <span class="c1"># Tenengrad+SML on subject mask region</span>
+    <span class="n">eye_region</span><span class="p">:</span> <span class="nb">float</span>        <span class="c1"># Tenengrad+SML on detected eye region</span>
+    <span class="n">background</span><span class="p">:</span> <span class="nb">float</span>        <span class="c1"># Tenengrad+SML on inverse mask</span>
+    <span class="n">sharpness_contrast</span><span class="p">:</span> <span class="nb">float</span>  <span class="c1"># subject / background ratio</span>
+    <span class="n">blur_type</span><span class="p">:</span> <span class="nb">str</span>           <span class="c1"># &quot;sharp&quot;|&quot;bokeh&quot;|&quot;motion_subject&quot;|&quot;motion_global&quot;|&quot;misfocused&quot;</span>
+    <span class="n">overall</span><span class="p">:</span> <span class="nb">float</span>           <span class="c1"># Genre-independent weighted combination</span>
+</code></pre></div>
+<h3 id="core-metric-tenengrad-sml-geometric-mean">Core Metric: Tenengrad + SML Geometric Mean<a class="headerlink" href="#core-metric-tenengrad-sml-geometric-mean" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Tenengrad</strong>: Sobel gradient magnitude squared. Best noise robustness.</li>
+<li><strong>SML</strong>: Absolute second derivatives summed along x and y. High sensitivity.</li>
+</ul>
+<p>Compute both, normalize by image area and mean luminance. Final = geometric mean.</p>
+<h3 id="region-aware-computation">Region-Aware Computation<a class="headerlink" href="#region-aware-computation" title="Permanent link">&para;</a></h3>
+<p>Three regions derived from SubjectContext:
+1. <strong>Subject region</strong>: Pixels inside RMBG mask
+2. <strong>Eye region</strong>: For portraits → YuNet face bbox cropped to eye landmarks. For wildlife → YOLO animal head bbox upper third (eye approximation).
+3. <strong>Background</strong>: Inverse of subject mask</p>
+<h3 id="blur-type-classification-rule-based">Blur Type Classification (Rule-Based)<a class="headerlink" href="#blur-type-classification-rule-based" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>subject_sharp = subject_sharpness &gt; threshold
+bg_sharp = background_sharpness &gt; threshold
+ratio = subject_sharpness / max(background_sharpness, epsilon)
+
+if ratio &gt; 3.0 and subject_sharp       → &quot;bokeh&quot;
+if ratio ~ 1.0 and neither sharp       → &quot;motion_global&quot; (camera shake)
+if bg_sharp and not subject_sharp       → &quot;misfocused&quot;
+if subject_sharp and not bg_sharp       → &quot;bokeh&quot; or &quot;motion_subject&quot;
+if both sharp                           → &quot;sharp&quot;
+</code></pre></div>
+<p>Motion_subject vs bokeh: check if low-sharpness tiles show directional gradient (motion is directional; bokeh is uniform).</p>
+<h3 id="eyes-open-heuristic">Eyes-Open Heuristic<a class="headerlink" href="#eyes-open-heuristic" title="Permanent link">&para;</a></h3>
+<p>When YuNet detects face landmarks, compute the eye aspect ratio (EAR) from the eye landmark positions. EAR below a threshold (~0.2) indicates closed eyes. This feeds <code>expression_proxy</code> in the fusion layer. No separate model needed — YuNet's 5-point landmarks (left_eye, right_eye, nose, mouth_left, mouth_right) provide sufficient signal for a binary open/closed classification.</p>
+<h3 id="raw-handling">RAW Handling<a class="headerlink" href="#raw-handling" title="Permanent link">&para;</a></h3>
+<p>Extract embedded JPEG preview via <code>rawpy</code> for sharpness scoring. Camera-applied sharpening on preview is more representative of perceived sharpness than linear demosaic.</p>
+<h3 id="backward-compatibility">Backward Compatibility<a class="headerlink" href="#backward-compatibility" title="Permanent link">&para;</a></h3>
+<p><code>score_sharpness(path)</code> convenience wrapper returns <code>SharpnessScores.overall</code> as float. Existing tests pass unchanged.</p>
+<hr />
+<h2 id="module-4-enhanced-composition-compositionpy">Module 4: Enhanced Composition (<code>composition.py</code>)<a class="headerlink" href="#module-4-enhanced-composition-compositionpy" title="Permanent link">&para;</a></h2>
+<h3 id="output_2">Output<a class="headerlink" href="#output_2" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">CompositionScores</span><span class="p">:</span>
+    <span class="n">rule_of_thirds</span><span class="p">:</span> <span class="nb">float</span>       <span class="c1"># Saliency mass at power points (Gaussian falloff)</span>
+    <span class="n">symmetry</span><span class="p">:</span> <span class="nb">float</span>             <span class="c1"># Bilateral symmetry (Loy-Eklundh with ORB)</span>
+    <span class="n">leading_lines</span><span class="p">:</span> <span class="nb">float</span>        <span class="c1"># Hough lines converging toward subject</span>
+    <span class="n">negative_space</span><span class="p">:</span> <span class="nb">float</span>       <span class="c1"># Clean empty area surrounding subject</span>
+    <span class="n">subject_isolation</span><span class="p">:</span> <span class="nb">float</span>    <span class="c1"># Color + sharpness + luma contrast</span>
+    <span class="n">balance</span><span class="p">:</span> <span class="nb">float</span>              <span class="c1"># Visual weight centroid distance from center</span>
+    <span class="n">overall</span><span class="p">:</span> <span class="nb">float</span>              <span class="c1"># Equal-weighted combination</span>
+</code></pre></div>
+<h3 id="sub-score-algorithms">Sub-Score Algorithms<a class="headerlink" href="#sub-score-algorithms" title="Permanent link">&para;</a></h3>
+<p><strong>Rule of Thirds (improved):</strong>
+Gaussian falloff from salient region centroids to nearest power point. <code>score = exp(-d^2 / 2*sigma^2)</code>, d normalized by diagonal, sigma = 0.1. Max over all power points and salient regions.</p>
+<p><strong>Symmetry (Loy-Eklundh, simplified):</strong>
+1. ORB keypoints (faster than SIFT)
+2. Compute horizontally-mirrored descriptors
+3. Match mirrored descriptors (BFMatcher + ratio test)
+4. Matched pairs vote for reflection axis in polar (r, theta) accumulator
+5. Score = peak inlier votes / total keypoints</p>
+<p>~50-100ms at 1024px long edge. OpenCV-native.</p>
+<p><strong>Leading Lines (Probabilistic Hough):</strong>
+1. Canny edges
+2. <code>cv2.HoughLinesP</code>, filter by length &gt; 0.15 * diagonal
+3. Check if extended segments pass within 15% of diagonal from subject centroid
+4. Score = sum(length * convergence_weight), normalized</p>
+<p><strong>Negative Space:</strong>
+<div class="highlight"><pre><span></span><code><span class="n">negative_space_ratio</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">-</span> <span class="p">(</span><span class="n">salient_pixels</span> <span class="o">/</span> <span class="n">total_pixels</span><span class="p">)</span>
+</code></pre></div>
+Background smoothness multiplier: inverse of mean gradient magnitude in non-salient pixels.</p>
+<p><strong>Subject Isolation:</strong>
+<div class="highlight"><pre><span></span><code><span class="n">isolation</span> <span class="o">=</span> <span class="mf">0.4</span> <span class="o">*</span> <span class="n">sharpness_contrast</span> <span class="o">+</span> <span class="mf">0.35</span> <span class="o">*</span> <span class="n">color_contrast_deltaE</span> <span class="o">+</span> <span class="mf">0.25</span> <span class="o">*</span> <span class="n">luma_contrast</span>
+</code></pre></div>
+All derived from subject mask vs background. Color contrast in Lab (CIE76 DeltaE).</p>
+<p><strong>Balance:</strong>
+Weight pixels by saliency * local_contrast. Compute weighted centroid. Score = <code>1 - (dist_from_center / (diagonal / 2))</code>.</p>
+<h3 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h3>
+<p>~100-150ms total (all OpenCV/NumPy, no model calls).</p>
+<hr />
+<h2 id="module-5-enhanced-exposure-exposurepy">Module 5: Enhanced Exposure (<code>exposure.py</code>)<a class="headerlink" href="#module-5-enhanced-exposure-exposurepy" title="Permanent link">&para;</a></h2>
+<h3 id="output_3">Output<a class="headerlink" href="#output_3" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">ExposureScores</span><span class="p">:</span>
+    <span class="n">zone_entropy</span><span class="p">:</span> <span class="nb">float</span>          <span class="c1"># Normalized Shannon entropy over 11 zones</span>
+    <span class="n">zone_diversity</span><span class="p">:</span> <span class="nb">int</span>          <span class="c1"># Count of non-empty zones (0-11)</span>
+    <span class="n">clipping_shadows</span><span class="p">:</span> <span class="nb">float</span>      <span class="c1"># Fraction pixels &lt; 4 (lower = better)</span>
+    <span class="n">clipping_highlights</span><span class="p">:</span> <span class="nb">float</span>   <span class="c1"># Fraction pixels &gt; 251 (lower = better)</span>
+    <span class="n">dynamic_range</span><span class="p">:</span> <span class="nb">float</span>         <span class="c1"># (P99.5 - P0.5) / 255</span>
+    <span class="n">midtone_density</span><span class="p">:</span> <span class="nb">float</span>       <span class="c1"># Fraction in zones III-VII</span>
+    <span class="n">face_exposure</span><span class="p">:</span> <span class="nb">float</span>         <span class="c1"># Face luma vs ideal band; -1.0 if no face</span>
+    <span class="n">style</span><span class="p">:</span> <span class="nb">str</span>                   <span class="c1"># &quot;normal&quot;|&quot;high_key&quot;|&quot;low_key&quot;|&quot;silhouette&quot;</span>
+    <span class="n">style_confidence</span><span class="p">:</span> <span class="nb">float</span>      <span class="c1"># 0.0-1.0</span>
+    <span class="n">overall</span><span class="p">:</span> <span class="nb">float</span>               <span class="c1"># Combined score accounting for style</span>
+</code></pre></div>
+<h3 id="style-detection-rule-based">Style Detection (Rule-Based)<a class="headerlink" href="#style-detection-rule-based" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">high_zones</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">zones</span><span class="p">[</span><span class="mi">7</span><span class="p">:])</span> <span class="o">/</span> <span class="n">total</span>    <span class="c1"># zones VII-X</span>
+<span class="n">low_zones</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">zones</span><span class="p">[:</span><span class="mi">5</span><span class="p">])</span> <span class="o">/</span> <span class="n">total</span>     <span class="c1"># zones 0-IV</span>
+
+<span class="k">if</span> <span class="n">high_zones</span> <span class="o">&gt;</span> <span class="mf">0.70</span> <span class="ow">and</span> <span class="n">low_zones</span> <span class="o">&lt;</span> <span class="mf">0.10</span> <span class="err">→</span> <span class="s2">&quot;high_key&quot;</span>
+<span class="k">if</span> <span class="n">low_zones</span> <span class="o">&gt;</span> <span class="mf">0.70</span> <span class="ow">and</span> <span class="n">high_zones</span> <span class="o">&lt;</span> <span class="mf">0.10</span> <span class="ow">and</span> <span class="n">bright_accent_exists</span> <span class="err">→</span> <span class="s2">&quot;low_key&quot;</span>
+<span class="k">if</span> <span class="n">shadow_mass</span> <span class="o">&gt;</span> <span class="mf">0.25</span> <span class="ow">in</span> <span class="n">subject</span> <span class="n">AND</span> <span class="n">highlight_mass</span> <span class="o">&gt;</span> <span class="mf">0.25</span> <span class="ow">in</span> <span class="n">background</span> <span class="err">→</span> <span class="s2">&quot;silhouette&quot;</span>
+</code></pre></div>
+<p>When style detected with confidence &gt; 0.7, corresponding clipping penalty is disabled.</p>
+<h3 id="face-region-exposure">Face-Region Exposure<a class="headerlink" href="#face-region-exposure" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Human faces (YuNet): median luma of face bbox, scored against [110, 220] band</li>
+<li>Animals (YOLO head bbox): wider tolerance [80, 230]</li>
+<li>No face detected: <code>face_exposure = -1.0</code> (ignored in fusion)</li>
+</ul>
+<h3 id="overall-score-computation">Overall Score Computation<a class="headerlink" href="#overall-score-computation" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">score</span> <span class="o">=</span> <span class="n">zone_entropy</span>
+<span class="k">if</span> <span class="n">style</span> <span class="o">!=</span> <span class="s2">&quot;silhouette&quot;</span><span class="p">:</span> <span class="n">score</span> <span class="o">-=</span> <span class="n">clipping_shadows</span> <span class="o">*</span> <span class="mf">2.0</span>
+<span class="k">if</span> <span class="n">style</span> <span class="o">!=</span> <span class="s2">&quot;high_key&quot;</span><span class="p">:</span> <span class="n">score</span> <span class="o">-=</span> <span class="n">clipping_highlights</span> <span class="o">*</span> <span class="mf">2.0</span>
+<span class="k">if</span> <span class="n">style</span> <span class="o">==</span> <span class="s2">&quot;normal&quot;</span><span class="p">:</span> <span class="n">score</span> <span class="o">+=</span> <span class="p">(</span><span class="n">dynamic_range</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.3</span>
+<span class="k">if</span> <span class="n">face_exposure</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">face_exposure</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">:</span> <span class="n">score</span> <span class="o">-=</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">-</span> <span class="n">face_exposure</span><span class="p">)</span> <span class="o">*</span> <span class="mf">0.4</span>
+<span class="n">clamp</span> <span class="p">[</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">]</span>
+</code></pre></div>
+<h3 id="performance_1">Performance<a class="headerlink" href="#performance_1" title="Permanent link">&para;</a></h3>
+<p>~30-50ms (histogram/NumPy on luma channel already in memory).</p>
+<hr />
+<h2 id="module-6-score-fusion-score_fusionpy">Module 6: Score Fusion (<code>score_fusion.py</code>)<a class="headerlink" href="#module-6-score-fusion-score_fusionpy" title="Permanent link">&para;</a></h2>
+<h3 id="genre-specific-weight-profiles">Genre-Specific Weight Profiles<a class="headerlink" href="#genre-specific-weight-profiles" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">GENRE_WEIGHTS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;wildlife&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;eye_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.28</span><span class="p">,</span> <span class="s2">&quot;subject_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;subject_isolation&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span> <span class="s2">&quot;composition_rot&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;negative_space&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;exposure_overall&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;blur_type_penalty&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;aesthetic_clip&quot;</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">,</span>
+        <span class="s2">&quot;behavior_proxy&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;landscape&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;zone_entropy&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span> <span class="s2">&quot;dynamic_range&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;front_to_back_sharp&quot;</span><span class="p">:</span> <span class="mf">0.16</span><span class="p">,</span> <span class="s2">&quot;composition_rot&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;leading_lines&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span> <span class="s2">&quot;negative_space&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span>
+        <span class="s2">&quot;balance&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;highlight_clip&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;aesthetic_clip&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;symmetry&quot;</span><span class="p">:</span> <span class="mf">0.06</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;portrait&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;eye_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">,</span> <span class="s2">&quot;face_exposure&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;subject_isolation&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span> <span class="s2">&quot;composition_rot&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;negative_space&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span> <span class="s2">&quot;blur_type_bonus&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span>
+        <span class="s2">&quot;expression_proxy&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;balance&quot;</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">,</span>
+        <span class="s2">&quot;aesthetic_clip&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;street&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;subject_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.18</span><span class="p">,</span> <span class="s2">&quot;composition_rot&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;leading_lines&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span> <span class="s2">&quot;subject_isolation&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;exposure_overall&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span> <span class="s2">&quot;negative_space&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span>
+        <span class="s2">&quot;motion_tolerance&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;aesthetic_clip&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;balance&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span> <span class="s2">&quot;symmetry&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;architecture&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;symmetry&quot;</span><span class="p">:</span> <span class="mf">0.18</span><span class="p">,</span> <span class="s2">&quot;leading_lines&quot;</span><span class="p">:</span> <span class="mf">0.16</span><span class="p">,</span>
+        <span class="s2">&quot;subject_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span> <span class="s2">&quot;exposure_overall&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;composition_rot&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span> <span class="s2">&quot;balance&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;negative_space&quot;</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">,</span> <span class="s2">&quot;highlight_clip&quot;</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">,</span>
+        <span class="s2">&quot;aesthetic_clip&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;macro&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;subject_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">,</span> <span class="s2">&quot;sharpness_contrast&quot;</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span>
+        <span class="s2">&quot;negative_space&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span> <span class="s2">&quot;subject_isolation&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;composition_rot&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span> <span class="s2">&quot;exposure_overall&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span>
+        <span class="s2">&quot;balance&quot;</span><span class="p">:</span> <span class="mf">0.06</span><span class="p">,</span> <span class="s2">&quot;aesthetic_clip&quot;</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">,</span>
+        <span class="s2">&quot;color_contrast&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;event&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;eye_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.20</span><span class="p">,</span> <span class="s2">&quot;face_exposure&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;expression_proxy&quot;</span><span class="p">:</span> <span class="mf">0.18</span><span class="p">,</span> <span class="s2">&quot;subject_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span>
+        <span class="s2">&quot;composition_rot&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span> <span class="s2">&quot;exposure_overall&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;aesthetic_clip&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;balance&quot;</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">,</span>
+    <span class="p">},</span>
+    <span class="s2">&quot;general&quot;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s2">&quot;subject_sharpness&quot;</span><span class="p">:</span> <span class="mf">0.20</span><span class="p">,</span> <span class="s2">&quot;exposure_overall&quot;</span><span class="p">:</span> <span class="mf">0.18</span><span class="p">,</span>
+        <span class="s2">&quot;composition_rot&quot;</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span> <span class="s2">&quot;subject_isolation&quot;</span><span class="p">:</span> <span class="mf">0.12</span><span class="p">,</span>
+        <span class="s2">&quot;aesthetic_clip&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span> <span class="s2">&quot;negative_space&quot;</span><span class="p">:</span> <span class="mf">0.10</span><span class="p">,</span>
+        <span class="s2">&quot;balance&quot;</span><span class="p">:</span> <span class="mf">0.08</span><span class="p">,</span> <span class="s2">&quot;symmetry&quot;</span><span class="p">:</span> <span class="mf">0.07</span><span class="p">,</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+</code></pre></div>
+<h3 id="sub-score-mapping">Sub-Score Mapping<a class="headerlink" href="#sub-score-mapping" title="Permanent link">&para;</a></h3>
+<p>Weight keys in the genre profiles map to raw module outputs plus a few derived values computed in the fusion layer itself:</p>
+<p><strong>Direct mappings (module field → weight key):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Weight key</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>eye_sharpness</code></td>
+<td><code>SharpnessScores.eye_region</code></td>
+</tr>
+<tr>
+<td><code>subject_sharpness</code></td>
+<td><code>SharpnessScores.subject</code></td>
+</tr>
+<tr>
+<td><code>sharpness_contrast</code></td>
+<td><code>SharpnessScores.sharpness_contrast</code>, normalized to [0,1] via <code>min(ratio / 5.0, 1.0)</code></td>
+</tr>
+<tr>
+<td><code>composition_rot</code></td>
+<td><code>CompositionScores.rule_of_thirds</code></td>
+</tr>
+<tr>
+<td><code>symmetry</code></td>
+<td><code>CompositionScores.symmetry</code></td>
+</tr>
+<tr>
+<td><code>leading_lines</code></td>
+<td><code>CompositionScores.leading_lines</code></td>
+</tr>
+<tr>
+<td><code>negative_space</code></td>
+<td><code>CompositionScores.negative_space</code></td>
+</tr>
+<tr>
+<td><code>subject_isolation</code></td>
+<td><code>CompositionScores.subject_isolation</code></td>
+</tr>
+<tr>
+<td><code>balance</code></td>
+<td><code>CompositionScores.balance</code></td>
+</tr>
+<tr>
+<td><code>zone_entropy</code></td>
+<td><code>ExposureScores.zone_entropy</code></td>
+</tr>
+<tr>
+<td><code>dynamic_range</code></td>
+<td><code>ExposureScores.dynamic_range</code></td>
+</tr>
+<tr>
+<td><code>exposure_overall</code></td>
+<td><code>ExposureScores.overall</code></td>
+</tr>
+<tr>
+<td><code>face_exposure</code></td>
+<td><code>ExposureScores.face_exposure</code> (if &gt;= 0, else 0.5 neutral)</td>
+</tr>
+<tr>
+<td><code>aesthetic_clip</code></td>
+<td>CLIP aesthetic head output (float)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Derived scores (computed in fusion from raw sub-scores):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Weight key</th>
+<th>Computation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>front_to_back_sharp</code></td>
+<td><code>min(SharpnessScores.subject, SharpnessScores.background)</code> — both regions must be sharp for landscape deep-DOF</td>
+</tr>
+<tr>
+<td><code>blur_type_penalty</code></td>
+<td><code>0.0</code> if blur_type in ("motion_global", "misfocused"), <code>1.0</code> otherwise — penalizes technical failures</td>
+</tr>
+<tr>
+<td><code>blur_type_bonus</code></td>
+<td><code>1.0</code> if blur_type == "bokeh", <code>0.5</code> if "sharp", <code>0.0</code> otherwise — rewards intentional shallow DOF</td>
+</tr>
+<tr>
+<td><code>motion_tolerance</code></td>
+<td><code>1.0</code> unless blur_type == "motion_global", then <code>0.0</code> — street/event tolerance for subject motion</td>
+</tr>
+<tr>
+<td><code>highlight_clip</code></td>
+<td><code>1.0 - ExposureScores.clipping_highlights</code> — inverted so lower clipping = higher score</td>
+</tr>
+<tr>
+<td><code>expression_proxy</code></td>
+<td>If face detected: <code>1.0</code> if eyes open, <code>0.0</code> if closed. If no face: <code>0.5</code> (neutral). Uses YuNet eye-landmark aspect ratio as open/closed heuristic.</td>
+</tr>
+<tr>
+<td><code>behavior_proxy</code></td>
+<td><code>1.0</code> if blur_type == "motion_subject" (animal in motion = interesting), <code>0.5</code> otherwise</td>
+</tr>
+<tr>
+<td><code>color_contrast</code></td>
+<td>CIE76 DeltaE between mean subject color and mean background color, normalized by <code>min(deltaE / 50.0, 1.0)</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="fusion-logic">Fusion Logic<a class="headerlink" href="#fusion-logic" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">fuse_scores</span><span class="p">(</span>
+    <span class="n">sharpness</span><span class="p">:</span> <span class="n">SharpnessScores</span><span class="p">,</span>
+    <span class="n">composition</span><span class="p">:</span> <span class="n">CompositionScores</span><span class="p">,</span>
+    <span class="n">exposure</span><span class="p">:</span> <span class="n">ExposureScores</span><span class="p">,</span>
+    <span class="n">genre</span><span class="p">:</span> <span class="n">GenreResult</span><span class="p">,</span>
+    <span class="n">aesthetic</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FusionResult</span><span class="p">:</span>
+</code></pre></div>
+<ol>
+<li><strong>Normalize</strong>: All inputs already in [0,1].</li>
+<li><strong>Map to flat dict</strong>: Build from direct mappings + derived scores above.</li>
+<li><strong>Soft genre weighting</strong>: Blend weight profiles by genre probability distribution:
+   <div class="highlight"><pre><span></span><code><span class="n">effective_weights</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">genre</span><span class="o">.</span><span class="n">distribution</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="o">*</span> <span class="n">GENRE_WEIGHTS</span><span class="p">[</span><span class="n">g</span><span class="p">]</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">genres</span><span class="p">)</span>
+</code></pre></div></li>
+<li><strong>Master score</strong>: Dot product of effective weights and sub-score values.</li>
+<li><strong>Hard gates</strong> (override to reject):</li>
+<li><code>blur_type == "motion_global"</code> and <code>subject_sharpness &lt; 0.2</code></li>
+<li><code>blur_type == "misfocused"</code> and <code>eye_sharpness &lt; 0.15</code></li>
+<li>Both eyes closed (face detected, eyes_open == False)</li>
+<li><strong>Clamp</strong> to [0.0, 1.0].</li>
+</ol>
+<h3 id="output_4">Output<a class="headerlink" href="#output_4" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">FusionResult</span><span class="p">:</span>
+    <span class="n">master_score</span><span class="p">:</span> <span class="nb">float</span>                <span class="c1"># [0.0, 1.0]</span>
+    <span class="n">genre</span><span class="p">:</span> <span class="nb">str</span>                         <span class="c1"># Top genre tag</span>
+    <span class="n">genre_confidence</span><span class="p">:</span> <span class="nb">float</span>            <span class="c1"># Router confidence</span>
+    <span class="n">sub_scores</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>       <span class="c1"># All sub-scores for transparency</span>
+    <span class="n">hard_reject</span><span class="p">:</span> <span class="nb">bool</span>                  <span class="c1"># True if hard gate fired</span>
+    <span class="n">hard_reject_reason</span><span class="p">:</span> <span class="nb">str</span>            <span class="c1"># e.g. &quot;motion_global_blur&quot; or &quot;&quot;</span>
+    <span class="n">star_rating</span><span class="p">:</span> <span class="nb">int</span>                   <span class="c1"># 1-5 from master_score</span>
+    <span class="n">color_label</span><span class="p">:</span> <span class="nb">int</span>                   <span class="c1"># Darktable color label code</span>
+</code></pre></div>
+<h3 id="star-rating">Star Rating<a class="headerlink" href="#star-rating" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="n">stars</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="nb">round</span><span class="p">(</span><span class="n">master_score</span> <span class="o">*</span> <span class="mi">5</span><span class="p">)))</span>
+</code></pre></div>
+<h3 id="color-labels">Color Labels<a class="headerlink" href="#color-labels" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RED</td>
+<td>Duplicate (existing, unchanged)</td>
+</tr>
+<tr>
+<td>YELLOW</td>
+<td>master_score &lt; 0.3 (weak)</td>
+</tr>
+<tr>
+<td>NONE</td>
+<td>master_score 0.3-0.5 (average)</td>
+</tr>
+<tr>
+<td>GREEN</td>
+<td>master_score 0.5-0.75 (good)</td>
+</tr>
+<tr>
+<td>BLUE</td>
+<td>master_score &gt; 0.75 (excellent)</td>
+</tr>
+<tr>
+<td>PURPLE</td>
+<td>Reserved for user-flagged</td>
+</tr>
+</tbody>
+</table>
+<h3 id="reject-flag">Reject Flag<a class="headerlink" href="#reject-flag" title="Permanent link">&para;</a></h3>
+<p>Hard gate failures → Darktable reject flag (rating = -1), separate from color labels. <code>hard_reject_reason</code> written to XMP metadata.</p>
+<hr />
+<h2 id="module-7-model-directory-layout">Module 7: Model Directory Layout<a class="headerlink" href="#module-7-model-directory-layout" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>models/
+  florence2_int8/            # Existing (naming)
+  mobileclip_s0_int8/        # Genre + aesthetic embedding
+    vision_encoder.onnx
+    text_encoder.onnx        # Offline only (precompute prototypes)
+  clip_aesthetic_head/       # Tiny MLP
+    aesthetic_mlp.onnx
+  rmbg14_int8/               # Subject masking
+    model.onnx
+  yunet/                     # Face detection
+    face_detection_yunet.onnx
+  yolov8n_int8/              # Object detection
+    model.onnx
+  genre_prototypes.npy       # Precomputed CLIP text embeddings (~4KB)
+</code></pre></div>
+<h3 id="resource-budget">Resource Budget<a class="headerlink" href="#resource-budget" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Disk (INT8)</th>
+<th>RSS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MobileCLIP-S0 vision</td>
+<td>~40MB</td>
+<td>~80MB</td>
+</tr>
+<tr>
+<td>RMBG-1.4</td>
+<td>~45MB</td>
+<td>~90MB</td>
+</tr>
+<tr>
+<td>YuNet</td>
+<td>~1MB</td>
+<td>~5MB</td>
+</tr>
+<tr>
+<td>YOLOv8n</td>
+<td>~6MB</td>
+<td>~15MB</td>
+</tr>
+<tr>
+<td>CLIP aesthetic head</td>
+<td>~2MB</td>
+<td>~3MB</td>
+</tr>
+<tr>
+<td><strong>Total new</strong></td>
+<td><strong>~94MB</strong></td>
+<td><strong>~193MB</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Combined with Florence-2 (~200MB) + working memory (~200MB): <strong>~600-700MB total RSS</strong>.</p>
+<h3 id="provisioning">Provisioning<a class="headerlink" href="#provisioning" title="Permanent link">&para;</a></h3>
+<p>New <code>scripts/provision_scoring_models.sh</code> downloads and quantizes each model. Runs once during setup (internet allowed per NFR-2.1).</p>
+<hr />
+<h2 id="database-schema-changes">Database Schema Changes<a class="headerlink" href="#database-schema-changes" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="p">[</span><span class="n">folder</span><span class="p">]</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">genre</span><span class="w"> </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="p">[</span><span class="n">folder</span><span class="p">]</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">genre_confidence</span><span class="w"> </span><span class="nb">REAL</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">;</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="p">[</span><span class="n">folder</span><span class="p">]</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">master_score</span><span class="w"> </span><span class="nb">REAL</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="mi">0</span><span class="p">.</span><span class="mi">0</span><span class="p">;</span>
+<span class="k">ALTER</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="p">[</span><span class="n">folder</span><span class="p">]</span><span class="w"> </span><span class="k">ADD</span><span class="w"> </span><span class="k">COLUMN</span><span class="w"> </span><span class="n">sub_scores</span><span class="w"> </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">;</span><span class="w">  </span><span class="c1">-- JSON blob</span>
+</code></pre></div>
+<p>Existing columns (sharpness, composition, exposure) retained for backward compatibility but populated with <code>.overall</code> values from the new dataclasses.</p>
+<hr />
+<h2 id="xmp-metadata-output">XMP Metadata Output<a class="headerlink" href="#xmp-metadata-output" title="Permanent link">&para;</a></h2>
+<p>All sub-scores written under <code>photon:</code> namespace:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">&lt;photon:Genre&gt;</span>wildlife<span class="nt">&lt;/photon:Genre&gt;</span>
+<span class="nt">&lt;photon:GenreConfidence&gt;</span>0.87<span class="nt">&lt;/photon:GenreConfidence&gt;</span>
+<span class="nt">&lt;photon:MasterScore&gt;</span>0.72<span class="nt">&lt;/photon:MasterScore&gt;</span>
+<span class="nt">&lt;photon:EyeSharpness&gt;</span>0.85<span class="nt">&lt;/photon:EyeSharpness&gt;</span>
+<span class="nt">&lt;photon:SubjectSharpness&gt;</span>0.78<span class="nt">&lt;/photon:SubjectSharpness&gt;</span>
+<span class="nt">&lt;photon:SubjectIsolation&gt;</span>0.64<span class="nt">&lt;/photon:SubjectIsolation&gt;</span>
+<span class="nt">&lt;photon:BlurType&gt;</span>bokeh<span class="nt">&lt;/photon:BlurType&gt;</span>
+<span class="nt">&lt;photon:CompositionRoT&gt;</span>0.71<span class="nt">&lt;/photon:CompositionRoT&gt;</span>
+<span class="nt">&lt;photon:Symmetry&gt;</span>0.32<span class="nt">&lt;/photon:Symmetry&gt;</span>
+<span class="nt">&lt;photon:LeadingLines&gt;</span>0.45<span class="nt">&lt;/photon:LeadingLines&gt;</span>
+<span class="nt">&lt;photon:NegativeSpace&gt;</span>0.68<span class="nt">&lt;/photon:NegativeSpace&gt;</span>
+<span class="nt">&lt;photon:ZoneEntropy&gt;</span>0.82<span class="nt">&lt;/photon:ZoneEntropy&gt;</span>
+<span class="nt">&lt;photon:DynamicRange&gt;</span>0.91<span class="nt">&lt;/photon:DynamicRange&gt;</span>
+<span class="nt">&lt;photon:ExposureStyle&gt;</span>normal<span class="nt">&lt;/photon:ExposureStyle&gt;</span>
+<span class="nt">&lt;photon:FaceExposure&gt;</span>0.88<span class="nt">&lt;/photon:FaceExposure&gt;</span>
+<span class="nt">&lt;photon:AestheticScore&gt;</span>0.65<span class="nt">&lt;/photon:AestheticScore&gt;</span>
+</code></pre></div>
+<hr />
+<h2 id="backward-compatibility_1">Backward Compatibility<a class="headerlink" href="#backward-compatibility_1" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>score_sharpness(path)</code> → returns float (SharpnessScores.overall)</li>
+<li><code>score_composition(path)</code> → returns float (CompositionScores.overall)</li>
+<li><code>score_exposure(path)</code> → returns float (ExposureScores.overall)</li>
+<li>Existing unit tests pass unchanged against convenience wrappers</li>
+<li>DB columns <code>sharpness</code>, <code>composition</code>, <code>exposure</code> still populated</li>
+<li>XMP sidecars gain new fields but retain all existing ones</li>
+</ul>
+<hr />
+<h2 id="out-of-scope-future-work">Out of Scope (Future Work)<a class="headerlink" href="#out-of-scope-future-work" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Monocular depth estimation (MiDaS) for depth layering scores</li>
+<li>NIMA rating distribution prediction</li>
+<li>Burst clustering via CLIP embedding cosine similarity</li>
+<li>Adaptive percentile thresholding (top-N% culling)</li>
+<li>User feedback loop / personalization (Phase 2-3)</li>
+<li>Florence-2 "explain my rating" feature</li>
+<li>Per-camera sharpness threshold calibration</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

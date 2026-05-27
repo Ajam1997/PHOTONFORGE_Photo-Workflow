@@ -1,0 +1,3358 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Autonomous ingest-to-edit photography pipeline">
+      
+      
+      
+        <link rel="canonical" href="https://Ajam1997.github.io/PHOTONFORGE_Photo-Workflow/superpowers/plans/2026-04-20-ingest-pipeline/">
+      
+      
+        <link rel="prev" href="../2026-04-23-cartridge-identity-redesign/">
+      
+      
+        <link rel="next" href="../2026-04-20-cartridge-provisioning/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Ingest Pipeline - PHOTONForge</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ingest-pipeline-full-pipeline-with-stage-controls-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="PHOTONForge" class="md-header__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PHOTONForge
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Ingest Pipeline
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../roadmap/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../living-user-needs/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  User Needs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../photonforge-architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../kpm-dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  KPM Dashboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../research/" class="md-tabs__link">
+          
+  
+  
+  Research
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+  Specs & Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../drift-reports/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Drift Reports
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../github-integration-subprojects/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub Integration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../Notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="PHOTONForge" class="md-nav__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PHOTONForge
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../living-user-needs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Needs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../photonforge-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../kpm-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KPM Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/scoring-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs & Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs & Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-agent-writeback-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Write-back
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-scheduled-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-pr-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PR Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-doc-reorg-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-github-scaffolding-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-21-genre-aware-scoring-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-20-pipeline-v2-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-14-terminal-flash-bugfix-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-13-darktable-lua-plugin-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Darktable Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-12-stage-based-cli-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-20-ingest-pipeline-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-20-cartridge-provisioning-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-19-stage-7-2-ingest-cartridge-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-17-stage-7-1-gui-scaffold-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-17-ssh-key-update-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-16-soak-test-notifications-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-doc-reorg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-github-scaffolding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-21-genre-aware-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-20-pipeline-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-14-terminal-flash-bugfix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-13-python-engine-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Engine Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-13-lua-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-12-stage-based-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#file-map" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Map
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-1-add-_eject_sd-helper-to-sidecar_clipy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 1: Add _eject_sd() helper to sidecar_cli.py
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-2-rewrite-ingest-sidecar-command-with-full-pipeline-and-skip-flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 2: Rewrite ingest sidecar command with full pipeline and skip flags
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-3-create-pipeline-settings-store" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 3: Create pipeline settings store
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-4-update-ingestts-store-and-sidecarts-event-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 4: Update ingest.ts store and sidecar.ts event types
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-5-update-ingestdashboardsvelte" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 5: Update IngestDashboard.svelte
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#task-6-rebuild-sidecar-binary-and-verify-on-yoga" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 6: Rebuild sidecar binary and verify on Yoga
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#self-review" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Self-Review
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-cartridge-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-19-stage-7-2-ingest-cartridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-stage-7-1-gui-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-ssh-key-update/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-16-soak-test-notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Briefs & Build Logs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Briefs & Build Logs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-16-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-16 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../drift-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../github-integration-subprojects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="ingest-pipeline-full-pipeline-with-stage-controls-implementation-plan">Ingest Pipeline — Full Pipeline with Stage Controls Implementation Plan<a class="headerlink" href="#ingest-pipeline-full-pipeline-with-stage-controls-implementation-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Extend the <code>ingest</code> sidecar command to run the full analysis pipeline (dedup → scoring → naming → Darktable sync) with per-stage skip flags, eject the SD card after copy, and update the IngestDashboard to show per-stage progress with persistent checkbox settings.</p>
+<p><strong>Architecture:</strong> The sidecar <code>ingest</code> command is rewritten in-place: it gains <code>--skip-*</code> flags and inline calls to the pipeline module functions after rsync finishes. A new <code>pipeline.ts</code> Svelte store persists stage settings to <code>localStorage</code>. The <code>ingest.ts</code> store gains <code>stageDone</code> and <code>sdEjected</code> fields so the running view can render each stage's status. <code>IngestDashboard.svelte</code> gains a pipeline checkbox section (idle) and a stage list (running).</p>
+<p><strong>Tech Stack:</strong> Python 3.11+, click, pytest, TypeScript, Svelte, localStorage</p>
+<hr />
+<h3 id="file-map">File Map<a class="headerlink" href="#file-map" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Modify</td>
+<td><code>src/photo_workflow/sidecar_cli.py</code></td>
+</tr>
+<tr>
+<td>Modify</td>
+<td><code>tests/test_sidecar_cli.py</code></td>
+</tr>
+<tr>
+<td>Create</td>
+<td><code>photonforge-gui/src/stores/pipeline.ts</code></td>
+</tr>
+<tr>
+<td>Modify</td>
+<td><code>photonforge-gui/src/stores/ingest.ts</code></td>
+</tr>
+<tr>
+<td>Modify</td>
+<td><code>photonforge-gui/src/lib/sidecar.ts</code></td>
+</tr>
+<tr>
+<td>Modify</td>
+<td><code>photonforge-gui/src/panels/IngestDashboard.svelte</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="task-1-add-_eject_sd-helper-to-sidecar_clipy">Task 1: Add <code>_eject_sd()</code> helper to sidecar_cli.py<a class="headerlink" href="#task-1-add-_eject_sd-helper-to-sidecar_clipy" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/photo_workflow/sidecar_cli.py</code>
+- Modify: <code>tests/test_sidecar_cli.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># tests/test_sidecar_cli.py — add after existing imports</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">call</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_eject_sd_calls_udisksctl_with_parent_disk</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;_eject_sd resolves partition to parent disk and calls udisksctl power-off.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.sidecar_cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">_eject_sd</span>
+
+    <span class="n">fake_mounts</span> <span class="o">=</span> <span class="s2">&quot;/dev/mmcblk0p1 /media/alex/SD_CARD vfat rw 0 0</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.Path&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_path_cls</span><span class="p">,</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.subprocess.run&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_run</span><span class="p">:</span>
+        <span class="n">mock_path_cls</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="n">read_text</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">fake_mounts</span>
+        <span class="n">_eject_sd</span><span class="p">(</span><span class="s2">&quot;/media/alex/SD_CARD&quot;</span><span class="p">)</span>
+
+    <span class="n">mock_run</span><span class="o">.</span><span class="n">assert_called_once_with</span><span class="p">(</span>
+        <span class="p">[</span><span class="s2">&quot;udisksctl&quot;</span><span class="p">,</span> <span class="s2">&quot;power-off&quot;</span><span class="p">,</span> <span class="s2">&quot;-b&quot;</span><span class="p">,</span> <span class="s2">&quot;/dev/mmcblk0&quot;</span><span class="p">],</span>
+        <span class="n">check</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_eject_sd_strips_partition_suffix_for_usb</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;_eject_sd handles /dev/sda1 → /dev/sda correctly.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.sidecar_cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">_eject_sd</span>
+
+    <span class="n">fake_mounts</span> <span class="o">=</span> <span class="s2">&quot;/dev/sda1 /media/alex/CARD vfat rw 0 0</span><span class="se">\n</span><span class="s2">&quot;</span>
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.Path&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_path_cls</span><span class="p">,</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.subprocess.run&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_run</span><span class="p">:</span>
+        <span class="n">mock_path_cls</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="n">read_text</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="n">fake_mounts</span>
+        <span class="n">_eject_sd</span><span class="p">(</span><span class="s2">&quot;/media/alex/CARD&quot;</span><span class="p">)</span>
+
+    <span class="n">mock_run</span><span class="o">.</span><span class="n">assert_called_once_with</span><span class="p">(</span>
+        <span class="p">[</span><span class="s2">&quot;udisksctl&quot;</span><span class="p">,</span> <span class="s2">&quot;power-off&quot;</span><span class="p">,</span> <span class="s2">&quot;-b&quot;</span><span class="p">,</span> <span class="s2">&quot;/dev/sda&quot;</span><span class="p">],</span>
+        <span class="n">check</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_eject_sd_is_silent_when_mount_not_found</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;_eject_sd does nothing and does not raise if mount point not in /proc/mounts.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.sidecar_cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">_eject_sd</span>
+
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.Path&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_path_cls</span><span class="p">,</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.subprocess.run&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">mock_run</span><span class="p">:</span>
+        <span class="n">mock_path_cls</span><span class="o">.</span><span class="n">return_value</span><span class="o">.</span><span class="n">read_text</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">_eject_sd</span><span class="p">(</span><span class="s2">&quot;/media/alex/NONEXISTENT&quot;</span><span class="p">)</span>
+
+    <span class="n">mock_run</span><span class="o">.</span><span class="n">assert_not_called</span><span class="p">()</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_sidecar_cli.py::test_eject_sd_calls_udisksctl_with_parent_disk tests/test_sidecar_cli.py::test_eject_sd_strips_partition_suffix_for_usb tests/test_sidecar_cli.py::test_eject_sd_is_silent_when_mount_not_found -v</code>
+Expected: FAIL with <code>ImportError: cannot import name '_eject_sd'</code></p>
+<ul>
+<li>[ ] <strong>Step 3: Add <code>_eject_sd()</code> to sidecar_cli.py</strong></li>
+</ul>
+<p>Add <code>import re</code> to the existing imports at the top of <code>src/photo_workflow/sidecar_cli.py</code>, then add after the <code>emit()</code> function:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_eject_sd</span><span class="p">(</span><span class="n">mount_point</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve SD card block device from mount point and power it off. Non-fatal.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/proc/mounts&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span><span class="o">.</span><span class="n">splitlines</span><span class="p">():</span>
+            <span class="n">parts</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">parts</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">mount_point</span><span class="p">:</span>
+                <span class="n">device</span> <span class="o">=</span> <span class="n">parts</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">device</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">disk</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;p?\d+$&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+        <span class="n">subprocess</span><span class="o">.</span><span class="n">run</span><span class="p">([</span><span class="s2">&quot;udisksctl&quot;</span><span class="p">,</span> <span class="s2">&quot;power-off&quot;</span><span class="p">,</span> <span class="s2">&quot;-b&quot;</span><span class="p">,</span> <span class="n">disk</span><span class="p">],</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+        <span class="k">pass</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_sidecar_cli.py::test_eject_sd_calls_udisksctl_with_parent_disk tests/test_sidecar_cli.py::test_eject_sd_strips_partition_suffix_for_usb tests/test_sidecar_cli.py::test_eject_sd_is_silent_when_mount_not_found -v</code>
+Expected: PASS</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>src/photo_workflow/sidecar_cli.py<span class="w"> </span>tests/test_sidecar_cli.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: add _eject_sd() helper to sidecar_cli&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-2-rewrite-ingest-sidecar-command-with-full-pipeline-and-skip-flags">Task 2: Rewrite <code>ingest</code> sidecar command with full pipeline and skip flags<a class="headerlink" href="#task-2-rewrite-ingest-sidecar-command-with-full-pipeline-and-skip-flags" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/photo_workflow/sidecar_cli.py</code>
+- Modify: <code>tests/test_sidecar_cli.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1"># tests/test_sidecar_cli.py — add after existing tests</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">MagicMock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PhotoRecord</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_make_mock_popen</span><span class="p">(</span><span class="n">rsync_lines</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">MagicMock</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return a mock subprocess.Popen that yields rsync itemize-changes lines.&quot;&quot;&quot;</span>
+    <span class="n">mock_proc</span> <span class="o">=</span> <span class="n">MagicMock</span><span class="p">()</span>
+    <span class="n">mock_proc</span><span class="o">.</span><span class="n">stdout</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">rsync_lines</span><span class="p">)</span>
+    <span class="n">mock_proc</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">read</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="n">mock_proc</span><span class="o">.</span><span class="n">returncode</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">mock_proc</span><span class="o">.</span><span class="n">wait</span><span class="o">.</span><span class="n">return_value</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">return</span> <span class="n">mock_proc</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_fake_records</span><span class="p">(</span><span class="n">paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">PhotoRecord</span><span class="p">]:</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">PhotoRecord</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_ingest_full_pipeline_emits_sd_ejected_and_all_stage_dones</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Full ingest emits sd_ejected and stage_done for each enabled stage.&quot;&quot;&quot;</span>
+    <span class="n">fake_paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;DSC_0001.ARW&quot;</span><span class="p">,</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;DSC_0002.ARW&quot;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">fake_paths</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+
+    <span class="n">rsync_lines</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;&gt;f+++++++++ DSC_0001.ARW</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;&gt;f+++++++++ DSC_0002.ARW</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">records</span> <span class="o">=</span> <span class="n">_fake_records</span><span class="p">(</span><span class="n">fake_paths</span><span class="p">)</span>
+
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">CliRunner</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.subprocess.Popen&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">_make_mock_popen</span><span class="p">(</span><span class="n">rsync_lines</span><span class="p">)),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli._eject_sd&quot;</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.cluster_sessions&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">records</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.deduplicate&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">records</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_sharpness&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.8</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_composition&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.7</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_exposure&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.9</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.generate_name&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="s2">&quot;golden-sunset&quot;</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.sync_to_darktable&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">cli</span><span class="p">,</span> <span class="p">[</span>
+            <span class="s2">&quot;ingest&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;--source&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">),</span>
+            <span class="s2">&quot;--output&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">),</span>
+            <span class="s2">&quot;--db&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;library.db&quot;</span><span class="p">),</span>
+        <span class="p">])</span>
+
+    <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">exit_code</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span>
+    <span class="n">events</span> <span class="o">=</span> <span class="n">parse_events</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
+    <span class="n">types</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="s2">&quot;sd_ejected&quot;</span> <span class="ow">in</span> <span class="n">types</span>
+    <span class="n">stage_dones</span> <span class="o">=</span> <span class="p">{</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;stage&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span> <span class="k">if</span> <span class="n">e</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;stage_done&quot;</span><span class="p">}</span>
+    <span class="k">assert</span> <span class="n">stage_dones</span> <span class="o">==</span> <span class="p">{</span><span class="s2">&quot;copy&quot;</span><span class="p">,</span> <span class="s2">&quot;dedup&quot;</span><span class="p">,</span> <span class="s2">&quot;scoring&quot;</span><span class="p">,</span> <span class="s2">&quot;naming&quot;</span><span class="p">,</span> <span class="s2">&quot;darktable&quot;</span><span class="p">}</span>
+    <span class="n">done</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span> <span class="k">if</span> <span class="n">e</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;done&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">done</span><span class="p">[</span><span class="s2">&quot;summary&quot;</span><span class="p">][</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+    <span class="k">assert</span> <span class="n">done</span><span class="p">[</span><span class="s2">&quot;summary&quot;</span><span class="p">][</span><span class="s2">&quot;named&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+    <span class="k">assert</span> <span class="n">done</span><span class="p">[</span><span class="s2">&quot;summary&quot;</span><span class="p">][</span><span class="s2">&quot;xmp_written&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_ingest_skip_naming_and_darktable_omits_those_stage_dones</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;--skip-naming --skip-darktable produces no naming/darktable stage_done events.&quot;&quot;&quot;</span>
+    <span class="n">fake_paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;DSC_0001.ARW&quot;</span><span class="p">]</span>
+    <span class="n">fake_paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+    <span class="n">records</span> <span class="o">=</span> <span class="n">_fake_records</span><span class="p">(</span><span class="n">fake_paths</span><span class="p">)</span>
+
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">CliRunner</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.subprocess.Popen&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">_make_mock_popen</span><span class="p">([</span><span class="s2">&quot;&gt;f+++++++++ DSC_0001.ARW</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">])),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli._eject_sd&quot;</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.cluster_sessions&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">records</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.deduplicate&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">records</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_sharpness&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.8</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_composition&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.7</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_exposure&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.9</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">cli</span><span class="p">,</span> <span class="p">[</span>
+            <span class="s2">&quot;ingest&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;--source&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">),</span>
+            <span class="s2">&quot;--output&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">),</span>
+            <span class="s2">&quot;--db&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;library.db&quot;</span><span class="p">),</span>
+            <span class="s2">&quot;--skip-naming&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;--skip-darktable&quot;</span><span class="p">,</span>
+        <span class="p">])</span>
+
+    <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">exit_code</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span>
+    <span class="n">events</span> <span class="o">=</span> <span class="n">parse_events</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
+    <span class="n">stage_dones</span> <span class="o">=</span> <span class="p">{</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;stage&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span> <span class="k">if</span> <span class="n">e</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;stage_done&quot;</span><span class="p">}</span>
+    <span class="k">assert</span> <span class="s2">&quot;naming&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stage_dones</span>
+    <span class="k">assert</span> <span class="s2">&quot;darktable&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stage_dones</span>
+    <span class="k">assert</span> <span class="s2">&quot;copy&quot;</span> <span class="ow">in</span> <span class="n">stage_dones</span>
+    <span class="k">assert</span> <span class="s2">&quot;scoring&quot;</span> <span class="ow">in</span> <span class="n">stage_dones</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_sidecar_cli.py::test_ingest_full_pipeline_emits_sd_ejected_and_all_stage_dones tests/test_sidecar_cli.py::test_ingest_skip_naming_and_darktable_omits_those_stage_dones -v</code>
+Expected: FAIL (imports not found / wrong command signature)</p>
+<ul>
+<li>[ ] <strong>Step 3: Rewrite the <code>ingest</code> command in sidecar_cli.py</strong></li>
+</ul>
+<p>Replace the entire <code>ingest</code> function and add the new imports. The full replacement for <code>src/photo_workflow/sidecar_cli.py</code> — add these imports at the top (after existing imports):</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.grouping</span><span class="w"> </span><span class="kn">import</span> <span class="n">cluster_sessions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.dedup</span><span class="w"> </span><span class="kn">import</span> <span class="n">deduplicate</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.sharpness</span><span class="w"> </span><span class="kn">import</span> <span class="n">score_sharpness</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.composition</span><span class="w"> </span><span class="kn">import</span> <span class="n">score_composition</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.exposure</span><span class="w"> </span><span class="kn">import</span> <span class="n">score_exposure</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.naming</span><span class="w"> </span><span class="kn">import</span> <span class="n">generate_name</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.darktable_bridge</span><span class="w"> </span><span class="kn">import</span> <span class="n">sync_to_darktable</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">PhotoRecord</span>
+</code></pre></div>
+<p>Replace the entire <code>ingest</code> function:</p>
+<div class="highlight"><pre><span></span><code><span class="nd">@cli</span><span class="o">.</span><span class="n">command</span><span class="p">()</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--source&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Source mount path (SD card)&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--output&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Destination mount path (SSD)&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--db&quot;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to library.db on SSD&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--model-dir&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;models/florence2_int8&quot;</span><span class="p">,</span> <span class="n">show_default</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Florence-2 model directory&quot;</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--skip-dedup&quot;</span><span class="p">,</span> <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--skip-scoring&quot;</span><span class="p">,</span> <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--skip-naming&quot;</span><span class="p">,</span> <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="nd">@click</span><span class="o">.</span><span class="n">option</span><span class="p">(</span><span class="s2">&quot;--skip-darktable&quot;</span><span class="p">,</span> <span class="n">is_flag</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">ingest</span><span class="p">(</span>
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">output</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">db</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">model_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">skip_dedup</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">skip_scoring</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">skip_naming</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">skip_darktable</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Ingest photos from SD to SSD and run the full analysis pipeline.&quot;&quot;&quot;</span>
+    <span class="n">source_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+    <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output</span><span class="p">)</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+
+        <span class="c1"># ── Copy ──────────────────────────────────────────────────────────────</span>
+        <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;progress&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="s2">&quot;copying&quot;</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;Scanning…&quot;</span><span class="p">})</span>
+        <span class="n">dcim_path</span> <span class="o">=</span> <span class="n">source_path</span> <span class="o">/</span> <span class="s2">&quot;DCIM&quot;</span>
+        <span class="n">scan_root</span> <span class="o">=</span> <span class="n">dcim_path</span> <span class="k">if</span> <span class="n">dcim_path</span><span class="o">.</span><span class="n">is_dir</span><span class="p">()</span> <span class="k">else</span> <span class="n">source_path</span>
+        <span class="n">all_raws</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">scan_root</span><span class="o">.</span><span class="n">rglob</span><span class="p">(</span><span class="s2">&quot;*&quot;</span><span class="p">)</span> <span class="k">if</span> <span class="n">f</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="ow">and</span> <span class="n">f</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">RAW_EXTS</span><span class="p">]</span>
+        <span class="n">total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_raws</span><span class="p">)</span>
+        <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;progress&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="s2">&quot;copying&quot;</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">total</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="n">total</span><span class="si">}</span><span class="s2"> RAW files&quot;</span><span class="p">})</span>
+
+        <span class="n">copied_paths</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">output_path</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">cmd</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;rsync&quot;</span><span class="p">,</span> <span class="s2">&quot;--archive&quot;</span><span class="p">,</span> <span class="s2">&quot;--itemize-changes&quot;</span><span class="p">,</span> <span class="s2">&quot;--include=*/&quot;</span><span class="p">]</span>
+            <span class="k">for</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">RAW_EXTS</span><span class="p">:</span>
+                <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;--include=*</span><span class="si">{</span><span class="n">ext</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;--include=*</span><span class="si">{</span><span class="n">ext</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">]</span>
+            <span class="n">cmd</span> <span class="o">+=</span> <span class="p">[</span><span class="s2">&quot;--exclude=*&quot;</span><span class="p">,</span> <span class="s2">&quot;--&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">scan_root</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">output_path</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span><span class="p">]</span>
+
+            <span class="n">proc</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span><span class="n">cmd</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span> <span class="n">stderr</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">proc</span><span class="o">.</span><span class="n">stdout</span><span class="p">:</span>  <span class="c1"># type: ignore[union-attr]</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">rstrip</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">line</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;cd&quot;</span><span class="p">):</span>
+                    <span class="n">fname</span> <span class="o">=</span> <span class="n">line</span><span class="p">[</span><span class="mi">10</span><span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">line</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">10</span> <span class="k">else</span> <span class="n">line</span>
+                    <span class="n">dest</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="n">fname</span>
+                    <span class="k">if</span> <span class="n">dest</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="n">RAW_EXTS</span><span class="p">:</span>
+                        <span class="n">copied_paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dest</span><span class="p">)</span>
+                    <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;progress&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="s2">&quot;copying&quot;</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">copied_paths</span><span class="p">),</span> <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">total</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">fname</span><span class="p">})</span>
+            <span class="n">proc</span><span class="o">.</span><span class="n">wait</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">returncode</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">stderr</span> <span class="o">=</span> <span class="n">proc</span><span class="o">.</span><span class="n">stderr</span><span class="o">.</span><span class="n">read</span><span class="p">()</span> <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">stderr</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>  <span class="c1"># type: ignore[union-attr]</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="n">stderr</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;rsync exited </span><span class="si">{</span><span class="n">proc</span><span class="o">.</span><span class="n">returncode</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;stage_done&quot;</span><span class="p">,</span> <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;copy&quot;</span><span class="p">,</span> <span class="s2">&quot;copied&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">copied_paths</span><span class="p">)})</span>
+
+        <span class="c1"># Eject SD immediately — non-blocking, non-fatal</span>
+        <span class="n">_eject_sd</span><span class="p">(</span><span class="n">source</span><span class="p">)</span>
+        <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;sd_ejected&quot;</span><span class="p">})</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">copied_paths</span><span class="p">:</span>
+            <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+            <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;done&quot;</span><span class="p">,</span> <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;duplicates_skipped&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;scored&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;named&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;xmp_written&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;db_upserted&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;elapsed_seconds&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">elapsed</span><span class="p">,</span> <span class="mi">2</span><span class="p">)}})</span>
+            <span class="k">return</span>
+
+        <span class="n">records</span> <span class="o">=</span> <span class="p">[</span><span class="n">PhotoRecord</span><span class="p">(</span><span class="n">path</span><span class="o">=</span><span class="n">p</span><span class="p">,</span> <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;original_filename&quot;</span><span class="p">:</span> <span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="p">})</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">copied_paths</span><span class="p">]</span>
+
+        <span class="c1"># Session grouping always runs (prereq for dedup, fast)</span>
+        <span class="n">records</span> <span class="o">=</span> <span class="n">cluster_sessions</span><span class="p">(</span><span class="n">records</span><span class="p">)</span>
+
+        <span class="c1"># ── Dedup ─────────────────────────────────────────────────────────────</span>
+        <span class="n">dupes_found</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_dedup</span><span class="p">:</span>
+            <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;progress&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="s2">&quot;dedup&quot;</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">records</span><span class="p">),</span> <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;Analysing </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">records</span><span class="p">)</span><span class="si">}</span><span class="s2"> files…&quot;</span><span class="p">})</span>
+            <span class="n">records</span> <span class="o">=</span> <span class="n">deduplicate</span><span class="p">(</span><span class="n">records</span><span class="p">)</span>
+            <span class="n">dupes_found</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">records</span> <span class="k">if</span> <span class="n">r</span><span class="o">.</span><span class="n">is_duplicate</span><span class="p">)</span>
+            <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;stage_done&quot;</span><span class="p">,</span> <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;dedup&quot;</span><span class="p">,</span> <span class="s2">&quot;dupes_found&quot;</span><span class="p">:</span> <span class="n">dupes_found</span><span class="p">})</span>
+
+        <span class="n">active</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">records</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">is_duplicate</span><span class="p">]</span>
+
+        <span class="c1"># ── Scoring ───────────────────────────────────────────────────────────</span>
+        <span class="n">scored</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_scoring</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">active</span><span class="p">):</span>
+                <span class="n">record</span><span class="o">.</span><span class="n">sharpness_score</span> <span class="o">=</span> <span class="n">score_sharpness</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+                <span class="n">record</span><span class="o">.</span><span class="n">composition_score</span> <span class="o">=</span> <span class="n">score_composition</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+                <span class="n">record</span><span class="o">.</span><span class="n">exposure_score</span> <span class="o">=</span> <span class="n">score_exposure</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+                <span class="n">scored</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;progress&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="s2">&quot;scoring&quot;</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">active</span><span class="p">),</span> <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+            <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;stage_done&quot;</span><span class="p">,</span> <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;scoring&quot;</span><span class="p">,</span> <span class="s2">&quot;scored&quot;</span><span class="p">:</span> <span class="n">scored</span><span class="p">})</span>
+
+        <span class="c1"># ── Naming ────────────────────────────────────────────────────────────</span>
+        <span class="n">named</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_naming</span><span class="p">:</span>
+            <span class="n">model_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">model_dir</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">record</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">active</span><span class="p">):</span>
+                <span class="n">record</span><span class="o">.</span><span class="n">semantic_name</span> <span class="o">=</span> <span class="n">generate_name</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">model_dir</span><span class="o">=</span><span class="n">model_path</span><span class="p">)</span>
+                <span class="n">named</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;progress&quot;</span><span class="p">,</span> <span class="s2">&quot;step&quot;</span><span class="p">:</span> <span class="s2">&quot;naming&quot;</span><span class="p">,</span> <span class="s2">&quot;current&quot;</span><span class="p">:</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">active</span><span class="p">),</span> <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="n">record</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">})</span>
+            <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;stage_done&quot;</span><span class="p">,</span> <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;naming&quot;</span><span class="p">,</span> <span class="s2">&quot;named&quot;</span><span class="p">:</span> <span class="n">named</span><span class="p">})</span>
+
+        <span class="c1"># ── Darktable sync ────────────────────────────────────────────────────</span>
+        <span class="n">xmp_written</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">db_upserted</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">skip_darktable</span><span class="p">:</span>
+            <span class="n">xmp_written</span><span class="p">,</span> <span class="n">db_upserted</span> <span class="o">=</span> <span class="n">sync_to_darktable</span><span class="p">(</span><span class="n">records</span><span class="p">,</span> <span class="n">db_path</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">db</span><span class="p">))</span>
+            <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;stage_done&quot;</span><span class="p">,</span> <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="s2">&quot;darktable&quot;</span><span class="p">,</span> <span class="s2">&quot;xmp_written&quot;</span><span class="p">:</span> <span class="n">xmp_written</span><span class="p">,</span> <span class="s2">&quot;db_upserted&quot;</span><span class="p">:</span> <span class="n">db_upserted</span><span class="p">})</span>
+
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+        <span class="n">emit</span><span class="p">({</span>
+            <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;done&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;summary&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">records</span><span class="p">),</span>
+                <span class="s2">&quot;duplicates_skipped&quot;</span><span class="p">:</span> <span class="n">dupes_found</span><span class="p">,</span>
+                <span class="s2">&quot;scored&quot;</span><span class="p">:</span> <span class="n">scored</span><span class="p">,</span>
+                <span class="s2">&quot;named&quot;</span><span class="p">:</span> <span class="n">named</span><span class="p">,</span>
+                <span class="s2">&quot;xmp_written&quot;</span><span class="p">:</span> <span class="n">xmp_written</span><span class="p">,</span>
+                <span class="s2">&quot;db_upserted&quot;</span><span class="p">:</span> <span class="n">db_upserted</span><span class="p">,</span>
+                <span class="s2">&quot;elapsed_seconds&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">elapsed</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+            <span class="p">},</span>
+        <span class="p">})</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001</span>
+        <span class="n">emit</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">)})</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 4: Run all sidecar tests</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_sidecar_cli.py -v</code>
+Expected: All pass. (The old <code>test_ingest_emits_progress_and_done_events</code> may fail — if so, update it in step 5.)</p>
+<ul>
+<li>[ ] <strong>Step 5: Fix <code>test_ingest_emits_progress_and_done_events</code> if broken</strong></li>
+</ul>
+<p>Replace the old test with a version compatible with the new ingest signature:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">test_ingest_emits_progress_and_done_events</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;ingest streams progress and done events, exits 0.&quot;&quot;&quot;</span>
+    <span class="n">fake_paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;DSC_0001.ARW&quot;</span><span class="p">,</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;DSC_0002.ARW&quot;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">fake_paths</span><span class="p">:</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span><span class="sa">b</span><span class="s2">&quot;x&quot;</span><span class="p">)</span>
+    <span class="n">records</span> <span class="o">=</span> <span class="n">_fake_records</span><span class="p">(</span><span class="n">fake_paths</span><span class="p">)</span>
+
+    <span class="n">runner</span> <span class="o">=</span> <span class="n">CliRunner</span><span class="p">()</span>
+    <span class="k">with</span> <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.subprocess.Popen&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">_make_mock_popen</span><span class="p">([</span>
+            <span class="s2">&quot;&gt;f+++++++++ DSC_0001.ARW</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;&gt;f+++++++++ DSC_0002.ARW</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">,</span>
+        <span class="p">])),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli._eject_sd&quot;</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.cluster_sessions&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">records</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.deduplicate&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="n">records</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_sharpness&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.8</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_composition&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.7</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.score_exposure&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="mf">0.9</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.generate_name&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="s2">&quot;slug&quot;</span><span class="p">),</span> \
+         <span class="n">patch</span><span class="p">(</span><span class="s2">&quot;photo_workflow.sidecar_cli.sync_to_darktable&quot;</span><span class="p">,</span> <span class="n">return_value</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">runner</span><span class="o">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">cli</span><span class="p">,</span> <span class="p">[</span>
+            <span class="s2">&quot;ingest&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;--source&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">),</span>
+            <span class="s2">&quot;--output&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">),</span>
+            <span class="s2">&quot;--db&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;library.db&quot;</span><span class="p">),</span>
+        <span class="p">])</span>
+
+    <span class="k">assert</span> <span class="n">result</span><span class="o">.</span><span class="n">exit_code</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span>
+    <span class="n">events</span> <span class="o">=</span> <span class="n">parse_events</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
+    <span class="n">types</span> <span class="o">=</span> <span class="p">[</span><span class="n">e</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span><span class="p">]</span>
+    <span class="k">assert</span> <span class="s2">&quot;progress&quot;</span> <span class="ow">in</span> <span class="n">types</span>
+    <span class="k">assert</span> <span class="s2">&quot;done&quot;</span> <span class="ow">in</span> <span class="n">types</span>
+    <span class="n">done</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">e</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">events</span> <span class="k">if</span> <span class="n">e</span><span class="p">[</span><span class="s2">&quot;type&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;done&quot;</span><span class="p">)</span>
+    <span class="k">assert</span> <span class="n">done</span><span class="p">[</span><span class="s2">&quot;summary&quot;</span><span class="p">][</span><span class="s2">&quot;total&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span>
+    <span class="k">assert</span> <span class="s2">&quot;elapsed_seconds&quot;</span> <span class="ow">in</span> <span class="n">done</span><span class="p">[</span><span class="s2">&quot;summary&quot;</span><span class="p">]</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 6: Run all sidecar tests to confirm green</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_sidecar_cli.py -v</code>
+Expected: All pass</p>
+<ul>
+<li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>src/photo_workflow/sidecar_cli.py<span class="w"> </span>tests/test_sidecar_cli.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: rewrite ingest command with full pipeline, skip flags, and SD ejection&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-3-create-pipeline-settings-store">Task 3: Create pipeline settings store<a class="headerlink" href="#task-3-create-pipeline-settings-store" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Create: <code>photonforge-gui/src/stores/pipeline.ts</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create the file</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="c1">// photonforge-gui/src/stores/pipeline.ts</span>
+<span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">writable</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">&quot;svelte/store&quot;</span><span class="p">;</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">PipelineSettings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">dedup</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">scoring</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">naming</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">darktable</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">STORAGE_KEY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;photon.pipeline&quot;</span><span class="p">;</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">defaults</span><span class="o">:</span><span class="w"> </span><span class="kt">PipelineSettings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">dedup</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">scoring</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">naming</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">darktable</span><span class="o">:</span><span class="w"> </span><span class="kt">true</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="kd">function</span><span class="w"> </span><span class="nx">load</span><span class="p">()</span><span class="o">:</span><span class="w"> </span><span class="nx">PipelineSettings</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">raw</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">localStorage</span><span class="p">.</span><span class="nx">getItem</span><span class="p">(</span><span class="nx">STORAGE_KEY</span><span class="p">);</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">raw</span><span class="p">)</span><span class="w"> </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="nx">defaults</span><span class="p">,</span><span class="w"> </span><span class="p">...</span><span class="nb">JSON</span><span class="p">.</span><span class="nx">parse</span><span class="p">(</span><span class="nx">raw</span><span class="p">)</span><span class="w"> </span><span class="p">};</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ignore parse errors */</span><span class="w"> </span><span class="p">}</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="p">...</span><span class="nx">defaults</span><span class="w"> </span><span class="p">};</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">pipelineSettings</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">writable</span><span class="o">&lt;</span><span class="nx">PipelineSettings</span><span class="o">&gt;</span><span class="p">(</span><span class="nx">load</span><span class="p">());</span>
+
+<span class="nx">pipelineSettings</span><span class="p">.</span><span class="nx">subscribe</span><span class="p">((</span><span class="nx">value</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">localStorage</span><span class="p">.</span><span class="nx">setItem</span><span class="p">(</span><span class="nx">STORAGE_KEY</span><span class="p">,</span><span class="w"> </span><span class="nb">JSON</span><span class="p">.</span><span class="nx">stringify</span><span class="p">(</span><span class="nx">value</span><span class="p">));</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="cm">/* ignore write errors */</span><span class="w"> </span><span class="p">}</span>
+<span class="p">});</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Verify TypeScript compiles</strong></li>
+</ul>
+<p>Run from <code>photonforge-gui/</code>: <code>npx tsc --noEmit</code>
+Expected: No errors for the new file.</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>photonforge-gui/src/stores/pipeline.ts
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: add pipeline settings store with localStorage persistence&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-4-update-ingestts-store-and-sidecarts-event-types">Task 4: Update ingest.ts store and sidecar.ts event types<a class="headerlink" href="#task-4-update-ingestts-store-and-sidecarts-event-types" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>photonforge-gui/src/stores/ingest.ts</code>
+- Modify: <code>photonforge-gui/src/lib/sidecar.ts</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Update <code>ingest.ts</code> — add <code>stageDone</code> and <code>sdEjected</code> to state</strong></li>
+</ul>
+<p>Replace the entire content of <code>photonforge-gui/src/stores/ingest.ts</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">import</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">writable</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">&quot;svelte/store&quot;</span><span class="p">;</span>
+<span class="k">import</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">DoneEvent</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">&quot;../lib/sidecar&quot;</span><span class="p">;</span>
+<span class="k">import</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nx">Command</span><span class="w"> </span><span class="p">}</span><span class="w"> </span><span class="kr">from</span><span class="w"> </span><span class="s2">&quot;@tauri-apps/plugin-shell&quot;</span><span class="p">;</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">IngestPhase</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;idle&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;running&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">;</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">IngestState</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">phase</span><span class="o">:</span><span class="w"> </span><span class="kt">IngestPhase</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">step</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">current</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">total</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">summary</span><span class="o">:</span><span class="w"> </span><span class="kt">DoneEvent</span><span class="p">[</span><span class="s2">&quot;summary&quot;</span><span class="p">]</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">errorMsg</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">activeCmd</span><span class="o">:</span><span class="w"> </span><span class="kt">Command</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="kc">null</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">stageDone</span><span class="o">:</span><span class="w"> </span><span class="kt">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">Record</span><span class="o">&lt;</span><span class="kt">string</span><span class="p">,</span><span class="w"> </span><span class="nx">unknown</span><span class="o">&gt;&gt;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">sdEjected</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kd">const</span><span class="w"> </span><span class="nx">initial</span><span class="o">:</span><span class="w"> </span><span class="kt">IngestState</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">phase</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;idle&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">step</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;copying&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">current</span><span class="o">:</span><span class="w"> </span><span class="kt">0</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">total</span><span class="o">:</span><span class="w"> </span><span class="kt">0</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">summary</span><span class="o">:</span><span class="w"> </span><span class="kt">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">errorMsg</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">activeCmd</span><span class="o">:</span><span class="w"> </span><span class="kt">null</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">stageDone</span><span class="o">:</span><span class="w"> </span><span class="p">{},</span>
+<span class="w">  </span><span class="nx">sdEjected</span><span class="o">:</span><span class="w"> </span><span class="kt">false</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">const</span><span class="w"> </span><span class="nx">ingestState</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">writable</span><span class="o">&lt;</span><span class="nx">IngestState</span><span class="o">&gt;</span><span class="p">({</span><span class="w"> </span><span class="p">...</span><span class="nx">initial</span><span class="w"> </span><span class="p">});</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">resetIngest</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="nx">ingestState</span><span class="p">.</span><span class="nx">set</span><span class="p">({</span><span class="w"> </span><span class="p">...</span><span class="nx">initial</span><span class="w"> </span><span class="p">});</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Update <code>sidecar.ts</code> — add new event types and update <code>runIngest()</code></strong></li>
+</ul>
+<p>Add these interfaces after <code>ReformatDoneEvent</code> in <code>photonforge-gui/src/lib/sidecar.ts</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">StageDoneEvent</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;stage_done&quot;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">stage</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;copy&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;dedup&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;scoring&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;naming&quot;</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="s2">&quot;darktable&quot;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">copied?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">dupes_found?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">scored?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">named?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">xmp_written?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">db_upserted?</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">SdEjectedEvent</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;sd_ejected&quot;</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Update the <code>DoneEvent</code> interface to include <code>named</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kd">interface</span><span class="w"> </span><span class="nx">DoneEvent</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kr">type</span><span class="o">:</span><span class="w"> </span><span class="s2">&quot;done&quot;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">summary</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">total</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">duplicates_skipped</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">scored</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">named</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">xmp_written</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">db_upserted</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">elapsed_seconds</span><span class="o">:</span><span class="w"> </span><span class="kt">number</span><span class="p">;</span>
+<span class="w">  </span><span class="p">};</span>
+<span class="p">}</span>
+</code></pre></div>
+<p>Add <code>StageDoneEvent</code> and <code>SdEjectedEvent</code> to the <code>SidecarEvent</code> union:</p>
+<div class="highlight"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="kr">type</span><span class="w"> </span><span class="nx">SidecarEvent</span><span class="w"> </span><span class="o">=</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="nx">ProgressEvent</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="nx">DoneEvent</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="nx">ErrorEvent</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="nx">CartridgesEvent</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="nx">ReformatDoneEvent</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="nx">ProvisionDoneEvent</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="nx">StageDoneEvent</span>
+<span class="w">  </span><span class="o">|</span><span class="w"> </span><span class="nx">SdEjectedEvent</span><span class="p">;</span>
+</code></pre></div>
+<p>Update <code>runIngest()</code> to accept skip options and pass them as CLI flags:</p>
+<div class="highlight"><pre><span></span><code><span class="k">export</span><span class="w"> </span><span class="k">async</span><span class="w"> </span><span class="kd">function</span><span class="w"> </span><span class="nx">runIngest</span><span class="p">(</span>
+<span class="w">  </span><span class="nx">source</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">output</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">db</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">onEvent</span><span class="o">:</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="o">:</span><span class="w"> </span><span class="kt">SidecarEvent</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="ow">void</span><span class="p">,</span>
+<span class="w">  </span><span class="nx">options</span><span class="o">:</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">skipDedup?</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">skipScoring?</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">skipNaming?</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">skipDarktable?</span><span class="o">:</span><span class="w"> </span><span class="kt">boolean</span><span class="p">;</span>
+<span class="w">    </span><span class="nx">modelDir?</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">;</span>
+<span class="w">  </span><span class="p">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{},</span>
+<span class="p">)</span><span class="o">:</span><span class="w"> </span><span class="nb">Promise</span><span class="o">&lt;</span><span class="nx">Command</span><span class="o">&lt;</span><span class="kt">string</span><span class="o">&gt;&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">args</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;ingest&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--source&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">source</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--output&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">output</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;--db&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">db</span><span class="p">];</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">modelDir</span><span class="p">)</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s2">&quot;--model-dir&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">options</span><span class="p">.</span><span class="nx">modelDir</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">skipDedup</span><span class="p">)</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s2">&quot;--skip-dedup&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">skipScoring</span><span class="p">)</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s2">&quot;--skip-scoring&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">skipNaming</span><span class="p">)</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s2">&quot;--skip-naming&quot;</span><span class="p">);</span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">options</span><span class="p">.</span><span class="nx">skipDarktable</span><span class="p">)</span><span class="w"> </span><span class="nx">args</span><span class="p">.</span><span class="nx">push</span><span class="p">(</span><span class="s2">&quot;--skip-darktable&quot;</span><span class="p">);</span>
+
+<span class="w">  </span><span class="kd">const</span><span class="w"> </span><span class="nx">cmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">Command</span><span class="p">.</span><span class="nx">sidecar</span><span class="p">(</span><span class="s2">&quot;binaries/photo-workflow-sidecar&quot;</span><span class="p">,</span><span class="w"> </span><span class="nx">args</span><span class="p">);</span>
+
+<span class="w">  </span><span class="kd">let</span><span class="w"> </span><span class="nx">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">;</span>
+<span class="w">  </span><span class="nx">cmd</span><span class="p">.</span><span class="nx">stdout</span><span class="p">.</span><span class="nx">on</span><span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">(</span><span class="nx">chunk</span><span class="o">:</span><span class="w"> </span><span class="kt">string</span><span class="p">)</span><span class="w"> </span><span class="p">=&gt;</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="nx">buffer</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="nx">chunk</span><span class="p">;</span>
+<span class="w">    </span><span class="kd">const</span><span class="w"> </span><span class="nx">lines</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">buffer</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="s2">&quot;\n&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="nx">buffer</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">lines</span><span class="p">.</span><span class="nx">pop</span><span class="p">()</span><span class="w"> </span><span class="o">??</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">;</span>
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kd">const</span><span class="w"> </span><span class="nx">line</span><span class="w"> </span><span class="k">of</span><span class="w"> </span><span class="nx">lines</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">      </span><span class="kd">const</span><span class="w"> </span><span class="nx">event</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nx">parseLine</span><span class="p">(</span><span class="nx">line</span><span class="p">.</span><span class="nx">trim</span><span class="p">());</span>
+<span class="w">      </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="nx">event</span><span class="p">)</span><span class="w"> </span><span class="nx">onEvent</span><span class="p">(</span><span class="nx">event</span><span class="p">);</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">  </span><span class="p">});</span>
+
+<span class="w">  </span><span class="k">await</span><span class="w"> </span><span class="nx">cmd</span><span class="p">.</span><span class="nx">spawn</span><span class="p">();</span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="nx">cmd</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 3: Verify TypeScript compiles</strong></li>
+</ul>
+<p>Run from <code>photonforge-gui/</code>: <code>npx tsc --noEmit</code>
+Expected: No errors.</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>photonforge-gui/src/stores/ingest.ts<span class="w"> </span>photonforge-gui/src/lib/sidecar.ts
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: add StageDoneEvent/SdEjectedEvent types, update runIngest() with skip options&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-5-update-ingestdashboardsvelte">Task 5: Update IngestDashboard.svelte<a class="headerlink" href="#task-5-update-ingestdashboardsvelte" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>photonforge-gui/src/panels/IngestDashboard.svelte</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Replace the entire file with the updated version</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>&lt;script lang=&quot;ts&quot;&gt;
+  import { deviceState } from &quot;../stores/devices&quot;;
+  import { ingestState, resetIngest } from &quot;../stores/ingest&quot;;
+  import { pipelineSettings } from &quot;../stores/pipeline&quot;;
+  import { runIngest, type SidecarEvent, type StageDoneEvent } from &quot;../lib/sidecar&quot;;
+
+  $: canStart = $deviceState.sd_mounted &amp;&amp; $deviceState.ssd_mounted;
+  $: sourceLabel = $deviceState.sd_path ?? &quot;No SD card&quot;;
+  $: destLabel = $deviceState.ssd_label ?? &quot;No cartridge&quot;;
+
+  // Stage definitions — order matches execution order
+  const STAGE_DEFS = [
+    { key: &quot;copying&quot;,   label: &quot;Copy&quot;,           required: true  },
+    { key: &quot;dedup&quot;,     label: &quot;Deduplication&quot;,  required: false },
+    { key: &quot;scoring&quot;,   label: &quot;Scoring&quot;,        required: false },
+    { key: &quot;naming&quot;,    label: &quot;AI Naming&quot;,      required: false },
+    { key: &quot;darktable&quot;, label: &quot;Darktable sync&quot;, required: false },
+  ] as const;
+
+  type StageKey = typeof STAGE_DEFS[number][&quot;key&quot;];
+  type StageStatus = &quot;pending&quot; | &quot;active&quot; | &quot;done&quot; | &quot;skipped&quot;;
+
+  interface StageEntry {
+    key: StageKey;
+    label: string;
+    required: boolean;
+    status: StageStatus;
+    current: number;
+    total: number;
+    meta: Record&lt;string, unknown&gt; | undefined;
+  }
+
+  function isEnabled(key: StageKey): boolean {
+    if (key === &quot;copying&quot;) return true;
+    return $pipelineSettings[key as keyof typeof $pipelineSettings] as boolean;
+  }
+
+  function stageStatus(key: StageKey): StageStatus {
+    if (!isEnabled(key)) return &quot;skipped&quot;;
+    if ($ingestState.stageDone[key]) return &quot;done&quot;;
+    if ($ingestState.step === key) return &quot;active&quot;;
+    return &quot;pending&quot;;
+  }
+
+  $: stageList = STAGE_DEFS.map((s): StageEntry =&gt; ({
+    ...s,
+    status: stageStatus(s.key),
+    current: $ingestState.step === s.key ? $ingestState.current : 0,
+    total: $ingestState.step === s.key ? $ingestState.total : 0,
+    meta: $ingestState.stageDone[s.key],
+  }));
+
+  function stageMeta(entry: StageEntry): string {
+    if (!entry.meta) return &quot;&quot;;
+    const m = entry.meta;
+    if (entry.key === &quot;copying&quot;)   return `${m.copied ?? 0} files`;
+    if (entry.key === &quot;dedup&quot;)     return `${m.dupes_found ?? 0} dupes removed`;
+    if (entry.key === &quot;scoring&quot;)   return `${m.scored ?? 0} scored`;
+    if (entry.key === &quot;naming&quot;)    return `${m.named ?? 0} named`;
+    if (entry.key === &quot;darktable&quot;) return `${m.xmp_written ?? 0} XMP, ${m.db_upserted ?? 0} DB rows`;
+    return &quot;&quot;;
+  }
+
+  function stageIcon(status: StageStatus): string {
+    if (status === &quot;done&quot;)    return &quot;✓&quot;;
+    if (status === &quot;active&quot;)  return &quot;▶&quot;;
+    if (status === &quot;skipped&quot;) return &quot;—&quot;;
+    return &quot;○&quot;;
+  }
+
+  async function startIngest() {
+    if (!canStart) return;
+    const sd  = $deviceState.sd_path!;
+    const ssd = $deviceState.ssd_mount_point!;
+    const db  = `${ssd}/library.db`;
+
+    ingestState.update(s =&gt; ({
+      ...s,
+      phase: &quot;running&quot;,
+      step: &quot;copying&quot;,
+      current: 0,
+      total: 0,
+      errorMsg: &quot;&quot;,
+      summary: null,
+      activeCmd: null,
+      stageDone: {},
+      sdEjected: false,
+    }));
+
+    try {
+      const cmd = await runIngest(sd, ssd, db, (event: SidecarEvent) =&gt; {
+        if (event.type === &quot;progress&quot;) {
+          ingestState.update(s =&gt; ({ ...s, step: event.step, current: event.current, total: event.total }));
+        } else if (event.type === &quot;stage_done&quot;) {
+          const e = event as StageDoneEvent;
+          ingestState.update(s =&gt; ({
+            ...s,
+            stageDone: { ...s.stageDone, [e.stage]: e as unknown as Record&lt;string, unknown&gt; },
+          }));
+        } else if (event.type === &quot;sd_ejected&quot;) {
+          ingestState.update(s =&gt; ({ ...s, sdEjected: true }));
+        } else if (event.type === &quot;done&quot;) {
+          ingestState.update(s =&gt; ({ ...s, phase: &quot;done&quot;, summary: event.summary, activeCmd: null }));
+        } else if (event.type === &quot;error&quot;) {
+          ingestState.update(s =&gt; ({ ...s, phase: &quot;idle&quot;, errorMsg: event.message, activeCmd: null }));
+        }
+      }, {
+        skipDedup:     !$pipelineSettings.dedup,
+        skipScoring:   !$pipelineSettings.scoring,
+        skipNaming:    !$pipelineSettings.naming,
+        skipDarktable: !$pipelineSettings.darktable,
+      });
+      ingestState.update(s =&gt; ({ ...s, activeCmd: cmd }));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      ingestState.update(s =&gt; ({ ...s, phase: &quot;idle&quot;, errorMsg: `Failed to start: ${msg}`, activeCmd: null }));
+    }
+  }
+
+  function cancelIngest() {
+    $ingestState.activeCmd?.kill().catch(() =&gt; {});
+    ingestState.update(s =&gt; ({ ...s, phase: &quot;idle&quot;, activeCmd: null }));
+  }
+&lt;/script&gt;
+
+&lt;div class=&quot;ingest-panel&quot;&gt;
+  {#if $ingestState.phase === &quot;idle&quot;}
+    &lt;div class=&quot;idle-view&quot;&gt;
+      &lt;h2&gt;Ingest Photos&lt;/h2&gt;
+
+      &lt;div class=&quot;device-row&quot;&gt;
+        &lt;span class=&quot;label&quot;&gt;Source&lt;/span&gt;
+        &lt;span class=&quot;value&quot; class:missing={!$deviceState.sd_mounted}&gt;
+          {$deviceState.sd_mounted ? sourceLabel : &quot;Insert SD card&quot;}
+        &lt;/span&gt;
+      &lt;/div&gt;
+      &lt;div class=&quot;device-row&quot;&gt;
+        &lt;span class=&quot;label&quot;&gt;Destination&lt;/span&gt;
+        &lt;span class=&quot;value&quot; class:missing={!$deviceState.ssd_mounted}&gt;
+          {$deviceState.ssd_mounted ? destLabel : &quot;No cartridge mounted&quot;}
+        &lt;/span&gt;
+      &lt;/div&gt;
+
+      {#if $ingestState.errorMsg}
+        &lt;p class=&quot;error&quot;&gt;{$ingestState.errorMsg}&lt;/p&gt;
+      {/if}
+
+      &lt;div class=&quot;pipeline-section&quot;&gt;
+        &lt;h3&gt;Pipeline&lt;/h3&gt;
+        {#each STAGE_DEFS as stage}
+          &lt;div class=&quot;stage-checkbox-row&quot;&gt;
+            {#if stage.required}
+              &lt;input type=&quot;checkbox&quot; checked disabled /&gt;
+            {:else}
+              &lt;input
+                type=&quot;checkbox&quot;
+                checked={$pipelineSettings[stage.key as keyof typeof $pipelineSettings]}
+                on:change={(e) =&gt; pipelineSettings.update(s =&gt; ({ ...s, [stage.key]: e.currentTarget.checked }))}
+              /&gt;
+            {/if}
+            &lt;span class=&quot;stage-checkbox-label&quot;&gt;{stage.label}&lt;/span&gt;
+            {#if stage.required}
+              &lt;span class=&quot;required-badge&quot;&gt;Required&lt;/span&gt;
+            {/if}
+          &lt;/div&gt;
+        {/each}
+      &lt;/div&gt;
+
+      &lt;button class=&quot;primary-btn&quot; disabled={!canStart} on:click={startIngest}&gt;
+        Start Ingest
+      &lt;/button&gt;
+    &lt;/div&gt;
+
+  {:else if $ingestState.phase === &quot;running&quot;}
+    &lt;div class=&quot;running-view&quot;&gt;
+      &lt;h2&gt;Processing…&lt;/h2&gt;
+
+      &lt;div class=&quot;stage-list&quot;&gt;
+        {#each stageList as entry (entry.key)}
+          &lt;div class=&quot;stage-row&quot;
+            class:stage-active={entry.status === &quot;active&quot;}
+            class:stage-done={entry.status === &quot;done&quot;}
+            class:stage-skipped={entry.status === &quot;skipped&quot;}
+          &gt;
+            &lt;span class=&quot;stage-icon&quot;&gt;{stageIcon(entry.status)}&lt;/span&gt;
+            &lt;span class=&quot;stage-name&quot;&gt;{entry.label}&lt;/span&gt;
+            {#if entry.status === &quot;active&quot;}
+              &lt;div class=&quot;stage-progress&quot;&gt;
+                &lt;span class=&quot;stage-count&quot;&gt;{entry.current} / {entry.total}&lt;/span&gt;
+                &lt;div class=&quot;mini-bar&quot;&gt;
+                  &lt;div class=&quot;mini-fill&quot; style=&quot;width: {entry.total &gt; 0 ? (entry.current / entry.total) * 100 : 0}%&quot;&gt;&lt;/div&gt;
+                &lt;/div&gt;
+              &lt;/div&gt;
+            {:else if entry.status === &quot;done&quot;}
+              &lt;span class=&quot;stage-meta&quot;&gt;{stageMeta(entry)}&lt;/span&gt;
+            {:else if entry.status === &quot;skipped&quot;}
+              &lt;span class=&quot;stage-meta&quot;&gt;(skipped)&lt;/span&gt;
+            {/if}
+          &lt;/div&gt;
+        {/each}
+
+        {#if $ingestState.sdEjected}
+          &lt;div class=&quot;sd-ejected-row&quot;&gt;
+            &lt;span class=&quot;stage-icon eject-icon&quot;&gt;⏏&lt;/span&gt;
+            &lt;span class=&quot;stage-name&quot;&gt;SD card ejected&lt;/span&gt;
+            &lt;span class=&quot;stage-meta&quot;&gt;you can continue shooting&lt;/span&gt;
+          &lt;/div&gt;
+        {/if}
+      &lt;/div&gt;
+
+      &lt;button class=&quot;cancel-btn&quot; on:click={cancelIngest}&gt;Cancel&lt;/button&gt;
+    &lt;/div&gt;
+
+  {:else if $ingestState.phase === &quot;done&quot; &amp;&amp; $ingestState.summary}
+    &lt;div class=&quot;done-view&quot;&gt;
+      &lt;h2&gt;Ingest Complete&lt;/h2&gt;
+      &lt;div class=&quot;summary-card&quot;&gt;
+        &lt;div class=&quot;summary-row&quot;&gt;&lt;span&gt;Total files&lt;/span&gt;&lt;strong&gt;{$ingestState.summary.total}&lt;/strong&gt;&lt;/div&gt;
+        &lt;div class=&quot;summary-row&quot;&gt;&lt;span&gt;Duplicates skipped&lt;/span&gt;&lt;strong&gt;{$ingestState.summary.duplicates_skipped}&lt;/strong&gt;&lt;/div&gt;
+        &lt;div class=&quot;summary-row&quot;&gt;&lt;span&gt;Images scored&lt;/span&gt;&lt;strong&gt;{$ingestState.summary.scored}&lt;/strong&gt;&lt;/div&gt;
+        &lt;div class=&quot;summary-row&quot;&gt;&lt;span&gt;Images named&lt;/span&gt;&lt;strong&gt;{$ingestState.summary.named}&lt;/strong&gt;&lt;/div&gt;
+        &lt;div class=&quot;summary-row&quot;&gt;&lt;span&gt;XMP written&lt;/span&gt;&lt;strong&gt;{$ingestState.summary.xmp_written}&lt;/strong&gt;&lt;/div&gt;
+        &lt;div class=&quot;summary-row&quot;&gt;&lt;span&gt;DB rows upserted&lt;/span&gt;&lt;strong&gt;{$ingestState.summary.db_upserted}&lt;/strong&gt;&lt;/div&gt;
+        &lt;div class=&quot;summary-row&quot;&gt;&lt;span&gt;Elapsed&lt;/span&gt;&lt;strong&gt;{$ingestState.summary.elapsed_seconds.toFixed(1)}s&lt;/strong&gt;&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;button class=&quot;primary-btn&quot; on:click={resetIngest}&gt;New Ingest&lt;/button&gt;
+    &lt;/div&gt;
+  {/if}
+&lt;/div&gt;
+
+&lt;style&gt;
+  .ingest-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 1.5rem;
+    padding: 2.5rem 3rem;
+  }
+  .idle-view, .running-view, .done-view {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    max-width: 480px;
+  }
+  h2 { color: var(--text-primary, #fff); font-size: 1.5rem; margin: 0; }
+  h3 { color: var(--text-primary, #fff); font-size: 1rem; margin: 0; align-self: flex-start; }
+  .device-row {
+    display: flex; justify-content: space-between;
+    width: 100%; padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border, #333);
+  }
+  .label { color: var(--text-muted, #888); }
+  .value { color: var(--text-primary, #fff); }
+  .value.missing { color: var(--warning, #f59e0b); }
+
+  /* Pipeline checkboxes */
+  .pipeline-section {
+    width: 100%;
+    background: var(--surface, #1a1a1a);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    display: flex; flex-direction: column; gap: 0.6rem;
+  }
+  .stage-checkbox-row {
+    display: flex; align-items: center; gap: 0.6rem;
+    color: var(--text-primary, #fff); font-size: 0.9rem;
+  }
+  .stage-checkbox-label { flex: 1; }
+  .required-badge {
+    font-size: 0.7rem; padding: 0.1rem 0.4rem;
+    background: rgba(99,102,241,0.2); color: var(--accent, #6366f1);
+    border-radius: 0.25rem;
+  }
+
+  /* Stage list */
+  .stage-list { width: 100%; display: flex; flex-direction: column; gap: 0.5rem; }
+  .stage-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    background: var(--surface, #1a1a1a);
+    font-size: 0.9rem;
+  }
+  .stage-row.stage-active  { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); }
+  .stage-row.stage-done    { opacity: 0.8; }
+  .stage-row.stage-skipped { opacity: 0.4; }
+  .stage-icon { width: 1.2rem; text-align: center; color: var(--text-muted, #888); }
+  .stage-row.stage-done  .stage-icon { color: #4ade80; }
+  .stage-row.stage-active .stage-icon { color: var(--accent, #6366f1); }
+  .stage-name { flex: 1; color: var(--text-primary, #fff); }
+  .stage-meta { color: var(--text-muted, #888); font-size: 0.8rem; }
+  .stage-progress { display: flex; align-items: center; gap: 0.5rem; }
+  .stage-count { color: var(--text-muted, #888); font-size: 0.8rem; white-space: nowrap; }
+  .mini-bar { width: 80px; height: 4px; background: var(--border, #333); border-radius: 2px; overflow: hidden; }
+  .mini-fill { height: 100%; background: var(--accent, #6366f1); transition: width 0.2s; }
+  .sd-ejected-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    background: rgba(99,102,241,0.08);
+    font-size: 0.9rem;
+  }
+  .eject-icon { color: var(--accent, #6366f1); }
+
+  /* Buttons */
+  .primary-btn {
+    padding: 0.75rem 2rem; background: var(--accent, #6366f1);
+    color: #fff; border: none; border-radius: 0.5rem;
+    font-size: 1rem; cursor: pointer; width: 100%;
+  }
+  .primary-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .cancel-btn {
+    padding: 0.75rem 2rem; background: transparent;
+    color: var(--warning, #f59e0b); border: 1px solid var(--warning, #f59e0b);
+    border-radius: 0.5rem; font-size: 1rem; cursor: pointer; width: 100%;
+  }
+
+  /* Summary */
+  .summary-card {
+    width: 100%; background: var(--surface, #1a1a1a);
+    border-radius: 0.5rem; padding: 1rem;
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .summary-row { display: flex; justify-content: space-between; color: var(--text-muted, #888); }
+  .summary-row strong { color: var(--text-primary, #fff); }
+  .error { color: var(--error, #ef4444); }
+&lt;/style&gt;
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Verify TypeScript compiles</strong></li>
+</ul>
+<p>Run from <code>photonforge-gui/</code>: <code>npx tsc --noEmit</code>
+Expected: No errors.</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>photonforge-gui/src/panels/IngestDashboard.svelte
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: add pipeline stage checkboxes, stage list progress view, and updated summary&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-6-rebuild-sidecar-binary-and-verify-on-yoga">Task 6: Rebuild sidecar binary and verify on Yoga<a class="headerlink" href="#task-6-rebuild-sidecar-binary-and-verify-on-yoga" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Rebuild: <code>photonforge-gui/src-tauri/binaries/photo-workflow-sidecar-x86_64-unknown-linux-gnu</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Push all commits to GitHub</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>main
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Pull and rebuild binary on Yoga</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>ssh<span class="w"> </span>alex@10.27.27.10<span class="w"> </span><span class="s1">&#39;cd ~/PHOTONFORGE_Photo-Workflow &amp;&amp; git pull --ff-only &amp;&amp; source .venv/bin/activate &amp;&amp; pyinstaller --onefile --name photo-workflow-sidecar --distpath photonforge-gui/src-tauri/binaries --workpath /tmp/pyinstaller-build --specpath /tmp/pyinstaller-build src/photo_workflow/sidecar_cli.py &amp;&amp; mv photonforge-gui/src-tauri/binaries/photo-workflow-sidecar photonforge-gui/src-tauri/binaries/photo-workflow-sidecar-x86_64-unknown-linux-gnu &amp;&amp; chmod +x photonforge-gui/src-tauri/binaries/photo-workflow-sidecar-x86_64-unknown-linux-gnu &amp;&amp; echo &quot;Build OK&quot;&#39;</span>
+</code></pre></div>
+<p>Expected: <code>Build OK</code></p>
+<ul>
+<li>[ ] <strong>Step 3: Dry-run smoke test on Yoga</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>ssh<span class="w"> </span>alex@10.27.27.10<span class="w"> </span><span class="s1">&#39;cd ~/PHOTONFORGE_Photo-Workflow &amp;&amp; photonforge-gui/src-tauri/binaries/photo-workflow-sidecar-x86_64-unknown-linux-gnu ingest --source /tmp --output /tmp/out --db /tmp/out/library.db --skip-darktable 2&gt;&amp;1 | head -5&#39;</span>
+</code></pre></div>
+<p>Expected: First few JSON progress lines, exits cleanly (total=0 if no RAW files in /tmp).</p>
+<ul>
+<li>[ ] <strong>Step 4: Copy binary back to Windows and commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>scp<span class="w"> </span><span class="s2">&quot;alex@10.27.27.10:~/PHOTONFORGE_Photo-Workflow/photonforge-gui/src-tauri/binaries/photo-workflow-sidecar-x86_64-unknown-linux-gnu&quot;</span><span class="w"> </span><span class="s2">&quot;photonforge-gui/src-tauri/binaries/photo-workflow-sidecar-x86_64-unknown-linux-gnu&quot;</span>
+git<span class="w"> </span>add<span class="w"> </span>photonforge-gui/src-tauri/binaries/photo-workflow-sidecar-x86_64-unknown-linux-gnu
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;chore: rebuild sidecar binary with full pipeline ingest command&quot;</span>
+git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>main
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 5: Restart Tauri dev app on Yoga</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>ssh<span class="w"> </span>alex@10.27.27.10<span class="w"> </span><span class="s1">&#39;pkill -f &quot;target/debug/photonforge&quot; 2&gt;/dev/null; export PATH=&quot;/home/alex/.nvm/versions/node/v20.20.2/bin:/home/alex/.cargo/bin:$PATH&quot; &amp;&amp; cd ~/PHOTONFORGE_Photo-Workflow/photonforge-gui &amp;&amp; nohup npm run tauri dev &gt; /tmp/tauri-dev.log 2&gt;&amp;1 &amp; until grep -qE &quot;Running \`target&quot; /tmp/tauri-dev.log 2&gt;/dev/null; do sleep 3; done; echo &quot;App ready&quot;&#39;</span>
+</code></pre></div>
+<p>Expected: <code>App ready</code></p>
+<hr />
+<h2 id="self-review">Self-Review<a class="headerlink" href="#self-review" title="Permanent link">&para;</a></h2>
+<p><strong>Spec coverage:</strong>
+- ✓ Copy → Dedup → Scoring → Naming → Darktable skip flags (Task 2)
+- ✓ SD ejected after copy (Task 2, <code>_eject_sd</code>)
+- ✓ <code>sd_ejected</code> event emitted (Task 2)
+- ✓ <code>stage_done</code> events for each stage (Task 2)
+- ✓ <code>pipeline.ts</code> store with localStorage (Task 3)
+- ✓ <code>ingest.ts</code> <code>stageDone</code> + <code>sdEjected</code> (Task 4)
+- ✓ <code>StageDoneEvent</code>, <code>SdEjectedEvent</code> types (Task 4)
+- ✓ <code>runIngest()</code> accepts skip options (Task 4)
+- ✓ Idle view checkboxes (Task 5)
+- ✓ Running view stage list with per-stage progress (Task 5)
+- ✓ SD ejected row in running view (Task 5)
+- ✓ Updated summary card with <code>named</code>, <code>xmp_written</code>, <code>db_upserted</code> (Task 5)
+- ✓ Binary rebuild (Task 6)</p>
+<p><strong>Type consistency:</strong> <code>StageDoneEvent</code> defined in Task 4 and imported in Task 5. <code>PipelineSettings</code> keys (<code>dedup</code>, <code>scoring</code>, <code>naming</code>, <code>darktable</code>) match <code>STAGE_DEFS</code> keys and <code>runIngest()</code> option names throughout. <code>stageDone</code> record keys match sidecar stage names (<code>copy</code>, <code>dedup</code>, <code>scoring</code>, <code>naming</code>, <code>darktable</code>).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

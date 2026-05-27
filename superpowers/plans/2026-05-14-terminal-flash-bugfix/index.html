@@ -1,0 +1,2933 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Autonomous ingest-to-edit photography pipeline">
+      
+      
+      
+        <link rel="canonical" href="https://Ajam1997.github.io/PHOTONFORGE_Photo-Workflow/superpowers/plans/2026-05-14-terminal-flash-bugfix/">
+      
+      
+        <link rel="prev" href="../2026-05-20-pipeline-v2/">
+      
+      
+        <link rel="next" href="../2026-05-13-python-engine-changes/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Terminal Flash Bugfix - PHOTONForge</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#terminal-flash-elimination-bug-fixes-implementation-plan" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="PHOTONForge" class="md-header__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PHOTONForge
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Terminal Flash Bugfix
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../roadmap/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../living-user-needs/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  User Needs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../photonforge-architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../kpm-dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  KPM Dashboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../research/" class="md-tabs__link">
+          
+  
+  
+  Research
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+  Specs & Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../drift-reports/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Drift Reports
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../github-integration-subprojects/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub Integration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../Notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="PHOTONForge" class="md-nav__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PHOTONForge
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../living-user-needs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Needs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../photonforge-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../kpm-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KPM Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/scoring-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs & Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs & Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-agent-writeback-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Write-back
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-scheduled-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-pr-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PR Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-doc-reorg-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-23-github-scaffolding-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-21-genre-aware-scoring-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-20-pipeline-v2-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-14-terminal-flash-bugfix-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-13-darktable-lua-plugin-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Darktable Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-05-12-stage-based-cli-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-20-ingest-pipeline-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-20-cartridge-provisioning-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-19-stage-7-2-ingest-cartridge-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-17-stage-7-1-gui-scaffold-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-17-ssh-key-update-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../specs/2026-04-16-soak-test-notifications-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-doc-reorg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-github-scaffolding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-21-genre-aware-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-20-pipeline-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#file-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        File Structure
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="File Structure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#task-1-config-default-fix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 1: Config Default Fix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-2-pid-and-sentinel-file-lifecycle-in-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 2: PID and Sentinel File Lifecycle in Python
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-3-change-entry-point-to-gui_scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 3: Change Entry Point to gui_scripts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-4-rewrite-runnerlua-process-management" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 4: Rewrite runner.lua Process Management
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#task-5-integration-verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Task 5: Integration Verification
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-13-python-engine-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Engine Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-13-lua-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-12-stage-based-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-ingest-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-cartridge-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-19-stage-7-2-ingest-cartridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-stage-7-1-gui-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-ssh-key-update/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-16-soak-test-notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Briefs & Build Logs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Briefs & Build Logs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-16-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-16 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../drift-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../github-integration-subprojects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="terminal-flash-elimination-bug-fixes-implementation-plan">Terminal Flash Elimination &amp; Bug Fixes Implementation Plan<a class="headerlink" href="#terminal-flash-elimination-bug-fixes-implementation-plan" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Eliminate console window flashing in the Darktable Lua plugin on Windows and fix related process management bugs.</p>
+<p><strong>Architecture:</strong> Python pipeline writes PID + sentinel files for Lua to detect process state without spawning subprocesses. Entry point changed to gui_scripts (pythonw.exe) to prevent console allocation. Runner.lua rewritten to use file-based detection, PID-targeted kill, and temp batch file for safe command construction.</p>
+<p><strong>Tech Stack:</strong> Lua 5.4 (Darktable API), Python 3.11+ (click CLI), Windows batch scripting</p>
+<hr />
+<h2 id="file-structure">File Structure<a class="headerlink" href="#file-structure" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/photo_workflow/pipeline.py</code></td>
+<td>Add PID/sentinel lifecycle to <code>main()</code></td>
+</tr>
+<tr>
+<td><code>pyproject.toml</code></td>
+<td>Move <code>photo-workflow</code> to <code>gui-scripts</code></td>
+</tr>
+<tr>
+<td><code>lua/photonforge/runner.lua</code></td>
+<td>Rewrite process management (polling, kill, launch)</td>
+</tr>
+<tr>
+<td><code>lua/photonforge/config.lua</code></td>
+<td>Fix model_dir default</td>
+</tr>
+<tr>
+<td><code>tests/test_pipeline.py</code></td>
+<td>Test PID/sentinel file behavior</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="task-1-config-default-fix">Task 1: Config Default Fix<a class="headerlink" href="#task-1-config-default-fix" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>lua/photonforge/config.lua:9</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Fix the model_dir default</strong></li>
+</ul>
+<p>In <code>lua/photonforge/config.lua</code>, change line 9 from:</p>
+<div class="highlight"><pre><span></span><code><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nv">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span><span class="p">,</span><span class="w">    </span><span class="nb">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="p">,</span><span class="w">  </span><span class="nv">default</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;models/blip_base&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Model directory&quot;</span><span class="w"> </span><span class="p">},</span>
+</code></pre></div>
+<p>To:</p>
+<div class="highlight"><pre><span></span><code><span class="w">  </span><span class="p">{</span><span class="w"> </span><span class="nv">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;model_dir&quot;</span><span class="p">,</span><span class="w">    </span><span class="nb">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;string&quot;</span><span class="p">,</span><span class="w">  </span><span class="nv">default</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;models/florence2_int8&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;Model directory&quot;</span><span class="w"> </span><span class="p">},</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>lua/photonforge/config.lua
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;fix: correct model_dir default from blip_base to florence2_int8&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-2-pid-and-sentinel-file-lifecycle-in-python">Task 2: PID and Sentinel File Lifecycle in Python<a class="headerlink" href="#task-2-pid-and-sentinel-file-lifecycle-in-python" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>src/photo_workflow/pipeline.py:679-680</code>
+- Create: <code>tests/test_pid_sentinel.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing test</strong></li>
+</ul>
+<p>Create <code>tests/test_pid_sentinel.py</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="sd">&quot;&quot;&quot;Test PID and sentinel file lifecycle for Lua plugin integration.&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">unittest.mock</span><span class="w"> </span><span class="kn">import</span> <span class="n">patch</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_sentinel_created_on_start</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">monkeypatch</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pipeline main() creates sentinel and PID files in TEMP.&quot;&quot;&quot;</span>
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setenv</span><span class="p">(</span><span class="s2">&quot;TEMP&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">))</span>
+    <span class="n">monkeypatch</span><span class="o">.</span><span class="n">setenv</span><span class="p">(</span><span class="s2">&quot;TMP&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">))</span>
+
+    <span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">_write_sentinel</span><span class="p">,</span> <span class="n">_cleanup_sentinel</span>
+
+    <span class="n">_write_sentinel</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+
+    <span class="n">pid_file</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;photonforge.pid&quot;</span>
+    <span class="n">sentinel</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;photonforge.running&quot;</span>
+
+    <span class="k">assert</span> <span class="n">pid_file</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">sentinel</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+    <span class="k">assert</span> <span class="n">pid_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">())</span>
+
+    <span class="n">_cleanup_sentinel</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="ow">not</span> <span class="n">sentinel</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+    <span class="c1"># PID file stays (Lua may still need to read it for kill)</span>
+    <span class="k">assert</span> <span class="n">pid_file</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_sentinel_cleanup_is_idempotent</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Calling cleanup when sentinel doesn&#39;t exist doesn&#39;t raise.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">_cleanup_sentinel</span>
+
+    <span class="c1"># Should not raise even if files don&#39;t exist</span>
+    <span class="n">_cleanup_sentinel</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">test_stale_sentinel_overwritten</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;If a stale sentinel exists from a crash, it gets overwritten.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">photo_workflow.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">_write_sentinel</span>
+
+    <span class="n">sentinel</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;photonforge.running&quot;</span>
+    <span class="n">sentinel</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">&quot;stale&quot;</span><span class="p">)</span>
+
+    <span class="n">pid_file</span> <span class="o">=</span> <span class="n">tmp_path</span> <span class="o">/</span> <span class="s2">&quot;photonforge.pid&quot;</span>
+    <span class="n">pid_file</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">&quot;99999&quot;</span><span class="p">)</span>
+
+    <span class="n">_write_sentinel</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">)</span>
+
+    <span class="k">assert</span> <span class="n">pid_file</span><span class="o">.</span><span class="n">read_text</span><span class="p">()</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">==</span> <span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">())</span>
+    <span class="k">assert</span> <span class="n">sentinel</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Run test to verify it fails</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_pid_sentinel.py -v</code></p>
+<p>Expected: FAIL with <code>ImportError</code> or <code>cannot import name '_write_sentinel'</code></p>
+<ul>
+<li>[ ] <strong>Step 3: Implement sentinel functions in pipeline.py</strong></li>
+</ul>
+<p>Add these functions before the <code>main()</code> function in <code>src/photo_workflow/pipeline.py</code> (above line 679):</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">_get_temp_dir</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the platform temp directory.&quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+    <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">())</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_write_sentinel</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Write PID file and sentinel for Lua plugin process detection.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">temp_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">temp_dir</span> <span class="o">=</span> <span class="n">_get_temp_dir</span><span class="p">()</span>
+    <span class="n">pid_file</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;photonforge.pid&quot;</span>
+    <span class="n">sentinel</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;photonforge.running&quot;</span>
+    <span class="n">pid_file</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">getpid</span><span class="p">()))</span>
+    <span class="n">sentinel</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_cleanup_sentinel</span><span class="p">(</span><span class="n">temp_dir</span><span class="p">:</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove sentinel file on clean exit. PID file is left for kill reference.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">temp_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">temp_dir</span> <span class="o">=</span> <span class="n">_get_temp_dir</span><span class="p">()</span>
+    <span class="n">sentinel</span> <span class="o">=</span> <span class="n">temp_dir</span> <span class="o">/</span> <span class="s2">&quot;photonforge.running&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">sentinel</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span>
+    <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+        <span class="k">pass</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 4: Wire sentinel into main()</strong></li>
+</ul>
+<p>Replace the <code>main()</code> function in <code>src/photo_workflow/pipeline.py</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">atexit</span>
+    <span class="n">_write_sentinel</span><span class="p">()</span>
+    <span class="n">atexit</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">_cleanup_sentinel</span><span class="p">)</span>
+    <span class="n">cli</span><span class="p">()</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 5: Run tests to verify they pass</strong></li>
+</ul>
+<p>Run: <code>pytest tests/test_pid_sentinel.py -v</code></p>
+<p>Expected: All 3 tests PASS</p>
+<ul>
+<li>[ ] <strong>Step 6: Run full test suite to check for regressions</strong></li>
+</ul>
+<p>Run: <code>pytest tests/ -v --tb=short</code></p>
+<p>Expected: All tests PASS</p>
+<ul>
+<li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>src/photo_workflow/pipeline.py<span class="w"> </span>tests/test_pid_sentinel.py
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;feat: add PID and sentinel file lifecycle for Lua process detection&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-3-change-entry-point-to-gui_scripts">Task 3: Change Entry Point to gui_scripts<a class="headerlink" href="#task-3-change-entry-point-to-gui_scripts" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>pyproject.toml:33-34</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Move photo-workflow to gui-scripts</strong></li>
+</ul>
+<p>In <code>pyproject.toml</code>, replace:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[project.scripts]</span>
+<span class="n">photo-workflow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;photo_workflow.pipeline:main&quot;</span>
+<span class="n">photo-cartridge</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;photo_workflow.cartridge:main&quot;</span>
+</code></pre></div>
+<p>With:</p>
+<div class="highlight"><pre><span></span><code><span class="k">[project.scripts]</span>
+<span class="n">photo-cartridge</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;photo_workflow.cartridge:main&quot;</span>
+
+<span class="k">[project.gui-scripts]</span>
+<span class="n">photo-workflow</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;photo_workflow.pipeline:main&quot;</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Reinstall the package</strong></li>
+</ul>
+<p>Run: <code>pip install -e .</code></p>
+<p>Expected: Successful install. The <code>photo-workflow</code> executable in the Scripts directory is now a <code>pythonw.exe</code>-based wrapper.</p>
+<ul>
+<li>[ ] <strong>Step 3: Verify the executable still works from terminal</strong></li>
+</ul>
+<p>Run: <code>photo-workflow --help</code></p>
+<p>Expected: Prints help text (gui_scripts executables still work from terminal on Windows).</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>pyproject.toml
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;fix: change photo-workflow to gui_scripts for windowless execution&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-4-rewrite-runnerlua-process-management">Task 4: Rewrite runner.lua Process Management<a class="headerlink" href="#task-4-rewrite-runnerlua-process-management" title="Permanent link">&para;</a></h3>
+<p><strong>Files:</strong>
+- Modify: <code>lua/photonforge/runner.lua</code> (full rewrite of process management sections)</p>
+<ul>
+<li>[ ] <strong>Step 1: Add sentinel/PID file path helpers</strong></li>
+</ul>
+<p>Replace lines 57-62 of <code>runner.lua</code> (the <code>get_log_path</code> function) with expanded helper functions:</p>
+<div class="highlight"><pre><span></span><code><span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nb">os.getenv</span><span class="p">(</span><span class="s2">&quot;TEMP&quot;</span><span class="p">)</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="nb">os.getenv</span><span class="p">(</span><span class="s2">&quot;TMP&quot;</span><span class="p">)</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;C:</span><span class="se">\\</span><span class="s2">Temp&quot;</span>
+<span class="w">  </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nb">os.getenv</span><span class="p">(</span><span class="s2">&quot;TMPDIR&quot;</span><span class="p">)</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;/tmp&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">get_log_path</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">(</span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;/&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;photonforge_step.log&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">get_sentinel_path</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">(</span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;/&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;photonforge.running&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">get_pid_path</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">(</span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;/&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;photonforge.pid&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">read_pid_file</span><span class="p">()</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nf">get_pid_path</span><span class="p">(),</span><span class="w"> </span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="kr">return</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">fh</span><span class="p">:</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;*l&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="nv">fh</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">pid</span><span class="p">:</span><span class="nf">match</span><span class="p">(</span><span class="s2">&quot;^%s*(%d+)%s*$&quot;</span><span class="p">)</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nv">pid</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">is_process_alive</span><span class="p">()</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">sentinel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">get_sentinel_path</span><span class="p">()</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nv">sentinel</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="nv">fh</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">  </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="kr">end</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 2: Rewrite M.kill() to use PID-based kill</strong></li>
+</ul>
+<p>Replace the existing <code>M.kill()</code> function (lines 47-55) with:</p>
+<div class="highlight"><pre><span></span><code><span class="kr">function</span><span class="w"> </span><span class="nc">M</span><span class="p">.</span><span class="nf">kill</span><span class="p">()</span>
+<span class="w">  </span><span class="nv">M</span><span class="p">.</span><span class="py">abort</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">read_pid_file</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nb">os.execute</span><span class="p">(</span><span class="s1">&#39;taskkill /F /PID &#39;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39; &gt;nul 2&gt;&amp;1&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">else</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nb">os.execute</span><span class="p">(</span><span class="s2">&quot;kill -9 &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; 2&gt;/dev/null&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">else</span>
+<span class="w">      </span><span class="nb">os.execute</span><span class="p">(</span><span class="s2">&quot;pkill -f &#39;photo-workflow&#39; 2&gt;/dev/null&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">end</span>
+<span class="w">  </span><span class="c1">-- Clean up sentinel in case atexit didn&#39;t fire</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">sentinel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">get_sentinel_path</span><span class="p">()</span>
+<span class="w">  </span><span class="nb">os.remove</span><span class="p">(</span><span class="nv">sentinel</span><span class="p">)</span>
+<span class="kr">end</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 3: Rewrite run_step() launch to use temp batch file</strong></li>
+</ul>
+<p>Replace the command construction and launch section (lines 64-77 of original) in <code>M.run_step</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kr">function</span><span class="w"> </span><span class="nc">M</span><span class="p">.</span><span class="nf">run_step</span><span class="p">(</span><span class="nv">step</span><span class="p">,</span><span class="w"> </span><span class="nv">log_fn</span><span class="p">,</span><span class="w"> </span><span class="nv">job</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">cmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">build_cmd</span><span class="p">(</span><span class="nv">step</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">log_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">get_log_path</span><span class="p">()</span>
+<span class="w">  </span><span class="nf">log_fn</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;[%s] Running: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">os.date</span><span class="p">(</span><span class="s2">&quot;%H:%M:%S&quot;</span><span class="p">),</span><span class="w"> </span><span class="nv">cmd</span><span class="p">))</span>
+
+<span class="w">  </span><span class="c1">-- Clear log file</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nv">log_path</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">f</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="nv">f</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span><span class="w"> </span><span class="kr">end</span>
+
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="c1">-- Write command to temp batch file to avoid nested quoting issues</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">bat_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">photonforge_run.bat&quot;</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">bf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nv">bat_path</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">bf</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nv">bf</span><span class="p">:</span><span class="nf">write</span><span class="p">(</span><span class="s2">&quot;@echo off</span><span class="se">\r\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="w">      </span><span class="nv">bf</span><span class="p">:</span><span class="nf">write</span><span class="p">(</span><span class="nv">cmd</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39; &gt;&quot;&#39;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">log_path</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39;&quot; 2&gt;&amp;1</span><span class="se">\r\n</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="w">      </span><span class="nv">bf</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span>
+<span class="w">    </span><span class="kr">end</span>
+<span class="w">    </span><span class="nb">os.execute</span><span class="p">(</span><span class="s1">&#39;start /B &quot;&quot; &quot;&#39;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">bat_path</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">else</span>
+<span class="w">    </span><span class="nv">cmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">cmd</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; &gt; &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">log_path</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; 2&gt;&amp;1 &amp;&quot;</span>
+<span class="w">    </span><span class="nb">os.execute</span><span class="p">(</span><span class="nv">cmd</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">end</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 4: Rewrite the polling loop to use file-based alive detection</strong></li>
+</ul>
+<p>Replace the process-alive check section (lines 100-121 of original) within the <code>while not M.abort</code> loop:</p>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">new_data</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="nv">new_data</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="kr">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nf">is_process_alive</span><span class="p">()</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">        </span><span class="kr">break</span>
+<span class="w">      </span><span class="kr">end</span>
+
+<span class="w">      </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">      </span><span class="kr">if</span><span class="w"> </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">MAX_IDLE</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="kr">break</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">      </span><span class="kr">goto</span><span class="w"> </span><span class="nl">continue</span>
+<span class="w">    </span><span class="kr">end</span>
+</code></pre></div>
+<p>This replaces the entire <code>io.popen('tasklist ...')</code> / <code>os.execute("pgrep ...")</code> block with a single file existence check.</p>
+<ul>
+<li>[ ] <strong>Step 5: Assemble the complete rewritten runner.lua</strong></li>
+</ul>
+<p>Write the full file <code>lua/photonforge/runner.lua</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kd">local</span><span class="w"> </span><span class="nv">dt</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">require</span><span class="w"> </span><span class="s2">&quot;darktable&quot;</span>
+<span class="kd">local</span><span class="w"> </span><span class="nv">json</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">require</span><span class="w"> </span><span class="s2">&quot;photonforge/json&quot;</span>
+<span class="kd">local</span><span class="w"> </span><span class="nv">config</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">require</span><span class="w"> </span><span class="s2">&quot;photonforge/config&quot;</span>
+<span class="kd">local</span><span class="w"> </span><span class="nv">applicator</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">require</span><span class="w"> </span><span class="s2">&quot;photonforge/applicator&quot;</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="nv">M</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{}</span>
+
+<span class="nv">M</span><span class="p">.</span><span class="py">abort</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">package.config</span><span class="p">:</span><span class="nf">sub</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">s</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="nv">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">s</span><span class="p">:</span><span class="nf">gsub</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">$&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="s1">&#39;&quot;&#39;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">s</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39;&quot;&#39;</span>
+<span class="w">  </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="s2">&quot;&#39;&quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">s</span><span class="p">:</span><span class="nf">gsub</span><span class="p">(</span><span class="s2">&quot;&#39;&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;&#39;</span><span class="se">\\</span><span class="s2">&#39;&#39;&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;&#39;&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">build_cmd</span><span class="p">(</span><span class="nv">step</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">manifest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">config</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;manifest&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">model_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">config</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;model_dir&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">tz</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">tostring</span><span class="p">(</span><span class="nv">config</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;tz_offset&quot;</span><span class="p">))</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">dest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">config</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;dest_path&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">sd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">config</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;sd_path&quot;</span><span class="p">)</span>
+
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">base</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;photo-workflow &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --json-progress&quot;</span>
+
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;ingest&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nv">base</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --source &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">sd</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --dest &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">dest</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">elseif</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;scan&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nv">base</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --source &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">dest</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --manifest &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">manifest</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">elseif</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;dedup&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nv">base</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --manifest &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">manifest</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">elseif</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;score&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nv">base</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --manifest &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">manifest</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">elseif</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;name&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nv">base</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --manifest &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">manifest</span><span class="p">)</span>
+<span class="w">              </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --model-dir &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">model_dir</span><span class="p">)</span>
+<span class="w">              </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --tz-offset &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">tz</span>
+<span class="w">  </span><span class="kr">elseif</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;sync&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nv">base</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; --manifest &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">manifest</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">end</span>
+<span class="w">  </span><span class="nb">error</span><span class="p">(</span><span class="s2">&quot;Unknown step: &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">step</span><span class="p">)</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nb">os.getenv</span><span class="p">(</span><span class="s2">&quot;TEMP&quot;</span><span class="p">)</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="nb">os.getenv</span><span class="p">(</span><span class="s2">&quot;TMP&quot;</span><span class="p">)</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;C:</span><span class="se">\\</span><span class="s2">Temp&quot;</span>
+<span class="w">  </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nb">os.getenv</span><span class="p">(</span><span class="s2">&quot;TMPDIR&quot;</span><span class="p">)</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;/tmp&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">get_log_path</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">(</span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;/&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;photonforge_step.log&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">get_sentinel_path</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">(</span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;/&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;photonforge.running&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">get_pid_path</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="p">(</span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">&quot;</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;/&quot;</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;photonforge.pid&quot;</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">read_pid_file</span><span class="p">()</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nf">get_pid_path</span><span class="p">(),</span><span class="w"> </span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="kr">return</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">fh</span><span class="p">:</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;*l&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="nv">fh</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">pid</span><span class="p">:</span><span class="nf">match</span><span class="p">(</span><span class="s2">&quot;^%s*(%d+)%s*$&quot;</span><span class="p">)</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="nv">pid</span>
+<span class="kr">end</span>
+
+<span class="kd">local</span><span class="w"> </span><span class="kr">function</span><span class="w"> </span><span class="nf">is_process_alive</span><span class="p">()</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nf">get_sentinel_path</span><span class="p">(),</span><span class="w"> </span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="nv">fh</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">  </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="kr">end</span>
+
+<span class="kr">function</span><span class="w"> </span><span class="nc">M</span><span class="p">.</span><span class="nf">kill</span><span class="p">()</span>
+<span class="w">  </span><span class="nv">M</span><span class="p">.</span><span class="py">abort</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">read_pid_file</span><span class="p">()</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nb">os.execute</span><span class="p">(</span><span class="s1">&#39;taskkill /F /PID &#39;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39; &gt;nul 2&gt;&amp;1&#39;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">else</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nb">os.execute</span><span class="p">(</span><span class="s2">&quot;kill -9 &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">pid</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; 2&gt;/dev/null&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">else</span>
+<span class="w">      </span><span class="nb">os.execute</span><span class="p">(</span><span class="s2">&quot;pkill -f &#39;photo-workflow&#39; 2&gt;/dev/null&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">end</span>
+<span class="w">  </span><span class="nb">os.remove</span><span class="p">(</span><span class="nf">get_sentinel_path</span><span class="p">())</span>
+<span class="kr">end</span>
+
+<span class="kr">function</span><span class="w"> </span><span class="nc">M</span><span class="p">.</span><span class="nf">run_step</span><span class="p">(</span><span class="nv">step</span><span class="p">,</span><span class="w"> </span><span class="nv">log_fn</span><span class="p">,</span><span class="w"> </span><span class="nv">job</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">cmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">build_cmd</span><span class="p">(</span><span class="nv">step</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">log_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">get_log_path</span><span class="p">()</span>
+<span class="w">  </span><span class="nf">log_fn</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;[%s] Running: %s&quot;</span><span class="p">,</span><span class="w"> </span><span class="nb">os.date</span><span class="p">(</span><span class="s2">&quot;%H:%M:%S&quot;</span><span class="p">),</span><span class="w"> </span><span class="nv">cmd</span><span class="p">))</span>
+
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">f</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nv">log_path</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">f</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="nv">f</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span><span class="w"> </span><span class="kr">end</span>
+
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">IS_WINDOWS</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">bat_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nf">get_temp_dir</span><span class="p">()</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;</span><span class="se">\\</span><span class="s2">photonforge_run.bat&quot;</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">bf</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nv">bat_path</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;w&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">bf</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nv">bf</span><span class="p">:</span><span class="nf">write</span><span class="p">(</span><span class="s2">&quot;@echo off</span><span class="se">\r\n</span><span class="s2">&quot;</span><span class="p">)</span>
+<span class="w">      </span><span class="nv">bf</span><span class="p">:</span><span class="nf">write</span><span class="p">(</span><span class="nv">cmd</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39; &gt;&quot;&#39;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">log_path</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39;&quot; 2&gt;&amp;1</span><span class="se">\r\n</span><span class="s1">&#39;</span><span class="p">)</span>
+<span class="w">      </span><span class="nv">bf</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span>
+<span class="w">    </span><span class="kr">end</span>
+<span class="w">    </span><span class="nb">os.execute</span><span class="p">(</span><span class="s1">&#39;start /B &quot;&quot; &quot;&#39;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">bat_path</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s1">&#39;&quot;&#39;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">else</span>
+<span class="w">    </span><span class="nv">cmd</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">cmd</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; &gt; &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nf">shell_quote</span><span class="p">(</span><span class="nv">log_path</span><span class="p">)</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; 2&gt;&amp;1 &amp;&quot;</span>
+<span class="w">    </span><span class="nb">os.execute</span><span class="p">(</span><span class="nv">cmd</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">end</span>
+
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">dest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">config</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;dest_path&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">done</span><span class="p">,</span><span class="w"> </span><span class="nv">total</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">last_pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">MAX_IDLE</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">600</span>
+
+<span class="w">  </span><span class="kr">while</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nv">M</span><span class="p">.</span><span class="py">abort</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">    </span><span class="nv">dt</span><span class="p">.</span><span class="py">control</span><span class="p">.</span><span class="nf">sleep</span><span class="p">(</span><span class="mi">500</span><span class="p">)</span>
+
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nv">log_path</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">      </span><span class="kr">if</span><span class="w"> </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">MAX_IDLE</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="kr">break</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">      </span><span class="kr">goto</span><span class="w"> </span><span class="nl">continue</span>
+<span class="w">    </span><span class="kr">end</span>
+
+<span class="w">    </span><span class="nv">fh</span><span class="p">:</span><span class="nf">seek</span><span class="p">(</span><span class="s2">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">last_pos</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">new_data</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">fh</span><span class="p">:</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;*a&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nv">last_pos</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">fh</span><span class="p">:</span><span class="nf">seek</span><span class="p">()</span>
+<span class="w">    </span><span class="nv">fh</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span>
+
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">new_data</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="nv">new_data</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="kr">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nf">is_process_alive</span><span class="p">()</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">        </span><span class="kr">break</span>
+<span class="w">      </span><span class="kr">end</span>
+
+<span class="w">      </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">      </span><span class="kr">if</span><span class="w"> </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="nv">MAX_IDLE</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="kr">break</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">      </span><span class="kr">goto</span><span class="w"> </span><span class="nl">continue</span>
+<span class="w">    </span><span class="kr">end</span>
+
+<span class="w">    </span><span class="nv">idle_count</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">    </span><span class="kr">for</span><span class="w"> </span><span class="nv">line</span><span class="w"> </span><span class="kr">in</span><span class="w"> </span><span class="nv">new_data</span><span class="p">:</span><span class="nf">gmatch</span><span class="p">(</span><span class="s2">&quot;[^</span><span class="se">\r\n</span><span class="s2">]+&quot;</span><span class="p">)</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">      </span><span class="kd">local</span><span class="w"> </span><span class="nv">ok</span><span class="p">,</span><span class="w"> </span><span class="nv">rec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">pcall</span><span class="p">(</span><span class="nv">json</span><span class="p">.</span><span class="py">decode</span><span class="p">,</span><span class="w"> </span><span class="nv">line</span><span class="p">)</span>
+<span class="w">      </span><span class="kr">if</span><span class="w"> </span><span class="nv">ok</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="nb">type</span><span class="p">(</span><span class="nv">rec</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;table&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">        </span><span class="kr">if</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">step</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;_progress&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">          </span><span class="nv">done</span><span class="w">  </span><span class="o">=</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">done</span><span class="w">  </span><span class="ow">or</span><span class="w"> </span><span class="nv">done</span>
+<span class="w">          </span><span class="nv">total</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">total</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="nv">total</span>
+<span class="w">          </span><span class="kr">if</span><span class="w"> </span><span class="nv">job</span><span class="w"> </span><span class="o">~=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="nv">total</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">            </span><span class="nv">job</span><span class="p">.</span><span class="py">percent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">done</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nv">total</span>
+<span class="w">          </span><span class="kr">end</span>
+<span class="w">        </span><span class="kr">else</span>
+<span class="w">          </span><span class="kd">local</span><span class="w"> </span><span class="nv">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;[%s] %s %s [%s]&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nb">os.date</span><span class="p">(</span><span class="s2">&quot;%H:%M:%S&quot;</span><span class="p">),</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">step</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">file</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">status</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="w">          </span><span class="nf">log_fn</span><span class="p">(</span><span class="nv">msg</span><span class="p">)</span>
+<span class="w">          </span><span class="nv">applicator</span><span class="p">.</span><span class="nf">apply</span><span class="p">(</span><span class="nv">rec</span><span class="p">,</span><span class="w"> </span><span class="nv">dest</span><span class="p">)</span>
+<span class="w">        </span><span class="kr">end</span>
+<span class="w">      </span><span class="kr">else</span>
+<span class="w">        </span><span class="nf">log_fn</span><span class="p">(</span><span class="nv">line</span><span class="p">)</span>
+<span class="w">      </span><span class="kr">end</span>
+<span class="w">    </span><span class="kr">end</span>
+
+<span class="w">    </span><span class="p">::</span><span class="nl">continue</span><span class="p">::</span>
+<span class="w">  </span><span class="kr">end</span>
+
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">M</span><span class="p">.</span><span class="py">abort</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="nv">M</span><span class="p">.</span><span class="nf">kill</span><span class="p">()</span>
+<span class="w">    </span><span class="nf">log_fn</span><span class="p">(</span><span class="s2">&quot;[STOPPED] Run aborted by user.&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">  </span><span class="kr">end</span>
+
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">io.open</span><span class="p">(</span><span class="nv">log_path</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;r&quot;</span><span class="p">)</span>
+<span class="w">  </span><span class="kr">if</span><span class="w"> </span><span class="nv">fh</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="nv">fh</span><span class="p">:</span><span class="nf">seek</span><span class="p">(</span><span class="s2">&quot;set&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">last_pos</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">remaining</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">fh</span><span class="p">:</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;*a&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="nv">fh</span><span class="p">:</span><span class="nf">close</span><span class="p">()</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">remaining</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="nv">remaining</span><span class="w"> </span><span class="o">~=</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="kr">for</span><span class="w"> </span><span class="nv">line</span><span class="w"> </span><span class="kr">in</span><span class="w"> </span><span class="nv">remaining</span><span class="p">:</span><span class="nf">gmatch</span><span class="p">(</span><span class="s2">&quot;[^</span><span class="se">\r\n</span><span class="s2">]+&quot;</span><span class="p">)</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">        </span><span class="kd">local</span><span class="w"> </span><span class="nv">ok</span><span class="p">,</span><span class="w"> </span><span class="nv">rec</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">pcall</span><span class="p">(</span><span class="nv">json</span><span class="p">.</span><span class="py">decode</span><span class="p">,</span><span class="w"> </span><span class="nv">line</span><span class="p">)</span>
+<span class="w">        </span><span class="kr">if</span><span class="w"> </span><span class="nv">ok</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="nb">type</span><span class="p">(</span><span class="nv">rec</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;table&quot;</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">step</span><span class="w"> </span><span class="o">~=</span><span class="w"> </span><span class="s2">&quot;_progress&quot;</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">          </span><span class="kd">local</span><span class="w"> </span><span class="nv">msg</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;[%s] %s %s [%s]&quot;</span><span class="p">,</span>
+<span class="w">            </span><span class="nb">os.date</span><span class="p">(</span><span class="s2">&quot;%H:%M:%S&quot;</span><span class="p">),</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">step</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;?&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">file</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">rec</span><span class="p">.</span><span class="py">status</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="w">          </span><span class="nf">log_fn</span><span class="p">(</span><span class="nv">msg</span><span class="p">)</span>
+<span class="w">          </span><span class="nv">applicator</span><span class="p">.</span><span class="nf">apply</span><span class="p">(</span><span class="nv">rec</span><span class="p">,</span><span class="w"> </span><span class="nv">dest</span><span class="p">)</span>
+<span class="w">        </span><span class="kr">elseif</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nv">ok</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">          </span><span class="nf">log_fn</span><span class="p">(</span><span class="nv">line</span><span class="p">)</span>
+<span class="w">        </span><span class="kr">end</span>
+<span class="w">      </span><span class="kr">end</span>
+<span class="w">    </span><span class="kr">end</span>
+<span class="w">  </span><span class="kr">end</span>
+
+<span class="w">  </span><span class="kr">return</span><span class="w"> </span><span class="kc">true</span>
+<span class="kr">end</span>
+
+<span class="kr">function</span><span class="w"> </span><span class="nc">M</span><span class="p">.</span><span class="nf">run_all</span><span class="p">(</span><span class="nv">step_list</span><span class="p">,</span><span class="w"> </span><span class="nv">log_fn</span><span class="p">,</span><span class="w"> </span><span class="nv">status_fn</span><span class="p">)</span>
+<span class="w">  </span><span class="nv">M</span><span class="p">.</span><span class="py">abort</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">total_steps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">#</span><span class="nv">step_list</span>
+<span class="w">  </span><span class="kd">local</span><span class="w"> </span><span class="nv">job</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">dt</span><span class="p">.</span><span class="py">gui</span><span class="p">.</span><span class="nf">create_job</span><span class="p">(</span>
+<span class="w">    </span><span class="s2">&quot;PHOTONForge (&quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">total_steps</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot; steps)&quot;</span><span class="p">,</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+<span class="w">    </span><span class="kr">function</span><span class="p">()</span><span class="w"> </span><span class="nv">M</span><span class="p">.</span><span class="nf">kill</span><span class="p">()</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">  </span><span class="p">)</span>
+<span class="w">  </span><span class="nv">job</span><span class="p">.</span><span class="py">percent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">0.0</span>
+
+<span class="w">  </span><span class="kr">for</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="kr">in</span><span class="w"> </span><span class="nb">ipairs</span><span class="p">(</span><span class="nv">step_list</span><span class="p">)</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">M</span><span class="p">.</span><span class="py">abort</span><span class="w"> </span><span class="kr">then</span><span class="w"> </span><span class="kr">break</span><span class="w"> </span><span class="kr">end</span>
+<span class="w">    </span><span class="nf">log_fn</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;--- Step %d/%d: %s ---&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">i</span><span class="p">,</span><span class="w"> </span><span class="nv">total_steps</span><span class="p">,</span><span class="w"> </span><span class="nv">step</span><span class="p">))</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">ok</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">M</span><span class="p">.</span><span class="nf">run_step</span><span class="p">(</span><span class="nv">step</span><span class="p">,</span><span class="w"> </span><span class="nv">log_fn</span><span class="p">,</span><span class="w"> </span><span class="nv">job</span><span class="p">)</span>
+
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="s2">&quot;ingest&quot;</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="nv">ok</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="kd">local</span><span class="w"> </span><span class="nv">dest</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">config</span><span class="p">.</span><span class="nf">read</span><span class="p">(</span><span class="s2">&quot;dest_path&quot;</span><span class="p">)</span>
+<span class="w">      </span><span class="kd">local</span><span class="w"> </span><span class="nv">film</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">dt</span><span class="p">.</span><span class="py">films</span><span class="p">.</span><span class="nf">new</span><span class="p">(</span><span class="nv">dest</span><span class="p">)</span>
+<span class="w">      </span><span class="kr">if</span><span class="w"> </span><span class="nv">film</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">        </span><span class="nf">log_fn</span><span class="p">(</span><span class="s2">&quot;[ingest] Library rescanned: &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">dest</span><span class="p">)</span>
+<span class="w">      </span><span class="kr">else</span>
+<span class="w">        </span><span class="nf">log_fn</span><span class="p">(</span><span class="s2">&quot;[ingest] Could not import folder: &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">dest</span><span class="p">)</span>
+<span class="w">      </span><span class="kr">end</span>
+<span class="w">    </span><span class="kr">end</span>
+
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ok</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="s2">&quot;ok&quot;</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s2">&quot;error&quot;</span>
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="nv">status_fn</span><span class="w"> </span><span class="o">~=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nf">status_fn</span><span class="p">(</span><span class="nv">step</span><span class="p">,</span><span class="w"> </span><span class="nv">result</span><span class="p">,</span><span class="w"> </span><span class="nb">os.date</span><span class="p">(</span><span class="s2">&quot;%Y-%m-%d %H:%M&quot;</span><span class="p">))</span>
+<span class="w">    </span><span class="kr">end</span>
+
+<span class="w">    </span><span class="kr">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nv">ok</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">      </span><span class="nf">log_fn</span><span class="p">(</span><span class="s2">&quot;[STOPPED] Step failed: &quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;. Remaining steps skipped.&quot;</span><span class="p">)</span>
+<span class="w">      </span><span class="kr">break</span>
+<span class="w">    </span><span class="kr">end</span>
+
+<span class="w">    </span><span class="nv">job</span><span class="p">.</span><span class="py">percent</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nv">total_steps</span>
+<span class="w">  </span><span class="kr">end</span>
+
+<span class="w">  </span><span class="nb">pcall</span><span class="p">(</span><span class="kr">function</span><span class="p">()</span><span class="w"> </span><span class="nv">job</span><span class="p">.</span><span class="py">valid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span><span class="w"> </span><span class="kr">end</span><span class="p">)</span>
+<span class="w">  </span><span class="nb">pcall</span><span class="p">(</span><span class="kr">function</span><span class="p">()</span><span class="w"> </span><span class="nv">job</span><span class="p">:</span><span class="nf">destroy</span><span class="p">()</span><span class="w"> </span><span class="kr">end</span><span class="p">)</span>
+<span class="kr">end</span>
+
+<span class="kr">return</span><span class="w"> </span><span class="nv">M</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>lua/photonforge/runner.lua
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;fix: eliminate terminal flashing with file-based process detection and batch launcher&quot;</span>
+</code></pre></div>
+<hr />
+<h3 id="task-5-integration-verification">Task 5: Integration Verification<a class="headerlink" href="#task-5-integration-verification" title="Permanent link">&para;</a></h3>
+<ul>
+<li>[ ] <strong>Step 1: Run full pytest suite</strong></li>
+</ul>
+<p>Run: <code>pytest tests/ -v --tb=short</code></p>
+<p>Expected: All tests PASS</p>
+<ul>
+<li>[ ] <strong>Step 2: Verify photo-workflow still produces help output</strong></li>
+</ul>
+<p>Run: <code>photo-workflow --help</code></p>
+<p>Expected: Prints the CLI help with all subcommands (ingest, scan, dedup, score, name, sync, status, run)</p>
+<ul>
+<li>[ ] <strong>Step 3: Verify sentinel file behavior manually</strong></li>
+</ul>
+<p>Run:
+<div class="highlight"><pre><span></span><code><span class="n">photo-workflow</span> <span class="n">scan</span> <span class="p">-</span><span class="n">-source</span> <span class="p">.</span> <span class="p">-</span><span class="n">-manifest</span> <span class="n">test_manifest</span><span class="p">.</span><span class="n">jsonl</span> <span class="p">-</span><span class="n">-json-progress</span>
+</code></pre></div></p>
+<p>Then check:
+<div class="highlight"><pre><span></span><code><span class="nb">Test-Path</span> <span class="s2">&quot;$env:TEMP\photonforge.running&quot;</span>
+<span class="nb">Get-Content</span> <span class="s2">&quot;$env:TEMP\photonforge.pid&quot;</span>
+</code></pre></div></p>
+<p>Expected: During execution, both files exist. After completion, <code>photonforge.running</code> is deleted, <code>photonforge.pid</code> remains with the PID that was used.</p>
+<ul>
+<li>[ ] <strong>Step 4: Clean up test artifact</strong></li>
+</ul>
+<div class="highlight"><pre><span></span><code><span class="nb">Remove-Item</span> <span class="n">test_manifest</span><span class="p">.</span><span class="n">jsonl</span> <span class="n">-ErrorAction</span> <span class="n">SilentlyContinue</span>
+</code></pre></div>
+<ul>
+<li>[ ] <strong>Step 5: Final commit if any cleanup needed</strong></li>
+</ul>
+<p>If any test revealed issues that required fixes, commit them:</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>add<span class="w"> </span>-u
+git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">&quot;fix: address integration test findings&quot;</span>
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

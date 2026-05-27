@@ -1,0 +1,2827 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Autonomous ingest-to-edit photography pipeline">
+      
+      
+      
+        <link rel="canonical" href="https://Ajam1997.github.io/PHOTONFORGE_Photo-Workflow/superpowers/specs/2026-05-20-pipeline-v2-design/">
+      
+      
+        <link rel="prev" href="../2026-05-21-genre-aware-scoring-design/">
+      
+      
+        <link rel="next" href="../2026-05-14-terminal-flash-bugfix-design/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Pipeline v2 - PHOTONForge</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#photonforge-pipeline-v2-design-spec" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="PHOTONForge" class="md-header__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PHOTONForge
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Pipeline v2
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../roadmap/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../living-user-needs/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  User Needs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../photonforge-architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../kpm-dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  KPM Dashboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../research/" class="md-tabs__link">
+          
+  
+  
+  Research
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+  Specs & Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../drift-reports/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Drift Reports
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../github-integration-subprojects/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub Integration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../Notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="PHOTONForge" class="md-nav__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PHOTONForge
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../living-user-needs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Needs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../photonforge-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../kpm-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KPM Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/scoring-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs & Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs & Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-agent-writeback-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Write-back
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-scheduled-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-pr-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PR Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-doc-reorg-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-github-scaffolding-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-21-genre-aware-scoring-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tech-stack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tech Stack
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-sqlite-pipeline-database" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. SQLite Pipeline Database
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. SQLite Pipeline Database">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Location
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-schema" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Schema
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#13-stage-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.3 Stage Tracking
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#14-module-srcphoto_workflowphotondbpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.4 Module: src/photo_workflow/photondb.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-revised-pipeline-stages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Revised Pipeline Stages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Revised Pipeline Stages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-ingest-modified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Ingest (modified)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-scan-modified" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Scan (modified)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-dedup-unchanged-logic-new-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 Dedup (unchanged logic, new storage)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-score-unchanged-logic-new-storage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Score (unchanged logic, new storage)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#25-name-modified-output-target" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.5 Name (modified output target)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#26-sync-removed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.6 Sync (REMOVED)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-file-naming-convention" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. File Naming Convention
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. File Naming Convention">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-sequence-assignment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Sequence Assignment
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-cartridge-id-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Cartridge ID Extraction
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#34-trip-code-derivation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.4 Trip Code Derivation
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-lua-plugin-ui-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Lua Plugin UI Changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Lua Plugin UI Changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-panel-layout-top-to-bottom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Panel Layout (top to bottom)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-browse-button" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Browse Button
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-removed-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 Removed Fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#44-config-key-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.4 Config Key Changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#45-runner-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.5 Runner Changes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-applicator-changes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Applicator Changes
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Applicator Changes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-updated-step-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Updated Step Handling
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-image-lookup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Image Lookup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-migration-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Migration Path
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. Migration Path">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-existing-manifest-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Existing Manifest Data
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-already-renamed-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Already-Renamed Files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-constraints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Constraints
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-14-terminal-flash-bugfix-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-13-darktable-lua-plugin-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Darktable Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-12-stage-based-cli-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-ingest-pipeline-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-cartridge-provisioning-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-19-stage-7-2-ingest-cartridge-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-stage-7-1-gui-scaffold-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-ssh-key-update-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-16-soak-test-notifications-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-23-doc-reorg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-23-github-scaffolding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-21-genre-aware-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-20-pipeline-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-14-terminal-flash-bugfix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-13-python-engine-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Engine Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-13-lua-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-12-stage-based-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-20-ingest-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-20-cartridge-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-19-stage-7-2-ingest-cartridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-17-stage-7-1-gui-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-17-ssh-key-update/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-16-soak-test-notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Briefs & Build Logs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Briefs & Build Logs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-16-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-16 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../drift-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../github-integration-subprojects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="photonforge-pipeline-v2-design-spec">PHOTONForge Pipeline v2 Design Spec<a class="headerlink" href="#photonforge-pipeline-v2-design-spec" title="Permanent link">&para;</a></h1>
+<p><strong>Date</strong>: 2026-05-20
+<strong>Status</strong>: Approved
+<strong>Author</strong>: Alex Meyer
+<strong>Scope</strong>: Replace JSONL manifest with SQLite, Darktable import at scan time, sequential file naming, remove sync step</p>
+<h2 id="goal">Goal<a class="headerlink" href="#goal" title="Permanent link">&para;</a></h2>
+<p>Replace the fragile JSONL manifest with a per-cartridge SQLite database, eliminate the sync step by importing photos into Darktable at scan time, add sequential file naming at ingest with cartridge/trip prefixes, write semantic names to Darktable description (not tags), and simplify the Lua panel UI.</p>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<p>The pipeline remains a staged CLI (<code>photo-workflow ingest|scan|dedup|score|name</code>) invoked by the Darktable Lua plugin via background subprocess. The JSONL manifest is replaced by <code>photonforge.db</code> at the cartridge root. Each trip subdirectory gets its own table inside that database. Darktable import happens at scan time, eliminating the sync step entirely.</p>
+<p>Data flows: SD card -&gt; ingest (copy + rename) -&gt; scan (EXIF + DB insert + Darktable import) -&gt; dedup (dHash grouping) -&gt; score (sharpness/composition/exposure) -&gt; name (Florence-2 semantic caption to description).</p>
+<h2 id="tech-stack">Tech Stack<a class="headerlink" href="#tech-stack" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Python 3.11+, click CLI, SQLite via stdlib <code>sqlite3</code></li>
+<li>rawpy for ARW/raw thumbnail extraction</li>
+<li>onnxruntime (Florence-2 INT8) for captioning</li>
+<li>Darktable Lua API for UI panel and library integration</li>
+</ul>
+<hr />
+<h2 id="1-sqlite-pipeline-database">1. SQLite Pipeline Database<a class="headerlink" href="#1-sqlite-pipeline-database" title="Permanent link">&para;</a></h2>
+<h3 id="11-location">1.1 Location<a class="headerlink" href="#11-location" title="Permanent link">&para;</a></h3>
+<p>One <code>photonforge.db</code> file at the cartridge root (e.g., <code>H:\photonforge.db</code>). Travels with the SSD cartridge. The path is derived from the destination path's drive root or mount point.</p>
+<h3 id="12-schema">1.2 Schema<a class="headerlink" href="#12-schema" title="Permanent link">&para;</a></h3>
+<p>Each subdirectory (trip folder) gets its own table. Table name is the sanitized folder name (alphanumeric + underscore only, e.g., <code>ICELAND</code>, <code>WEDDING_2026</code>).</p>
+<div class="highlight"><pre><span></span><code><span class="k">CREATE</span><span class="w"> </span><span class="k">TABLE</span><span class="w"> </span><span class="k">IF</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">EXISTS</span><span class="w"> </span><span class="err">{</span><span class="n">folder_name</span><span class="err">}</span><span class="w"> </span><span class="p">(</span>
+<span class="w">    </span><span class="n">filename</span><span class="w">       </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">PRIMARY</span><span class="w"> </span><span class="k">KEY</span><span class="p">,</span><span class="w">   </span><span class="c1">-- P003ICE0000001.ARW</span>
+<span class="w">    </span><span class="n">original_name</span><span class="w">  </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">NOT</span><span class="w"> </span><span class="k">NULL</span><span class="p">,</span><span class="w">      </span><span class="c1">-- DSC03056.ARW</span>
+<span class="w">    </span><span class="n">exif_timestamp</span><span class="w"> </span><span class="nb">TEXT</span><span class="p">,</span><span class="w">               </span><span class="c1">-- ISO 8601 (2026-05-10T14:32:01)</span>
+<span class="w">    </span><span class="n">session_id</span><span class="w">     </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">is_duplicate</span><span class="w">   </span><span class="nb">INTEGER</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">    </span><span class="n">sharpness</span><span class="w">      </span><span class="nb">REAL</span><span class="p">,</span>
+<span class="w">    </span><span class="n">composition</span><span class="w">    </span><span class="nb">REAL</span><span class="p">,</span>
+<span class="w">    </span><span class="n">exposure</span><span class="w">       </span><span class="nb">REAL</span><span class="p">,</span>
+<span class="w">    </span><span class="n">semantic_name</span><span class="w">  </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">,</span>
+<span class="w">    </span><span class="n">stages</span><span class="w">         </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="p">,</span><span class="w">    </span><span class="c1">-- comma-separated: &quot;scan,dedup,score,name&quot;</span>
+<span class="w">    </span><span class="n">error</span><span class="w">          </span><span class="nb">TEXT</span><span class="w"> </span><span class="k">DEFAULT</span><span class="w"> </span><span class="s1">&#39;&#39;</span>
+<span class="p">);</span>
+</code></pre></div>
+<h3 id="13-stage-tracking">1.3 Stage Tracking<a class="headerlink" href="#13-stage-tracking" title="Permanent link">&para;</a></h3>
+<p>Each pipeline step appends its name to the <code>stages</code> column (comma-separated). Resumption queries filter on <code>stages NOT LIKE '%score%'</code> etc. Force mode clears the relevant stage string from all rows before processing.</p>
+<h3 id="14-module-srcphoto_workflowphotondbpy">1.4 Module: <code>src/photo_workflow/photondb.py</code><a class="headerlink" href="#14-module-srcphoto_workflowphotondbpy" title="Permanent link">&para;</a></h3>
+<p>New module replacing <code>manifest.py</code>. Public API:</p>
+<ul>
+<li><code>open_db(dest_path: Path) -&gt; Connection</code> — opens/creates <code>photonforge.db</code> at the drive root of <code>dest_path</code></li>
+<li><code>ensure_table(conn, folder_name: str)</code> — creates table if not exists</li>
+<li><code>insert_photo(conn, table, filename, original_name, exif_timestamp)</code> — insert after ingest/scan</li>
+<li><code>update_stages(conn, table, filename, stage: str)</code> — append stage to stages column</li>
+<li><code>get_pending(conn, table, stage: str) -&gt; list[Row]</code> — files missing a given stage</li>
+<li><code>update_scores(conn, table, filename, sharpness, composition, exposure)</code> — write scoring results</li>
+<li><code>update_semantic(conn, table, filename, semantic_name)</code> — write Florence-2 result</li>
+<li><code>mark_duplicate(conn, table, filename)</code> — set is_duplicate=1</li>
+</ul>
+<p>All writes use transactions for atomicity.</p>
+<hr />
+<h2 id="2-revised-pipeline-stages">2. Revised Pipeline Stages<a class="headerlink" href="#2-revised-pipeline-stages" title="Permanent link">&para;</a></h2>
+<h3 id="21-ingest-modified">2.1 Ingest (modified)<a class="headerlink" href="#21-ingest-modified" title="Permanent link">&para;</a></h3>
+<p><strong>Command:</strong> <code>photo-workflow ingest --source &lt;sd&gt; --dest &lt;dest&gt;</code></p>
+<p>Copies files from SD card to destination directory. New behavior:</p>
+<ol>
+<li>Read the volume label of the source drive to extract cartridge ID (e.g., PHOTONFORGE-003 -&gt; <code>003</code>).</li>
+<li>Derive trip code from destination folder name: first 3 uppercase characters (ICELAND -&gt; <code>ICE</code>).</li>
+<li>Sort discovered files by EXIF capture timestamp.</li>
+<li>Rename during copy to <code>P{cart}{trip}{seq7}.{ext}</code> format.</li>
+<li>Example: <code>P003ICE0000001.ARW</code>, <code>P003ICE0000002.ARW</code></li>
+<li>Sequence is 7 digits, zero-padded, starting at 1 (or continuing from highest existing sequence in destination).</li>
+<li>Skip files already present in destination (by original name lookup in photonforge.db if it exists).</li>
+</ol>
+<p><strong>Volume label detection:</strong>
+- Windows: Python <code>ctypes.windll.kernel32.GetVolumeInformationW()</code> — reads volume label directly via Win32 API, no subprocess, no terminal flash.
+- Linux: <code>lsblk --output LABEL --noheadings /dev/sdX</code></p>
+<h3 id="22-scan-modified">2.2 Scan (modified)<a class="headerlink" href="#22-scan-modified" title="Permanent link">&para;</a></h3>
+<p><strong>Command:</strong> <code>photo-workflow scan --source &lt;dest&gt; --db &lt;photonforge.db&gt;</code></p>
+<p>Discovers all supported image files in the destination directory. For each file:</p>
+<ol>
+<li>Read EXIF timestamp.</li>
+<li>Insert row into photonforge.db (table = folder name) with filename, original_name, exif_timestamp.</li>
+<li>Mark <code>stages = "scan"</code>.</li>
+</ol>
+<p>After scan completes, the Lua applicator calls <code>dt.films.new(dest_path)</code> to import/rescan the folder into Darktable's library. This creates Darktable's own XMP sidecars and makes photos visible in lighttable.</p>
+<p><strong>Manifest CLI option removed.</strong> Replaced by <code>--db</code> pointing to photonforge.db.</p>
+<h3 id="23-dedup-unchanged-logic-new-storage">2.3 Dedup (unchanged logic, new storage)<a class="headerlink" href="#23-dedup-unchanged-logic-new-storage" title="Permanent link">&para;</a></h3>
+<p><strong>Command:</strong> <code>photo-workflow dedup --db &lt;photonforge.db&gt; --folder &lt;folder_name&gt;</code></p>
+<p>Reads all scanned photos from the DB table. Runs session clustering (EXIF time gaps) and dHash deduplication using embedded JPEG thumbnails. Updates <code>session_id</code>, <code>is_duplicate</code>, and <code>stages</code> in the DB.</p>
+<p>Applicator sets <code>rating=0</code> and <code>red=true</code> on duplicates in Darktable.</p>
+<h3 id="24-score-unchanged-logic-new-storage">2.4 Score (unchanged logic, new storage)<a class="headerlink" href="#24-score-unchanged-logic-new-storage" title="Permanent link">&para;</a></h3>
+<p><strong>Command:</strong> <code>photo-workflow score --db &lt;photonforge.db&gt; --folder &lt;folder_name&gt;</code></p>
+<p>Scores non-duplicate photos for sharpness, composition, and exposure. Writes results to DB. Applicator sets star ratings (0-5) and color labels in Darktable.</p>
+<p>Uses <code>load_gray</code> / <code>load_rgb</code> from <code>raw_loader.py</code> for raw file support.</p>
+<h3 id="25-name-modified-output-target">2.5 Name (modified output target)<a class="headerlink" href="#25-name-modified-output-target" title="Permanent link">&para;</a></h3>
+<p><strong>Command:</strong> <code>photo-workflow name --db &lt;photonforge.db&gt; --folder &lt;folder_name&gt; --model-dir &lt;path&gt;</code></p>
+<p>Generates Florence-2 semantic captions. Writes the semantic name to:
+- <code>semantic_name</code> column in photonforge.db
+- Darktable image description field via applicator (<code>img:set_metadata("description", name)</code>)</p>
+<p><strong>NOT</strong> written to tags. NOT used for file renaming (files already named at ingest).</p>
+<h3 id="26-sync-removed">2.6 Sync (REMOVED)<a class="headerlink" href="#26-sync-removed" title="Permanent link">&para;</a></h3>
+<p>No longer needed. Darktable import at scan time creates XMP sidecars. Score/dedup/name results are applied to Darktable images via the Lua applicator in real time.</p>
+<hr />
+<h2 id="3-file-naming-convention">3. File Naming Convention<a class="headerlink" href="#3-file-naming-convention" title="Permanent link">&para;</a></h2>
+<h3 id="31-format">3.1 Format<a class="headerlink" href="#31-format" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>P{CCC}{TTT}{NNNNNNN}.{ext}
+</code></pre></div>
+<ul>
+<li><code>P</code> — fixed prefix identifying PHOTONForge-managed files</li>
+<li><code>CCC</code> — 3-digit cartridge number from volume label (e.g., <code>003</code>)</li>
+<li><code>TTT</code> — 3-character trip code from folder name (e.g., <code>ICE</code>)</li>
+<li><code>NNNNNNN</code> — 7-digit zero-padded sequence number (e.g., <code>0000001</code>)</li>
+<li><code>.ext</code> — preserved original extension (e.g., <code>.ARW</code>)</li>
+</ul>
+<h3 id="32-sequence-assignment">3.2 Sequence Assignment<a class="headerlink" href="#32-sequence-assignment" title="Permanent link">&para;</a></h3>
+<p>Files are sorted by EXIF capture timestamp before sequence assignment. If the destination already contains PHOTONForge-named files, the sequence continues from the highest existing number + 1.</p>
+<h3 id="33-cartridge-id-extraction">3.3 Cartridge ID Extraction<a class="headerlink" href="#33-cartridge-id-extraction" title="Permanent link">&para;</a></h3>
+<p>Parse volume label string: <code>PHOTONFORGE-003</code> -&gt; extract digits after the last hyphen -&gt; zero-pad to 3 digits. If the volume label doesn't match the <code>PHOTONFORGE-</code> pattern, fall back to <code>000</code>.</p>
+<h3 id="34-trip-code-derivation">3.4 Trip Code Derivation<a class="headerlink" href="#34-trip-code-derivation" title="Permanent link">&para;</a></h3>
+<p>Take the destination folder's basename, uppercase it, strip non-alpha characters, take first 3 characters. If fewer than 3 characters remain, right-pad with <code>X</code>. Examples:
+- <code>ICELAND</code> -&gt; <code>ICE</code>
+- <code>My Trip</code> -&gt; <code>MYT</code>
+- <code>AB</code> -&gt; <code>ABX</code></p>
+<hr />
+<h2 id="4-lua-plugin-ui-changes">4. Lua Plugin UI Changes<a class="headerlink" href="#4-lua-plugin-ui-changes" title="Permanent link">&para;</a></h2>
+<h3 id="41-panel-layout-top-to-bottom">4.1 Panel Layout (top to bottom)<a class="headerlink" href="#41-panel-layout-top-to-bottom" title="Permanent link">&para;</a></h3>
+<ol>
+<li><strong>SD card path</strong> — text entry + Browse button (folder picker)</li>
+<li><strong>Destination</strong> — text entry + Browse button (folder picker)</li>
+<li><strong>TZ offset (hrs)</strong> — text entry (unchanged)</li>
+<li><strong>Run mode</strong> — combobox: resume / force / fresh (unchanged)</li>
+<li><strong>Step checkboxes</strong> — ingest, scan, dedup, score, name (sync removed)</li>
+<li><strong>Run / Stop buttons</strong> (unchanged)</li>
+<li><strong>Log view</strong> (unchanged)</li>
+</ol>
+<h3 id="42-browse-button">4.2 Browse Button<a class="headerlink" href="#42-browse-button" title="Permanent link">&para;</a></h3>
+<p>Each Browse button launches a native folder picker. On Windows, this must avoid <code>io.popen</code> (which flashes a terminal window). Instead, use a helper approach:</p>
+<ol>
+<li>Write a tiny VBScript to <code>%TEMP%\photonforge_browse.vbs</code> that opens a <code>BrowseForFolder</code> COM dialog and writes the result to <code>%TEMP%\photonforge_browse.txt</code>.</li>
+<li>Launch via <code>os.execute('wscript "' .. vbs_path .. '"')</code> — <code>wscript</code> is a GUI host, no console window.</li>
+<li>Read the result file.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>Set objShell = CreateObject(&quot;Shell.Application&quot;)
+Set objFolder = objShell.BrowseForFolder(0, &quot;Select folder&quot;, &amp;H0001)
+If Not objFolder Is Nothing Then
+    Set fso = CreateObject(&quot;Scripting.FileSystemObject&quot;)
+    Set f = fso.CreateTextFile(fso.GetSpecialFolder(2) &amp; &quot;\photonforge_browse.txt&quot;, True)
+    f.WriteLine objFolder.Self.Path
+    f.Close
+End If
+</code></pre></div>
+<p>On Linux, fall back to <code>zenity --file-selection --directory</code>.</p>
+<h3 id="43-removed-fields">4.3 Removed Fields<a class="headerlink" href="#43-removed-fields" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Model dir</strong> — hardcoded to <code>models/florence2_int8</code> in the Python pipeline. Not user-configurable.</li>
+<li><strong>Manifest</strong> — replaced by photonforge.db, path derived from destination drive root automatically.</li>
+</ul>
+<h3 id="44-config-key-changes">4.4 Config Key Changes<a class="headerlink" href="#44-config-key-changes" title="Permanent link">&para;</a></h3>
+<p><strong>Removed from config.lua DEFS:</strong>
+- <code>model_dir</code>
+- <code>manifest</code></p>
+<p><strong>Added to config.lua DEFS:</strong>
+- <code>step_scan</code> stays (already exists)</p>
+<p><strong>Removed:</strong>
+- <code>step_sync</code>
+- <code>last_run_sync</code></p>
+<h3 id="45-runner-changes">4.5 Runner Changes<a class="headerlink" href="#45-runner-changes" title="Permanent link">&para;</a></h3>
+<p><code>build_cmd()</code> updated for new CLI interface:
+- scan, dedup, score, name now take <code>--db</code> and <code>--folder</code> instead of <code>--manifest</code>
+- DB path derived: destination drive root + <code>photonforge.db</code>
+- Folder name derived: basename of destination path
+- <code>model_dir</code> hardcoded, not read from config
+- No sync step</p>
+<hr />
+<h2 id="5-applicator-changes">5. Applicator Changes<a class="headerlink" href="#5-applicator-changes" title="Permanent link">&para;</a></h2>
+<h3 id="51-updated-step-handling">5.1 Updated Step Handling<a class="headerlink" href="#51-updated-step-handling" title="Permanent link">&para;</a></h3>
+<p>The <code>applicator.apply(rec, dest)</code> function already handles dedup, score, and name results. Changes:</p>
+<ul>
+<li><strong>scan step</strong>: After scan completes, call <code>dt.films.new(dest)</code> to import folder into Darktable library (already done in <code>run_all</code> after ingest; move to post-scan).</li>
+<li><strong>name step</strong>: Write <code>rec.semantic_name</code> to <code>img:set_metadata("description", name)</code> (already does this). Confirm it does NOT write to tags.</li>
+<li><strong>sync step</strong>: Remove handler (step eliminated).</li>
+</ul>
+<h3 id="52-image-lookup">5.2 Image Lookup<a class="headerlink" href="#52-image-lookup" title="Permanent link">&para;</a></h3>
+<p>Applicator finds images via <code>dt.database</code> iteration, matching by filename. Since files are renamed at ingest, the filenames in pipeline JSON output match Darktable's imported filenames.</p>
+<hr />
+<h2 id="6-migration-path">6. Migration Path<a class="headerlink" href="#6-migration-path" title="Permanent link">&para;</a></h2>
+<h3 id="61-existing-manifest-data">6.1 Existing Manifest Data<a class="headerlink" href="#61-existing-manifest-data" title="Permanent link">&para;</a></h3>
+<p>The old <code>manifest.jsonl</code> files can be ignored. Users re-run scan + dedup + score + name with <code>--force</code> to repopulate the new SQLite DB. This is a clean break, not a migration.</p>
+<h3 id="62-already-renamed-files">6.2 Already-Renamed Files<a class="headerlink" href="#62-already-renamed-files" title="Permanent link">&para;</a></h3>
+<p>Files already ingested with old naming (YYYYMMDD_ prefix or original camera names) are not retroactively renamed. The new naming convention applies to new ingests only.</p>
+<hr />
+<h2 id="7-constraints">7. Constraints<a class="headerlink" href="#7-constraints" title="Permanent link">&para;</a></h2>
+<ul>
+<li>NFR-2.1: 100% offline at runtime. No network calls. SQLite is local.</li>
+<li>NFR-2.2: RSS &lt;= 1.5 GB. SQLite adds negligible memory overhead.</li>
+<li>NFR-2.3: photonforge.db lives on the cartridge SSD, not the host.</li>
+<li>All raw file operations use rawpy for decode, embedded JPEG thumbnails for hashing.</li>
+<li>Florence-2 INT8 ONNX via onnxruntime AVX2, &lt;= 2.5s/image target.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

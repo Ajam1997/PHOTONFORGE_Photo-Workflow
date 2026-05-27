@@ -1,0 +1,3594 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Autonomous ingest-to-edit photography pipeline">
+      
+      
+      
+        <link rel="canonical" href="https://Ajam1997.github.io/PHOTONFORGE_Photo-Workflow/photonforge-architecture/">
+      
+      
+        <link rel="prev" href="../living-user-needs/">
+      
+      
+        <link rel="next" href="../kpm-dashboard/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Architecture - PHOTONForge</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#photonforge-systems-architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="PHOTONForge" class="md-header__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PHOTONForge
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../roadmap/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../living-user-needs/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  User Needs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../kpm-dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  KPM Dashboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../research/" class="md-tabs__link">
+          
+  
+  
+  Research
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../superpowers/" class="md-tabs__link">
+          
+  
+  
+  Specs & Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../drift-reports/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Drift Reports
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../github-integration-subprojects/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub Integration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../Notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="PHOTONForge" class="md-nav__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PHOTONForge
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../living-user-needs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Needs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-executive-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Executive Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-target-hardware" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Target Hardware
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Target Hardware">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-hardware-delta-from-original-spec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Hardware Delta from Original Spec
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-memory-budget-8-gb-system" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Memory Budget (8 GB System)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-usb-port-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 USB Port Topology
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#24-linux-specific-considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.4 Linux-Specific Considerations
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Requirements
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Requirements">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Functional Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-non-functional-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Non-Functional Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-key-performance-measures" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Key Performance Measures
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-intelligence-engine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Intelligence Engine
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-agent-roster" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Agent Roster
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Agent Roster">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-verification-requirements-enforcer" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 @verification (Requirements Enforcer)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-validation-user-needs-advocate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 @validation (User Needs Advocate)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-escalation-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Escalation Paths
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-token-optimization-guardrails" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 Token Optimization Guardrails
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-ui-architecture-darktable-lua-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. UI Architecture: Darktable Lua Plugin
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="6. UI Architecture: Darktable Lua Plugin">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#61-product-vision" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.1 Product Vision
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#62-why-lua-plugin-supersedes-tauri" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.2 Why Lua Plugin (Supersedes Tauri)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#63-plugin-file-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.3 Plugin File Layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#64-panel-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.4 Panel Layout
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#65-json-progress-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.5 JSON Progress Protocol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#66-applicator-json-to-darktable-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.6 Applicator -- JSON to Darktable API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#67-plugin-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.7 Plugin Requirements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#68-what-darktable-provides-natively" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6.8 What Darktable Provides Natively
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-project-structure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Project Structure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-execution-roadmap" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Execution Roadmap
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-living-user-need-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Living User Need Document
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-decision-log" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. Decision Log
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-development-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. Development Workflow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="11. Development Workflow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#111-automated-vs-manual" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.1 Automated vs. Manual
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#112-remote-execution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.2 Remote Execution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#113-vv-execution-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11.3 V&amp;V Execution Model
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../kpm-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KPM Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../research/scoring-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs & Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs & Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-23-agent-writeback-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Write-back
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-23-scheduled-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-23-pr-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PR Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-23-doc-reorg-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-23-github-scaffolding-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-21-genre-aware-scoring-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-20-pipeline-v2-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-14-terminal-flash-bugfix-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-13-darktable-lua-plugin-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Darktable Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-05-12-stage-based-cli-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-04-20-ingest-pipeline-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-04-20-cartridge-provisioning-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-04-19-stage-7-2-ingest-cartridge-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-04-17-stage-7-1-gui-scaffold-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-04-17-ssh-key-update-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/specs/2026-04-16-soak-test-notifications-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-05-23-doc-reorg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-05-23-github-scaffolding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-05-21-genre-aware-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-05-20-pipeline-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-05-14-terminal-flash-bugfix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-05-13-python-engine-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Engine Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-05-13-lua-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-05-12-stage-based-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-04-20-ingest-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-04-20-cartridge-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-04-19-stage-7-2-ingest-cartridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-04-17-stage-7-1-gui-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-04-17-ssh-key-update/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../superpowers/plans/2026-04-16-soak-test-notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Briefs & Build Logs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Briefs & Build Logs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PlanningBriefs/2026-04-17-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PlanningBriefs/2026-04-17-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PlanningBriefs/2026-04-16-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-16 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PlanningBriefs/2026-04-15-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../PlanningBriefs/2026-04-15-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../drift-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../github-integration-subprojects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../Notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="photonforge-systems-architecture">PhotonForge Systems Architecture<a class="headerlink" href="#photonforge-systems-architecture" title="Permanent link">&para;</a></h1>
+<p><strong>Autonomous Photography Workstation -- Living Document</strong></p>
+<p>Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition)</p>
+<p>Revision 7.0 | May 23, 2026 | Development Platform: Claude Code (Multi-Agent)</p>
+<p><em>Consolidates: architecture-v4, v5-gui-addendum, v5-vv-addendum</em></p>
+<hr />
+<h2 id="1-executive-summary">1. Executive Summary<a class="headerlink" href="#1-executive-summary" title="Permanent link">&para;</a></h2>
+<p>PhotonForge is an autonomous ingest-to-edit photography system that transforms a Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition) into a purpose-built photography workstation. The system ingests from SD cards, analyzes and scores images, generates semantic filenames, and syncs results to Darktable -- all offline, all local.</p>
+<p>The system architecture spans three layers: (1) a Python analysis pipeline for image intelligence, (2) a host integration layer using udev, Docker, and shell scripts, and (3) a Darktable Lua script that renders a PHOTONForge control panel in the lighttable view. Development uses Claude Code with a five-agent roster: @architect, @engineer, @devops, @verification, and @validation.</p>
+<hr />
+<h2 id="2-target-hardware">2. Target Hardware<a class="headerlink" href="#2-target-hardware" title="Permanent link">&para;</a></h2>
+<p><strong>Platform:</strong> Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition), 80VG series</p>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Component</th>
+<th style="text-align: left;">Specification</th>
+<th style="text-align: left;">Constraint / Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">CPU</td>
+<td style="text-align: left;">Intel Core i7-7500U (2C/4T, 2.7 GHz base, 3.5 GHz turbo)</td>
+<td style="text-align: left;">AVX2 supported. Dual-core limits parallel processing. All benchmarks target this CPU.</td>
+</tr>
+<tr>
+<td style="text-align: left;">RAM</td>
+<td style="text-align: left;">8 GB DDR4-2133 (soldered)</td>
+<td style="text-align: left;">Not upgradeable. Container RSS limit: 1.5 GB (KPM-1.3). Host OS needs ~2-3 GB.</td>
+</tr>
+<tr>
+<td style="text-align: left;">USB-C Left (rear)</td>
+<td style="text-align: left;">1x USB 2.0 (charging + data)</td>
+<td style="text-align: left;">Charging port. Not suitable for high-speed SSD. Excluded from udev SSD matching.</td>
+</tr>
+<tr>
+<td style="text-align: left;">USB-C Left (front)</td>
+<td style="text-align: left;">1x USB 3.1 Gen 1 (5 Gbps)</td>
+<td style="text-align: left;">Primary SSD cartridge port. Single cartridge at a time.</td>
+</tr>
+<tr>
+<td style="text-align: left;">USB-A Right</td>
+<td style="text-align: left;">1x USB 3.0 Always On (5 Gbps)</td>
+<td style="text-align: left;">SD card reader ingest path.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Display</td>
+<td style="text-align: left;">13.9" FHD IPS (1920x1080)</td>
+<td style="text-align: left;">No scaling required. Touch-enabled for tablet mode.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Storage</td>
+<td style="text-align: left;">256 GB M.2 SSD</td>
+<td style="text-align: left;">OS + tools only. All photo libraries on external SSD cartridges.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Wireless</td>
+<td style="text-align: left;">Lenovo 2x2 802.11ac + BT 4.1</td>
+<td style="text-align: left;">Offline at runtime (NFR-2.1). Wi-Fi for initial setup only.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="21-hardware-delta-from-original-spec">2.1 Hardware Delta from Original Spec<a class="headerlink" href="#21-hardware-delta-from-original-spec" title="Permanent link">&para;</a></h3>
+<p>The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3). Revision 4.0 corrected to the actual Yoga 910. Key impacts: half the CPU cores (2C vs 4C), half the RAM (8 GB vs 16 GB), single USB 3.1 port (vs dual Thunderbolt), FHD display (vs 4K requiring 200% scaling).</p>
+<h3 id="22-memory-budget-8-gb-system">2.2 Memory Budget (8 GB System)<a class="headerlink" href="#22-memory-budget-8-gb-system" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Component</th>
+<th style="text-align: left;">Allocation</th>
+<th style="text-align: left;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Linux kernel + OS</td>
+<td style="text-align: left;">~1.0 GB</td>
+<td style="text-align: left;">Minimal Ubuntu 24.04 footprint</td>
+</tr>
+<tr>
+<td style="text-align: left;">Docker daemon</td>
+<td style="text-align: left;">~0.3 GB</td>
+<td style="text-align: left;">Container runtime overhead</td>
+</tr>
+<tr>
+<td style="text-align: left;">Darktable</td>
+<td style="text-align: left;">~2.0 GB</td>
+<td style="text-align: left;">Largest single consumer</td>
+</tr>
+<tr>
+<td style="text-align: left;">Analyzer container</td>
+<td style="text-align: left;">1.5 GB (hard limit)</td>
+<td style="text-align: left;">KPM-1.3: Florence-2 INT8 + image buffers</td>
+</tr>
+<tr>
+<td style="text-align: left;">Darktable Lua panel</td>
+<td style="text-align: left;">~0 MB</td>
+<td style="text-align: left;">Runs inside Darktable process, no separate allocation</td>
+</tr>
+<tr>
+<td style="text-align: left;">System buffer/cache</td>
+<td style="text-align: left;">~3.2 GB</td>
+<td style="text-align: left;">Reclaimable under pressure</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>TOTAL</strong></td>
+<td style="text-align: left;"><strong>8.0 GB</strong></td>
+<td style="text-align: left;">No swap -- zram only (SSD wear concern)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="23-usb-port-topology">2.3 USB Port Topology<a class="headerlink" href="#23-usb-port-topology" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Port</th>
+<th style="text-align: left;">Location</th>
+<th style="text-align: left;">Speed</th>
+<th style="text-align: left;">Assignment</th>
+<th style="text-align: left;">udev Strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">USB-C (rear)</td>
+<td style="text-align: left;">Left side, rear</td>
+<td style="text-align: left;">USB 2.0</td>
+<td style="text-align: left;">Power/charging</td>
+<td style="text-align: left;">Excluded from SSD matching</td>
+</tr>
+<tr>
+<td style="text-align: left;">USB-C (front)</td>
+<td style="text-align: left;">Left side, front</td>
+<td style="text-align: left;">USB 3.1 Gen 1 (5 Gbps)</td>
+<td style="text-align: left;">SSD cartridge</td>
+<td style="text-align: left;">Match by ID_FS_LABEL=PHOTON-*. Mount to /mnt/photon_ssd/XXX</td>
+</tr>
+<tr>
+<td style="text-align: left;">USB-A</td>
+<td style="text-align: left;">Right side</td>
+<td style="text-align: left;">USB 3.0 (5 Gbps)</td>
+<td style="text-align: left;">SD card reader</td>
+<td style="text-align: left;">Match by vendor 05e3:0749. Trigger rsync ingest</td>
+</tr>
+</tbody>
+</table>
+<h3 id="24-linux-specific-considerations">2.4 Linux-Specific Considerations<a class="headerlink" href="#24-linux-specific-considerations" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Wi-Fi:</strong> Lenovo 2x2 AC may require firmware updates on Ubuntu 24.04 LTS.</li>
+<li><strong>Tablet Mode:</strong> Watchband hinge with 360-degree rotation. Kernel modules for auto-rotation TBD.</li>
+<li><strong>Display:</strong> FHD at 13.9" -- no scaling needed.</li>
+<li><strong>USB-C:</strong> Only front left port is USB 3.1. udev rules use ENV{DEVTYPE}, systemd-mount for mounting, and wrapper scripts (no inline shell in RUN values).</li>
+</ul>
+<hr />
+<h2 id="3-requirements">3. Requirements<a class="headerlink" href="#3-requirements" title="Permanent link">&para;</a></h2>
+<h3 id="31-functional-requirements">3.1 Functional Requirements<a class="headerlink" href="#31-functional-requirements" title="Permanent link">&para;</a></h3>
+<!-- AUTO:fr_table -->
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">ID</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Implementation</th>
+<th style="text-align: left;">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56">FR-1.1</a></td>
+<td style="text-align: left;">Automated Media Ingest</td>
+<td style="text-align: left;">udev-triggered rsync from SD to SSD cartridge</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58">FR-1.10</a></td>
+<td style="text-align: left;">Safe Ejection</td>
+<td style="text-align: left;">WAL flush, sync, unmount via safe_eject.sh</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49">FR-1.2</a></td>
+<td style="text-align: left;">Spatio-Temporal Grouping</td>
+<td style="text-align: left;">Cluster if temporal delta &lt; 500ms AND Hamming distance near 0</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50">FR-1.3</a></td>
+<td style="text-align: left;">Perceptual Deduplication</td>
+<td style="text-align: left;">dHash near-duplicate detection (Hamming distance &lt;= 2)</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51">FR-1.4</a></td>
+<td style="text-align: left;">Sharpness Scoring</td>
+<td style="text-align: left;">Normalized Laplacian Variance</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52">FR-1.5</a></td>
+<td style="text-align: left;">Compositional Evaluation</td>
+<td style="text-align: left;">Rule-of-Thirds centroid proximity via saliency maps</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53">FR-1.6</a></td>
+<td style="text-align: left;">Exposure Assessment</td>
+<td style="text-align: left;">11-zone luminance segmentation; entropy vs. IEA40K threshold</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54">FR-1.7</a></td>
+<td style="text-align: left;">Local Semantic Naming</td>
+<td style="text-align: left;">Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs.</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66">FR-1.7.1</a></td>
+<td style="text-align: left;">Genre Detection Calibration and Back-Training</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67">FR-1.7.2</a></td>
+<td style="text-align: left;">Multi-Genre Tagging Support</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55">FR-1.8</a></td>
+<td style="text-align: left;">Darktable Integration</td>
+<td style="text-align: left;">SQLite writes to library.db + .xmp sidecar generation</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57">FR-1.9</a></td>
+<td style="text-align: left;">Library Cartridge Management</td>
+<td style="text-align: left;">Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config.</td>
+<td style="text-align: left;">VERIFIED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/75">[Fixture Corpus] Labeled reference image set for KPM measurement</a></td>
+<td style="text-align: left;">Labeled reference image set for KPM measurement</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">DEFINED</td>
+</tr>
+</tbody>
+</table>
+<!-- /AUTO:fr_table -->
+
+<h3 id="32-non-functional-requirements">3.2 Non-Functional Requirements<a class="headerlink" href="#32-non-functional-requirements" title="Permanent link">&para;</a></h3>
+<!-- AUTO:nfr_table -->
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">ID</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Specification</th>
+<th style="text-align: left;">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59">NFR-2.1</a></td>
+<td style="text-align: left;">Internet Independence</td>
+<td style="text-align: left;">100% offline at runtime. Initial provisioning (OS, packages, models) may use internet. Cloud export (Phase 3) user-opt-in only.</td>
+<td style="text-align: left;">DEFINED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61">NFR-2.3</a></td>
+<td style="text-align: left;">Database Portability</td>
+<td style="text-align: left;">Darktable library.db + user config on external SSD, not host filesystem.</td>
+<td style="text-align: left;">DEFINED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62">NFR-2.4</a></td>
+<td style="text-align: left;">Interactive UI Prompts</td>
+<td style="text-align: left;">zenity dialogs if SD inserted without SSD connected.</td>
+<td style="text-align: left;">DEFINED</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60">NFR-2.4</a></td>
+<td style="text-align: left;">Interactive UI Prompts</td>
+<td style="text-align: left;">zenity dialogs if SD inserted without SSD connected.</td>
+<td style="text-align: left;">DEFINED</td>
+</tr>
+</tbody>
+</table>
+<!-- /AUTO:nfr_table -->
+
+<h3 id="33-key-performance-measures">3.3 Key Performance Measures<a class="headerlink" href="#33-key-performance-measures" title="Permanent link">&para;</a></h3>
+<!-- AUTO:kpm_table -->
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">KPM</th>
+<th style="text-align: left;">Metric</th>
+<th style="text-align: left;">Target</th>
+<th style="text-align: left;">Owner</th>
+<th style="text-align: left;">Verified By</th>
+<th style="text-align: left;">Last Measured</th>
+<th style="text-align: left;">Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64">KPM-1.1</a></td>
+<td style="text-align: left;">Ingest Latency</td>
+<td style="text-align: left;">&gt;= 80% USB 3.0 bandwidth</td>
+<td style="text-align: left;">@devops</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74">KPM-1.10</a></td>
+<td style="text-align: left;">Session Grouping Precision</td>
+<td style="text-align: left;">&gt;= 90% F1 score on session boundary detection against labeled fixture corpus</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63">KPM-1.2</a></td>
+<td style="text-align: left;">Inference Speed</td>
+<td style="text-align: left;">&lt;= 2.5s per image (Florence-2 INT8)</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/68">KPM-1.3</a></td>
+<td style="text-align: left;">Analyzer Peak RSS</td>
+<td style="text-align: left;">&lt;= 1.5 GB peak RSS during full scoring pipeline</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/65">KPM-1.4</a></td>
+<td style="text-align: left;">Data Integrity</td>
+<td style="text-align: left;">Zero SQLite corruption over 50 eject cycles</td>
+<td style="text-align: left;">@devops</td>
+<td style="text-align: left;">@validation</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/69">KPM-1.5</a></td>
+<td style="text-align: left;">End-to-End Pipeline Throughput</td>
+<td style="text-align: left;">&gt;= 10 photos/min on i7-7500U (full ingest → score → name pipeline)</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/70">KPM-1.6</a></td>
+<td style="text-align: left;">Dedup False-Positive Rate</td>
+<td style="text-align: left;">&lt;= 1% false-positive rate on known-distinct image corpus</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/71">KPM-1.7</a></td>
+<td style="text-align: left;">Naming Output Validity Rate</td>
+<td style="text-align: left;">&gt;= 95% of outputs are non-trivial semantic captions (not 'yes', 'no', or 'answering does not require reading')</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/72">KPM-1.8</a></td>
+<td style="text-align: left;">Scoring Determinism</td>
+<td style="text-align: left;">Score variance &lt;= 0.01 on identical image run twice (sharpness, composition, exposure, master)</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+<tr>
+<td style="text-align: left;"><a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/73">KPM-1.9</a></td>
+<td style="text-align: left;">CPU Cap Compliance</td>
+<td style="text-align: left;">Peak CPU utilisation &lt;= 80% of available cores during full pipeline run</td>
+<td style="text-align: left;">@devops</td>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">untested</td>
+<td style="text-align: left;">untested</td>
+</tr>
+</tbody>
+</table>
+<!-- /AUTO:kpm_table -->
+
+<hr />
+<h2 id="4-intelligence-engine">4. Intelligence Engine<a class="headerlink" href="#4-intelligence-engine" title="Permanent link">&para;</a></h2>
+<p>The inference subsystem targets the i7-7500U's AVX2 instruction set with a 4-model ONNX pipeline.</p>
+<ul>
+<li><strong>Runtime:</strong> onnxruntime CPU provider, AVX2 optimized. No CUDA, no OpenVINO.</li>
+<li><strong>Model:</strong> Florence-2-base-ft from onnx-community/Florence-2-base-ft.</li>
+<li><strong>ONNX Sessions:</strong> vision_encoder_int8.onnx, embed_tokens_int8.onnx, encoder_model_int8.onnx, decoder_model_merged_int8.onnx</li>
+<li><strong>Config Files:</strong> tokenizer.json, tokenizer_config.json, preprocessor_config.json, generation_config.json, config.json</li>
+<li><strong>Memory Budget:</strong> All 4 sessions + image buffers within 1.5 GB RSS (KPM-1.3).</li>
+<li><strong>Threading:</strong> ORT_NUM_THREADS=2 to match physical core count. Avoid oversubscription.</li>
+<li><strong>Inference Pipeline:</strong> Image -&gt; vision_encoder (pixel_values -&gt; image_features) -&gt; embed_tokens (prompt IDs -&gt; text_embeds) -&gt; encoder (concat embeds -&gt; hidden state) -&gt; decoder (greedy generation with KV cache, empty past_key_values on first step [1, 12, 0, 64]) -&gt; tokenizer decode -&gt; 5-word slug</li>
+</ul>
+<hr />
+<h2 id="5-agent-roster">5. Agent Roster<a class="headerlink" href="#5-agent-roster" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Agent</th>
+<th style="text-align: left;">Model</th>
+<th style="text-align: left;">Tools</th>
+<th style="text-align: left;">Scope</th>
+<th style="text-align: left;">Memory</th>
+<th style="text-align: left;">Color</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">@architect</td>
+<td style="text-align: left;">opus</td>
+<td style="text-align: left;">Read, Grep, Glob (read-only)</td>
+<td style="text-align: left;">CLAUDE.md, architecture, interface contracts, dependency decisions</td>
+<td style="text-align: left;">user</td>
+<td style="text-align: left;">blue</td>
+</tr>
+<tr>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">sonnet</td>
+<td style="text-align: left;">All tools</td>
+<td style="text-align: left;">src/, tests/test_*.py, models/</td>
+<td style="text-align: left;">project</td>
+<td style="text-align: left;">green</td>
+</tr>
+<tr>
+<td style="text-align: left;">@devops</td>
+<td style="text-align: left;">sonnet</td>
+<td style="text-align: left;">All tools</td>
+<td style="text-align: left;">deploy/, scripts/</td>
+<td style="text-align: left;">project</td>
+<td style="text-align: left;">orange</td>
+</tr>
+<tr>
+<td style="text-align: left;">@verification</td>
+<td style="text-align: left;">sonnet</td>
+<td style="text-align: left;">All tools</td>
+<td style="text-align: left;">tests/test_*.py, docs/VerificationReports/</td>
+<td style="text-align: left;">project</td>
+<td style="text-align: left;">yellow</td>
+</tr>
+<tr>
+<td style="text-align: left;">@validation</td>
+<td style="text-align: left;">sonnet</td>
+<td style="text-align: left;">All tools</td>
+<td style="text-align: left;">tests/e2e/, docs/ValidationReports/, living-user-needs.md (by ID)</td>
+<td style="text-align: left;">project</td>
+<td style="text-align: left;">cyan</td>
+</tr>
+</tbody>
+</table>
+<h3 id="51-verification-requirements-enforcer">5.1 @verification (Requirements Enforcer)<a class="headerlink" href="#51-verification-requirements-enforcer" title="Permanent link">&para;</a></h3>
+<p><strong>Trigger:</strong> @engineer commit to main
+<strong>Input:</strong> git diff HEAD~1 + @architect handoff brief (requirement IDs only)</p>
+<ul>
+<li><strong>Unit test generation:</strong> Create/extend pytest cases from diffs. Never modifies src/.</li>
+<li><strong>KPM benchmarks:</strong> KPM-1.2 timing, KPM-1.3 RSS, KPM-1.1 bandwidth.</li>
+<li><strong>Context rules:</strong> Diff-only reads. Single-failure file read on test failure. No full repo scans.</li>
+<li><strong>Writes:</strong> tests/test_*.py (new/extended), docs/VerificationReports/</li>
+<li><strong>On failure:</strong> Error report to @engineer. Never rewrites source code.</li>
+</ul>
+<h3 id="52-validation-user-needs-advocate">5.2 @validation (User Needs Advocate)<a class="headerlink" href="#52-validation-user-needs-advocate" title="Permanent link">&para;</a></h3>
+<p><strong>Trigger:</strong> Merge to main (milestone) or manual invocation
+<strong>Input:</strong> UN-XXX requirement IDs from living-user-needs.md + CLI/pipeline output</p>
+<ul>
+<li><strong>E2E testing:</strong> SD ingest through Darktable output. Black-box only.</li>
+<li><strong>KPM-1.4 soak test:</strong> 50-cycle plug/eject with prompt-and-wait pattern for physical actions.</li>
+<li><strong>Edge cases:</strong> Empty SD, no images, SSD unmounted, corrupt EXIF.</li>
+<li><strong>Context rules:</strong> UN-ID grep only. Never reads src/ implementation.</li>
+<li><strong>Writes:</strong> tests/e2e/, docs/ValidationReports/, soak-test-log.md</li>
+<li><strong>On failure:</strong> Escalate to @architect for requirement reassessment.</li>
+<li><strong>Hardware-absent:</strong> XFAIL-HARDWARE marker. Never silent skip.</li>
+</ul>
+<h3 id="53-escalation-paths">5.3 Escalation Paths<a class="headerlink" href="#53-escalation-paths" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Failure Source</th>
+<th style="text-align: left;">Target</th>
+<th style="text-align: left;">Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">@verification test failure</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">Error report with failing test, diff, requirement ID</td>
+</tr>
+<tr>
+<td style="text-align: left;">@validation E2E failure</td>
+<td style="text-align: left;">@architect</td>
+<td style="text-align: left;">Workflow compliance report with UN-ID mismatch</td>
+</tr>
+<tr>
+<td style="text-align: left;">Hardware-absent test</td>
+<td style="text-align: left;">XFAIL-HARDWARE</td>
+<td style="text-align: left;">Marked, logged in soak-test-log.md for manual execution</td>
+</tr>
+<tr>
+<td style="text-align: left;">KPM regression</td>
+<td style="text-align: left;">@engineer (1.2/1.3) or @devops (1.1/1.4)</td>
+<td style="text-align: left;">Benchmark report with measured vs. target values</td>
+</tr>
+</tbody>
+</table>
+<h3 id="54-token-optimization-guardrails">5.4 Token Optimization Guardrails<a class="headerlink" href="#54-token-optimization-guardrails" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Diff-only context:</strong> V&amp;V agents read git diff HEAD~1, not full files.</li>
+<li><strong>UN-ID grep:</strong> @validation pulls specific IDs from living-user-needs.md, never the full document.</li>
+<li><strong>Test generation vs. execution:</strong> Agents write tests. Tests execute via CLI. LLM analyzes output only on failure.</li>
+<li><strong>Cache awareness:</strong> No relevant diff = skip re-run. Report "no changes."</li>
+</ul>
+<hr />
+<h2 id="6-ui-architecture-darktable-lua-plugin">6. UI Architecture: Darktable Lua Plugin<a class="headerlink" href="#6-ui-architecture-darktable-lua-plugin" title="Permanent link">&para;</a></h2>
+<h3 id="61-product-vision">6.1 Product Vision<a class="headerlink" href="#61-product-vision" title="Permanent link">&para;</a></h3>
+<p>PhotonForge integrates directly into Darktable as a Lua plugin that renders a collapsible control panel in the lighttable left sidebar. There is no separate application process -- Darktable is the host, and PHOTONForge is a plugin. Lua is pure UI glue: it builds the panel, launches <code>photo-workflow</code> subcommands as subprocesses, reads their JSON stdout line-by-line, and applies results to Darktable images via the native Lua API. All computation stays in Python.</p>
+<h3 id="62-why-lua-plugin-supersedes-tauri">6.2 Why Lua Plugin (Supersedes Tauri)<a class="headerlink" href="#62-why-lua-plugin-supersedes-tauri" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Concern</th>
+<th style="text-align: left;">Tauri (v5 plan)</th>
+<th style="text-align: left;">Darktable Lua (v6)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">RAM overhead</td>
+<td style="text-align: left;">30-50 MB idle</td>
+<td style="text-align: left;">~0 MB (runs in Darktable process)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Library browsing</td>
+<td style="text-align: left;">Custom thumbnail grid</td>
+<td style="text-align: left;">Darktable lighttable (native)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Export</td>
+<td style="text-align: left;">Custom Rust copy logic</td>
+<td style="text-align: left;">Darktable export module (native)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Darktable handoff</td>
+<td style="text-align: left;">Subprocess launch + re-focus</td>
+<td style="text-align: left;">No handoff needed -- already inside Darktable</td>
+</tr>
+<tr>
+<td style="text-align: left;">DB writes</td>
+<td style="text-align: left;">Custom SQLite upserts</td>
+<td style="text-align: left;">Darktable Lua API (rating, color labels, metadata)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Development effort</td>
+<td style="text-align: left;">Rust backend + web frontend (weeks)</td>
+<td style="text-align: left;">Lua plugin (days)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Maintenance</td>
+<td style="text-align: left;">Two apps to update</td>
+<td style="text-align: left;">One plugin directory</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-plugin-file-layout">6.3 Plugin File Layout<a class="headerlink" href="#63-plugin-file-layout" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>&lt;darktable-lua-dir&gt;/photonforge/
+  main.lua          -- entry point; registers panel with darktable
+  panel.lua         -- sidebar widget tree and event handlers
+  runner.lua        -- subprocess launch + stdout JSON parsing
+  applicator.lua    -- JSON result → darktable.image API calls
+  config.lua        -- load/save settings via darktable.preferences
+</code></pre></div>
+<p>One line added to <code>luarc</code>: <code>require "photonforge/main"</code></p>
+<p>See <code>docs/mockups/PhotonForgePanel.jsx</code> for the interactive reference mockup.</p>
+<h3 id="64-panel-layout">6.4 Panel Layout<a class="headerlink" href="#64-panel-layout" title="Permanent link">&para;</a></h3>
+<p>Left sidebar, collapsible section labelled <strong>PHOTONForge</strong>:</p>
+<ul>
+<li><strong>Configuration fields:</strong> SD card path, destination, model dir, manifest path, TZ offset</li>
+<li><strong>Step toggles:</strong> Ingest, Dedup, Score, Name, Sync -- each with checkbox and last-run status chip</li>
+<li><strong>Run / Stop buttons:</strong> Run executes enabled steps sequentially; Stop kills subprocess, manifest checkpoint preserves progress for resume</li>
+<li><strong>Progress bar:</strong> Updated via <code>_progress</code> JSON lines from Python subprocess</li>
+<li><strong>Live log viewer:</strong> Scrolling log of per-image results</li>
+</ul>
+<h3 id="65-json-progress-protocol">6.5 JSON Progress Protocol<a class="headerlink" href="#65-json-progress-protocol" title="Permanent link">&para;</a></h3>
+<p>Each Python subcommand accepts <code>--json-progress</code>. When set, all stdout is newline-delimited JSON. The Lua runner parses these lines and dispatches to the applicator.</p>
+<p>Key line types:
+- <code>status: ok</code> -- applicator writes results to Darktable API
+- <code>status: duplicate</code> -- applicator sets red color label, rating 0
+- <code>status: error</code> -- logged to panel log viewer, image skipped
+- <code>step: _progress</code> -- updates progress bar (done/total)</p>
+<h3 id="66-applicator-json-to-darktable-api">6.6 Applicator -- JSON to Darktable API<a class="headerlink" href="#66-applicator-json-to-darktable-api" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">JSON field</th>
+<th style="text-align: left;">Darktable API call</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>stars</code></td>
+<td style="text-align: left;"><code>image.rating = value</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>color_label</code> (int 0-4)</td>
+<td style="text-align: left;"><code>darktable.colorlabels</code> table assignment</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>semantic_name</code></td>
+<td style="text-align: left;"><code>image:set_metadata("description", value)</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>status = "duplicate"</code></td>
+<td style="text-align: left;"><code>image.rating = 0</code> + red color label (0)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Ingest complete</td>
+<td style="text-align: left;"><code>darktable.films.scan(dest_dir)</code> -- adds files to library</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>step = "name", dest</code></td>
+<td style="text-align: left;"><code>image:move(dest_dir, new_filename)</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="67-plugin-requirements">6.7 Plugin Requirements<a class="headerlink" href="#67-plugin-requirements" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">ID</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Specification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">LUA-1.1</td>
+<td style="text-align: left;">Panel location</td>
+<td style="text-align: left;">Lighttable left sidebar, collapsible</td>
+</tr>
+<tr>
+<td style="text-align: left;">LUA-1.2</td>
+<td style="text-align: left;">Pipeline feedback</td>
+<td style="text-align: left;">Real-time progress via <code>--json-progress</code> subprocess stdout</td>
+</tr>
+<tr>
+<td style="text-align: left;">LUA-1.3</td>
+<td style="text-align: left;">Step toggles</td>
+<td style="text-align: left;">Individual enable/disable per pipeline step with last-run status</td>
+</tr>
+<tr>
+<td style="text-align: left;">LUA-1.4</td>
+<td style="text-align: left;">Config persistence</td>
+<td style="text-align: left;">All fields saved via <code>darktable.preferences.register()</code> under namespace <code>photonforge</code></td>
+</tr>
+<tr>
+<td style="text-align: left;">LUA-1.5</td>
+<td style="text-align: left;">Stop / Resume</td>
+<td style="text-align: left;">Kill subprocess on Stop; JSONL manifest checkpoint enables resume on next Run</td>
+</tr>
+<tr>
+<td style="text-align: left;">LUA-1.6</td>
+<td style="text-align: left;">Offline operation</td>
+<td style="text-align: left;">No network calls. Plugin files bundled with Darktable config.</td>
+</tr>
+<tr>
+<td style="text-align: left;">LUA-1.7</td>
+<td style="text-align: left;">Error display</td>
+<td style="text-align: left;">Per-image errors logged to live log viewer; step marked failed in status chip</td>
+</tr>
+</tbody>
+</table>
+<h3 id="68-what-darktable-provides-natively">6.8 What Darktable Provides Natively<a class="headerlink" href="#68-what-darktable-provides-natively" title="Permanent link">&para;</a></h3>
+<p>These features from the old Tauri plan are no longer needed -- Darktable handles them:</p>
+<ul>
+<li><strong>Library browsing:</strong> Lighttable filmstrip + grid with star ratings, color labels, tags</li>
+<li><strong>Export/sharing:</strong> Darktable export module (local directory, USB, network)</li>
+<li><strong>Dark theme:</strong> Darktable's default theme</li>
+<li><strong>Image editing:</strong> Darkroom view</li>
+<li><strong>Metadata display:</strong> Image information panel</li>
+</ul>
+<p>Full design spec: <code>docs/superpowers/specs/2026-05-13-darktable-lua-plugin-design.md</code></p>
+<hr />
+<h2 id="7-project-structure">7. Project Structure<a class="headerlink" href="#7-project-structure" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>photo-workflow/
+  CLAUDE.md                      # Project spec + task sequencing
+  pyproject.toml                 # Package definition, dependencies
+  .claude/agents/
+    architect.md                 # Read-only, opus (blue)
+    engineer.md                  # All tools, sonnet (green)
+    devops.md                    # All tools, sonnet (orange)
+    verification.md              # All tools, sonnet (yellow)
+    validation.md                # All tools, sonnet (cyan)
+  src/photo_workflow/
+    pipeline.py                  # AnalysisPipeline orchestrator + staged CLI (scan/dedup/score/name/sync/status)
+    manifest.py                  # JSONL manifest read/write/checkpoint for staged pipeline
+    progress.py                  # Terminal progress counter (throughput, ETA, RSS)
+    ingest.py                    # FR-1.1: rsync trigger
+    grouping.py                  # FR-1.2: spatio-temporal clustering
+    dedup.py                     # FR-1.3: dHash dedup (Hamming &lt;= 2)
+    sharpness.py                 # FR-1.4: Laplacian variance
+    composition.py               # FR-1.5: rule-of-thirds + saliency
+    exposure.py                  # FR-1.6: 11-zone luminance entropy
+    naming.py                    # FR-1.7: Florence-2 INT8 4-model pipeline
+    darktable_bridge.py          # FR-1.8: SQLite + XMP sidecar sync
+    cartridge.py                 # FR-1.9: SSD volume management
+  scripts/
+    safe_eject.sh                # FR-1.10: WAL flush + unmount
+    manage_ssd.sh                # SSD detection + volume remap
+    install_udev.sh              # udev rule + wrapper script installer
+    provision_models.sh          # One-time ONNX download + config fetch
+    remote_test.sh               # Automated test runner (JSON output)
+    on_ssd_add.sh                # udev wrapper: cartridge mount
+    on_ssd_remove.sh             # udev wrapper: cartridge remove log
+    on_sd_add.sh                 # udev wrapper: SD mount/symlink
+    on_sd_remove.sh              # udev wrapper: SD remove log
+  deploy/
+    Dockerfile                   # Container (Ubuntu 24.04)
+    docker-compose.yml           # Service orchestration
+    udev/
+      99-photo-ssd.rules         # PHOTON-* label matching
+      99-photo-sd.rules          # SD reader vendor matching
+  tests/
+    fixtures/                    # Test images, mock library.db
+    test_*.py                    # Unit tests (@verification)
+    e2e/                         # E2E tests (@validation)
+  models/florence2_int8/          # Vendored ONNX + configs (.gitignore&#39;d)
+  docs/
+    living-user-needs.md         # UN-001 through UN-032
+    VerificationReports/         # Per-commit pass/fail (@verification)
+    ValidationReports/           # Per-milestone compliance (@validation)
+      soak-test-log.md           # KPM-1.4 persistent cycle tracker
+  lua/photonforge/
+    main.lua                     # Plugin entry point; registers panel
+    panel.lua                    # Sidebar widget tree + event handlers
+    runner.lua                   # Subprocess launch + JSON parsing
+    applicator.lua               # JSON result → Darktable API calls
+    config.lua                   # Preferences persistence
+  docs/mockups/
+    PhotonForgePanel.jsx         # Interactive React reference mockup
+</code></pre></div>
+<hr />
+<h2 id="8-execution-roadmap">8. Execution Roadmap<a class="headerlink" href="#8-execution-roadmap" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Stage</th>
+<th style="text-align: left;">Owner</th>
+<th style="text-align: left;">Scope</th>
+<th style="text-align: left;">Acceptance Criteria</th>
+<th style="text-align: left;">UN-IDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">1. Scaffold</td>
+<td style="text-align: left;">@architect</td>
+<td style="text-align: left;">Project init, CLAUDE.md, pyproject.toml, agents</td>
+<td style="text-align: left;">pip install -e . succeeds; pytest discovers tests; claude agents lists 5</td>
+<td style="text-align: left;">UN-001, UN-002</td>
+</tr>
+<tr>
+<td style="text-align: left;">2. Core Engine</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">FR-1.2 through FR-1.6</td>
+<td style="text-align: left;">All tests pass; memory &lt; 500 MB per module</td>
+<td style="text-align: left;">UN-010 to UN-014</td>
+</tr>
+<tr>
+<td style="text-align: left;">3. Inference + Bridge</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">FR-1.7 (Florence-2 4-model naming) + FR-1.8 (Darktable SQLite/XMP)</td>
+<td style="text-align: left;">KPM-1.2 &lt;= 2.5s/image; zero DB corruption</td>
+<td style="text-align: left;">UN-020, UN-021</td>
+</tr>
+<tr>
+<td style="text-align: left;">4. Host Integration</td>
+<td style="text-align: left;">@devops</td>
+<td style="text-align: left;">FR-1.1, FR-1.9, FR-1.10: udev, cartridge, safe eject, Docker</td>
+<td style="text-align: left;">KPM-1.1 &gt;= 80% BW; KPM-1.4 50 safe removals</td>
+<td style="text-align: left;">UN-030 to UN-032</td>
+</tr>
+<tr>
+<td style="text-align: left;">5. Parallel Build</td>
+<td style="text-align: left;">@engineer + @devops</td>
+<td style="text-align: left;">Concurrent Stage 2-4 (agent teams)</td>
+<td style="text-align: left;">All individual stage criteria met</td>
+<td style="text-align: left;">All Stage 2-4</td>
+</tr>
+<tr>
+<td style="text-align: left;">5.1 Batch CLI</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">Stage-based CLI (scan/dedup/score/name/sync/status), JSONL manifest, resume/checkpoint, progress display</td>
+<td style="text-align: left;">All subcommands work independently; 7000-photo batch completes with resume</td>
+<td style="text-align: left;">UN-050 to UN-054</td>
+</tr>
+<tr>
+<td style="text-align: left;">6. Integration</td>
+<td style="text-align: left;">@architect (lead)</td>
+<td style="text-align: left;">Full pipeline E2E on Yoga 910</td>
+<td style="text-align: left;">All KPMs verified; SD-to-Darktable autonomous</td>
+<td style="text-align: left;">All UN-IDs</td>
+</tr>
+<tr>
+<td style="text-align: left;">7.1 Lua Panel</td>
+<td style="text-align: left;">@engineer</td>
+<td style="text-align: left;">Darktable Lua script: 3-tab panel (Ingest, Status, Cartridge), pipeline subprocess invocation</td>
+<td style="text-align: left;">Panel renders in lighttable, pipeline runs from UI, cartridge eject works</td>
+<td style="text-align: left;">--</td>
+</tr>
+<tr>
+<td style="text-align: left;">7.2 Polish</td>
+<td style="text-align: left;">@engineer + @devops</td>
+<td style="text-align: left;">Progress streaming, warning display, library refresh after sync</td>
+<td style="text-align: left;">Real-time stage feedback, low-score warnings shown, lighttable refreshes</td>
+<td style="text-align: left;">--</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-living-user-need-document">9. Living User Need Document<a class="headerlink" href="#9-living-user-need-document" title="Permanent link">&para;</a></h2>
+<p>The Living User Need Document (docs/living-user-needs.md) is the sole input for @validation compliance checks. Requirements numbered UN-001 through UN-054. The @validation agent pulls only specific UN-IDs relevant to the current milestone via grep.</p>
+<hr />
+<h2 id="10-decision-log">10. Decision Log<a class="headerlink" href="#10-decision-log" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Decision</th>
+<th style="text-align: left;">Chosen</th>
+<th style="text-align: left;">Rejected</th>
+<th style="text-align: left;">Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">UI approach</td>
+<td style="text-align: left;">Darktable Lua plugin (left sidebar)</td>
+<td style="text-align: left;">Tauri (v5), Electron</td>
+<td style="text-align: left;">Zero RAM overhead. Darktable already running -- no second process. Eliminates library browser, export, dark theme, and Darktable launcher features (all native). Lua plugin directory vs. Rust+web frontend.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Sharing model</td>
+<td style="text-align: left;">Darktable export module (native)</td>
+<td style="text-align: left;">Custom Rust copy logic</td>
+<td style="text-align: left;">Darktable's export module already handles local/USB/network targets. No custom code needed.</td>
+</tr>
+<tr>
+<td style="text-align: left;">DB writes</td>
+<td style="text-align: left;">Lua applicator via Darktable API</td>
+<td style="text-align: left;">Python SQLite upserts</td>
+<td style="text-align: left;">Darktable owns its DB. Writing via Lua API avoids corruption risk and keeps DB portable. Python <code>sync</code> subcommand writes XMP sidecars only.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Progress protocol</td>
+<td style="text-align: left;"><code>--json-progress</code> flag on all subcommands</td>
+<td style="text-align: left;">Human-readable stdout</td>
+<td style="text-align: left;">Structured JSON enables Lua parser to update progress bar, status chips, and log viewer. Human output preserved as default.</td>
+</tr>
+<tr>
+<td style="text-align: left;">V&amp;V execution</td>
+<td style="text-align: left;">SSH to Yoga 910 via Claude Code</td>
+<td style="text-align: left;">Manual copy-paste</td>
+<td style="text-align: left;">Native SSH sessions eliminate manual terminal relay.</td>
+</tr>
+<tr>
+<td style="text-align: left;">SSD cartridge identity</td>
+<td style="text-align: left;">Hidden metadata file <code>.photonforge/cartridge.json</code></td>
+<td style="text-align: left;">Filesystem label (PHOTON-*)</td>
+<td style="text-align: left;">Label is now cosmetic; identity survives label changes. Detection is mount-path-agnostic, works with udisks2 auto-mount at any path.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Device detection</td>
+<td style="text-align: left;">Metadata file presence + <code>/proc/mounts</code> poll</td>
+<td style="text-align: left;">udev label rules</td>
+<td style="text-align: left;">udisks2 won out over custom udev mounting in practice; polling is simpler and reliable.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Multi-cartridge support</td>
+<td style="text-align: left;">Deferred — data model is Vec (ready)</td>
+<td style="text-align: left;">Not in scope</td>
+<td style="text-align: left;"><code>DeviceState.cartridges</code> is already an array; destination picker UI deferred until a hub use case is validated.</td>
+</tr>
+<tr>
+<td style="text-align: left;">Batch CLI architecture</td>
+<td style="text-align: left;">Stage-based subcommands with JSONL manifest</td>
+<td style="text-align: left;">Monolithic single-command; sidecar wrapper</td>
+<td style="text-align: left;">7000-photo batches need per-stage resume, independent execution, and crash-safe checkpoints. Sidecar is GUI-coupled.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="11-development-workflow">11. Development Workflow<a class="headerlink" href="#11-development-workflow" title="Permanent link">&para;</a></h2>
+<h3 id="111-automated-vs-manual">11.1 Automated vs. Manual<a class="headerlink" href="#111-automated-vs-manual" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Claude Code (Automated)</th>
+<th style="text-align: left;">Manual (Requires Yoga 910)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Python module implementation + tests</td>
+<td style="text-align: left;">udev rule testing on USB topology</td>
+</tr>
+<tr>
+<td style="text-align: left;">Shell script generation</td>
+<td style="text-align: left;">ONNX weight acquisition (provision_models.sh)</td>
+</tr>
+<tr>
+<td style="text-align: left;">Dockerfile + docker-compose</td>
+<td style="text-align: left;">Physical SSD mount/eject cycles</td>
+</tr>
+<tr>
+<td style="text-align: left;">SQLite fixture generation</td>
+<td style="text-align: left;">Wi-Fi driver configuration</td>
+</tr>
+<tr>
+<td style="text-align: left;">Linting, formatting, type checking</td>
+<td style="text-align: left;">Darktable UI verification</td>
+</tr>
+<tr>
+<td style="text-align: left;">pytest execution and iteration</td>
+<td style="text-align: left;">KPM-1.4 soak test (physical plug/unplug)</td>
+</tr>
+<tr>
+<td style="text-align: left;">V&amp;V agent test generation</td>
+<td style="text-align: left;">Hardware-absent test manual execution</td>
+</tr>
+</tbody>
+</table>
+<h3 id="112-remote-execution">11.2 Remote Execution<a class="headerlink" href="#112-remote-execution" title="Permanent link">&para;</a></h3>
+<p>Client-side testing runs via SSH to alex@10.27.27.10. The Yoga 910 hosts the runtime environment with mounted PHOTON cartridges and SD reader. Use scripts/remote_test.sh as the standard entry point. Physical hardware actions (plug/unplug) require human intervention -- agents use prompt-and-wait pattern for these.</p>
+<h3 id="113-vv-execution-model">11.3 V&amp;V Execution Model<a class="headerlink" href="#113-vv-execution-model" title="Permanent link">&para;</a></h3>
+<p>@architect defines requirements -&gt; @engineer implements -&gt; @verification validates implementation against requirements (loop to @engineer on failure) -&gt; merge to main -&gt; @validation validates workflow against user needs (loop to @architect if feature works but misses user need).</p>
+<p>Both V&amp;V agents execute via Claude Code SSH sessions against the Yoga 910 for hardware-coupled validation.</p>
+<hr />
+<h2 id="12-references">12. References<a class="headerlink" href="#12-references" title="Permanent link">&para;</a></h2>
+<ol>
+<li>pHash in Python | Hashing and Validation -- SSOJet (accessed April 7, 2026)</li>
+<li>Open source image recognition with Luminoth | Opensource.com (accessed April 7, 2026)</li>
+<li>Best lightweight Linux distro of 2025 -- TechRadar (accessed April 7, 2026)</li>
+<li>How to compact the library? -- darktable -- discuss.pixls.us (accessed April 7, 2026)</li>
+<li>Meet BLIP: The Vision-Language Model Powering Image Captioning -- PyImageSearch (accessed April 7, 2026)</li>
+<li>Intel Core i7-7500U Specifications -- Intel ARK (accessed April 10, 2026)</li>
+<li>Lenovo Yoga 910-13IKB Convertible Review -- NotebookCheck (accessed April 10, 2026)</li>
+<li>onnx-community/Florence-2-base-ft -- Hugging Face (accessed April 10, 2026)</li>
+<li>Tauri Framework -- https://tauri.app (accessed April 13, 2026)</li>
+<li>gnome-kiosk-script-session -- GNOME kiosk session configuration</li>
+<li>Ubuntu Frame -- Canonical embedded graphics shell</li>
+<li>Buildroot -- https://buildroot.org (Tier 3 contingency)</li>
+<li>Cage -- Minimal Wayland compositor for kiosk/single-app use</li>
+<li>INCOSE Systems Engineering Handbook, 5th Edition -- V&amp;V framework</li>
+<li>Claude Code SSH Documentation -- code.claude.com/docs/en/desktop</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

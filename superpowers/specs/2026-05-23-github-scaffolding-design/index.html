@@ -1,0 +1,2871 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Autonomous ingest-to-edit photography pipeline">
+      
+      
+      
+        <link rel="canonical" href="https://Ajam1997.github.io/PHOTONFORGE_Photo-Workflow/superpowers/specs/2026-05-23-github-scaffolding-design/">
+      
+      
+        <link rel="prev" href="../2026-05-23-doc-reorg-design/">
+      
+      
+        <link rel="next" href="../2026-05-21-genre-aware-scoring-design/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>GitHub Scaffolding - PHOTONForge</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#github-scaffolding-design-sub-project-1" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="PHOTONForge" class="md-header__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PHOTONForge
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              GitHub Scaffolding
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../roadmap/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Roadmap
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../living-user-needs/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  User Needs
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../photonforge-architecture/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Architecture
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../kpm-dashboard/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  KPM Dashboard
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../research/" class="md-tabs__link">
+          
+  
+  
+  Research
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+  Specs & Plans
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../drift-reports/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Drift Reports
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../github-integration-subprojects/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  GitHub Integration
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../../Notes/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Notes
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+  
+
+<nav class="md-nav md-nav--primary md-nav--lifted md-nav--integrated" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="PHOTONForge" class="md-nav__button md-logo" aria-label="PHOTONForge" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    PHOTONForge
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    Ajam1997/PHOTONFORGE_Photo-Workflow
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../roadmap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../living-user-needs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User Needs
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../photonforge-architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../kpm-dashboard/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    KPM Dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../research/scoring-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scoring Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs & Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs & Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7_2" id="__nav_7_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Specs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Specs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-agent-writeback-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Agent Write-back
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-scheduled-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Scheduled Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-pr-automation-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PR Automation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-23-doc-reorg-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-issue-hierarchy-label-taxonomy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Issue Hierarchy &amp; Label Taxonomy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Issue Hierarchy &amp; Label Taxonomy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#11-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.1 Hierarchy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#12-label-taxonomy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1.2 Label Taxonomy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-board-designs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Board Designs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. Board Designs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-roadmap-board" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 Roadmap Board
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-requirements-board" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Requirements Board
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#23-kpm-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.3 KPM Dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-migration-plan" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Migration Plan
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Migration Plan">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#31-seeding-script-scriptsseed_githubpy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.1 Seeding Script — scripts/seed_github.py
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#32-source-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.2 Source Mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#33-doc-retirement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3.3 Doc Retirement
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-auto-generated-docs-github-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Auto-Generated Docs &amp; GitHub Pages
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Auto-Generated Docs &amp; GitHub Pages">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-source-of-truth-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Source of Truth Flow
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-what-gets-generated-vs-maintained" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 What Gets Generated vs Maintained
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#43-mkdocs-material-site" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.3 MkDocs Material Site
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-automation-design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Automation Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Automation Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-trigger-matrix" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 Trigger Matrix
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-layer-1-prcommit-automation-pr-close-issuesyml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 Layer 1 — PR/Commit Automation (pr-close-issues.yml)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#53-layer-2-nightly-drift-check-nightly-driftyml" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.3 Layer 2 — Nightly Drift Check (nightly-drift.yml)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#54-layer-3-agent-workflow-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.4 Layer 3 — Agent Workflow Integration
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-new-files-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. New Files &amp; Scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-out-of-scope-for-this-sub-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Out of Scope for This Sub-project
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-21-genre-aware-scoring-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-20-pipeline-v2-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-14-terminal-flash-bugfix-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-13-darktable-lua-plugin-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Darktable Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-05-12-stage-based-cli-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-ingest-pipeline-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-20-cartridge-provisioning-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-19-stage-7-2-ingest-cartridge-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-stage-7-1-gui-scaffold-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-17-ssh-key-update-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../2026-04-16-soak-test-notifications-design/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_3" id="__nav_7_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plans
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Plans
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-23-doc-reorg/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Doc Reorganisation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-23-github-scaffolding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Scaffolding
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-21-genre-aware-scoring/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Genre-Aware Scoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-20-pipeline-v2/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pipeline v2
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-14-terminal-flash-bugfix/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Terminal Flash Bugfix
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-13-python-engine-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Python Engine Changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-13-lua-plugin/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-05-12-stage-based-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage-Based CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-23-cartridge-identity-redesign/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Identity Redesign
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-20-ingest-pipeline/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ingest Pipeline
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-20-cartridge-provisioning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cartridge Provisioning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-19-stage-7-2-ingest-cartridge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.2 Ingest Cartridge
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-17-stage-7-1-gui-scaffold/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stage 7.1 GUI Scaffold
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-17-ssh-key-update/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    SSH Key Update
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../plans/2026-04-16-soak-test-notifications/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Soak Test Notifications
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_4" id="__nav_7_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Briefs & Build Logs
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Briefs & Build Logs
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-17-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-17 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-16-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-16 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-planning-brief.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Brief
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../PlanningBriefs/2026-04-15-build-log.md" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    2026-04-15 Build Log
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../drift-reports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Drift Reports
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../github-integration-subprojects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GitHub Integration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../Notes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Notes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="github-scaffolding-design-sub-project-1">GitHub Scaffolding Design — Sub-project 1<a class="headerlink" href="#github-scaffolding-design-sub-project-1" title="Permanent link">&para;</a></h1>
+<p><strong>Date</strong>: 2026-05-23
+<strong>Status</strong>: Approved
+<strong>Author</strong>: Alex Meyer
+<strong>Approach</strong>: Native Sub-issues hierarchy (Approach A)</p>
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>Migrate PHOTONForge's requirements hierarchy (Epics → UN-XXX → FR/NFR → KPMs) into GitHub Issues and Projects, establish three GitHub Projects boards for roadmap/requirements/KPM tracking, auto-generate <code>living-user-needs.md</code> and the architecture FR/NFR tables from Issue state, and serve all documentation as a MkDocs Material site on GitHub Pages. Automation runs on PR merge, Issue change, push to main, and nightly schedule. Agents (<code>@verification</code>, <code>@validation</code>) write results back to Issues after every run.</p>
+<p>This is Sub-project 1 of 5 in the broader GitHub integration initiative. Sub-projects 2–5 (doc reorganisation, PR automation, scheduled automation, agent integration) are tracked separately and depend on this scaffolding being in place first.</p>
+<hr />
+<h2 id="1-issue-hierarchy-label-taxonomy">1. Issue Hierarchy &amp; Label Taxonomy<a class="headerlink" href="#1-issue-hierarchy-label-taxonomy" title="Permanent link">&para;</a></h2>
+<h3 id="11-hierarchy">1.1 Hierarchy<a class="headerlink" href="#11-hierarchy" title="Permanent link">&para;</a></h3>
+<p>GitHub sub-issues represent the full requirement decomposition:</p>
+<div class="highlight"><pre><span></span><code>Epic Issue  (type: epic)
+  └── UN-XXX Issue  (type: user-need)
+        └── FR-X.X Issue   (type: fr)
+        │     └── KPM-X.X Issue  (type: kpm)
+        └── NFR-X.X Issue  (type: nfr)
+              └── KPM-X.X Issue  (type: kpm)
+</code></pre></div>
+<ul>
+<li><strong>Epics</strong> represent a roadmap stage (e.g. "Stage 2 — Core Analysis Engine"). One Epic per stage.</li>
+<li><strong>User Needs (UN-XXX)</strong> are the items currently in <code>living-user-needs.md</code>. One Issue per UN entry.</li>
+<li><strong>Functional Requirements (FR-X.X)</strong> and <strong>Non-Functional Requirements (NFR-X.X)</strong> are decomposed from their parent UN. One Issue per FR/NFR entry in <code>photonforge-architecture.md</code>.</li>
+<li><strong>KPMs</strong> are performance measures attached to one or more FR/NFR Issues. Each KPM is a sub-issue of its <em>primary</em> FR/NFR (the one most directly measured). Where a KPM measures multiple FRs (e.g. KPM-1.1 measures both FR-1.1 and UN-040), the additional FRs are referenced in the KPM Issue body with <code>Also measures: #N</code>.</li>
+</ul>
+<p>GitHub's sub-issue completion percentage automatically rolls up from FR/NFR → UN → Epic, giving live progress visibility at every level.</p>
+<h3 id="12-label-taxonomy">1.2 Label Taxonomy<a class="headerlink" href="#12-label-taxonomy" title="Permanent link">&para;</a></h3>
+<p>Three label groups. Every Issue carries exactly one label from each group that applies.</p>
+<p><strong>Type labels</strong> (required on every Issue):</p>
+<table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Colour</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type: epic</code></td>
+<td>Purple <code>#6f42c1</code></td>
+<td>Roadmap stage grouping</td>
+</tr>
+<tr>
+<td><code>type: user-need</code></td>
+<td>Blue <code>#0075ca</code></td>
+<td>UN-XXX item</td>
+</tr>
+<tr>
+<td><code>type: fr</code></td>
+<td>Green <code>#2ea44f</code></td>
+<td>Functional requirement</td>
+</tr>
+<tr>
+<td><code>type: nfr</code></td>
+<td>Teal <code>#1d9fa6</code></td>
+<td>Non-functional requirement</td>
+</tr>
+<tr>
+<td><code>type: kpm</code></td>
+<td>Orange <code>#e08000</code></td>
+<td>Key performance measure</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Stage labels</strong> (applied to Epics, UNs, FRs, and NFRs):</p>
+<p><code>stage: 1</code> through <code>stage: 7</code> — hex colour graduates from light to dark blue. The seed script explicitly applies the stage label to every FR/NFR based on its parent UN's stage. KPM Issues are not stage-labelled (they appear only on the KPM Dashboard).</p>
+<p><strong>Status labels</strong> (mirrors <code>living-user-needs.md</code> status values):</p>
+<table>
+<thead>
+<tr>
+<th>Label</th>
+<th>Colour</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status: defined</code></td>
+<td>Grey <code>#888888</code></td>
+<td>Requirement written, not yet implemented</td>
+</tr>
+<tr>
+<td><code>status: in-progress</code></td>
+<td>Yellow <code>#d4a017</code></td>
+<td>Active development</td>
+</tr>
+<tr>
+<td><code>status: verified</code></td>
+<td>Light green <code>#a8d8a8</code></td>
+<td><code>@verification</code> has passed tests</td>
+</tr>
+<tr>
+<td><code>status: validated</code></td>
+<td>Dark green <code>#196127</code></td>
+<td><code>@validation</code> has confirmed E2E</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="2-board-designs">2. Board Designs<a class="headerlink" href="#2-board-designs" title="Permanent link">&para;</a></h2>
+<h3 id="21-roadmap-board">2.1 Roadmap Board<a class="headerlink" href="#21-roadmap-board" title="Permanent link">&para;</a></h3>
+<p><strong>Purpose:</strong> High-level stage progress visible at a glance.
+<strong>Items:</strong> Epics and UN-XXX Issues only.</p>
+<p><strong>Columns:</strong>
+<div class="highlight"><pre><span></span><code>Backlog | Stage 1 | Stage 2 | Stage 3 | Stage 4 | Stage 5 | Stage 6 | Stage 7 | Done
+</code></pre></div></p>
+<p><strong>Custom fields:</strong>
+- <code>Stage</code> (single select: 1–7) — drives column placement
+- <code>Owner</code> (single select: architect / engineer / devops)</p>
+<p>A stage column is considered complete when all its Epic Issues show 100% sub-issue completion. The Epic Issue is then moved to the <code>Done</code> column manually or by automation (Layer 1).</p>
+<h3 id="22-requirements-board">2.2 Requirements Board<a class="headerlink" href="#22-requirements-board" title="Permanent link">&para;</a></h3>
+<p><strong>Purpose:</strong> Track decomposition and verification status of all UN/FR/NFR items.
+<strong>Items:</strong> UN-XXX, FR, and NFR Issues.</p>
+<p><strong>Three saved views:</strong></p>
+<ol>
+<li><strong>By UN</strong> — grouped by parent UN Issue. FR/NFR sub-issues appear beneath each UN row. Default view.</li>
+<li><strong>By Stage</strong> — grouped by <code>stage:</code> label. Used for sprint planning.</li>
+<li><strong>By Status</strong> — columns are <code>defined</code> / <code>in-progress</code> / <code>verified</code> / <code>validated</code>.</li>
+</ol>
+<p><strong>Custom fields:</strong>
+- <code>UN ID</code> (text, e.g. <code>UN-010</code>)
+- <code>FR ID</code> (text, e.g. <code>FR-1.2</code>) — blank for UN-level Items
+- <code>Acceptance Criteria</code> (text) — copied from <code>living-user-needs.md</code> at migration
+- <code>Owner</code> (single select: engineer / devops / architect)</p>
+<h3 id="23-kpm-dashboard">2.3 KPM Dashboard<a class="headerlink" href="#23-kpm-dashboard" title="Permanent link">&para;</a></h3>
+<p><strong>Purpose:</strong> Live performance measure tracking — target vs actual.
+<strong>Items:</strong> KPM Issues only.
+<strong>Layout:</strong> Table view (no columns).</p>
+<p><strong>Custom fields:</strong>
+- <code>KPM ID</code> (text, e.g. <code>KPM-1.2</code>)
+- <code>Target</code> (text, e.g. <code>&lt;= 2.5s / image</code>)
+- <code>Last Measured</code> (text, e.g. <code>1.8s — 2026-05-20</code>)
+- <code>Status</code> (single select: <code>passing</code> / <code>failing</code> / <code>untested</code>)
+- <code>Measured By</code> (text, e.g. <code>@verification</code>)</p>
+<p><code>Last Measured</code> and <code>Status</code> are updated by <code>@verification</code> after every benchmark run via <code>scripts/github_comment.py</code>.</p>
+<hr />
+<h2 id="3-migration-plan">3. Migration Plan<a class="headerlink" href="#3-migration-plan" title="Permanent link">&para;</a></h2>
+<h3 id="31-seeding-script-scriptsseed_githubpy">3.1 Seeding Script — <code>scripts/seed_github.py</code><a class="headerlink" href="#31-seeding-script-scriptsseed_githubpy" title="Permanent link">&para;</a></h3>
+<p>A one-time (idempotent) script that reads the existing Markdown docs and creates Issues in the correct order so sub-issue links resolve.</p>
+<p><strong>Execution order:</strong>
+1. Create all labels (type, stage, status)
+2. Create Epic Issues (one per stage)
+3. Create UN-XXX Issues, linked as sub-issues to their Epic; apply stage + status labels; populate custom fields
+4. Create FR/NFR Issues, linked as sub-issues to their parent UN; populate custom fields
+5. Create KPM Issues, linked to their FR/NFR; populate KPM Dashboard fields
+6. Add all Issues to the correct board and set field values
+7. Write <code>docs/github-issue-map.json</code> mapping UN/FR/NFR/KPM IDs to Issue numbers</p>
+<p><strong>Idempotency:</strong> Before creating any Issue, the script searches for an existing open Issue whose title contains the requirement ID (e.g. <code>UN-010</code>, <code>FR-1.2</code>). If found, it skips creation and records the existing Issue number in the map. Safe to re-run after partial failures.</p>
+<p><strong>Dry-run mode:</strong> <code>--dry-run</code> flag prints all planned operations without touching GitHub.</p>
+<h3 id="32-source-mapping">3.2 Source Mapping<a class="headerlink" href="#32-source-mapping" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Source document</th>
+<th>Section</th>
+<th>Creates</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>living-user-needs.md</code></td>
+<td>Each <code>UN-XXX</code> block</td>
+<td><code>type: user-need</code> Issue</td>
+</tr>
+<tr>
+<td><code>photonforge-architecture.md</code></td>
+<td>FR table (§3.1)</td>
+<td><code>type: fr</code> Issues</td>
+</tr>
+<tr>
+<td><code>photonforge-architecture.md</code></td>
+<td>NFR table (§3.2)</td>
+<td><code>type: nfr</code> Issues</td>
+</tr>
+<tr>
+<td><code>photonforge-architecture.md</code></td>
+<td>KPM table (§3.3)</td>
+<td><code>type: kpm</code> Issues</td>
+</tr>
+<tr>
+<td>Roadmap stages 1–7</td>
+<td>Stage groupings</td>
+<td><code>type: epic</code> Issues</td>
+</tr>
+</tbody>
+</table>
+<h3 id="33-doc-retirement">3.3 Doc Retirement<a class="headerlink" href="#33-doc-retirement" title="Permanent link">&para;</a></h3>
+<p>After seeding:</p>
+<ul>
+<li><code>living-user-needs.md</code> gets a header banner: <code>&gt; Source of truth: [GitHub Projects — Requirements Board](link). This file is auto-generated — do not edit manually.</code></li>
+<li>The FR/NFR/KPM tables in <code>photonforge-architecture.md</code> are replaced by an auto-generated block (see §4).</li>
+<li>Both files are regenerated on every trigger (§5.1). Manual edits will be overwritten.</li>
+</ul>
+<hr />
+<h2 id="4-auto-generated-docs-github-pages">4. Auto-Generated Docs &amp; GitHub Pages<a class="headerlink" href="#4-auto-generated-docs-github-pages" title="Permanent link">&para;</a></h2>
+<h3 id="41-source-of-truth-flow">4.1 Source of Truth Flow<a class="headerlink" href="#41-source-of-truth-flow" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>GitHub Issues  →  scripts/generate_docs.py  →  docs/ Markdown  →  MkDocs build  →  gh-pages branch
+</code></pre></div>
+<p><code>generate_docs.py</code> queries the GitHub API, reconstructs the requirement hierarchy from Issue labels and sub-issue relationships, and writes the auto-generated sections of each doc.</p>
+<h3 id="42-what-gets-generated-vs-maintained">4.2 What Gets Generated vs Maintained<a class="headerlink" href="#42-what-gets-generated-vs-maintained" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Auto-generated</th>
+<th>Manually maintained</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/living-user-needs.md</code></td>
+<td>All UN-XXX entries, status, acceptance criteria, KPM refs</td>
+<td>Header, format description</td>
+</tr>
+<tr>
+<td><code>docs/photonforge-architecture.md</code></td>
+<td>FR/NFR tables (§3.1–3.2), KPM table (§3.3), stage completion status</td>
+<td>All narrative sections (§1–§2, §4–§5)</td>
+</tr>
+</tbody>
+</table>
+<p>The architecture narrative — executive summary, hardware specs, intelligence engine design, agent roster — is never auto-generated. It remains human-edited and reflects the current system design.</p>
+<h3 id="43-mkdocs-material-site">4.3 MkDocs Material Site<a class="headerlink" href="#43-mkdocs-material-site" title="Permanent link">&para;</a></h3>
+<p><strong>Tool:</strong> MkDocs with the Material theme.
+<strong>Deployment:</strong> <code>mkdocs gh-deploy</code> pushes the built site to the <code>gh-pages</code> branch. Source Markdown stays on <code>main</code>.</p>
+<p><strong>Site navigation:</strong>
+<div class="highlight"><pre><span></span><code>Home
+├── Roadmap          ← auto-generated from Epic Issue stage status
+├── User Needs       ← living-user-needs.md (auto-generated body)
+├── Architecture     ← photonforge-architecture.md (hybrid)
+├── KPM Dashboard    ← auto-generated from KPM Issues
+└── Specs &amp; Plans    ← docs/superpowers/ (organised in Sub-project 2)
+</code></pre></div></p>
+<p><strong>Config file:</strong> <code>mkdocs.yml</code> at repo root.
+<strong>Theme settings:</strong> Material theme, dark/light toggle, search enabled, repo link in header pointing to <code>Ajam1997/PHOTONFORGE_Photo-Workflow</code>.</p>
+<hr />
+<h2 id="5-automation-design">5. Automation Design<a class="headerlink" href="#5-automation-design" title="Permanent link">&para;</a></h2>
+<h3 id="51-trigger-matrix">5.1 Trigger Matrix<a class="headerlink" href="#51-trigger-matrix" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Event</th>
+<th>Workflow</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PR merged (references Issue)</td>
+<td><code>pr-close-issues.yml</code></td>
+<td>Close referenced FR/NFR; set <code>status: verified</code>; check UN sibling completion; advance Roadmap board if Epic complete</td>
+</tr>
+<tr>
+<td>Issue labeled / closed / edited</td>
+<td><code>regen-docs.yml</code></td>
+<td>Run <code>generate_docs.py</code>; commit updated Markdown; rebuild + deploy MkDocs site</td>
+</tr>
+<tr>
+<td>Push to <code>main</code></td>
+<td><code>regen-docs.yml</code></td>
+<td>Same as above</td>
+</tr>
+<tr>
+<td>Nightly 02:00 UTC</td>
+<td><code>nightly-drift.yml</code></td>
+<td>Run <code>check_drift.py</code>; write <code>docs/drift-reports/YYYY-MM-DD.md</code> if drift found; rebuild + deploy MkDocs site</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-layer-1-prcommit-automation-pr-close-issuesyml">5.2 Layer 1 — PR/Commit Automation (<code>pr-close-issues.yml</code>)<a class="headerlink" href="#52-layer-1-prcommit-automation-pr-close-issuesyml" title="Permanent link">&para;</a></h3>
+<p>When a PR is merged:
+1. GitHub natively closes any Issue referenced with <code>Closes #N</code> or <code>Fixes #N</code> in the PR body.
+2. The workflow reads the closed Issue numbers, applies <code>status: verified</code> label.
+3. For each closed FR/NFR: check whether all sibling FR/NFR sub-issues under the same parent UN are now closed. If yes, apply <code>status: verified</code> to the UN Issue.
+4. For each updated UN: check whether all UN sub-issues under the parent Epic are verified. If yes, move the Epic to the <code>Done</code> column on the Roadmap board.</p>
+<h3 id="53-layer-2-nightly-drift-check-nightly-driftyml">5.3 Layer 2 — Nightly Drift Check (<code>nightly-drift.yml</code>)<a class="headerlink" href="#53-layer-2-nightly-drift-check-nightly-driftyml" title="Permanent link">&para;</a></h3>
+<p><code>scripts/check_drift.py</code> runs nightly:
+- Fetches all <code>status: defined</code> and <code>status: in-progress</code> FR Issues from GitHub
+- Greps <code>src/photo_workflow/</code> for any comment or docstring referencing the FR ID
+- Flags FRs with no linked merged PR in the last 90 days and no <code>status: verified</code> as <strong>stale</strong>
+- If stale items found: writes <code>docs/drift-reports/YYYY-MM-DD.md</code> and opens a GitHub Issue labelled <code>type: drift-report</code> summarising the findings
+- Always rebuilds and deploys the MkDocs site regardless of drift findings</p>
+<h3 id="54-layer-3-agent-workflow-integration">5.4 Layer 3 — Agent Workflow Integration<a class="headerlink" href="#54-layer-3-agent-workflow-integration" title="Permanent link">&para;</a></h3>
+<p>Agents use <code>scripts/github_comment.py</code> to write back to Issues. They never call the GitHub API directly; the script holds the token and accepts <code>(issue_number, body, [labels])</code> as arguments.</p>
+<p><strong><code>@verification</code> (after every commit to main):</strong>
+- Looks up FR/NFR Issue numbers from <code>docs/github-issue-map.json</code>
+- Posts pytest results and KPM benchmark values as a comment on the relevant Issues
+- Sets <code>status: verified</code> on passing Issues; reverts to <code>status: defined</code> on regression
+- Updates <code>Last Measured</code> and <code>Status</code> fields on KPM Issues</p>
+<p><strong><code>@validation</code> (on milestone merge / manual invocation):</strong>
+- Posts E2E test results as a comment on UN Issues
+- Sets <code>status: validated</code> on passing UNs
+- On failure: opens a new Issue labelled <code>type: validation-failure</code> and assigns it to <code>@architect</code> for requirement reassessment</p>
+<hr />
+<h2 id="6-new-files-scripts">6. New Files &amp; Scripts<a class="headerlink" href="#6-new-files-scripts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/seed_github.py</code></td>
+<td>One-time idempotent Issue seeding from existing docs</td>
+</tr>
+<tr>
+<td><code>scripts/generate_docs.py</code></td>
+<td>Regenerates auto-generated doc sections from GitHub Issues</td>
+</tr>
+<tr>
+<td><code>scripts/check_drift.py</code></td>
+<td>Nightly stale-requirement drift detection</td>
+</tr>
+<tr>
+<td><code>scripts/github_comment.py</code></td>
+<td>Agent-safe GitHub API wrapper (comment + label + field update)</td>
+</tr>
+<tr>
+<td><code>docs/github-issue-map.json</code></td>
+<td>Maps UN/FR/NFR/KPM IDs → GitHub Issue numbers (written by seed script)</td>
+</tr>
+<tr>
+<td><code>mkdocs.yml</code></td>
+<td>MkDocs Material site configuration</td>
+</tr>
+<tr>
+<td><code>.github/workflows/pr-close-issues.yml</code></td>
+<td>Layer 1 PR automation</td>
+</tr>
+<tr>
+<td><code>.github/workflows/regen-docs.yml</code></td>
+<td>Doc regeneration + MkDocs deploy</td>
+</tr>
+<tr>
+<td><code>.github/workflows/nightly-drift.yml</code></td>
+<td>Nightly drift check</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-out-of-scope-for-this-sub-project">7. Out of Scope for This Sub-project<a class="headerlink" href="#7-out-of-scope-for-this-sub-project" title="Permanent link">&para;</a></h2>
+<p>The following are addressed in later sub-projects:</p>
+<ul>
+<li><strong>Sub-project 2</strong>: Doc reorganisation, superpowers specs/plans cleanup, stale file removal</li>
+<li><strong>Sub-project 3</strong>: PR automation refinements (beyond basic Issue closure)</li>
+<li><strong>Sub-project 4</strong>: Scheduled automation enhancements, architecture doc narrative update</li>
+<li><strong>Sub-project 5</strong>: Full <code>@verification</code> / <code>@validation</code> agent integration with GitHub write-back</li>
+</ul>
+<p>The seeding script and <code>github_comment.py</code> wrapper are built here so later sub-projects have a foundation to build on.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.tabs", "navigation.sections", "toc.integrate", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
