@@ -330,18 +330,17 @@ function M.build()
 
   local correction_loop_btn = dt.new_widget("button") {
     label = "\u{21BB} Full Correction Loop",
-    tooltip = "Runs the full feedback loop in sequence:\n"
-           .. "1. Collect Corrections (harvest DT tag changes)\n"
+    tooltip = "Runs the correction feedback loop:\n"
+           .. "1. Collect Corrections (harvest DT tag changes, update DB)\n"
            .. "2. Recalibrate (update CLIP prototypes)\n"
-           .. "3. Re-score (apply new prototypes to all images)\n"
-           .. "4. Sync Tags (push updated genres back to Darktable)\n\n"
+           .. "3. Re-score corrected images (ratings only, genres preserved)\n\n"
            .. "Run after reviewing and correcting photon|primary|* tags.",
     clicked_callback = function()
       local ok, err = pcall(function()
         save_entries()
         append_log("[LOOP] Starting full correction loop...")
         dt.control.dispatch(function()
-          local steps = {"collect-corrections", "recalibrate", "rescore", "sync-tags"}
+          local steps = {"collect-corrections", "recalibrate", "rescore"}
           local ok2, err2 = pcall(runner.run_all, steps, append_log, update_status, update_progress)
           if not ok2 then
             append_log("[ERROR] correction loop: " .. tostring(err2))

@@ -14,8 +14,8 @@ from .sharpness import _tenengrad
 
 logger = logging.getLogger(__name__)
 
-# CLIP input size for MobileCLIP-S0
-_CLIP_INPUT_SIZE = 224
+# CLIP input size for MobileCLIP-S2
+_CLIP_INPUT_SIZE = 256
 
 # RMBG input size
 _RMBG_INPUT_SIZE = 320
@@ -60,7 +60,7 @@ class ModelSessions:
 
     @property
     def clip_vision(self) -> Any:
-        return self._load_session("clip_vision", "mobileclip_s0_int8", "vision_encoder.onnx")
+        return self._load_session("clip_vision", "mobileclip_s2_int8", "vision_encoder.onnx")
 
     @property
     def rmbg(self) -> Any:
@@ -75,9 +75,9 @@ class ModelSessions:
         return self._load_session("yolo", "yolov8n_int8", "model.onnx")
 
     @property
-    def clip_aesthetic_head(self) -> Any:
+    def aesthetic_head(self) -> Any:
         return self._load_session(
-            "clip_aesthetic_head", "clip_aesthetic_head", "aesthetic_mlp.onnx"
+            "aesthetic_head", "nima_mobilenet_int8", "model.onnx"
         )
 
     @property
@@ -93,15 +93,20 @@ class ModelSessions:
                     conn.close()
 
                     if active:
-                        # Build 10x512 matrix in GENRES order
-                        from .genre_router import GENRES
+                        from .genre_router import SUBJECTS, PHOTO_TYPES
 
                         prototypes_list = []
-                        for genre in GENRES:
-                            if genre in active:
-                                prototypes_list.append(active[genre]["prototype"])
+                        for label in SUBJECTS:
+                            if label in active:
+                                prototypes_list.append(active[label]["prototype"])
                             else:
-                                # Fallback to zero if genre not found (shouldn't happen)
+                                prototypes_list.append(np.zeros(512, dtype=np.float32))
+                        for label in PHOTO_TYPES:
+                            if label in active:
+                                prototypes_list.append(active[label]["prototype"])
+                            elif "general" in active and label == "general":
+                                prototypes_list.append(active["general"]["prototype"])
+                            else:
                                 prototypes_list.append(np.zeros(512, dtype=np.float32))
                         protos = np.array(prototypes_list, dtype=np.float32)
                         self._sessions["genre_prototypes"] = protos
@@ -155,13 +160,11 @@ def _extract_exif(path: Path) -> dict:
 
 
 def _run_clip(image_rgb: np.ndarray, session: Any) -> np.ndarray:
-    """Run MobileCLIP vision encoder, return 512-dim embedding."""
-    # Preprocess: resize, normalize, CHW, batch
+    """Run MobileCLIP-S2 vision encoder, return 512-dim embedding."""
+    # Preprocess: resize, scale to [0,1], CHW, batch
+    # MobileCLIP-S2 uses identity normalization: mean=(0,0,0), std=(1,1,1)
     img = cv2.resize(image_rgb, (_CLIP_INPUT_SIZE, _CLIP_INPUT_SIZE))
     img = img.astype(np.float32) / 255.0
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-    img = (img - mean) / std
     img = np.transpose(img, (2, 0, 1))  # HWC -> CHW
     img = np.expand_dims(img, axis=0)  # Add batch
 
@@ -174,6 +177,32 @@ def _run_clip(image_rgb: np.ndarray, session: Any) -> np.ndarray:
     if norm > 0:
         embedding = embedding / norm
     return embedding.astype(np.float32)
+
+
+def _run_nima(image_rgb: np.ndarray, session: Any) -> float:
+    """Run NIMA aesthetic model, return score in [0, 1].
+
+    NIMA outputs a 10-bin probability distribution over scores 1-10.
+    Mean score = sum(i * p_i), normalized to [0, 1] by dividing by 10.
+    """
+    # Resize to NIMA input size (224x224)
+    img = cv2.resize(image_rgb, (224, 224))
+    img = img.astype(np.float32)
+    # MobileNet preprocessing: scale to [-1, 1]
+    img = (img / 127.5) - 1.0
+    img = np.expand_dims(img, axis=0)  # Add batch: (1, 224, 224, 3)
+    # Note: NIMA uses NHWC format (TensorFlow convention)
+
+    input_name = session.get_inputs()[0].name
+    outputs = session.run(None, {input_name: img})
+    probs = outputs[0].flatten()  # 10-bin distribution
+
+    # Mean score: sum(i * p_i) for i=1..10, then normalize to [0, 1]
+    bins = np.arange(1, 11, dtype=np.float32)
+    mean_score = float(np.sum(bins * probs))
+    # Normalize: NIMA scores range 1-10, map to 0-1
+    # Typical "good" photos score 5-7, exceptional 7+
+    return max(0.0, min(1.0, (mean_score - 1.0) / 9.0))
 
 
 def _run_rmbg(image_rgb: np.ndarray, session: Any, original_shape: tuple) -> np.ndarray:

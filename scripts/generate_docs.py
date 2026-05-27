@@ -206,16 +206,42 @@ def render_vv_matrix(
     return "\n".join(rows)
 
 
-def render_roadmap_section(epic_issues: list[dict]) -> str:
-    """Render roadmap table with stage, title, status."""
-    lines = ["| Stage | Title | Status |", "|:---|:---|:---|"]
-    for issue in sorted(epic_issues, key=lambda i: i["title"]):
-        title = issue["title"].removeprefix("[Epic] ")
-        labels = [l["name"] for l in issue.get("labels", [])]
-        stage = next((l.removeprefix("stage: ") for l in labels if l.startswith("stage: ")), "?")
-        state = "Done" if issue.get("state") == "closed" else "In Progress"
-        url = issue["html_url"]
-        lines.append(f"| {stage} | [{title}]({url}) | {state} |")
+_STAGE_TITLE_RE = re.compile(r"^Stage\s+(\d+)\b")
+
+
+def render_roadmap_section(milestones: list[dict]) -> str:
+    """Render roadmap table from GitHub Milestones (post Increment 3 migration).
+
+    Each milestone titled like "Stage N — Title" becomes one row.
+    Status is derived from milestone state + open/closed counts:
+      - "Done"        — milestone state == "closed"
+      - "In Progress" — milestone state == "open", any issues closed
+      - "Not Started" — milestone state == "open", zero issues closed
+    """
+    lines = ["| Stage | Title | Status | Progress |", "|:---|:---|:---|:---|"]
+    stage_entries: list[tuple[int, str]] = []
+    for ms in milestones:
+        m = _STAGE_TITLE_RE.match(ms.get("title", ""))
+        if not m:
+            continue
+        stage_num = int(m.group(1))
+        title = ms["title"]
+        url = ms["html_url"]
+        open_count = ms.get("open_issues", 0)
+        closed_count = ms.get("closed_issues", 0)
+        total = open_count + closed_count
+        if ms.get("state") == "closed":
+            status = "Done"
+        elif closed_count > 0:
+            status = "In Progress"
+        else:
+            status = "Not Started"
+        progress = f"{closed_count}/{total}" if total else "—"
+        stage_entries.append(
+            (stage_num, f"| {stage_num} | [{title}]({url}) | {status} | {progress} |")
+        )
+    for _, row in sorted(stage_entries):
+        lines.append(row)
     return "\n".join(lines)
 
 
@@ -238,7 +264,7 @@ def main() -> None:
     fr_issues = client.list_issues(labels="type: fr", state="all")
     nfr_issues = client.list_issues(labels="type: nfr", state="all")
     kpm_issues = client.list_issues(labels="type: kpm", state="all")
-    epic_issues = client.list_issues(labels="type: epic", state="all")
+    milestones = client.list_milestones(state="all")
 
     # Regenerate living-user-needs.md
     un_path = DOCS / "living-user-needs.md"
@@ -267,7 +293,7 @@ def main() -> None:
     roadmap_path = DOCS / "roadmap.md"
     if roadmap_path.exists():
         text = roadmap_path.read_text(encoding="utf-8")
-        text = inject_auto_section(text, "roadmap", render_roadmap_section(epic_issues))
+        text = inject_auto_section(text, "roadmap", render_roadmap_section(milestones))
         roadmap_path.write_text(text, encoding="utf-8")
         print(f"Updated {roadmap_path}")
 

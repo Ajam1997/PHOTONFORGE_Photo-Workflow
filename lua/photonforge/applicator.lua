@@ -1,4 +1,5 @@
 local dt = require "darktable"
+local tag_manager = require "photonforge/tag_manager"
 local M = {}
 
 local function normalize_path(p)
@@ -36,9 +37,24 @@ function M.apply(rec, folder)
     return
   end
 
-  -- sync-tags and collect-corrections write directly to DB from Python;
-  -- no Lua action needed for either.
-  if rec.step == "sync-tags" or rec.step == "collect-corrections" then
+  -- collect-corrections writes directly to DB from Python; no Lua action needed.
+  if rec.step == "collect-corrections" then
+    return
+  end
+
+  -- sync-tags: apply genre tags via DT API (Python emits subject/photo_type)
+  if rec.step == "sync-tags" then
+    local img = find_image(rec.file, folder)
+    if img == nil then
+      dt.print_log(string.format("PHOTONForge sync-tags: image not found: %s", rec.file or ""))
+      return
+    end
+    if rec.subject ~= nil and rec.subject ~= "" then
+      tag_manager.attach_subject(img, rec.subject)
+    end
+    if rec.photo_type ~= nil and rec.photo_type ~= "" then
+      tag_manager.attach_type(img, rec.photo_type)
+    end
     return
   end
 
@@ -75,25 +91,21 @@ function M.apply(rec, folder)
       img.notes = table.concat(parts, " | ")
     end
 
-    -- Multi-genre tagging (FR-1.7.2, design D5).
-    -- Writes hierarchical tags: photon|primary|<genre> for the first entry
-    -- (product-of-experts winner) and photon|secondary|<genre> for the rest
-    -- (geometric mean co-genres).  Falls back to flat rec.genre for legacy
-    -- score payloads that pre-date the genres list.
-    if rec.genres ~= nil and #rec.genres > 0 then
-      for i, entry in ipairs(rec.genres) do
-        if entry.g ~= nil and entry.g ~= "" then
-          local prefix = (i == 1) and "photon|primary|" or "photon|secondary|"
-          local tag = dt.tags.create(prefix .. entry.g)
-          dt.tags.attach(tag, img)
-        end
+    -- Detach stale needs_review before re-scoring
+    for _, tag in ipairs(dt.tags.get_tags(img)) do
+      if tag.name == "photon|needs_review" then
+        dt.tags.detach(tag, img)
       end
-    elseif rec.genre ~= nil and rec.genre ~= "" then
-      local tag = dt.tags.create("photon|primary|" .. rec.genre)
-      dt.tags.attach(tag, img)
     end
 
-    -- needs_review flag
+    -- Two-axis tagging via tag_manager (auto-detaches old axis tag)
+    if rec.subject ~= nil and rec.subject ~= "" then
+      tag_manager.attach_subject(img, rec.subject)
+    end
+    if rec.photo_type ~= nil and rec.photo_type ~= "" then
+      tag_manager.attach_type(img, rec.photo_type)
+    end
+
     if rec.needs_review then
       local tag = dt.tags.create("photon|needs_review")
       dt.tags.attach(tag, img)

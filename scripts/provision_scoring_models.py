@@ -7,8 +7,8 @@ Downloads, exports, and INT8-quantizes five models:
   1. RMBG-1.4        — subject/background segmentation
   2. YuNet            — face detection (5-point landmarks)
   3. YOLOv8n          — object detection (80 COCO classes)
-  4. MobileCLIP-S0    — CLIP vision encoder (512-dim embeddings)
-  5. Aesthetic head    — MLP predicting aesthetic quality from CLIP embeddings
+  4. MobileCLIP-S2    — CLIP vision encoder (512-dim embeddings)
+  5. NIMA MobileNet    — aesthetic quality assessment (10-bin distribution)
 
 Usage:
     python scripts/provision_scoring_models.py [--models-dir models] [--force]
@@ -53,7 +53,7 @@ def provision_rmbg(models_dir: Path, force: bool = False) -> None:
     log.info("Provisioning RMBG-1.4...")
     try:
         import torch
-        from huggingface_hub import hf_hub_download
+        import huggingface_hub  # noqa: F401 — availability check
     except ImportError:
         log.error("pip install torch huggingface_hub  (needed for RMBG export)")
         return
@@ -162,17 +162,17 @@ def provision_yolo(models_dir: Path, force: bool = False) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. MobileCLIP-S0 (vision encoder)
+# 4. MobileCLIP-S2 (vision encoder)
 # ---------------------------------------------------------------------------
 def provision_clip(models_dir: Path, force: bool = False) -> None:
-    """Export MobileCLIP-S0 vision encoder to ONNX INT8."""
-    out_dir = _ensure_dir(models_dir / "mobileclip_s0_int8")
+    """Export MobileCLIP-S2 vision encoder to ONNX INT8."""
+    out_dir = _ensure_dir(models_dir / "mobileclip_s2_int8")
     out_file = out_dir / "vision_encoder.onnx"
     if out_file.exists() and not force:
-        log.info("MobileCLIP-S0 already present at %s", out_file)
+        log.info("MobileCLIP-S2 already present at %s", out_file)
         return
 
-    log.info("Provisioning MobileCLIP-S0 vision encoder...")
+    log.info("Provisioning MobileCLIP-S2 vision encoder...")
     try:
         import open_clip
         import torch
@@ -180,16 +180,16 @@ def provision_clip(models_dir: Path, force: bool = False) -> None:
         log.error("pip install open_clip_torch torch  (needed for MobileCLIP export)")
         return
 
-    log.info("Loading MobileCLIP-S1 via open_clip...")
+    log.info("Loading MobileCLIP-S2 via open_clip...")
     model, _, preprocess = open_clip.create_model_and_transforms(
-        "MobileCLIP-S1", pretrained="datacompdr"
+        "MobileCLIP-S2", pretrained="datacompdr"
     )
     model.eval()
     visual = model.visual
 
     # Export vision encoder
     log.info("Exporting vision encoder to ONNX...")
-    dummy = torch.randn(1, 3, 224, 224)
+    dummy = torch.randn(1, 3, 256, 256)
     fp32_path = out_dir / "vision_encoder_fp32.onnx"
     torch.onnx.export(
         visual, dummy, str(fp32_path),
@@ -209,14 +209,19 @@ def provision_clip(models_dir: Path, force: bool = False) -> None:
         log.warning("INT8 quantization failed (%s), keeping FP32", e)
         shutil.move(str(fp32_path), str(out_file))
 
-    log.info("MobileCLIP-S0 ready: %s (%.1f MB)", out_file, out_file.stat().st_size / 1e6)
+    log.info("MobileCLIP-S2 ready: %s (%.1f MB)", out_file, out_file.stat().st_size / 1e6)
 
     # Also generate genre_prototypes.npy using the text encoder
     _generate_genre_prototypes(model, models_dir, force)
 
 
 def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> None:
-    """Generate genre prototype embeddings using MobileCLIP text encoder."""
+    """Generate two-axis prototype embeddings using MobileCLIP-S2 text encoder.
+
+    Uses a 7-template prompt ensemble for both subject and photo type classes.
+    Output shape: (28, 512) — first 16 rows = subjects, next 12 rows = types.
+    Each prototype is the L2-normalized mean of all template embeddings for that class.
+    """
     out_file = models_dir / "genre_prototypes.npy"
     if out_file.exists() and not force:
         log.info("Genre prototypes already present at %s", out_file)
@@ -225,127 +230,274 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
     import open_clip
     import torch
 
-    log.info("Generating genre prototype embeddings...")
-    tokenizer = open_clip.get_tokenizer("MobileCLIP-S1")
+    log.info("Generating genre prototypes with 7-template prompt ensemble (MobileCLIP-S2)...")
+    tokenizer = open_clip.get_tokenizer("MobileCLIP-S2")
 
-    genre_prompts = {
-        "wildlife": "a wildlife photograph of an animal in nature",
-        "landscape": "a landscape photograph of mountains, valleys, or scenic nature",
-        "portrait": "a portrait photograph of a person's face",
-        "street": "a street photography scene with people in an urban environment",
-        "architecture": "an architectural photograph of a building or structure",
-        "macro": "a macro close-up photograph of a small subject",
-        "event": "a photograph of people at an event, party, or gathering",
-        "waterfall": "a photograph of a waterfall with flowing water and rocks",
-        "signage": "a photograph of a sign or signboard with text",
-        "cat": "a photograph of a domestic cat",
-        "vehicle": "a photograph of a car, truck, or motorcycle",
-        "general": "a general photograph",
+    # OpenAI CLIP 7-template ensemble for subjects
+    _SUBJECT_TEMPLATES = [
+        "itap of a {}",
+        "a bad photo of the {}",
+        "a origami {}",
+        "a photo of the large {}",
+        "a {} in a video game",
+        "art of the {}",
+        "a photo of the small {}",
+    ]
+
+    # Photography-specific 7-template ensemble for photo types
+    _TYPE_TEMPLATES = [
+        "a {} photograph",
+        "an example of {} photography",
+        "a professional {} photo",
+        "a {} style photograph",
+        "a stunning {} photograph",
+        "a beautiful {} photo",
+        "an award-winning {} photograph",
+    ]
+
+    # Subject fill text — descriptive phrases for each class
+    _SUBJECT_FILL = {
+        "person": "person",
+        "people": "group of people",
+        "child": "child",
+        "wildlife": "wild animal in nature",
+        "pet": "domestic pet",
+        "plant": "plant or flower",
+        "landscape": "natural landscape",
+        "seascape": "ocean or sea",
+        "cityscape": "city or urban area",
+        "building": "building or architecture",
+        "vehicle": "vehicle",
+        "food": "food or meal",
+        "object": "object or product",
+        "text": "text or signage",
+        "night-sky": "night sky or stars",
+        "abstract": "abstract pattern",
     }
+
+    # Photo type fill text
+    _TYPE_FILL = {
+        "portrait": "portrait",
+        "candid": "candid",
+        "landscape": "landscape",
+        "street": "street",
+        "wildlife": "wildlife",
+        "macro": "macro close-up",
+        "architecture": "architectural",
+        "action": "action or sports",
+        "aerial": "aerial or drone",
+        "long-exposure": "long exposure",
+        "still-life": "still life",
+        "documentary": "documentary",
+    }
+
+    # Order matching the class labels
+    subjects_ordered = [
+        "person", "people", "child", "wildlife", "pet",
+        "plant", "landscape", "seascape", "cityscape", "building",
+        "vehicle", "food", "object", "text", "night-sky", "abstract"
+    ]
+    types_ordered = [
+        "portrait", "candid", "landscape", "street", "wildlife",
+        "macro", "architecture", "action", "aerial", "long-exposure",
+        "still-life", "documentary"
+    ]
 
     embeddings = {}
     with torch.no_grad():
-        for genre, prompt in genre_prompts.items():
-            tokens = tokenizer([prompt])
+        # Process subjects with 7-template ensemble
+        for subject in subjects_ordered:
+            fill_text = _SUBJECT_FILL[subject]
+            prompts = [template.format(fill_text) for template in _SUBJECT_TEMPLATES]
+            tokens = tokenizer(prompts)
             text_features = model.encode_text(tokens)
             text_features /= text_features.norm(dim=-1, keepdim=True)
-            embeddings[genre] = text_features.cpu().numpy().flatten()
+            # Average the 7 template embeddings
+            mean_embedding = text_features.mean(dim=0)
+            mean_embedding /= mean_embedding.norm()
+            embeddings[subject] = mean_embedding.cpu().numpy()
 
-    # Save as ordered array (10 x 512) — order must match genre_router.GENRES
-    genres_ordered = ["wildlife", "landscape", "portrait", "street",
-                      "architecture", "macro", "event", "waterfall",
-                      "signage", "cat", "vehicle", "general"]
-    proto_matrix = np.stack([embeddings[g] for g in genres_ordered])
+        # Process photo types with 7-template ensemble
+        for photo_type in types_ordered:
+            fill_text = _TYPE_FILL[photo_type]
+            prompts = [template.format(fill_text) for template in _TYPE_TEMPLATES]
+            tokens = tokenizer(prompts)
+            text_features = model.encode_text(tokens)
+            text_features /= text_features.norm(dim=-1, keepdim=True)
+            # Average the 7 template embeddings
+            mean_embedding = text_features.mean(dim=0)
+            mean_embedding /= mean_embedding.norm()
+            embeddings[photo_type] = mean_embedding.cpu().numpy()
+
+    # Stack in order: subjects (16) then types (12)
+    all_ordered = subjects_ordered + types_ordered
+    proto_matrix = np.stack([embeddings[g] for g in all_ordered])
     np.save(str(out_file), proto_matrix)
-    log.info("Genre prototypes saved: %s (shape %s)", out_file, proto_matrix.shape)
+    log.info(
+        "Genre prototypes saved: %s (shape %s, MobileCLIP-S2 + 7-template ensemble)",
+        out_file, proto_matrix.shape
+    )
 
 
 # ---------------------------------------------------------------------------
-# 5. Aesthetic Head (CLIP aesthetic predictor MLP)
+# 5. Aesthetic Head (NIMA MobileNet)
 # ---------------------------------------------------------------------------
 def provision_aesthetic(models_dir: Path, force: bool = False) -> None:
-    """Download or build the CLIP aesthetic prediction MLP."""
-    out_dir = _ensure_dir(models_dir / "clip_aesthetic_head")
-    out_file = out_dir / "aesthetic_mlp.onnx"
+    """Download and export idealo NIMA MobileNet to ONNX INT8.
+
+    NIMA (Neural Image Assessment) outputs a 10-bin probability distribution
+    over quality scores 1-10. Mean score = sum(i * p_i), normalized to [0, 1].
+    """
+    out_dir = _ensure_dir(models_dir / "nima_mobilenet_int8")
+    out_file = out_dir / "model.onnx"
     if out_file.exists() and not force:
-        log.info("Aesthetic head already present at %s", out_file)
+        log.info("NIMA MobileNet already present at %s", out_file)
         return
 
-    log.info("Provisioning CLIP aesthetic head MLP...")
+    log.info("Provisioning NIMA MobileNet aesthetic model...")
+
+    # Try full export; fallback to placeholder if tensorflow not available
+    success = _try_export_nima(out_dir, out_file)
+    if not success:
+        _create_nima_placeholder(out_file)
+
+
+def _try_export_nima(out_dir: Path, out_file: Path) -> bool:
+    """Attempt full NIMA export with TensorFlow. Return True if successful."""
     try:
-        import torch
-        import torch.nn as nn
+        import tensorflow as tf
+        import tf2onnx
     except ImportError:
-        log.error("pip install torch  (needed for aesthetic head export)")
-        return
+        log.warning("tensorflow or tf2onnx not installed")
+        log.error("pip install tensorflow tf2onnx  (needed for NIMA export)")
+        return False
 
-    # Build the LAION aesthetic predictor V2 architecture
-    # Weights from: https://github.com/christophschuhmann/improved-aesthetic-predictor
-    log.info("Downloading aesthetic predictor weights...")
+    log.info("Downloading NIMA MobileNet pre-trained weights...")
     import urllib.request
+
     weights_url = (
-        "https://github.com/christophschuhmann/improved-aesthetic-predictor/"
-        "raw/main/sac%2Blogos%2Bava1-l14-linearMSE.pth"
+        "https://github.com/idealo/image-quality-assessment/raw/master/"
+        "models/MobileNet/weights_mobilenet_aesthetic_0.07.hdf5"
     )
-    weights_path = out_dir / "aesthetic_weights.pth"
+    weights_path = out_dir / "weights.hdf5"
+
     try:
         urllib.request.urlretrieve(weights_url, str(weights_path))
+        log.info("Downloaded weights to %s", weights_path)
     except Exception as e:
-        log.error("Download failed: %s", e)
-        log.info("Creating random-initialized aesthetic head as placeholder")
-        # Fall through to create the architecture with random weights
+        log.error("Failed to download NIMA weights: %s", e)
+        return False
 
-    # Architecture: Linear(768->1024) -> ReLU -> Dropout -> Linear(1024->128) -> ReLU -> Dropout -> Linear(128->64) -> ReLU -> Dropout -> Linear(64->16) -> ReLU -> Linear(16->1)
-    # Note: The original uses CLIP ViT-L/14 (768-dim). We use MobileCLIP-S0 (512-dim).
-    # We'll create a 512-dim input version.
-    class AestheticMLP(nn.Module):
-        def __init__(self, input_dim: int = 512):
-            super().__init__()
-            self.layers = nn.Sequential(
-                nn.Linear(input_dim, 1024),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(1024, 128),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(128, 64),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(64, 16),
-                nn.ReLU(),
-                nn.Linear(16, 1),
-            )
+    # Build NIMA architecture: MobileNet backbone + 10-bin classifier
+    log.info("Building NIMA MobileNet architecture...")
+    try:
+        from tensorflow.keras.applications.mobilenet import MobileNet
+        from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D
+        from tensorflow.keras.models import Model
 
-        def forward(self, x: torch.Tensor) -> torch.Tensor:
-            return torch.sigmoid(self.layers(x))  # Output in [0, 1]
+        base = MobileNet(input_shape=(224, 224, 3), include_top=False, weights=None)
+        x = GlobalAveragePooling2D()(base.output)
+        x = Dropout(0.75)(x)
+        x = Dense(10, activation='softmax')(x)  # 10-bin distribution
+        model = Model(inputs=base.input, outputs=x)
 
-    mlp = AestheticMLP(input_dim=512)
-    if weights_path.exists():
-        try:
-            # The pretrained weights are for 768-dim (ViT-L/14), so we can't
-            # directly load them for our 512-dim model. Use random init and
-            # fine-tune later, or train a small head on a subset.
-            log.warning(
-                "Pretrained weights are for ViT-L/14 (768-dim), not MobileCLIP-S0 (512-dim). "
-                "Using random initialization. Fine-tune on your photo library for best results."
-            )
-            weights_path.unlink()
-        except Exception:
-            pass
-    mlp.eval()
+        # Load pre-trained weights
+        log.info("Loading pre-trained weights...")
+        model.load_weights(str(weights_path))
+    except Exception as e:
+        log.error("Failed to build/load NIMA model: %s", e)
+        return False
 
-    # Export to ONNX
-    log.info("Exporting aesthetic MLP to ONNX...")
-    dummy = torch.randn(1, 512)
-    torch.onnx.export(
-        mlp, dummy, str(out_file),
-        input_names=["clip_embedding"],
-        output_names=["aesthetic_score"],
-        dynamic_axes={"clip_embedding": {0: "batch"}, "aesthetic_score": {0: "batch"}},
-        opset_version=17,
-    )
-    log.info("Aesthetic head ready: %s (%.1f KB)", out_file, out_file.stat().st_size / 1e3)
-    log.warning("NOTE: Aesthetic head uses random weights. Scores will be noisy until fine-tuned.")
+    # Export to ONNX using tf2onnx
+    log.info("Exporting to ONNX...")
+    fp32_path = out_dir / "model_fp32.onnx"
+    try:
+        import tensorflow as tf
+        spec = (tf.TensorSpec((1, 224, 224, 3), tf.float32, name="input"),)
+        model_proto, _ = tf2onnx.convert.from_keras(
+            model, input_signature=spec, output_path=str(fp32_path)
+        )
+        log.info("ONNX export complete: %s", fp32_path)
+    except Exception as e:
+        log.error("ONNX export failed: %s", e)
+        return False
+
+    # Quantize to INT8
+    log.info("Quantizing to INT8...")
+    try:
+        from onnxruntime.quantization import quantize_dynamic, QuantType
+        quantize_dynamic(str(fp32_path), str(out_file), weight_type=QuantType.QUInt8)
+        fp32_path.unlink()
+        log.info("NIMA MobileNet ready: %s (%.1f MB)", out_file, out_file.stat().st_size / 1e6)
+    except Exception as e:
+        log.warning("INT8 quantization failed (%s), keeping FP32", e)
+        shutil.move(str(fp32_path), str(out_file))
+
+    # Cleanup weights
+    try:
+        weights_path.unlink()
+    except Exception:
+        pass
+
+    return True
+
+
+def _create_nima_placeholder(out_file: Path) -> None:
+    """Create a minimal ONNX placeholder that outputs uniform 10-bin distribution.
+
+    Used as fallback when tensorflow is not available. Allows pipeline to
+    continue with degraded aesthetic scoring (all images score 0.5).
+    """
+    log.warning("Creating NIMA placeholder — scores will be neutral (0.5)")
+    log.warning("To fix: pip install tensorflow tf2onnx && python scripts/provision_scoring_models.py --force")
+
+    try:
+        import onnx
+        from onnx import helper, TensorProto
+
+        # Create input
+        input_tensor = helper.make_tensor_value_info(
+            'input', TensorProto.FLOAT, [1, 224, 224, 3]
+        )
+        # Create output: 10-bin distribution
+        output_tensor = helper.make_tensor_value_info(
+            'output', TensorProto.FLOAT, [1, 10]
+        )
+
+        # Create a constant node that outputs [1/10, 1/10, ..., 1/10]
+        const_value = np.full((1, 10), 0.1, dtype=np.float32)
+        const_tensor = helper.make_tensor(
+            name='uniform_dist',
+            data_type=TensorProto.FLOAT,
+            dims=[1, 10],
+            vals=const_value.tobytes(),
+            raw=True,
+        )
+
+        # Create identity node (just return the constant)
+        node = helper.make_node(
+            'Identity',
+            inputs=['uniform_dist'],
+            outputs=['output'],
+        )
+
+        # Create graph
+        graph = helper.make_graph(
+            [node],
+            'nima_placeholder',
+            [input_tensor],
+            [output_tensor],
+            [const_tensor],
+        )
+
+        # Create model
+        model = helper.make_model(graph, opset_imports=[helper.make_opsetid('', 13)])
+        onnx.checker.check_model(model)
+        onnx.save(model, str(out_file))
+        log.info("Placeholder created: %s", out_file)
+    except Exception as e:
+        log.error("Failed to create placeholder: %s", e)
+        raise
 
 
 # ---------------------------------------------------------------------------

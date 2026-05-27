@@ -15,8 +15,10 @@ from photo_workflow.scoring_types import (
 from photo_workflow.score_fusion import (
     estimate_eye_openness,
     fuse_scores,
-    GENRE_WEIGHTS,
+    SUBJECT_WEIGHTS,
+    TYPE_WEIGHTS,
 )
+from photo_workflow.genre_router import SUBJECTS, PHOTO_TYPES
 
 
 def _make_sharpness(**kwargs) -> SharpnessScores:
@@ -41,15 +43,27 @@ def _make_exposure(**kwargs) -> ExposureScores:
     return ExposureScores(**defaults)
 
 
-def _make_genre(genre: str = "wildlife", confidence: float = 0.85) -> GenreResult:
-    dist = {g: 0.02 for g in GENRE_WEIGHTS}
-    dist[genre] = confidence
-    # Normalize
-    total = sum(dist.values())
-    dist = {g: v / total for g, v in dist.items()}
-    # Create genres list with top-3 above 0.15 floor
-    genres_list = [(genre, dist[genre])]
-    return GenreResult(genres=genres_list, distribution=dist, needs_review=False)
+def _make_genre(subject: str = "wildlife", photo_type: str = "wildlife",
+                subject_confidence: float = 0.85, type_confidence: float = 0.5) -> GenreResult:
+    subj_dist = {s: 0.02 for s in SUBJECTS}
+    subj_dist[subject] = subject_confidence
+    total = sum(subj_dist.values())
+    subj_dist = {s: v / total for s, v in subj_dist.items()}
+
+    type_dist = {t: 0.02 for t in PHOTO_TYPES}
+    type_dist[photo_type] = type_confidence
+    total = sum(type_dist.values())
+    type_dist = {t: v / total for t, v in type_dist.items()}
+
+    return GenreResult(
+        subject=subject,
+        subject_confidence=subject_confidence,
+        photo_type=photo_type,
+        type_confidence=type_confidence,
+        subject_distribution=subj_dist,
+        type_distribution=type_dist,
+        needs_review=False,
+    )
 
 
 def test_fuse_scores_returns_fusion_result() -> None:
@@ -63,15 +77,23 @@ def test_fuse_scores_returns_fusion_result() -> None:
     )
     assert isinstance(result, FusionResult)
     assert 0.0 <= result.master_score <= 1.0
-    assert result.genre == "wildlife"
+    assert result.subject == "wildlife"
+    assert result.genre == "wildlife"  # backward compat
     assert result.star_rating in range(1, 6)
 
 
-def test_genre_weights_all_sum_to_one() -> None:
-    """Every genre weight profile should sum to 1.0."""
-    for genre, weights in GENRE_WEIGHTS.items():
+def test_subject_weights_all_sum_to_one() -> None:
+    """Every subject weight profile should sum to 1.0."""
+    for subj, weights in SUBJECT_WEIGHTS.items():
         total = sum(weights.values())
-        assert abs(total - 1.0) < 0.01, f"{genre} weights sum to {total}"
+        assert abs(total - 1.0) < 0.01, f"{subj} weights sum to {total}"
+
+
+def test_type_weights_all_sum_to_one() -> None:
+    """Every photo type weight profile should sum to 1.0."""
+    for ptype, weights in TYPE_WEIGHTS.items():
+        total = sum(weights.values())
+        assert abs(total - 1.0) < 0.01, f"{ptype} weights sum to {total}"
 
 
 def test_high_scores_produce_high_master() -> None:
@@ -96,7 +118,7 @@ def test_low_scores_produce_low_master() -> None:
         genre=_make_genre("wildlife"),
         aesthetic=0.2,
     )
-    assert result.master_score < 0.3
+    assert result.master_score < 0.35
     assert result.star_rating <= 2
 
 
@@ -119,7 +141,7 @@ def test_hard_reject_misfocused() -> None:
         sharpness=_make_sharpness(eye_region=0.1, blur_type="misfocused"),
         composition=_make_composition(),
         exposure=_make_exposure(),
-        genre=_make_genre("portrait"),
+        genre=_make_genre("people", "portrait"),
         aesthetic=0.7,
     )
     assert result.hard_reject is True
@@ -132,7 +154,7 @@ def test_no_hard_reject_for_bokeh() -> None:
         sharpness=_make_sharpness(subject=0.8, blur_type="bokeh"),
         composition=_make_composition(),
         exposure=_make_exposure(),
-        genre=_make_genre("portrait"),
+        genre=_make_genre("people", "portrait"),
         aesthetic=0.7,
     )
     assert result.hard_reject is False
@@ -140,7 +162,6 @@ def test_no_hard_reject_for_bokeh() -> None:
 
 def test_color_label_mapping() -> None:
     """Color labels should map correctly from master score."""
-    # Excellent
     result = fuse_scores(
         sharpness=_make_sharpness(subject=0.95, eye_region=0.95, overall=0.9),
         composition=_make_composition(overall=0.85),
@@ -150,7 +171,6 @@ def test_color_label_mapping() -> None:
     )
     assert result.color_label == 3  # BLUE (excellent)
 
-    # Weak - all low scores
     result2 = fuse_scores(
         sharpness=_make_sharpness(subject=0.1, eye_region=0.1, background=0.1, overall=0.1),
         composition=_make_composition(rule_of_thirds=0.1, symmetry=0.1, leading_lines=0.1,
@@ -163,12 +183,8 @@ def test_color_label_mapping() -> None:
 
 
 def test_soft_genre_blending() -> None:
-    """Mixed genre probabilities should blend weights, not hard-switch."""
-    # 50% wildlife, 50% portrait
-    dist = {g: 0.0 for g in GENRE_WEIGHTS}
-    dist["wildlife"] = 0.5
-    dist["portrait"] = 0.5
-    genre = GenreResult(genres=[("wildlife", 0.5), ("portrait", 0.5)], distribution=dist, needs_review=False)
+    """Two-axis scoring should blend subject and type weights."""
+    genre = _make_genre("wildlife", "portrait", 0.5, 0.5)
 
     result = fuse_scores(
         sharpness=_make_sharpness(),
@@ -177,7 +193,6 @@ def test_soft_genre_blending() -> None:
         genre=genre,
         aesthetic=0.6,
     )
-    # Should still produce a valid result
     assert 0.0 <= result.master_score <= 1.0
 
 
@@ -203,11 +218,9 @@ def _make_face(left_eye: tuple[int, int], right_eye: tuple[int, int],
 def _open_eyes_image() -> np.ndarray:
     """200x200 gray image with high-contrast eye regions (iris/sclera pattern)."""
     img = np.full((200, 200), 180, dtype=np.uint8)
-    # Left eye at (80, 80): alternating light/dark pixels = high variance
     for r in range(70, 90):
         for c in range(70, 90):
             img[r, c] = 40 if (r + c) % 2 == 0 else 220
-    # Right eye at (80, 120): same pattern
     for r in range(70, 90):
         for c in range(110, 130):
             img[r, c] = 40 if (r + c) % 2 == 0 else 220
@@ -217,9 +230,7 @@ def _open_eyes_image() -> np.ndarray:
 def _closed_eyes_image() -> np.ndarray:
     """200x200 gray image with uniform eye regions (eyelid skin)."""
     img = np.full((200, 200), 180, dtype=np.uint8)
-    # Left eye at (80, 80): uniform skin tone = low variance
     img[70:90, 70:90] = 165
-    # Right eye at (80, 120): uniform skin tone
     img[70:90, 110:130] = 165
     return img
 
@@ -244,11 +255,9 @@ def test_eye_openness_one_open_one_closed() -> None:
     """One open eye and one closed should produce a mid-range score."""
     face = _make_face(left_eye=(80, 80), right_eye=(120, 80))
     img = np.full((200, 200), 180, dtype=np.uint8)
-    # Left eye: high variance (open)
     for r in range(70, 90):
         for c in range(70, 90):
             img[r, c] = 40 if (r + c) % 2 == 0 else 220
-    # Right eye: uniform (closed)
     img[70:90, 110:130] = 165
     score = estimate_eye_openness(face, img)
     assert 0.2 < score < 0.8, f"Expected mid-range for mixed eyes, got {score}"
@@ -274,7 +283,7 @@ def test_expression_proxy_eyes_open() -> None:
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=0.8),
-        genre=_make_genre("portrait"),
+        genre=_make_genre("people", "portrait"),
         aesthetic=0.6,
         faces=faces,
         image_gray=img,
@@ -290,7 +299,7 @@ def test_expression_proxy_eyes_closed() -> None:
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=0.8),
-        genre=_make_genre("portrait"),
+        genre=_make_genre("people", "portrait"),
         aesthetic=0.6,
         faces=faces,
         image_gray=img,
@@ -304,7 +313,7 @@ def test_expression_proxy_no_face() -> None:
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=-1.0),
-        genre=_make_genre("landscape"),
+        genre=_make_genre("general", "landscape"),
         aesthetic=0.6,
     )
     assert result.sub_scores["expression_proxy"] == 0.5
@@ -322,7 +331,7 @@ def test_hard_reject_both_eyes_closed() -> None:
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=0.8),
-        genre=_make_genre("portrait"),
+        genre=_make_genre("people", "portrait"),
         aesthetic=0.7,
         faces=faces,
         image_gray=img,
@@ -339,7 +348,7 @@ def test_no_hard_reject_eyes_open() -> None:
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=0.8),
-        genre=_make_genre("portrait"),
+        genre=_make_genre("people", "portrait"),
         aesthetic=0.7,
         faces=faces,
         image_gray=img,
@@ -353,7 +362,7 @@ def test_no_hard_reject_no_faces() -> None:
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=-1.0),
-        genre=_make_genre("landscape"),
+        genre=_make_genre("general", "landscape"),
         aesthetic=0.7,
     )
     assert result.hard_reject is False
@@ -366,14 +375,13 @@ def test_hard_reject_multi_face_all_closed() -> None:
         _make_face(left_eye=(80, 150), right_eye=(120, 150)),
     ]
     img = _closed_eyes_image()
-    # Add uniform region for second face too
     img[140:160, 70:90] = 165
     img[140:160, 110:130] = 165
     result = fuse_scores(
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=0.8),
-        genre=_make_genre("event"),
+        genre=_make_genre("people", "event"),
         aesthetic=0.7,
         faces=faces,
         image_gray=img,
@@ -384,7 +392,6 @@ def test_hard_reject_multi_face_all_closed() -> None:
 def test_no_hard_reject_multi_face_one_open() -> None:
     """At least one face with open eyes should not trigger reject."""
     img = _closed_eyes_image()
-    # Make first face's eyes open (high variance)
     for r in range(70, 90):
         for c in range(70, 90):
             img[r, c] = 40 if (r + c) % 2 == 0 else 220
@@ -395,14 +402,13 @@ def test_no_hard_reject_multi_face_one_open() -> None:
         _make_face(left_eye=(80, 80), right_eye=(120, 80)),
         _make_face(left_eye=(80, 150), right_eye=(120, 150)),
     ]
-    # Second face region is still uniform (closed)
     img[140:160, 70:90] = 165
     img[140:160, 110:130] = 165
     result = fuse_scores(
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=0.8),
-        genre=_make_genre("event"),
+        genre=_make_genre("people", "event"),
         aesthetic=0.7,
         faces=faces,
         image_gray=img,

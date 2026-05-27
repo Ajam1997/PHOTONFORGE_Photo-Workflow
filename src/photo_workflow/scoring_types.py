@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -99,21 +99,35 @@ class ExposureScores:
 
 @dataclass
 class GenreResult:
-    """Genre classification output."""
+    """Two-axis genre classification: Subject (what) x Photo Type (how).
 
-    genres: list[tuple[str, float]]  # top-3 above 0.15 floor
-    distribution: dict[str, float]  # full 8-genre softmax
-    needs_review: bool  # True when forced to general due to low confidence
+    Subject axis: people, cat, wildlife, vehicle, signage, general
+    Photo Type axis: landscape, portrait, street, event, macro, architecture, waterfall, general
+    """
+
+    subject: str
+    subject_confidence: float
+    photo_type: str
+    type_confidence: float
+    subject_distribution: dict[str, float]
+    type_distribution: dict[str, float]
+    needs_review: bool
+
+    # Legacy compatibility: genres list as [(subject, conf), (type, conf)]
+    @property
+    def genres(self) -> list[tuple[str, float]]:
+        result = [(self.subject, self.subject_confidence)]
+        if self.photo_type != "general":
+            result.append((self.photo_type, self.type_confidence))
+        return result
 
     @property
     def primary_genre(self) -> str:
-        """Return the top genre name."""
-        return self.genres[0][0] if self.genres else "general"
+        return self.subject
 
     @property
     def primary_confidence(self) -> float:
-        """Return the top genre confidence."""
-        return self.genres[0][1] if self.genres else 0.0
+        return self.subject_confidence
 
 
 @dataclass
@@ -121,12 +135,28 @@ class FusionResult:
     """Final scored output combining all modules."""
 
     master_score: float
-    genre: str  # primary_genre for backward compatibility
-    genre_confidence: float  # primary_confidence for backward compatibility
+    subject: str
+    subject_confidence: float
+    photo_type: str
+    type_confidence: float
     sub_scores: dict[str, float]
     hard_reject: bool
     hard_reject_reason: str
     star_rating: int
     color_label: int
-    genres: list[tuple[str, float]] = field(default_factory=list)  # multi-genre output
-    needs_review: bool = False  # True when low-confidence fallback to general
+    needs_review: bool = False
+
+    @property
+    def genre(self) -> str:
+        return self.subject
+
+    @property
+    def genre_confidence(self) -> float:
+        return self.subject_confidence
+
+    @property
+    def genres(self) -> list[tuple[str, float]]:
+        result = [(self.subject, self.subject_confidence)]
+        if self.photo_type != "general":
+            result.append((self.photo_type, self.type_confidence))
+        return result

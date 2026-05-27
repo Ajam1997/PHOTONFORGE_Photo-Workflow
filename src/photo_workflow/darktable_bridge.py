@@ -201,6 +201,31 @@ def _get_data_db_path(library_db_path: Path) -> Path:
     return library_db_path.parent / "data.db"
 
 
+def clear_photon_tags(library_db_path: Path, filename: str) -> None:
+    """Remove all photon|* tagged_images entries for a given image.
+
+    Called before writing new tags so re-scoring never accumulates stale
+    photon|primary|* or photon|secondary|* entries on an image.
+    """
+    data_db_path = _get_data_db_path(library_db_path)
+    try:
+        conn = sqlite3.connect(str(library_db_path))
+        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
+        image_row = conn.execute(
+            "SELECT id FROM images WHERE filename=?", (filename,)
+        ).fetchone()
+        if image_row:
+            conn.execute(
+                "DELETE FROM tagged_images WHERE imgid=? AND tagid IN "
+                "(SELECT id FROM data.tags WHERE name LIKE 'photon|%')",
+                (image_row[0],),
+            )
+            conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.error("Failed to clear photon tags for %s: %s", filename, e)
+
+
 def write_darktable_keywords(
     library_db_path: Path,
     filename: str,

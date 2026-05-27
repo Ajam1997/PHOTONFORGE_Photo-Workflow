@@ -1,4 +1,11 @@
-"""Genre-weighted score fusion — combines sub-scores into master score."""
+"""Two-axis genre-weighted score fusion — combines sub-scores into master score.
+
+The master score blends weights from two independent axes:
+  Subject (what's in the photo) — controls sharpness emphasis, eye/face priority
+  Photo Type (composition style) — controls composition, exposure, aesthetic weights
+
+Each axis contributes 50% of the effective weight profile.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +13,7 @@ import logging
 
 import numpy as np
 
+from .genre_router import SUBJECTS, PHOTO_TYPES
 from .scoring_types import (
     CompositionScores,
     ExposureScores,
@@ -25,98 +33,175 @@ _DT_BLUE = 3
 _DT_PURPLE = 4
 _DT_NONE = -1
 
-GENRE_WEIGHTS: dict[str, dict[str, float]] = {
+SUBJECT_WEIGHTS: dict[str, dict[str, float]] = {
+    "person": {
+        "eye_sharpness": 0.25, "subject_sharpness": 0.15,
+        "face_exposure": 0.15, "expression_proxy": 0.15,
+        "exposure_overall": 0.10, "aesthetic_clip": 0.10,
+        "blur_type_penalty": 0.05, "behavior_proxy": 0.05,
+    },
+    "people": {
+        "eye_sharpness": 0.20, "expression_proxy": 0.18,
+        "subject_sharpness": 0.15, "face_exposure": 0.12,
+        "exposure_overall": 0.10, "aesthetic_clip": 0.10,
+        "blur_type_penalty": 0.05, "behavior_proxy": 0.10,
+    },
+    "child": {
+        "eye_sharpness": 0.22, "expression_proxy": 0.20,
+        "subject_sharpness": 0.15, "face_exposure": 0.13,
+        "exposure_overall": 0.10, "aesthetic_clip": 0.10,
+        "blur_type_penalty": 0.05, "behavior_proxy": 0.05,
+    },
     "wildlife": {
-        "eye_sharpness": 0.28, "subject_sharpness": 0.12,
-        "subject_isolation": 0.10, "composition_rot": 0.10,
-        "negative_space": 0.08, "exposure_overall": 0.12,
-        "blur_type_penalty": 0.08, "aesthetic_clip": 0.07,
-        "behavior_proxy": 0.05,
+        "eye_sharpness": 0.28, "subject_sharpness": 0.15,
+        "subject_isolation": 0.12, "exposure_overall": 0.10,
+        "blur_type_penalty": 0.10, "aesthetic_clip": 0.10,
+        "behavior_proxy": 0.15,
+    },
+    "pet": {
+        "eye_sharpness": 0.28, "subject_sharpness": 0.18,
+        "subject_isolation": 0.14, "exposure_overall": 0.10,
+        "aesthetic_clip": 0.10, "blur_type_penalty": 0.05,
+        "behavior_proxy": 0.15,
+    },
+    "plant": {
+        "subject_sharpness": 0.25, "subject_isolation": 0.20,
+        "aesthetic_clip": 0.15, "color_contrast": 0.15,
+        "exposure_overall": 0.10, "blur_type_penalty": 0.05,
+        "blur_type_bonus": 0.10,
     },
     "landscape": {
-        "zone_entropy": 0.12, "dynamic_range": 0.12,
-        "front_to_back_sharp": 0.16, "composition_rot": 0.10,
-        "leading_lines": 0.10, "negative_space": 0.08,
-        "balance": 0.08, "highlight_clip": 0.10,
-        "aesthetic_clip": 0.08, "symmetry": 0.06,
+        "subject_sharpness": 0.20, "exposure_overall": 0.20,
+        "aesthetic_clip": 0.20, "dynamic_range": 0.15,
+        "highlight_clip": 0.10, "blur_type_penalty": 0.05,
+        "color_contrast": 0.10,
     },
+    "seascape": {
+        "subject_sharpness": 0.20, "exposure_overall": 0.20,
+        "aesthetic_clip": 0.20, "highlight_clip": 0.10,
+        "dynamic_range": 0.15, "blur_type_penalty": 0.05,
+        "color_contrast": 0.10,
+    },
+    "cityscape": {
+        "subject_sharpness": 0.20, "exposure_overall": 0.20,
+        "aesthetic_clip": 0.15, "leading_lines": 0.15,
+        "highlight_clip": 0.10, "blur_type_penalty": 0.05,
+        "symmetry": 0.15,
+    },
+    "building": {
+        "subject_sharpness": 0.25, "exposure_overall": 0.20,
+        "aesthetic_clip": 0.15, "highlight_clip": 0.10,
+        "leading_lines": 0.10, "symmetry": 0.10,
+        "blur_type_penalty": 0.10,
+    },
+    "vehicle": {
+        "subject_sharpness": 0.30, "subject_isolation": 0.15,
+        "exposure_overall": 0.15, "motion_tolerance": 0.15,
+        "aesthetic_clip": 0.10, "highlight_clip": 0.05,
+        "blur_type_penalty": 0.10,
+    },
+    "food": {
+        "subject_sharpness": 0.25, "aesthetic_clip": 0.20,
+        "color_contrast": 0.15, "exposure_overall": 0.15,
+        "subject_isolation": 0.10, "blur_type_bonus": 0.10,
+        "highlight_clip": 0.05,
+    },
+    "object": {
+        "subject_sharpness": 0.25, "aesthetic_clip": 0.20,
+        "exposure_overall": 0.15, "subject_isolation": 0.15,
+        "color_contrast": 0.10, "blur_type_penalty": 0.05,
+        "highlight_clip": 0.10,
+    },
+    "text": {
+        "subject_sharpness": 0.35, "exposure_overall": 0.25,
+        "highlight_clip": 0.10, "color_contrast": 0.10,
+        "aesthetic_clip": 0.10, "blur_type_penalty": 0.10,
+    },
+    "night-sky": {
+        "exposure_overall": 0.25, "dynamic_range": 0.20,
+        "aesthetic_clip": 0.20, "subject_sharpness": 0.15,
+        "highlight_clip": 0.10, "color_contrast": 0.10,
+    },
+    "abstract": {
+        "aesthetic_clip": 0.30, "color_contrast": 0.20,
+        "subject_sharpness": 0.15, "exposure_overall": 0.15,
+        "blur_type_bonus": 0.10, "negative_space": 0.10,
+    },
+}
+
+TYPE_WEIGHTS: dict[str, dict[str, float]] = {
     "portrait": {
-        "eye_sharpness": 0.25, "face_exposure": 0.12,
-        "subject_isolation": 0.12, "composition_rot": 0.10,
-        "negative_space": 0.10, "blur_type_bonus": 0.08,
-        "expression_proxy": 0.08, "balance": 0.07,
-        "aesthetic_clip": 0.08,
+        "composition_rot": 0.15, "negative_space": 0.15,
+        "subject_isolation": 0.15, "blur_type_bonus": 0.15,
+        "balance": 0.10, "aesthetic_clip": 0.15,
+        "face_exposure": 0.15,
+    },
+    "candid": {
+        "composition_rot": 0.15, "exposure_overall": 0.15,
+        "aesthetic_clip": 0.15, "expression_proxy": 0.15,
+        "balance": 0.10, "motion_tolerance": 0.10,
+        "negative_space": 0.10, "face_exposure": 0.10,
+    },
+    "landscape": {
+        "zone_entropy": 0.15, "dynamic_range": 0.15,
+        "front_to_back_sharp": 0.15, "composition_rot": 0.10,
+        "leading_lines": 0.10, "negative_space": 0.10,
+        "balance": 0.10, "highlight_clip": 0.10,
+        "symmetry": 0.05,
     },
     "street": {
-        "subject_sharpness": 0.18, "composition_rot": 0.12,
-        "leading_lines": 0.12, "subject_isolation": 0.10,
-        "exposure_overall": 0.12, "negative_space": 0.08,
-        "motion_tolerance": 0.08, "aesthetic_clip": 0.10,
-        "balance": 0.05, "symmetry": 0.05,
+        "composition_rot": 0.15, "leading_lines": 0.15,
+        "negative_space": 0.10, "motion_tolerance": 0.10,
+        "balance": 0.10, "aesthetic_clip": 0.15,
+        "symmetry": 0.10, "exposure_overall": 0.15,
     },
-    "architecture": {
-        "symmetry": 0.18, "leading_lines": 0.16,
-        "subject_sharpness": 0.15, "exposure_overall": 0.12,
-        "composition_rot": 0.10, "balance": 0.10,
-        "negative_space": 0.07, "highlight_clip": 0.07,
-        "aesthetic_clip": 0.05,
+    "wildlife": {
+        "composition_rot": 0.15, "subject_isolation": 0.15,
+        "aesthetic_clip": 0.15, "balance": 0.10,
+        "negative_space": 0.15, "exposure_overall": 0.10,
+        "blur_type_penalty": 0.10, "behavior_proxy": 0.10,
     },
     "macro": {
-        "subject_sharpness": 0.25, "sharpness_contrast": 0.15,
-        "negative_space": 0.12, "subject_isolation": 0.12,
-        "composition_rot": 0.10, "exposure_overall": 0.08,
-        "balance": 0.06, "aesthetic_clip": 0.07,
-        "color_contrast": 0.05,
+        "sharpness_contrast": 0.20, "negative_space": 0.15,
+        "subject_isolation": 0.15, "composition_rot": 0.15,
+        "balance": 0.10, "aesthetic_clip": 0.10,
+        "color_contrast": 0.10, "exposure_overall": 0.05,
     },
-    "event": {
-        "eye_sharpness": 0.20, "face_exposure": 0.12,
-        "expression_proxy": 0.18, "subject_sharpness": 0.15,
-        "composition_rot": 0.10, "exposure_overall": 0.10,
-        "aesthetic_clip": 0.08, "balance": 0.07,
+    "architecture": {
+        "symmetry": 0.20, "leading_lines": 0.20,
+        "composition_rot": 0.15, "balance": 0.15,
+        "negative_space": 0.10, "highlight_clip": 0.10,
+        "aesthetic_clip": 0.10,
     },
-    # Waterfall: leading lines (flow), motion tolerance (long-exposure silk),
-    # sharp surrounding rock, balanced composition. Sits between landscape
-    # and macro in subject-emphasis terms.
-    "waterfall": {
-        "leading_lines": 0.15, "subject_sharpness": 0.15,
-        "composition_rot": 0.12, "motion_tolerance": 0.12,
-        "exposure_overall": 0.10, "dynamic_range": 0.10,
-        "balance": 0.08, "negative_space": 0.08,
-        "aesthetic_clip": 0.08, "highlight_clip": 0.02,
+    "action": {
+        "motion_tolerance": 0.20, "composition_rot": 0.15,
+        "exposure_overall": 0.15, "aesthetic_clip": 0.15,
+        "subject_isolation": 0.10, "blur_type_penalty": 0.15,
+        "balance": 0.10,
     },
-    # Signage: legibility is paramount — sharp subject + good exposure.
-    # Symmetry/balance secondary (signs are often centred). Composition
-    # weight modest since signage shots are often documentary, not artistic.
-    "signage": {
-        "subject_sharpness": 0.25, "exposure_overall": 0.18,
-        "symmetry": 0.12, "balance": 0.10,
-        "composition_rot": 0.08, "highlight_clip": 0.08,
-        "color_contrast": 0.07, "aesthetic_clip": 0.06,
-        "negative_space": 0.06,
+    "aerial": {
+        "composition_rot": 0.20, "balance": 0.18,
+        "aesthetic_clip": 0.15, "symmetry": 0.15,
+        "negative_space": 0.12, "exposure_overall": 0.10,
+        "color_contrast": 0.10,
     },
-    # Cat: eye sharpness critical (same as wildlife), subject isolation
-    # for bokeh backgrounds, aesthetic CLIP for appeal.
-    "cat": {
-        "eye_sharpness": 0.25, "subject_sharpness": 0.15,
-        "subject_isolation": 0.12, "composition_rot": 0.10,
-        "negative_space": 0.08, "exposure_overall": 0.10,
-        "aesthetic_clip": 0.10, "balance": 0.05,
-        "behavior_proxy": 0.05,
+    "long-exposure": {
+        "motion_tolerance": 0.20, "composition_rot": 0.18,
+        "dynamic_range": 0.15, "aesthetic_clip": 0.12,
+        "balance": 0.10, "negative_space": 0.10,
+        "highlight_clip": 0.10, "leading_lines": 0.05,
     },
-    # Vehicle: sharpness + composition dominates, motion tolerance for
-    # panning shots, symmetry for static studio-style.
-    "vehicle": {
-        "subject_sharpness": 0.22, "composition_rot": 0.14,
-        "leading_lines": 0.12, "symmetry": 0.10,
-        "exposure_overall": 0.12, "subject_isolation": 0.08,
-        "motion_tolerance": 0.08, "aesthetic_clip": 0.08,
-        "balance": 0.06,
+    "still-life": {
+        "aesthetic_clip": 0.22, "composition_rot": 0.18,
+        "subject_isolation": 0.15, "balance": 0.15,
+        "color_contrast": 0.10, "exposure_overall": 0.10,
+        "negative_space": 0.10,
     },
-    "general": {
-        "subject_sharpness": 0.20, "exposure_overall": 0.18,
-        "composition_rot": 0.15, "subject_isolation": 0.12,
-        "aesthetic_clip": 0.10, "negative_space": 0.10,
-        "balance": 0.08, "symmetry": 0.07,
+    "documentary": {
+        "expression_proxy": 0.20, "composition_rot": 0.15,
+        "exposure_overall": 0.15, "aesthetic_clip": 0.15,
+        "balance": 0.10, "face_exposure": 0.15,
+        "negative_space": 0.10,
     },
 }
 
@@ -209,27 +294,21 @@ def _compute_master_score(
     sub_scores: dict[str, float],
     genre: GenreResult,
 ) -> float:
-    """Compute the genre-weighted master score via soft blending.
+    """Compute the two-axis weighted master score.
 
-    Blends GENRE_WEIGHTS across all entries in genre.genres,
-    weighted by their confidence scores (normalized to sum to 1).
+    Each axis (subject, photo_type) contributes 50% of the effective weight
+    profile.  The final score is the weighted sum of sub-scores.
     """
-    # Normalize genre confidences so they sum to 1
-    total_confidence = sum(conf for _, conf in genre.genres)
-    if total_confidence <= 0:
-        # Fallback to equal weighting
-        normalized_genres = [(g, 1.0 / len(genre.genres)) for g, _ in genre.genres]
-    else:
-        normalized_genres = [(g, conf / total_confidence) for g, conf in genre.genres]
+    subj = genre.subject if genre.subject in SUBJECT_WEIGHTS else SUBJECTS[0]
+    ptype = genre.photo_type if genre.photo_type in TYPE_WEIGHTS else PHOTO_TYPES[0]
 
     effective_weights: dict[str, float] = {}
 
-    # Accumulate weights from all genres in the list
-    for genre_name, normalized_conf in normalized_genres:
-        if genre_name not in GENRE_WEIGHTS:
-            continue
-        for key, weight in GENRE_WEIGHTS[genre_name].items():
-            effective_weights[key] = effective_weights.get(key, 0.0) + normalized_conf * weight
+    for key, weight in SUBJECT_WEIGHTS[subj].items():
+        effective_weights[key] = effective_weights.get(key, 0.0) + 0.5 * weight
+
+    for key, weight in TYPE_WEIGHTS[ptype].items():
+        effective_weights[key] = effective_weights.get(key, 0.0) + 0.5 * weight
 
     master = 0.0
     for key, weight in effective_weights.items():
@@ -292,18 +371,7 @@ def fuse_scores(
     faces: list[FaceDetection] | None = None,
     image_gray: np.ndarray | None = None,
 ) -> FusionResult:
-    """Fuse all sub-scores into a genre-weighted master score.
-
-    Args:
-        sharpness: Enhanced sharpness analysis results.
-        composition: Enhanced composition analysis results.
-        exposure: Enhanced exposure analysis results.
-        genre: Genre classification result with multi-genre list and distribution.
-        aesthetic: CLIP aesthetic head score in [0, 1].
-
-    Returns:
-        FusionResult with master score, sub-scores, classification labels, and multi-genre data.
-    """
+    """Fuse all sub-scores into a two-axis genre-weighted master score."""
     sub_scores = _build_sub_score_dict(
         sharpness, composition, exposure, aesthetic, faces, image_gray,
     )
@@ -314,13 +382,14 @@ def fuse_scores(
 
     return FusionResult(
         master_score=round(master_score, 4),
-        genre=genre.primary_genre,  # Backward compatibility
-        genre_confidence=round(genre.primary_confidence, 4),  # Backward compatibility
+        subject=genre.subject,
+        subject_confidence=round(genre.subject_confidence, 4),
+        photo_type=genre.photo_type,
+        type_confidence=round(genre.type_confidence, 4),
         sub_scores=sub_scores,
         hard_reject=hard_reject,
         hard_reject_reason=reject_reason,
         star_rating=star_rating,
         color_label=color_label,
-        genres=genre.genres,  # Multi-genre data
         needs_review=genre.needs_review,
     )
