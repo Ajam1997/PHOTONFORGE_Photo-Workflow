@@ -80,12 +80,29 @@ def get_req_issue_num(issue_map: dict, req_id: str) -> int | None:
     return None
 
 
+def build_stage_to_milestone(client: GitHubClient) -> dict[int, int]:
+    """Map stage number → milestone number by parsing milestone titles.
+
+    Titles must start with "Stage N" (e.g. "Stage 4 — Host Integration").
+    Stages without a matching milestone are absent from the map; the
+    Epic-closure fallback handles those.
+    """
+    result: dict[int, int] = {}
+    pattern = re.compile(r"^Stage\s+(\d+)\b")
+    for ms in client.list_milestones(state="all"):
+        m = pattern.match(ms.get("title", ""))
+        if m:
+            result[int(m.group(1))] = ms["number"]
+    return result
+
+
 def rollup(pr_body: str, dry_run: bool = False) -> None:
     issue_map, req_map = load_maps()
     fr_to_uns, nfr_to_uns, un_to_stage, stage_to_epic_num = build_reverse_maps(issue_map, req_map)
     num_to_req_id = build_num_to_req_id(issue_map)
 
     client = GitHubClient()
+    stage_to_milestone_num = build_stage_to_milestone(client)
 
     # Fetch all issues once to avoid repeated list API calls
     all_issues_list = client.list_issues(state="all")
@@ -175,13 +192,24 @@ def rollup(pr_body: str, dry_run: bool = False) -> None:
 
         if unverified_uns:
             print(f"  Stage {stage_num}: UNs not yet verified: {', '.join(unverified_uns)}")
+            continue
+
+        # All UNs in this stage are verified — close the Milestone (primary)
+        # and the Epic Issue if one exists (backward compat; Epics are being retired).
+        milestone_num = stage_to_milestone_num.get(stage_num)
+        if milestone_num:
+            print(f"  Stage {stage_num}: all UNs verified → closing Milestone #{milestone_num}")
+            if not dry_run:
+                client.close_milestone(milestone_num)
         else:
-            epic_num = stage_to_epic_num.get(stage_num)
-            if epic_num:
-                print(f"  Stage {stage_num}: all UNs verified → closing Epic #{epic_num}")
-                if not dry_run:
-                    client.replace_status_label(epic_num, "status: validated")
-                    client.close_issue(epic_num)
+            print(f"  Stage {stage_num}: all UNs verified but no matching Milestone found")
+
+        epic_num = stage_to_epic_num.get(stage_num)
+        if epic_num:
+            print(f"  Stage {stage_num}: closing legacy Epic #{epic_num} (backward compat)")
+            if not dry_run:
+                client.replace_status_label(epic_num, "status: validated")
+                client.close_issue(epic_num)
 
 
 def main() -> None:

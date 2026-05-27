@@ -119,6 +119,30 @@ class GitHubClient:
         )
         r.raise_for_status()
 
+    def list_milestones(self, state: str = "open") -> list[dict]:
+        """Return all milestones for the repo. state: open | closed | all."""
+        milestones: list[dict] = []
+        page = 1
+        while True:
+            r = self._session.get(
+                f"{self.REST_BASE}/repos/{self.owner}/{self.repo}/milestones",
+                params={"state": state, "per_page": 100, "page": page},
+            )
+            r.raise_for_status()
+            batch = r.json()
+            if not batch:
+                break
+            milestones.extend(batch)
+            page += 1
+        return milestones
+
+    def close_milestone(self, milestone_number: int) -> None:
+        r = self._session.patch(
+            f"{self.REST_BASE}/repos/{self.owner}/{self.repo}/milestones/{milestone_number}",
+            json={"state": "closed"},
+        )
+        r.raise_for_status()
+
     def list_issues(self, labels: str | None = None, state: str = "open") -> list[dict]:
         params: dict[str, Any] = {"state": state, "per_page": 100}
         if labels:
