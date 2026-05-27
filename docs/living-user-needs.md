@@ -34,35 +34,35 @@ Status: DEFINED
 [UN-010](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/32): Photos are automatically grouped into shooting sessions.
 Acceptance: cluster_sessions() correctly groups fixture images by time and location.
 KPM: NONE
-Stage: 2
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49)
 
 [UN-011](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/33): Near-duplicate photos are archived.
 Acceptance: deduplicate() archives images with dHash Hamming <= 2. No false positives.
 KPM: NONE
-Stage: 2
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50)
 
 [UN-012](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/34): Each photo receives a sharpness score.
 Acceptance: score_sharpness() returns float in [0.0, 1.0] for all fixture images.
 KPM: NONE
-Stage: 2
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51)
 
 [UN-013](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/35): Each photo receives a composition score.
 Acceptance: score_composition() returns float in [0.0, 1.0].
 KPM: NONE
-Stage: 2
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52)
 
 [UN-014](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/36): Each photo receives an exposure score.
 Acceptance: score_exposure() returns float in [0.0, 1.0]. 11-zone entropy applied.
 KPM: NONE
-Stage: 2
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53)
 
