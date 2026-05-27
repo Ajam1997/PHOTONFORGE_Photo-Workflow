@@ -180,23 +180,34 @@ Still open:
 
 ## One-time operator setup before Step 4 takes effect
 
-Before `wiki-publish.yml` works, create the `WIKI_PUSH_TOKEN` secret:
+Before `wiki-publish.yml` works, create the `WIKI_PUSH_TOKEN` secret.
+
+> **Important — must be a classic PAT.** GitHub's fine-grained Personal
+> Access Tokens do **not** support wiki write access. The wiki is a
+> separate git repo, and only classic tokens with the `repo` scope can
+> push to it. A fine-grained token fails with HTTP 403
+> "Write access to repository not granted." Verified 2026-05-27.
 
 1. **GitHub → Settings → Developer settings → Personal access tokens →
-   Fine-grained tokens → Generate new token**
-   - Resource owner: `Ajam1997`
-   - Repository access: `PHOTONFORGE_Photo-Workflow` only
-   - Permissions → Repository → **Contents: Read and write** (the wiki is
-     a separate git repo under the same owner; Contents:write covers it).
-   - Expiration: 1 year recommended.
+   Tokens (classic) → Generate new token (classic)**
+   - Note: `PHOTONForge wiki push`
+   - Expiration: 1 year recommended
+   - Scope: **`repo`** (full control of private repositories). This is
+     the narrowest scope that includes wiki write for a private repo —
+     there is no `wiki`-only scope.
 2. Copy the token (only shown once).
-3. **Repo → Settings → Secrets and variables → Actions → New repository
-   secret**
-   - Name: `WIKI_PUSH_TOKEN`
-   - Value: (paste token)
-4. **Actions tab → Publish Dev Docs to Wiki → Run workflow** to verify
-   auth. First run will create dozens of wiki pages (NEW); subsequent
-   runs only touch changed files.
+3. **Repo → Settings → Secrets and variables → Actions → `WIKI_PUSH_TOKEN`**
+   (create or update the secret with the classic token).
+4. Verify locally first:
+   ```powershell
+   $env:WIKI_PUSH_TOKEN = "<paste token>"
+   python scripts/migrate_wiki.py --diff   # read-only preview
+   python scripts/migrate_wiki.py --push   # apply
+   ```
+5. Then **Actions tab → Publish Dev Docs to Wiki → Run workflow** to
+   verify the Actions environment also picks up the secret. First run
+   creates dozens of wiki pages (NEW); subsequent runs only touch
+   changed files.
 
-If the manual run fails with HTTP 403, the PAT's Contents permission is
-missing — regenerate, confirming Contents: Read+Write is checked.
+If `--push` fails with HTTP 403, the token is fine-grained (not classic),
+or the `repo` scope wasn't checked. Regenerate from step 1.

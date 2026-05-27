@@ -6,18 +6,18 @@ name: Publish Dev Docs to Wiki
 # the latest AUTO-regenerated state (living-user-needs.md, roadmap.md,
 # photonforge-architecture.md, kpm-dashboard.md), not a stale snapshot.
 #
-# Auth: requires a fine-grained Personal Access Token with **wiki: write**
-# permission for this repo, stored as the `WIKI_PUSH_TOKEN` secret.
-# (GITHUB_TOKEN cannot write to the wiki repo on private repos.)
+# Auth: requires a **classic** Personal Access Token with the `repo` scope,
+# stored as the `WIKI_PUSH_TOKEN` secret. Fine-grained PATs do NOT support
+# wiki write access — they fail with HTTP 403. GITHUB_TOKEN also cannot push
+# to the wiki repo.
 #
 # Setup checklist:
 #   1. GitHub → Settings → Developer settings → Personal access tokens →
-#      Fine-grained tokens → Generate new token
-#      - Resource owner: Ajam1997
-#      - Repository access: PHOTONFORGE_Photo-Workflow only
-#      - Permissions → Repository → Contents: Read and write
-#        (wiki is a separate git repo; Contents:write covers wiki push)
-#      - Expiration: 1 year recommended
+#      Tokens (classic) → Generate new token (classic)
+#      - Note: "PHOTONForge wiki push"
+#      - Scope: `repo` (full control of private repositories; this is the
+#        narrowest scope that includes wiki write on a private repo).
+#      - Expiration: 1 year recommended.
 #   2. Copy the token (only shown once).
 #   3. Repo → Settings → Secrets and variables → Actions → New repository secret
 #      Name: WIKI_PUSH_TOKEN
