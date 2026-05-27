@@ -25,12 +25,11 @@ def test_model_sessions_missing_model_returns_none(tmp_path: Path) -> None:
     assert sessions.rmbg is None
     assert sessions.yunet is None
     assert sessions.yolo is None
-    assert sessions.clip_aesthetic_head is None
+    assert sessions.aesthetic_head is None
 
 
 def test_build_subject_context_no_models(tmp_path: Path) -> None:
     """With no models available, build_subject_context returns degraded context."""
-    # Create a simple test image
     from PIL import Image
     img_path = tmp_path / "test.jpg"
     img = Image.fromarray(np.zeros((100, 100, 3), dtype=np.uint8))
@@ -42,9 +41,8 @@ def test_build_subject_context_no_models(tmp_path: Path) -> None:
     assert isinstance(ctx, SubjectContext)
     assert ctx.image_bgr.shape == (100, 100, 3)
     assert ctx.image_gray.shape == (100, 100)
-    # Degraded: full-image mask, no faces, no detections, zero embedding
     assert ctx.subject_mask.shape == (100, 100)
-    assert ctx.subject_mask.all()  # Full image is "subject" when no model
+    assert ctx.subject_mask.all()
     assert ctx.subject_area_ratio == 1.0
     assert ctx.faces == []
     assert ctx.detections == []
@@ -83,7 +81,6 @@ def test_build_subject_context_exif_extraction(tmp_path: Path) -> None:
     sessions = ModelSessions(tmp_path / "models")
     ctx = build_subject_context(img_path, sessions)
 
-    # EXIF dict exists (may be empty for synthetic images)
     assert isinstance(ctx.exif, dict)
 
 
@@ -97,7 +94,6 @@ def test_build_subject_context_sharpness_contrast(tmp_path: Path) -> None:
     sessions = ModelSessions(tmp_path / "models")
     ctx = build_subject_context(img_path, sessions)
 
-    # sharpness_contrast should exist and be >= 0
     assert hasattr(ctx, "sharpness_contrast")
     assert isinstance(ctx.sharpness_contrast, (int, float))
     assert ctx.sharpness_contrast >= 0.0
@@ -106,43 +102,39 @@ def test_build_subject_context_sharpness_contrast(tmp_path: Path) -> None:
 def test_model_sessions_training_db_override(tmp_path: Path) -> None:
     """ModelSessions should load active prototypes from training_weights.db if configured."""
     from photo_workflow.training_weights_db import open_training_db, ensure_schema, upsert_prototype
+    from photo_workflow.genre_router import ALL_LABELS, SUBJECTS, PHOTO_TYPES
 
-    # Create a training_weights.db with some prototypes
     training_db_path = tmp_path / "training_weights.db"
     conn = open_training_db(training_db_path)
     ensure_schema(conn)
 
-    # Create 10 active prototypes (one per GENRES)
-    from photo_workflow.genre_router import GENRES
-
-    for i, genre in enumerate(GENRES):
+    for i, label in enumerate(ALL_LABELS):
         proto = np.random.randn(512).astype(np.float32)
         proto /= np.linalg.norm(proto)
-        upsert_prototype(conn, 1, genre, proto.tobytes(), i * 5, 0.8)
+        upsert_prototype(conn, 1, label, proto.tobytes(), i * 5, 0.8)
 
     conn.close()
 
-    # Create ModelSessions with training_db_path
     sessions = ModelSessions(tmp_path / "models", training_db_path=training_db_path)
     protos = sessions.genre_prototypes
 
     assert protos is not None
-    assert protos.shape == (len(GENRES), 512)
-    # Should be all active prototypes we just inserted
-    for i in range(len(GENRES)):
+    # Shape is (len(SUBJECTS) + len(PHOTO_TYPES), 512) = (14, 512)
+    # because "general" appears in both halves
+    assert protos.shape == (len(SUBJECTS) + len(PHOTO_TYPES), 512)
+    for i in range(protos.shape[0]):
         assert not np.allclose(protos[i], 0.0)
 
 
 def test_model_sessions_training_db_fallback(tmp_path: Path) -> None:
     """ModelSessions should fallback to hardcoded file if training_db missing."""
-    # Create a hardcoded genre_prototypes.npy
     model_dir = tmp_path / "models"
     model_dir.mkdir()
 
-    hardcoded_protos = np.random.randn(10, 512).astype(np.float32)
+    n_rows = 14  # len(SUBJECTS) + len(PHOTO_TYPES)
+    hardcoded_protos = np.random.randn(n_rows, 512).astype(np.float32)
     np.save(model_dir / "genre_prototypes.npy", hardcoded_protos)
 
-    # Training DB doesn't exist
     training_db_path = tmp_path / "nonexistent.db"
 
     sessions = ModelSessions(model_dir, training_db_path=training_db_path)

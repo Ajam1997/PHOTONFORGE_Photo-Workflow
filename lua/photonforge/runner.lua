@@ -38,6 +38,13 @@ local function get_folder_name(dest)
   return dest:match("([^/]+)/?$") or dest
 end
 
+local function get_temp_dir()
+  if IS_WINDOWS then
+    return os.getenv("TEMP") or os.getenv("TMP") or "C:\\Temp"
+  end
+  return os.getenv("TMPDIR") or "/tmp"
+end
+
 local function build_cmd(step)
   local tz = tostring(config.read("tz_offset"))
   local dest = config.read("dest_path")
@@ -114,12 +121,22 @@ local function build_cmd(step)
     return cmd
 
   elseif step == "rescore" then
-    -- Re-score with --force and calibrated prototypes (used in correction loop).
+    -- Re-score with calibrated prototypes (used in correction loop).
+    -- Uses --only-files manifest from collect-corrections to rescore
+    -- just the corrected images; falls back to --force if no manifest.
+    local tmp = get_temp_dir()
+    local manifest = tmp .. (IS_WINDOWS and "\\" or "/") .. "photonforge_corrected_files.txt"
     local cmd = "photo-workflow score --json-progress"
               .. " --db "         .. shell_quote(db)
               .. " --folder "     .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest)
-              .. " --force"
+    local mf = io.open(manifest, "r")
+    if mf then
+      mf:close()
+      cmd = cmd .. " --only-files " .. shell_quote(manifest) .. " --skip-genre"
+    else
+      cmd = cmd .. " --force"
+    end
     local drive = get_drive_root(dest)
     local training_db = drive .. "training_weights.db"
     local fh = io.open(training_db, "r")
@@ -148,13 +165,6 @@ local function build_cmd(step)
     return cmd
   end
   error("Unknown step: " .. step)
-end
-
-local function get_temp_dir()
-  if IS_WINDOWS then
-    return os.getenv("TEMP") or os.getenv("TMP") or "C:\\Temp"
-  end
-  return os.getenv("TMPDIR") or "/tmp"
 end
 
 local function get_log_path(step)
@@ -307,15 +317,11 @@ function M.run_step(step, log_fn, job, progress_fn)
             progress_fn(step, done, total)
           end
         else
-          local counter = ""
           if rec.status ~= "info" then
             file_count = file_count + 1
-            if total > 0 then
-              counter = string.format("  %d/%d", file_count, total)
-            end
           end
-          local msg = string.format("[%s] %s%s  %s  [%s]",
-            os.date("%H:%M:%S"), rec.step or "?", counter, rec.file or "", rec.status or "")
+          local msg = string.format("[%s] %s  %s  [%s]",
+            os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
           log_fn(msg)
           applicator.apply(rec, dest)
         end
@@ -344,12 +350,8 @@ function M.run_step(step, log_fn, job, progress_fn)
         local ok, rec = pcall(json.decode, line)
         if ok and type(rec) == "table" and rec.step ~= "_progress" then
           file_count = file_count + 1
-          local counter = ""
-          if total > 0 then
-            counter = string.format("  %d/%d", file_count, total)
-          end
-          local msg = string.format("[%s] %s%s  %s  [%s]",
-            os.date("%H:%M:%S"), rec.step or "?", counter, rec.file or "", rec.status or "")
+          local msg = string.format("[%s] %s  %s  [%s]",
+            os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
           log_fn(msg)
           applicator.apply(rec, dest)
         elseif not ok then

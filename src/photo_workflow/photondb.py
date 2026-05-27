@@ -217,23 +217,23 @@ def update_genre_scores(
     master_score: float,
     sub_scores: dict,
     *,
-    genres: list[tuple[str, float]] | None = None,
+    genres: dict | None = None,
     primary_genre: str | None = None,
     needs_review: bool = False,
     clip_embedding: bytes | None = None,
     auto_commit: bool = True,
 ) -> None:
-    """Write genre-aware scoring results including multi-genre data.
+    """Write genre-aware scoring results including two-axis genre data.
 
     Args:
         conn: SQLite connection
         table: Table name
         filename: Filename to update
-        genre: Primary genre (for backward compatibility)
-        genre_confidence: Primary genre confidence
+        genre: Subject (primary genre for backward compatibility)
+        genre_confidence: Subject confidence
         master_score: Master score
         sub_scores: Sub-scores dictionary
-        genres: Multi-genre list [(genre_name, confidence), ...]
+        genres: Two-axis genre dict {subject, subject_confidence, photo_type, type_confidence}
         primary_genre: Primary genre (alias for genre column)
         needs_review: Whether image needs review (low-confidence fallback)
         clip_embedding: Raw bytes of CLIP embedding (float32 numpy array)
@@ -243,10 +243,9 @@ def update_genre_scores(
     table = sanitize_table_name(table)
     sub_scores_json = json.dumps(sub_scores) if sub_scores else ""
 
-    # Serialize genres list as JSON
     genres_json = ""
     if genres:
-        genres_json = json.dumps([{"g": g, "c": c} for g, c in genres])
+        genres_json = json.dumps(genres)
 
     # Use primary_genre if provided, otherwise use genre
     primary_genre_val = primary_genre if primary_genre else genre

@@ -1,4 +1,9 @@
-"""Genre router — CLIP + EXIF + YOLO Bayesian fusion for genre classification."""
+"""Genre router — two-axis CLIP + EXIF + YOLO Bayesian fusion.
+
+Classifies each image along two orthogonal axes:
+  Subject (what): 16 classes describing primary image content
+  Photo Type (how): 12 classes describing photographic approach/technique
+"""
 
 from __future__ import annotations
 
@@ -11,204 +16,371 @@ from .scoring_types import GenreResult, ObjectDetection, SubjectContext
 
 logger = logging.getLogger(__name__)
 
-GENRES = [
+SUBJECTS = [
+    "person",
+    "people",
+    "child",
     "wildlife",
+    "pet",
+    "plant",
     "landscape",
-    "portrait",
-    "street",
-    "architecture",
-    "macro",
-    "event",
-    "waterfall",
-    "signage",
-    "cat",
+    "seascape",
+    "cityscape",
+    "building",
     "vehicle",
-    "general",
+    "food",
+    "object",
+    "text",
+    "night-sky",
+    "abstract",
 ]
+
+PHOTO_TYPES = [
+    "portrait",
+    "candid",
+    "landscape",
+    "street",
+    "wildlife",
+    "macro",
+    "architecture",
+    "action",
+    "aerial",
+    "long-exposure",
+    "still-life",
+    "documentary",
+]
+
+# All unique labels from both axes. Used for training DB keys and backward compat.
+ALL_LABELS = list(dict.fromkeys(SUBJECTS + PHOTO_TYPES))
+
+# Backward compatibility alias
+GENRES = ALL_LABELS
 
 # Animal COCO class IDs: bird=14, cat=15, dog=16, horse=17, sheep=18, cow=19,
 # elephant=20, bear=21, zebra=22, giraffe=23
 _ANIMAL_CLASS_IDS = {14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
 
-# EXIF priors: (mean, std) for log(value) per genre
-# Format: {genre: {"focal_length": (mean_log, std_log), ...}}
-_EXIF_PRIORS = {
+# ---------------------------------------------------------------------------
+# EXIF priors — split by axis
+# ---------------------------------------------------------------------------
+
+_SUBJECT_EXIF_PRIORS = {
+    "person": {
+        "focal_length": (4.2, 0.6), "aperture": (0.5, 0.5),
+        "shutter": (-6.5, 0.8), "iso": (5.5, 0.8),
+    },
+    "people": {
+        "focal_length": (3.6, 0.6), "aperture": (1.3, 0.5),
+        "shutter": (-5.5, 0.8), "iso": (5.8, 0.8),
+    },
+    "child": {
+        "focal_length": (4.2, 0.6), "aperture": (0.5, 0.5),
+        "shutter": (-6.5, 0.8), "iso": (5.5, 0.8),
+    },
     "wildlife": {
-        "focal_length": (5.7, 0.8),
-        "aperture": (1.2, 0.5),
-        "shutter": (-7.0, 1.0),
-        "iso": (6.4, 0.8),
+        "focal_length": (5.7, 0.8), "aperture": (1.2, 0.5),
+        "shutter": (-7.0, 1.0), "iso": (6.4, 0.8),
+    },
+    "pet": {
+        "focal_length": (4.5, 0.8), "aperture": (0.8, 0.5),
+        "shutter": (-6.5, 1.0), "iso": (6.0, 0.8),
+    },
+    "plant": {
+        "focal_length": (4.2, 0.8), "aperture": (1.2, 0.6),
+        "shutter": (-5.5, 1.0), "iso": (5.5, 0.8),
     },
     "landscape": {
-        "focal_length": (3.0, 0.6),
-        "aperture": (2.2, 0.3),
-        "shutter": (-3.0, 2.0),
-        "iso": (4.6, 0.5),
+        "focal_length": (3.0, 0.8), "aperture": (2.2, 0.3),
+        "shutter": (-3.0, 2.0), "iso": (4.6, 0.5),
     },
-    "portrait": {
-        "focal_length": (4.2, 0.4),
-        "aperture": (0.5, 0.5),
-        "shutter": (-5.5, 0.8),
-        "iso": (5.5, 0.8),
+    "seascape": {
+        "focal_length": (3.0, 0.8), "aperture": (2.2, 0.3),
+        "shutter": (-3.0, 2.0), "iso": (4.6, 0.5),
     },
-    "street": {
-        "focal_length": (3.5, 0.4),
-        "aperture": (1.4, 0.5),
-        "shutter": (-6.0, 0.8),
-        "iso": (6.2, 0.8),
+    "cityscape": {
+        "focal_length": (3.5, 0.7), "aperture": (1.8, 0.4),
+        "shutter": (-4.0, 2.0), "iso": (5.2, 0.7),
     },
-    "architecture": {
-        "focal_length": (3.0, 0.6),
-        "aperture": (2.1, 0.3),
-        "shutter": (-2.0, 2.0),
-        "iso": (4.6, 0.5),
+    "building": {
+        "focal_length": (3.0, 0.6), "aperture": (2.1, 0.3),
+        "shutter": (-2.0, 2.0), "iso": (4.6, 0.5),
     },
-    "macro": {
-        "focal_length": (4.3, 0.3),
-        "aperture": (2.1, 0.3),
-        "shutter": (-5.0, 0.8),
-        "iso": (5.5, 0.8),
-    },
-    "event": {
-        "focal_length": (3.8, 0.5),
-        "aperture": (1.2, 0.4),
-        "shutter": (-5.5, 0.8),
-        "iso": (6.0, 0.8),
-    },
-    # Waterfall: wide-to-mid focal lengths, narrow apertures (f/8-f/16),
-    # shutter is bimodal (long-exposure silk OR fast-freeze droplets) so
-    # std is wide; low ISO typical of tripod/landscape shooting.
-    "waterfall": {
-        "focal_length": (3.2, 0.7),
-        "aperture": (2.3, 0.4),
-        "shutter": (-2.0, 2.5),
-        "iso": (4.6, 0.6),
-    },
-    # Signage: handheld mid focal lengths (24-50mm), moderate aperture,
-    # fast handheld shutter, variable ISO (indoor/outdoor mix).
-    "signage": {
-        "focal_length": (3.5, 0.6),
-        "aperture": (1.5, 0.5),
-        "shutter": (-5.5, 1.0),
-        "iso": (5.5, 0.8),
-    },
-    # Cat: telephoto or mid-range, wide aperture for bokeh, fast shutter
-    # to freeze movement, moderate-high ISO indoors.
-    "cat": {
-        "focal_length": (4.5, 0.8),
-        "aperture": (0.8, 0.5),
-        "shutter": (-6.5, 1.0),
-        "iso": (6.0, 0.8),
-    },
-    # Vehicle: mid-to-wide focal lengths, moderate aperture, fast shutter
-    # (action/panning), variable ISO.
     "vehicle": {
-        "focal_length": (3.8, 0.7),
-        "aperture": (1.5, 0.5),
-        "shutter": (-6.0, 1.5),
-        "iso": (5.5, 0.8),
+        "focal_length": (3.8, 0.7), "aperture": (1.5, 0.5),
+        "shutter": (-6.0, 1.5), "iso": (5.5, 0.8),
     },
-    "general": {
-        "focal_length": (3.8, 1.5),
-        "aperture": (1.5, 1.0),
-        "shutter": (-5.0, 2.0),
-        "iso": (5.5, 1.5),
+    "food": {
+        "focal_length": (4.0, 0.6), "aperture": (1.2, 0.6),
+        "shutter": (-5.5, 1.0), "iso": (4.6, 0.8),
+    },
+    "object": {
+        "focal_length": (4.0, 0.7), "aperture": (1.8, 0.6),
+        "shutter": (-5.0, 1.0), "iso": (5.0, 0.8),
+    },
+    "text": {
+        "focal_length": (3.5, 0.6), "aperture": (1.5, 0.5),
+        "shutter": (-5.5, 1.0), "iso": (5.5, 0.8),
+    },
+    "night-sky": {
+        "focal_length": (2.9, 0.5), "aperture": (0.3, 0.5),
+        "shutter": (2.0, 1.5), "iso": (8.2, 0.8),
+    },
+    "abstract": {
+        "focal_length": (3.8, 1.0), "aperture": (1.5, 1.0),
+        "shutter": (-5.0, 2.0), "iso": (5.5, 1.0),
     },
 }
 
-# Confidence threshold below which a genre is excluded from the output.
-# 0.20 is well above the uniform baseline for 12 genres (1/12 ≈ 0.083),
-# ensuring only meaningfully confident secondary genres surface.
-_CONFIDENCE_THRESHOLD = 0.20
-
-# Per-genre Gaussian priors for subject context (face_count, subject_area_ratio, primary class)
-_SUBJECT_CONTEXT_PRIORS = {
-    "wildlife": {
-        "face_count": (0.0, 0.5),       # No faces
-        "subject_area_ratio": (0.2, 0.15),  # Medium subject size
-        "primary_class": {"bird": 1.5, "elephant": 1.5, "giraffe": 1.5},  # Multipliers
+_TYPE_EXIF_PRIORS = {
+    "portrait": {
+        "focal_length": (4.2, 0.4), "aperture": (0.5, 0.5),
+        "shutter": (-5.5, 0.8), "iso": (5.5, 0.8),
+    },
+    "candid": {
+        "focal_length": (3.5, 0.6), "aperture": (1.2, 0.5),
+        "shutter": (-5.5, 0.8), "iso": (5.8, 0.8),
     },
     "landscape": {
-        "face_count": (0.0, 0.5),       # No faces
-        "subject_area_ratio": (0.1, 0.1),   # Small subject
-        "primary_class": {},             # Indifferent to class
-    },
-    "portrait": {
-        "face_count": (1.0, 0.3),       # One face
-        "subject_area_ratio": (0.2, 0.1),   # Focused face
-        "primary_class": {"person": 2.0},   # Person preferred
+        "focal_length": (3.0, 0.6), "aperture": (2.2, 0.3),
+        "shutter": (-3.0, 2.0), "iso": (4.6, 0.5),
     },
     "street": {
-        "face_count": (0.5, 0.4),       # Few faces
-        "subject_area_ratio": (0.15, 0.1),  # Mixed subject size
-        "primary_class": {"person": 1.3},
+        "focal_length": (3.5, 0.5), "aperture": (1.4, 0.5),
+        "shutter": (-6.0, 0.8), "iso": (6.2, 0.8),
     },
-    "architecture": {
-        "face_count": (0.0, 0.5),       # No faces
-        "subject_area_ratio": (0.25, 0.15), # Medium-large
-        "primary_class": {},             # Indifferent
+    "wildlife": {
+        "focal_length": (5.7, 0.8), "aperture": (1.2, 0.5),
+        "shutter": (-7.0, 1.0), "iso": (6.4, 0.8),
     },
     "macro": {
-        "face_count": (0.0, 0.5),       # No faces
-        "subject_area_ratio": (0.4, 0.15),  # Large subject zoom
-        "primary_class": {"insect": 1.5, "flower": 1.5},
+        "focal_length": (4.3, 0.3), "aperture": (2.1, 0.3),
+        "shutter": (-5.0, 0.8), "iso": (5.5, 0.8),
     },
-    "event": {
-        "face_count": (3.0, 1.0),       # Multiple faces
-        "subject_area_ratio": (0.2, 0.15),  # Varied
+    "architecture": {
+        "focal_length": (3.0, 0.6), "aperture": (2.1, 0.3),
+        "shutter": (-2.0, 2.0), "iso": (4.6, 0.5),
+    },
+    "action": {
+        "focal_length": (4.8, 0.5), "aperture": (1.0, 0.5),
+        "shutter": (-7.5, 0.8), "iso": (6.4, 0.8),
+    },
+    "aerial": {
+        "focal_length": (3.2, 0.6), "aperture": (1.0, 0.5),
+        "shutter": (-6.5, 0.8), "iso": (5.5, 0.8),
+    },
+    "long-exposure": {
+        "focal_length": (3.5, 0.8), "aperture": (2.3, 0.4),
+        "shutter": (1.5, 2.0), "iso": (4.0, 0.6),
+    },
+    "still-life": {
+        "focal_length": (4.0, 0.6), "aperture": (1.8, 0.5),
+        "shutter": (-4.5, 0.8), "iso": (4.6, 0.6),
+    },
+    "documentary": {
+        "focal_length": (3.5, 0.6), "aperture": (1.2, 0.5),
+        "shutter": (-5.0, 0.8), "iso": (6.0, 0.8),
+    },
+}
+
+# Confidence threshold below which an axis value is marked for review
+_CONFIDENCE_THRESHOLD = 0.45
+
+# ---------------------------------------------------------------------------
+# Subject context priors — split by axis
+# ---------------------------------------------------------------------------
+
+_SUBJECT_CONTEXT_PRIORS = {
+    "person": {
+        "face_count": (1.0, 0.3),
+        "subject_area_ratio": (0.2, 0.1),
+        "primary_class": {"person": 2.5},
+    },
+    "people": {
+        "face_count": (3.0, 1.5),
+        "subject_area_ratio": (0.15, 0.1),
+        "primary_class": {"person": 2.0},
+    },
+    "child": {
+        "face_count": (1.0, 0.3),
+        "subject_area_ratio": (0.15, 0.1),
+        "primary_class": {"person": 2.0},
+    },
+    "wildlife": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.2, 0.15),
+        "primary_class": {"bird": 1.5, "bear": 1.5, "elephant": 1.5, "giraffe": 1.5},
+    },
+    "pet": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.25, 0.15),
+        "primary_class": {"cat": 3.0, "dog": 3.0},
+    },
+    "plant": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.3, 0.2),
+        "primary_class": {"potted plant": 1.5},
+    },
+    "landscape": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.1, 0.1),
+        "primary_class": {},
+    },
+    "seascape": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.1, 0.1),
+        "primary_class": {"boat": 1.5},
+    },
+    "cityscape": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.1, 0.1),
+        "primary_class": {},
+    },
+    "building": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.25, 0.15),
+        "primary_class": {},
+    },
+    "vehicle": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.3, 0.2),
+        "primary_class": {"car": 2.5, "truck": 2.5, "bus": 2.5, "motorcycle": 2.5},
+    },
+    "food": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.3, 0.2),
+        "primary_class": {"bowl": 1.5, "cup": 1.5, "dining table": 1.5},
+    },
+    "object": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.3, 0.2),
+        "primary_class": {},
+    },
+    "text": {
+        "face_count": (0.0, 0.4),
+        "subject_area_ratio": (0.3, 0.15),
+        "primary_class": {},
+    },
+    "night-sky": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.1, 0.1),
+        "primary_class": {},
+    },
+    "abstract": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.3, 0.2),
+        "primary_class": {},
+    },
+}
+
+_TYPE_CONTEXT_PRIORS = {
+    "portrait": {
+        "face_count": (1.0, 0.3),
+        "subject_area_ratio": (0.2, 0.1),
+        "primary_class": {"person": 2.0},
+    },
+    "candid": {
+        "face_count": (1.0, 0.5),
+        "subject_area_ratio": (0.15, 0.1),
         "primary_class": {"person": 1.5},
     },
-    "waterfall": {
-        "face_count": (0.0, 0.5),       # No faces
-        "subject_area_ratio": (0.3, 0.2),   # Waterfall fills mid-to-large frame
-        "primary_class": {},             # YOLO COCO has no waterfall class
+    "landscape": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.1, 0.1),
+        "primary_class": {},
     },
-    "signage": {
-        "face_count": (0.0, 0.4),       # Signs rarely have faces
-        "subject_area_ratio": (0.3, 0.15),  # Sign fills moderate-to-large frame
-        "primary_class": {"stop sign": 2.0},  # COCO 'stop sign' is a strong cue
+    "street": {
+        "face_count": (0.5, 0.4),
+        "subject_area_ratio": (0.15, 0.1),
+        "primary_class": {"person": 1.3},
     },
-    "cat": {
-        "face_count": (0.0, 0.5),       # No human faces
-        "subject_area_ratio": (0.25, 0.15),  # Cat fills medium frame
-        "primary_class": {"cat": 3.0},  # COCO cat class is the defining signal
+    "wildlife": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.2, 0.15),
+        "primary_class": {"bird": 1.5, "bear": 1.5},
     },
-    "vehicle": {
-        "face_count": (0.0, 0.5),       # No faces
-        "subject_area_ratio": (0.3, 0.2),   # Vehicle fills medium-to-large frame
-        "primary_class": {"car": 2.5, "truck": 2.5, "bus": 2.0, "motorcycle": 2.0},
+    "macro": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.4, 0.15),
+        "primary_class": {},
     },
-    "general": {
-        "face_count": (0.5, 1.0),       # Uniform (any)
-        "subject_area_ratio": (0.2, 0.2),   # Uniform
-        "primary_class": {},             # Indifferent
+    "architecture": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.25, 0.15),
+        "primary_class": {},
+    },
+    "action": {
+        "face_count": (0.5, 0.5),
+        "subject_area_ratio": (0.15, 0.1),
+        "primary_class": {"person": 1.5, "sports ball": 1.3},
+    },
+    "aerial": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.1, 0.1),
+        "primary_class": {},
+    },
+    "long-exposure": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.15, 0.15),
+        "primary_class": {},
+    },
+    "still-life": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.3, 0.2),
+        "primary_class": {},
+    },
+    "documentary": {
+        "face_count": (2.0, 1.0),
+        "subject_area_ratio": (0.2, 0.15),
+        "primary_class": {"person": 1.5},
     },
 }
 
-# Per-genre sharpness profile (subject/background contrast preference)
-_SHARPNESS_PROFILE_PRIORS = {
-    "wildlife": (2.5, 1.0),   # High contrast preferred
-    "landscape": (1.0, 0.5),  # Uniform sharpness
-    "portrait": (3.0, 1.2),   # High contrast (bokeh)
-    "street": (1.5, 0.8),     # Moderate contrast
-    "architecture": (1.0, 0.5),  # Uniform
-    "macro": (3.5, 1.2),      # Very high contrast
-    "event": (1.5, 0.8),      # Moderate contrast
-    "waterfall": (1.3, 0.7),  # Mostly uniform; rocks sharp, water motion-blurred
-    "signage": (1.0, 0.5),    # Frontal flat subject — uniform sharpness preferred
-    "cat": (2.5, 1.0),        # High contrast — cat sharp, background blurred
-    "vehicle": (1.5, 0.8),    # Moderate — depends on style (studio vs street)
-    "general": (1.5, 1.0),    # Moderate baseline
+# ---------------------------------------------------------------------------
+# Sharpness profile priors — split by axis
+# ---------------------------------------------------------------------------
+
+_SUBJECT_SHARPNESS_PRIORS = {
+    "person": (2.0, 0.8),
+    "people": (1.5, 0.8),
+    "child": (1.5, 0.8),
+    "wildlife": (2.5, 1.0),
+    "pet": (2.5, 1.0),
+    "plant": (2.0, 1.0),
+    "landscape": (1.0, 0.5),
+    "seascape": (1.0, 0.6),
+    "cityscape": (1.0, 0.5),
+    "building": (1.0, 0.5),
+    "vehicle": (1.5, 0.8),
+    "food": (2.0, 0.8),
+    "object": (2.0, 0.8),
+    "text": (1.0, 0.5),
+    "night-sky": (0.5, 0.5),
+    "abstract": (1.5, 1.5),
+}
+
+_TYPE_SHARPNESS_PRIORS = {
+    "portrait": (3.0, 1.2),
+    "candid": (1.5, 0.8),
+    "landscape": (1.0, 0.5),
+    "street": (1.5, 0.8),
+    "wildlife": (2.5, 1.0),
+    "macro": (2.5, 1.0),
+    "architecture": (1.0, 0.5),
+    "action": (1.5, 1.0),
+    "aerial": (1.0, 0.5),
+    "long-exposure": (0.8, 0.5),
+    "still-life": (2.0, 0.8),
+    "documentary": (1.5, 0.8),
 }
 
 
-def _compute_exif_prior(exif: dict) -> dict[str, float]:
-    """Compute per-genre log-Gaussian likelihood from EXIF metadata.
-
-    Returns a dict of genre -> unnormalized probability.
-    Missing fields contribute uniform (1.0) across all genres.
-    """
-    result = {g: 0.0 for g in GENRES}  # Log-space accumulator
+def _compute_exif_prior_axis(
+    exif: dict,
+    axis_labels: list[str],
+    axis_priors: dict[str, dict[str, tuple[float, float]]],
+) -> dict[str, float]:
+    """Compute per-label log-Gaussian likelihood from EXIF metadata for one axis."""
+    result = {g: 0.0 for g in axis_labels}
 
     fields = [
         ("focal_length", "focal_length"),
@@ -225,39 +397,32 @@ def _compute_exif_prior(exif: dict) -> dict[str, float]:
         any_field_present = True
         log_val = math.log(value + 1e-10)
 
-        for genre in GENRES:
-            mean, std = _EXIF_PRIORS[genre][prior_key]
-            # Log-Gaussian: log P(x|genre) = -0.5 * ((log_val - mean) / std)^2
+        for label in axis_labels:
+            mean, std = axis_priors[label][prior_key]
             log_prob = -0.5 * ((log_val - mean) / std) ** 2
-            result[genre] += log_prob
+            result[label] += log_prob
 
     if not any_field_present:
-        # Uniform prior
-        return {g: 1.0 / len(GENRES) for g in GENRES}
+        return {g: 1.0 / len(axis_labels) for g in axis_labels}
 
-    # Convert from log-space to probability (softmax-style)
     max_val = max(result.values())
-    exp_vals = {g: math.exp(result[g] - max_val) for g in GENRES}
+    exp_vals = {g: math.exp(result[g] - max_val) for g in axis_labels}
     total = sum(exp_vals.values())
-    return {g: exp_vals[g] / total for g in GENRES}
+    return {g: exp_vals[g] / total for g in axis_labels}
 
 
-def _compute_yolo_evidence(detections: list[ObjectDetection], image_area: int) -> dict[str, float]:
-    """Compute genre evidence from YOLO detections.
-
-    Returns dict of genre -> unnormalized probability.
-    """
-    evidence = {g: 1.0 for g in GENRES}  # Start uniform
+def _compute_yolo_evidence_subject(detections: list[ObjectDetection], image_area: int) -> dict[str, float]:
+    """Compute subject-axis evidence from YOLO detections."""
+    evidence = {g: 1.0 for g in SUBJECTS}
 
     if not detections or image_area == 0:
-        # Uniform
         total = sum(evidence.values())
-        return {g: evidence[g] / total for g in GENRES}
+        return {g: evidence[g] / total for g in SUBJECTS}
 
     has_animal = False
     has_person = False
-    largest_person_ratio = 0.0
     person_count = 0
+    has_food = False
 
     for det in detections:
         det_area = det.bbox[2] * det.bbox[3]
@@ -267,229 +432,270 @@ def _compute_yolo_evidence(detections: list[ObjectDetection], image_area: int) -
             has_animal = True
             evidence["wildlife"] *= 3.0
             if det.class_id == 15:  # cat
-                evidence["cat"] *= 4.0
+                evidence["pet"] *= 4.0
+            elif det.class_id == 16:  # dog
+                evidence["pet"] *= 4.0
 
         if det.class_name in ("car", "truck", "bus", "motorcycle") and area_ratio > 0.05:
             evidence["vehicle"] *= 3.5
+
+        if det.class_name == "person":
+            has_person = True
+            person_count += 1
+
+        # Food detection (COCO classes 45-55)
+        if det.class_id in (45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55):
+            has_food = True
+            evidence["food"] *= 3.0
+
+    # Person count logic
+    if person_count == 1:
+        evidence["person"] *= 2.5
+        evidence["child"] *= 1.5
+    elif person_count >= 2:
+        evidence["people"] *= 2.5
+
+    # Suppress incompatible labels
+    if has_person:
+        evidence["pet"] *= 0.3
+        evidence["landscape"] *= 0.2
+
+    if has_food:
+        evidence["person"] *= 0.1
+        evidence["people"] *= 0.1
+
+    if not has_animal and not has_person and not has_food:
+        evidence["person"] *= 0.2
+        evidence["people"] *= 0.2
+        evidence["pet"] *= 0.2
+
+    total = sum(evidence.values())
+    return {g: evidence[g] / total for g in SUBJECTS}
+
+
+def _compute_yolo_evidence_type(
+    detections: list[ObjectDetection],
+    image_area: int,
+) -> dict[str, float]:
+    """Compute photo-type-axis evidence from YOLO detections."""
+    evidence = {g: 1.0 for g in PHOTO_TYPES}
+
+    if not detections or image_area == 0:
+        total = sum(evidence.values())
+        return {g: evidence[g] / total for g in PHOTO_TYPES}
+
+    has_person = False
+    largest_person_ratio = 0.0
+    person_count = 0
+    has_animal = False
+    has_food = False
+
+    for det in detections:
+        det_area = det.bbox[2] * det.bbox[3]
+        area_ratio = det_area / image_area
+
+        if det.class_id in _ANIMAL_CLASS_IDS and area_ratio > 0.05:
+            has_animal = True
+            evidence["wildlife"] *= 2.0
 
         if det.class_name == "person":
             person_count += 1
             largest_person_ratio = max(largest_person_ratio, area_ratio)
             has_person = True
 
-    # Person logic
+        # Action cues: sports ball (class 32), tennis racket (38), etc
+        if det.class_id in (32, 38, 39, 41):  # sports ball, sports equipment classes
+            evidence["action"] *= 2.0
+
+        # Food detection
+        if det.class_id in (45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55):
+            has_food = True
+            evidence["still-life"] *= 1.5
+
     if has_person:
         if largest_person_ratio > 0.15:
             evidence["portrait"] *= 2.5
-            evidence["event"] *= 1.5
+            evidence["documentary"] *= 1.5
         if person_count >= 3:
-            evidence["event"] *= 2.0
+            evidence["documentary"] *= 2.0
             evidence["street"] *= 1.5
-        elif person_count == 1 and largest_person_ratio < 0.05:
-            evidence["street"] *= 1.5
-            evidence["landscape"] *= 1.2
+        elif person_count == 1 or person_count == 2:
+            if largest_person_ratio < 0.15:
+                evidence["candid"] *= 2.0
+                evidence["street"] *= 1.5
+        if person_count >= 2 and largest_person_ratio < 0.3:
+            evidence["candid"] *= 1.5
 
-    # No living subjects
-    if not has_animal and not has_person:
+    if not has_person and not has_animal and not has_food:
         evidence["landscape"] *= 1.5
         evidence["architecture"] *= 1.5
-        evidence["macro"] *= 1.3
 
-    # Normalize
     total = sum(evidence.values())
-    return {g: evidence[g] / total for g in GENRES}
+    return {g: evidence[g] / total for g in PHOTO_TYPES}
 
 
-def _compute_clip_similarity(
+def _compute_clip_similarity_axis(
     clip_embedding: np.ndarray,
-    genre_prototypes: np.ndarray | None,
+    prototypes: np.ndarray | None,
+    axis_labels: list[str],
 ) -> dict[str, float]:
-    """Compute genre probabilities from CLIP cosine similarity.
+    """Compute axis probabilities from CLIP cosine similarity.
 
-    genre_prototypes: shape (num_genres, 512) — precomputed text embeddings.
-    Returns softmax over cosine similarities.
+    prototypes: shape (len(axis_labels), 512).
     """
-    if genre_prototypes is None or np.allclose(clip_embedding, 0.0):
-        # No CLIP signal — uniform
-        return {g: 1.0 / len(GENRES) for g in GENRES}
+    if prototypes is None or np.allclose(clip_embedding, 0.0):
+        return {g: 1.0 / len(axis_labels) for g in axis_labels}
 
-    # Cosine similarity (embedding is already L2-normalized)
-    similarities = genre_prototypes @ clip_embedding  # (num_genres,)
-
-    # Temperature-scaled softmax.
-    # 0.1 is too peaked (concentrates on 1 genre) — 0.35 gives useful spread
-    # across multi-genre scenes while still being discriminative.
+    similarities = prototypes @ clip_embedding
     temperature = 0.35
     exp_sim = np.exp((similarities - similarities.max()) / temperature)
     probs = exp_sim / exp_sim.sum()
 
-    return {GENRES[i]: float(probs[i]) for i in range(len(GENRES))}
+    return {axis_labels[i]: float(probs[i]) for i in range(len(axis_labels))}
 
 
-def _compute_subject_context_likelihood(ctx: SubjectContext) -> dict[str, float]:
-    """Compute per-genre likelihood from subject context.
-
-    Uses face_count, subject_area_ratio, and primary detection class.
-    Returns dict of genre -> unnormalized probability.
-    """
+def _compute_context_likelihood_axis(
+    ctx: SubjectContext,
+    axis_labels: list[str],
+    axis_priors: dict[str, dict],
+) -> dict[str, float]:
+    """Compute per-label likelihood from subject context for one axis."""
     face_count = len(ctx.faces)
     area_ratio = ctx.subject_area_ratio
 
-    # Determine primary detection class
     primary_class = ""
     if ctx.detections:
         largest = max(ctx.detections, key=lambda d: d.bbox[2] * d.bbox[3])
         primary_class = largest.class_name
 
-    evidence = {g: 1.0 for g in GENRES}
+    evidence = {g: 1.0 for g in axis_labels}
 
-    for genre in GENRES:
-        priors = _SUBJECT_CONTEXT_PRIORS.get(genre, {})
+    for label in axis_labels:
+        priors = axis_priors.get(label, {})
 
-        # Face count Gaussian likelihood
         face_mean, face_std = priors.get("face_count", (0.0, 1.0))
         face_diff = face_count - face_mean
-        face_likelihood = math.exp(-0.5 * (face_diff / max(face_std, 0.1)) ** 2)
-        evidence[genre] *= face_likelihood
+        evidence[label] *= math.exp(-0.5 * (face_diff / max(face_std, 0.1)) ** 2)
 
-        # Subject area ratio Gaussian likelihood
         area_mean, area_std = priors.get("subject_area_ratio", (0.2, 0.2))
         area_diff = area_ratio - area_mean
-        area_likelihood = math.exp(-0.5 * (area_diff / max(area_std, 0.1)) ** 2)
-        evidence[genre] *= area_likelihood
+        evidence[label] *= math.exp(-0.5 * (area_diff / max(area_std, 0.1)) ** 2)
 
-        # Primary class bonus (if applicable)
         if primary_class:
             class_bonus = priors.get("primary_class", {}).get(primary_class, 1.0)
-            evidence[genre] *= class_bonus
+            evidence[label] *= class_bonus
 
-    # Normalize
     total = sum(evidence.values())
     if total > 0:
-        return {g: evidence[g] / total for g in GENRES}
-    return {g: 1.0 / len(GENRES) for g in GENRES}
+        return {g: evidence[g] / total for g in axis_labels}
+    return {g: 1.0 / len(axis_labels) for g in axis_labels}
 
 
-def _compute_sharpness_profile_likelihood(sharpness_contrast: float) -> dict[str, float]:
-    """Compute per-genre likelihood from sharpness contrast.
+def _compute_sharpness_likelihood_axis(
+    sharpness_contrast: float,
+    axis_labels: list[str],
+    axis_priors: dict[str, tuple[float, float]],
+) -> dict[str, float]:
+    """Compute per-label likelihood from sharpness contrast for one axis."""
+    evidence = {g: 1.0 for g in axis_labels}
 
-    Higher contrast (subject sharp, background blurred) favors portrait/macro.
-    Uniform sharpness favors landscape/architecture.
-    Returns dict of genre -> unnormalized probability.
-    """
-    evidence = {g: 1.0 for g in GENRES}
-
-    for genre in GENRES:
-        mean, std = _SHARPNESS_PROFILE_PRIORS.get(genre, (1.5, 1.0))
+    for label in axis_labels:
+        mean, std = axis_priors.get(label, (1.5, 1.0))
         diff = sharpness_contrast - mean
-        likelihood = math.exp(-0.5 * (diff / max(std, 0.1)) ** 2)
-        evidence[genre] = likelihood
+        evidence[label] = math.exp(-0.5 * (diff / max(std, 0.1)) ** 2)
 
-    # Normalize
     total = sum(evidence.values())
     if total > 0:
-        return {g: evidence[g] / total for g in GENRES}
-    return {g: 1.0 / len(GENRES) for g in GENRES}
+        return {g: evidence[g] / total for g in axis_labels}
+    return {g: 1.0 / len(axis_labels) for g in axis_labels}
+
+
+def _fuse_axis(
+    signals: list[dict[str, float]],
+    axis_labels: list[str],
+) -> dict[str, float]:
+    """Product-of-experts fusion for one axis."""
+    product = {g: 1.0 for g in axis_labels}
+    for sig in signals:
+        for g in axis_labels:
+            product[g] *= sig.get(g, 1.0 / len(axis_labels))
+
+    total = sum(product.values())
+    if total > 0:
+        return {g: product[g] / total for g in axis_labels}
+    return {g: 1.0 / len(axis_labels) for g in axis_labels}
 
 
 def route_genre(
     ctx: SubjectContext,
     genre_prototypes: np.ndarray | None = None,
 ) -> GenreResult:
-    """Classify image genre using a hybrid 1st-order / 2nd-order tagging strategy.
+    """Classify image along two orthogonal axes: Subject and Photo Type.
 
-    **Primary tag (1st order)** — product-of-experts across all 5 signals.
-    The multiplicative fusion is intentionally peaked: it reliably picks the
-    single dominant genre with high confidence.
-
-    **Secondary tags (2nd order)** — weighted geometric mean (log-space weighted
-    sum) across the same 5 signals, excluding the primary genre.  The softer
-    distribution surfaces genuine co-genres (e.g. waterfall + landscape, portrait
-    + event) without the extreme peaking that suppresses them in the product.
-    CLIP carries the highest weight (0.40) as the most semantic signal.
-
-    Returns: primary genre (PoE confidence) + up to 2 secondary genres
-    (geometric-mean confidence, above 0.10 floor), or [("general", 1.0)] with
-    needs_review=True when the primary confidence itself is below the floor.
+    Each axis runs independent product-of-experts fusion across CLIP, EXIF,
+    YOLO, subject context, and sharpness signals.
 
     Args:
         ctx: SubjectContext with CLIP embedding, detections, EXIF, sharpness_contrast.
-        genre_prototypes: Precomputed prototype embeddings (num_genres, 512).
-                          If None, CLIP evidence is uniform.
+        genre_prototypes: Precomputed prototype embeddings with shape
+            (len(SUBJECTS) + len(PHOTO_TYPES), 512).  First len(SUBJECTS)
+            rows are subject prototypes, remaining are type prototypes.
+            If None, CLIP evidence is uniform on both axes.
 
     Returns:
-        GenreResult with primary + secondary genres, full PoE distribution,
+        GenreResult with subject, photo_type, confidences, distributions,
         and needs_review flag.
     """
-    # --- Shared signal computation -------------------------------------------
-    clip_probs    = _compute_clip_similarity(ctx.clip_embedding, genre_prototypes)
-    exif_probs    = _compute_exif_prior(ctx.exif)
-    image_area    = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
-    yolo_probs    = _compute_yolo_evidence(ctx.detections, image_area)
-    subject_probs = _compute_subject_context_likelihood(ctx)
-    sharp_probs   = _compute_sharpness_profile_likelihood(ctx.sharpness_contrast)
+    # Split CLIP prototypes into subject and type halves
+    subject_protos = None
+    type_protos = None
+    if genre_prototypes is not None:
+        n_subjects = len(SUBJECTS)
+        if genre_prototypes.shape[0] >= n_subjects + len(PHOTO_TYPES):
+            subject_protos = genre_prototypes[:n_subjects]
+            type_protos = genre_prototypes[n_subjects:]
+        else:
+            logger.warning(
+                "genre_prototypes shape %s does not match expected (%d, 512); "
+                "using uniform CLIP priors",
+                genre_prototypes.shape,
+                len(SUBJECTS) + len(PHOTO_TYPES),
+            )
 
-    # --- 1st order: product-of-experts → primary genre -----------------------
-    # Multiplicative fusion peaks heavily on the dominant genre — this is a
-    # feature for primary selection: whichever genre all signals agree on wins.
-    product = {
-        g: clip_probs[g] * exif_probs[g] * yolo_probs[g]
-           * subject_probs[g] * sharp_probs[g]
-        for g in GENRES
-    }
-    total_poe = sum(product.values())
-    poe_dist = (
-        {g: product[g] / total_poe for g in GENRES}
-        if total_poe > 0
-        else {g: 1.0 / len(GENRES) for g in GENRES}
-    )
+    image_area = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
 
-    primary_genre      = max(poe_dist, key=poe_dist.__getitem__)
-    primary_confidence = poe_dist[primary_genre]
+    # --- Subject axis signals ------------------------------------------------
+    subj_clip  = _compute_clip_similarity_axis(ctx.clip_embedding, subject_protos, SUBJECTS)
+    subj_exif  = _compute_exif_prior_axis(ctx.exif, SUBJECTS, _SUBJECT_EXIF_PRIORS)
+    subj_yolo  = _compute_yolo_evidence_subject(ctx.detections, image_area)
+    subj_ctx   = _compute_context_likelihood_axis(ctx, SUBJECTS, _SUBJECT_CONTEXT_PRIORS)
+    subj_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, SUBJECTS, _SUBJECT_SHARPNESS_PRIORS)
 
-    # needs_review when even the PoE winner is uncertain
-    if primary_confidence < _CONFIDENCE_THRESHOLD:
-        return GenreResult(
-            genres=[("general", 1.0)],
-            distribution=poe_dist,
-            needs_review=True,
-        )
+    subj_dist = _fuse_axis([subj_clip, subj_exif, subj_yolo, subj_ctx, subj_sharp], SUBJECTS)
 
-    # --- 2nd order: weighted geometric mean → secondary genres ---------------
-    # Weights sum to 1.0.  CLIP gets the largest share as the semantic anchor.
-    _W_CLIP, _W_EXIF, _W_YOLO, _W_SUBJ, _W_SHARP = 0.40, 0.20, 0.20, 0.12, 0.08
+    # --- Type axis signals ---------------------------------------------------
+    type_clip  = _compute_clip_similarity_axis(ctx.clip_embedding, type_protos, PHOTO_TYPES)
+    type_exif  = _compute_exif_prior_axis(ctx.exif, PHOTO_TYPES, _TYPE_EXIF_PRIORS)
+    type_yolo  = _compute_yolo_evidence_type(ctx.detections, image_area)
+    type_ctx   = _compute_context_likelihood_axis(ctx, PHOTO_TYPES, _TYPE_CONTEXT_PRIORS)
+    type_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, PHOTO_TYPES, _TYPE_SHARPNESS_PRIORS)
 
-    log_scores = {
-        g: (
-            _W_CLIP  * math.log(max(clip_probs[g],    1e-10)) +
-            _W_EXIF  * math.log(max(exif_probs[g],    1e-10)) +
-            _W_YOLO  * math.log(max(yolo_probs[g],    1e-10)) +
-            _W_SUBJ  * math.log(max(subject_probs[g], 1e-10)) +
-            _W_SHARP * math.log(max(sharp_probs[g],   1e-10))
-        )
-        for g in GENRES
-    }
-    max_log   = max(log_scores.values())
-    exp_gm    = {g: math.exp(log_scores[g] - max_log) for g in GENRES}
-    total_gm  = sum(exp_gm.values())
-    gm_dist   = (
-        {g: exp_gm[g] / total_gm for g in GENRES}
-        if total_gm > 0
-        else {g: 1.0 / len(GENRES) for g in GENRES}
-    )
+    type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES)
 
-    # Secondary candidates: all genres except primary, sorted by gm confidence,
-    # capped at 2, only above the confidence floor.
-    secondary = [
-        (g, gm_dist[g])
-        for g in sorted(GENRES, key=gm_dist.__getitem__, reverse=True)
-        if g != primary_genre and gm_dist[g] >= _CONFIDENCE_THRESHOLD
-    ][:2]
+    # --- Pick winners --------------------------------------------------------
+    subject = max(subj_dist, key=subj_dist.__getitem__)
+    subject_conf = subj_dist[subject]
+    photo_type = max(type_dist, key=type_dist.__getitem__)
+    type_conf = type_dist[photo_type]
 
-    genres = [(primary_genre, primary_confidence)] + secondary
+    needs_review = subject_conf < _CONFIDENCE_THRESHOLD or type_conf < _CONFIDENCE_THRESHOLD
 
     return GenreResult(
-        genres=genres,
-        distribution=poe_dist,   # PoE distribution stored for calibration
-        needs_review=False,
+        subject=subject,
+        subject_confidence=round(subject_conf, 4),
+        photo_type=photo_type,
+        type_confidence=round(type_conf, 4),
+        subject_distribution=subj_dist,
+        type_distribution=type_dist,
+        needs_review=needs_review,
     )

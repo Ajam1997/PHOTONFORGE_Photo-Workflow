@@ -11,7 +11,7 @@ from PIL import Image
 
 from photo_workflow.scoring_types import FusionResult
 from photo_workflow.subject_context import ModelSessions, build_subject_context
-from photo_workflow.genre_router import route_genre
+from photo_workflow.genre_router import route_genre, SUBJECTS, PHOTO_TYPES
 from photo_workflow.sharpness import score_sharpness_detailed
 from photo_workflow.composition import score_composition_detailed
 from photo_workflow.exposure import score_exposure_detailed
@@ -23,9 +23,9 @@ def sharp_color_image(tmp_path: Path) -> Path:
     """Create a sharp color image with high-frequency edges throughout.
 
     Uses seeded random noise rather than a 1-pixel checkerboard because
-    the perfect alternating pattern produces zero Sobel response (the 3×3
+    the perfect alternating pattern produces zero Sobel response (the 3x3
     kernel neighbourhood cancels symmetrically).  Random noise has strong
-    gradients everywhere → high Tenengrad and SML scores.
+    gradients everywhere -> high Tenengrad and SML scores.
     """
     rng = np.random.default_rng(42)
     arr = rng.integers(0, 256, (400, 600, 3), dtype=np.uint8)
@@ -38,7 +38,6 @@ def sharp_color_image(tmp_path: Path) -> Path:
 def blurry_color_image(tmp_path: Path) -> Path:
     """Create a uniformly blurry image."""
     arr = np.full((400, 600, 3), 128, dtype=np.uint8)
-    # Add very slight noise (still effectively blurry)
     noise = np.random.randint(-3, 4, arr.shape, dtype=np.int16)
     arr = np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8)
     p = tmp_path / "blurry_color.png"
@@ -61,8 +60,10 @@ def test_full_scoring_flow_no_models(sharp_color_image: Path, tmp_path: Path) ->
 
     assert isinstance(result, FusionResult)
     assert 0.0 <= result.master_score <= 1.0
-    from photo_workflow.genre_router import GENRES
-    assert result.genre in GENRES
+    assert result.subject in SUBJECTS
+    assert result.photo_type in PHOTO_TYPES
+    # Backward compat property
+    assert result.genre in SUBJECTS
     assert result.star_rating in range(1, 6)
     assert not result.hard_reject
 

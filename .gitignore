@@ -20,3 +20,4 @@ test_tmp/
 yolov8n.pt
 site/
 corpus/
+training_data/
