@@ -16,19 +16,19 @@ Status: [DEFINED | VERIFIED | VALIDATED]
 [UN-001](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/30): The system installs without errors on the target machine.
 Acceptance: pip install -e . exits 0. pytest --collect-only finds all test files.
 KPM: NONE
-Stage: 1
+Stage: ?
 Status: DEFINED
 
 [UN-002](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/31): All five primary agents are discoverable by Claude Code.
 Acceptance: claude agents lists @architect, @engineer, @devops, @verification, @validation.
 KPM: NONE
-Stage: 1
+Stage: ?
 Status: DEFINED
 
 [UN-003](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/14): Users can install and configure the system from documentation.
 Acceptance: Installation docs exist. A new user can stand up the pipeline on a fresh Yoga 910 by following the docs alone.
 KPM: NONE
-Stage: 1
+Stage: ?
 Status: DEFINED
 
 [UN-010](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/32): Photos are automatically grouped into shooting sessions.
