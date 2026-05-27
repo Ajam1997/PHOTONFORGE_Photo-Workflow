@@ -179,6 +179,21 @@ covered, ⚠ partial, ✗ unverified.
 _Coverage: **2 / 48** requirements fully verified+validated. Per `dev-docs/architecture/vv-matrix.md`._
 <!-- /AUTO:vv_matrix -->
 
+### 3.5 Behavior & Structure Models
+
+SysML-flavored diagrams for the system in its current state. Mermaid;
+renders natively on GitHub and the wiki.
+
+| Diagram | SysML kind | Document |
+|---|---|---|
+| Cartridge lifecycle + ingest session (two concurrent state machines) | State Machine | [system-state-machine.md](architecture/system-state-machine.md) |
+| Analysis pipeline DAG with KPM constraints | Activity | [pipeline-activity.md](architecture/pipeline-activity.md) |
+| `src/photo_workflow/` module composition + typed flow items | Block Definition (BDD) | [module-bdd.md](architecture/module-bdd.md) |
+
+The V&V matrix above (§3.4) is the «verify» relationship for these
+diagrams. The activity diagram's KPM annotations are the «parametric
+constraint» layer.
+
 ---
 
 ## 4. Intelligence Engine
