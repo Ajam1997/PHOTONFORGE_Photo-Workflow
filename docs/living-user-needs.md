@@ -110,45 +110,45 @@ Decomposes to: [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/
 [UN-040](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/42): Workflow should move photos from SD card to temporary storage on SSD to allow for safe removal of SD card before processing.
 Acceptance: rsync 1000 images to SSD per 120 seconds.
 KPM: KPM-1.1
-Stage: 6
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56)
 
 [UN-041](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/43): The system should automaticaly eject and notify the SD card after transfering photos to the SSD.
 Acceptance: SD card is ejected and the user is notified that the photos have been transfered to the SSD.
 KPM: KPM-1.4/KPM-1.1
-Stage: 7
+Stage: ?
 Status: DEFINED
 Decomposes to: [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60)
 
 [UN-050](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/44): The pipeline CLI supports staged execution of individual processing steps.
 Acceptance: photo-workflow exposes subcommands scan, dedup, score, name, sync, status. Each subcommand runs independently and enforces prerequisite stages.
 KPM: NONE
-Stage: 6
+Stage: ?
 Status: DEFINED
 
 [UN-051](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/45): The pipeline tracks per-photo processing state across stages via a DB File.
 Acceptance: ingest creates a SQLite DB file. Each subsequent stage reads and updates it. DB records per-photo stages_completed, scores, semantic_name, and errors.
 KPM: NONE
-Stage: 6
+Stage: ?
 Status: DEFINED
 
 [UN-052](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/46): Long-running pipeline stages are resumable after interruption.
 Acceptance: score and name stages with --resume skip photos already completed. Checkpoint flush every 50 photos via atomic file replace. On crash, at most 50 photos of progress lost.
 KPM: NONE
-Stage: 6
+Stage: ?
 Status: DEFINED
 
 [UN-053](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/47): The pipeline displays real-time progress with throughput and ETA during batch processing.
 Acceptance: score and name stages print in-place progress line showing count/total, percentage, images/sec, ETA, and RSS. --verbose and --quiet flags control detail level.
 KPM: NONE
-Stage: 6
+Stage: ?
 Status: DEFINED
 
 [UN-054](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/48): The pipeline gracefully handles per-photo errors without aborting the batch.
 Acceptance: Corrupt files or inference failures log a warning, record error in manifest, and continue. Failed photos are retried on --resume. Final summary reports error count.
 KPM: NONE
-Stage: 6
+Stage: ?
 Status: DEFINED
 
 <!-- /AUTO:user_needs -->
