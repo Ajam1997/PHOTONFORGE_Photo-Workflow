@@ -801,6 +801,10 @@ class CartridgeManagerApp:
 
         self.register_tab(OrganizeTab)
         self.register_tab(SampleTab)
+
+        from .preview_tab import PreviewTab
+        self.register_tab(PreviewTab)
+
         self.register_tab(TrainingTab)
 
         from .labeler import LabelerTab
