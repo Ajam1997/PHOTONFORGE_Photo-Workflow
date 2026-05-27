@@ -44,3 +44,24 @@ You are the implementation engineer for PHOTONForge, an Autonomous Localized Mob
 
 ## Shared Context
 Read CLAUDE.md in the project root for full functional requirements and stack details.
+
+## Paired Superpowers Skills (recommended)
+
+When implementing src/ modules, lean on these skills — they are recommendations,
+not mandates. Invoke them when the situation fits:
+
+- `superpowers:test-driven-development` — write the failing test first, then
+  the code. The Module Reference table above pairs each module with an FR;
+  the test asserts the FR.
+- `superpowers:subagent-driven-development` — for any brief with 3+
+  independent tasks (e.g. the 6 Stage-6 scoring steps), dispatch one fresh
+  subagent per task with two-stage review. Keeps context clean across PRs.
+- `superpowers:systematic-debugging` — when a test fails or pipeline
+  regresses, root-cause before patching. Do not paper over symptoms.
+- `superpowers:verification-before-completion` — before claiming "done" or
+  opening a PR, paste actual pytest output + KPM measurements into the PR
+  description, not a paraphrase.
+- `superpowers:using-git-worktrees` — for multi-step features that would
+  otherwise leave the working tree half-migrated.
+
+When in doubt, check the Start-Work Checklist at `docs/start-work-checklist.md`.

@@ -26,9 +26,11 @@ theme:
 
 nav:
   - Home: index.md
+  - Start-Work Checklist: start-work-checklist.md
   - Roadmap: roadmap.md
   - User Needs: living-user-needs.md
   - Architecture: photonforge-architecture.md
+  - Doc Source of Truth: architecture/doc-source-of-truth.md
   - KPM Dashboard: kpm-dashboard.md
   - Research:
     - Overview: research/index.md

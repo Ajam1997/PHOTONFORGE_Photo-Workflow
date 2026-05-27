@@ -6,11 +6,19 @@ Ingests from SD/SSD, analyzes, scores, names, and syncs to Darktable.
 All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / Ubuntu 24.04.
 
 ## Agent Roster
-- @architect (opus, read-only): architecture, interfaces, CLAUDE.md maintenance
-- @engineer (sonnet): src/, tests/, models/
-- @devops (sonnet): deploy/, scripts/
-- @verification (sonnet): commit-level test enforcement, KPM benchmarks
-- @validation (sonnet): milestone E2E validation, user need compliance
+
+| Agent | Scope | Superpowers pairing |
+|---|---|---|
+| @architect (opus, read-only) | architecture, interfaces, CLAUDE.md maintenance | recommend: `brainstorming`, `writing-plans`, `subagent-driven-development` |
+| @engineer (haiku) | src/, tests/, models/ | recommend: `test-driven-development`, `subagent-driven-development`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees` |
+| @devops (sonnet) | deploy/, scripts/, udev | recommend: `verification-before-completion`, `systematic-debugging` |
+| @verification (inherit) | commit-level test enforcement, KPM benchmarks | **mandate**: `verification-before-completion` |
+| @validation (inherit) | milestone E2E validation, user need compliance | **mandate**: `verification-before-completion` |
+| @systemmaster (operator-only) | deep cross-cutting reviews | n/a |
+
+Start every session with `docs/start-work-checklist.md` (≈60s).
+The full pairing rationale lives in
+`docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` §6.4.
 
 ## Architecture Decisions
 - Composition over inheritance. AnalysisPipeline delegates to module functions.
@@ -63,26 +71,47 @@ Full spec: docs/photo-workflow-architecture-v4.docx
 
 ## Agent Write-back Protocol
 
-Agents write results back to GitHub Issues via `scripts/github_comment.py`.
-**Never call the GitHub API directly.** All commands read GITHUB_TOKEN from environment.
-Issue numbers are resolved automatically from `docs/github-issue-map.json`.
+**Canonical source of truth: GitHub Issues.** `docs/` is a render target via
+`scripts/generate_docs.py`; the wiki is a one-way export. Agents post evidence
+as Issue comments. Agents do **not** edit `docs/living-user-needs.md` or any
+other AUTO-managed file by hand, and they do **not** move status labels — that
+is `pr_rollup.py`'s job on PR merge. See `docs/architecture/doc-source-of-truth.md`.
 
-**@verification** (after every commit to main):
+Agents write results via `scripts/github_comment.py`. **Never call the GitHub
+API directly.** All commands read GITHUB_TOKEN from environment. Requirement
+IDs (FR-X.Y, UN-XXX, KPM-X.Y) are resolved live via `gh issue list --search`;
+no local map file is required.
+
+Every comment **must** end with a `**Next action:** ...` line (HB-8 — enables
+SOP-B "resume mid-flight work"). Every agent comment carries a `via: @<agent>`
+footer so the writer's origin is legible to the next reader (HB-7).
+
+**@verification** (after every commit to main, posts measurements only):
 ```bash
 # On test pass:
-python scripts/github_comment.py verify-fr FR-1.2 "pytest: 5/5 passed, 1.8s avg"
+python scripts/github_comment.py verify-fr FR-1.2 \
+  "pytest: 5/5 passed, 1.8s avg" \
+  --next-action "merge ready; @engineer to open PR"
 # On regression:
-python scripts/github_comment.py regress-fr FR-1.2 "test_sharpness failed: expected 0.85 got 0.72"
+python scripts/github_comment.py regress-fr FR-1.2 \
+  "test_sharpness failed: expected 0.85 got 0.72" \
+  --next-action "@engineer revisit blur kernel threshold"
 # After benchmark:
-python scripts/github_comment.py update-kpm KPM-1.2 "1.8s on i7-7500U — 2026-05-23" passing
+python scripts/github_comment.py update-kpm KPM-1.2 \
+  "1.8s on i7-7500U — 2026-05-23" passing \
+  --next-action "no action; KPM still inside budget"
 ```
 
-**@validation** (on milestone merge or manual invocation):
+**@validation** (on milestone merge or manual invocation, posts evidence only):
 ```bash
 # On E2E pass:
-python scripts/github_comment.py validate-un UN-010 "all 3 grouping scenarios passed"
+python scripts/github_comment.py validate-un UN-010 \
+  "all 3 grouping scenarios passed" \
+  --next-action "stage 2 closes; ready to start stage 3"
 # On E2E failure:
-python scripts/github_comment.py validation-failure UN-010 "wrong clusters on burst shots — 4 grouped, expected 1"
+python scripts/github_comment.py validation-failure UN-010 \
+  "wrong clusters on burst shots — 4 grouped, expected 1" \
+  --next-action "@architect to reassess FR-1.1 dHash threshold"
 ```
 
 ## Remote Execution

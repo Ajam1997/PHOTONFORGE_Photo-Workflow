@@ -76,7 +76,8 @@ When Step 1 lands on `main`:
 
 ```bash
 python scripts/github_comment.py verify-fr FR-scoring-step1 \
-  "pytest tests/test_scoring_types.py: N/N passed; full suite no regressions"
+  "pytest tests/test_scoring_types.py: N/N passed; full suite no regressions" \
+  --next-action "@engineer to open Step 2 (region_router) per checklist"
 ```
 
 @verification then confirms: (a) no behavior change in the integration
@@ -93,3 +94,13 @@ ticked. After verification signs off, @engineer can open Step 2
   doc.
 - Bootstrap priors (Step 4, not now): `docs/research/scoring-redesign.md`
   §5.
+
+---
+
+## Open questions if you stop mid-step
+
+*Template section (HB-8). Fill in before stopping work mid-step so the next
+session — yours or another agent's — can resume without re-deriving context.
+Leave empty if the step is fresh / no decisions pending.*
+
+- *(none yet — fill as you go)*

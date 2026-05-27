@@ -206,71 +206,57 @@ escalate to @devops. Do not continue cycling.
 
 ---
 
-## Step 5: Write Validation Report
+## Step 5: Post Results as Issue Comments
 
-Write to: ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/YYYY-MM-DD-stage[N]-validation.md
+You do **not** write `docs/ValidationReports/*.md` files. GitHub Issues are
+the canonical record (see `docs/architecture/doc-source-of-truth.md`). Per UN
+in scope, post one comment via `scripts/github_comment.py`. Every call **must**
+include `--next-action "..."` so the next reader (operator or @architect) can
+resume without re-deriving context.
 
----
-# Validation Report -- Stage [N] -- [DATE]
+Examples:
 
-## Merge Commit
-[hash] [message]
+  # UN passed
+  python scripts/github_comment.py validate-un UN-010 \
+    "all 3 grouping scenarios passed; SQLite integrity ok; 0 missing XMP" \
+    --next-action "stage 2 closes; ready to start stage 3"
 
-## Requirements Validated
-| UN-ID | User Need | Acceptance Condition | Result |
-|-------|-----------|----------------------|--------|
-| UN-020 | ... | ... | PASS / FAIL / XFAIL-HARDWARE |
+  # UN failed → opens an escalation Issue automatically
+  python scripts/github_comment.py validation-failure UN-010 \
+    "burst-shot clusters: 4 produced, 1 expected; see /tmp/pipeline_run.log" \
+    --next-action "@architect to reassess FR-1.1 cluster_sessions threshold"
 
-## KPM-1.4 Soak Test
-Cycles completed: [N]/50
-Last cycle: [date]
-Status: IN PROGRESS / COMPLETE / FAILED AT CYCLE [N]
+  # KPM-1.4 soak progress (per cycle batch)
+  python scripts/github_comment.py update-kpm KPM-1.4 \
+    "cycles 12/50 passed; integrity_check ok across all" passing \
+    --next-action "continue soak in next session, cycle 13 onward"
 
-## Edge Cases
-| Scenario | Expected | Actual | Result |
-|----------|----------|--------|--------|
-| Empty SD | Graceful exit | ... | PASS / FAIL |
-| No images | Graceful exit | ... | PASS / FAIL |
-| SSD absent | Error message | ... | PASS / FAIL |
-| Corrupt EXIF | Handled | ... | PASS / FAIL / SKIPPED |
+Each comment ends with a machine-added `via: @validation` footer (HB-7).
 
-## Failures Requiring Escalation
-| Failure | Escalate To | Description |
-|---------|-------------|-------------|
-| ... | @architect / @devops | ... |
+You do **not** move status labels. `validated` transitions are owned by the
+PR-merge rollup combined with the milestone tag on the Epic Issue. Your job
+is to post the evidence; the label follows.
 
-## E2E Test Scripts Written
-[list paths under tests/e2e/ or NONE]
-
-## Overall Status
-ALL PASS | FAILURES PRESENT | SOAK TEST IN PROGRESS
----
+KPM-1.4 soak progress: append cycle-by-cycle progress to the KPM-1.4 Issue
+via `update-kpm` (not to a `docs/ValidationReports/soak-test-log.md` file —
+that path is removed under HB-1).
 
 ---
 
-## Step 6: Update Living User Need Document
+## Step 6: Living User Need Document — DO NOT EDIT
 
-Only execute for UN-IDs that PASSED in Step 3. Do not update failing requirements.
+The Living User Need Document (`docs/living-user-needs.md`) is auto-generated
+from Issue labels by `scripts/generate_docs.py`. You **do not** edit it with
+`re.sub`, `sed`, or any other write. Post evidence on the UN Issue; the doc
+regenerates from Issue state on the next `regen-docs.yml` run.
 
-Run locally (not via SSH):
+If you find yourself opening `docs/living-user-needs.md` for a write, stop —
+that path is removed by HB-1.
 
-  python3 -c "
-import re
-path = 'docs/living-user-needs.md'
-ids = ['UN-XXX', 'UN-YYY']  # substitute actual passing IDs from Step 3
-content = open(path).read()
-for uid in ids:
-    content = re.sub(
-        rf'({re.escape(uid)}:.*?Status:) (?:DEFINED|VERIFIED)',
-        r'\1 VALIDATED', content, flags=re.DOTALL
-    )
-open(path, 'w').write(content)
-print('VALIDATED: ' + ', '.join(ids))
-"
-
-Then commit:
-  git add docs/living-user-needs.md
-  git commit -m "validation: advance [UN-IDs] to VALIDATED -- Stage [N]"
+If the Living User Need Document does not yet exist, do not write the stub —
+instead, seed the UN Issues first (`scripts/seed_github.py`) and run
+`scripts/generate_docs.py`. The stub-on-demand path in Appendix A is retained
+for documentation only and is *not* an instruction to execute.
 
 ---
 
@@ -373,3 +359,16 @@ EOF'
 - Do not escalate requirement failures to @engineer -- that goes to @architect
 - Do not interact with planning briefs or approval flags
 - Pull UN-IDs by grep only, never full document reads
+- Do not edit docs/living-user-needs.md or any AUTO-managed doc
+- Do not move status labels (pr_rollup.py + Epic-merge own that transition)
+
+---
+
+## Paired Superpowers Skills
+
+**Mandatory:** `superpowers:verification-before-completion` — paste raw E2E
+output, SQLite query results, and file-listing output into the Issue comment.
+A summary without evidence is not a validation. The skill's rubric is the
+philosophical foundation for this agent.
+
+This pairing is also surfaced in CLAUDE.md → Agent Roster.
