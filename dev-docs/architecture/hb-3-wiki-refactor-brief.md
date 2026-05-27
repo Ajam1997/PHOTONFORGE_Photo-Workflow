@@ -171,8 +171,32 @@ Still open:
 
 ## Pointers
 
-- System review: `docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` §5 HB-3.
-- Existing wiki migrator: `scripts/migrate_wiki.py` (untracked at session start, committed in 0898142).
+- System review: `dev-docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` §5 HB-3.
 - AUTO sentinel mechanism: `scripts/generate_docs.py:137-142`.
-- Doc source-of-truth precedence: `docs/architecture/doc-source-of-truth.md`.
-- Pages publish offenders: `.github/workflows/nightly-drift.yml` and `.github/workflows/regen-docs.yml` (search for `gh-deploy`).
+- Doc source-of-truth precedence: `dev-docs/architecture/doc-source-of-truth.md`.
+- Wiki nav config: `dev-docs/_wiki-nav.yml`.
+
+---
+
+## One-time operator setup before Step 4 takes effect
+
+Before `wiki-publish.yml` works, create the `WIKI_PUSH_TOKEN` secret:
+
+1. **GitHub → Settings → Developer settings → Personal access tokens →
+   Fine-grained tokens → Generate new token**
+   - Resource owner: `Ajam1997`
+   - Repository access: `PHOTONFORGE_Photo-Workflow` only
+   - Permissions → Repository → **Contents: Read and write** (the wiki is
+     a separate git repo under the same owner; Contents:write covers it).
+   - Expiration: 1 year recommended.
+2. Copy the token (only shown once).
+3. **Repo → Settings → Secrets and variables → Actions → New repository
+   secret**
+   - Name: `WIKI_PUSH_TOKEN`
+   - Value: (paste token)
+4. **Actions tab → Publish Dev Docs to Wiki → Run workflow** to verify
+   auth. First run will create dozens of wiki pages (NEW); subsequent
+   runs only touch changed files.
+
+If the manual run fails with HTTP 403, the PAT's Contents permission is
+missing — regenerate, confirming Contents: Read+Write is checked.

@@ -1,0 +1,103 @@
+# Wiki sidebar configuration
+#
+# Consumed by scripts/migrate_wiki.py to generate _Sidebar.md for the
+# GitHub Wiki. This is the single source of truth for wiki navigation.
+# Do not edit _Sidebar.md on the wiki directly — your edits will be
+# overwritten on the next push (unless the wiki page is tagged
+# WIKI:LOCAL-ONLY, which _Sidebar.md should not be).
+#
+# Schema:
+#   sections:                # ordered groups in the sidebar
+#     - title: "<heading>"   # section heading (omit for the lead group)
+#       items:
+#         - label: "<text>"  # display text on the wiki sidebar
+#           page: "<path>"   # path relative to dev-docs/, with .md
+#
+# Filename → wiki page name auto-derives from the path (title-cased
+# components joined with `-`). Example:
+#   architecture/doc-source-of-truth.md  →  Architecture-Doc-Source-Of-Truth
+# Special: index.md → Home; <dir>/index.md → <Dir>.
+
+sections:
+  - title: PHOTONForge
+    items:
+      - { label: Home, page: index.md }
+      - { label: "Start-Work Checklist", page: start-work-checklist.md }
+
+  - title: Core Docs
+    items:
+      - { label: Roadmap, page: roadmap.md }
+      - { label: "User Needs", page: living-user-needs.md }
+      - { label: Architecture, page: photonforge-architecture.md }
+      - { label: "KPM Dashboard", page: kpm-dashboard.md }
+      - { label: "GitHub Integration", page: github-integration-subprojects.md }
+
+  - title: Architecture Notes
+    items:
+      - { label: "Doc Source of Truth", page: architecture/doc-source-of-truth.md }
+      - { label: "Scoring Module Contracts", page: architecture/scoring-module-contracts.md }
+      - { label: "Stage 6 Engineer Brief", page: architecture/stage-6-engineer-brief.md }
+      - { label: "Subject-Enabled Subscores", page: architecture/subject-enabled-subscores.md }
+      - { label: "HB-3 Wiki Refactor Brief", page: architecture/hb-3-wiki-refactor-brief.md }
+
+  - title: Research
+    items:
+      - { label: Overview, page: research/index.md }
+      - { label: "Scoring Redesign", page: research/scoring-redesign.md }
+      - { label: "Photo Tag Taxonomy", page: research/photo-tag-taxonomy-research-brief.md }
+      - { label: "Labeling Quick Reference", page: research/photonforge-labeling-quick-reference.md }
+      - { label: "Genre Back-Training", page: research/2026-05-24-genre-back-training-research.md }
+
+  - title: System Reviews
+    items:
+      - { label: "2026-05-26 Architecture + Docs", page: SystemReviews/2026-05-26-architecture-and-docs-migration-review.md }
+
+  - title: Specs
+    items:
+      - { label: "Multi-Genre & Back-Training", page: superpowers/specs/2026-05-25-multi-genre-and-back-training-design.md }
+      - { label: "Scheduled Automation", page: superpowers/specs/2026-05-23-scheduled-automation-design.md }
+      - { label: "PR Automation", page: superpowers/specs/2026-05-23-pr-automation-design.md }
+      - { label: "GitHub Scaffolding", page: superpowers/specs/2026-05-23-github-scaffolding-design.md }
+      - { label: "Doc Reorganisation", page: superpowers/specs/2026-05-23-doc-reorg-design.md }
+      - { label: "Agent Write-back", page: superpowers/specs/2026-05-23-agent-writeback-design.md }
+      - { label: "Genre-Aware Scoring", page: superpowers/specs/2026-05-21-genre-aware-scoring-design.md }
+      - { label: "Pipeline v2", page: superpowers/specs/2026-05-20-pipeline-v2-design.md }
+      - { label: "Terminal Flash Bugfix", page: superpowers/specs/2026-05-14-terminal-flash-bugfix-design.md }
+      - { label: "Darktable Lua Plugin", page: superpowers/specs/2026-05-13-darktable-lua-plugin-design.md }
+      - { label: "Stage-Based CLI", page: superpowers/specs/2026-05-12-stage-based-cli-design.md }
+      - { label: "Cartridge Identity", page: superpowers/specs/2026-04-23-cartridge-identity-redesign.md }
+      - { label: "Cartridge Provisioning", page: superpowers/specs/2026-04-20-cartridge-provisioning-design.md }
+      - { label: "Ingest Pipeline", page: superpowers/specs/2026-04-20-ingest-pipeline-design.md }
+      - { label: "Stage 7.2 Ingest", page: superpowers/specs/2026-04-19-stage-7-2-ingest-cartridge-design.md }
+      - { label: "Stage 7.1 GUI", page: superpowers/specs/2026-04-17-stage-7-1-gui-scaffold-design.md }
+      - { label: "SSH Key Update", page: superpowers/specs/2026-04-17-ssh-key-update-design.md }
+      - { label: "Soak Test Notifications", page: superpowers/specs/2026-04-16-soak-test-notifications-design.md }
+      - { label: Overview, page: superpowers/index.md }
+
+  - title: Plans
+    items:
+      - { label: "GitHub Scaffolding", page: superpowers/plans/2026-05-23-github-scaffolding.md }
+      - { label: "Doc Reorganisation", page: superpowers/plans/2026-05-23-doc-reorg.md }
+      - { label: "Genre-Aware Scoring", page: superpowers/plans/2026-05-21-genre-aware-scoring.md }
+      - { label: "Pipeline v2", page: superpowers/plans/2026-05-20-pipeline-v2.md }
+      - { label: "Terminal Flash Bugfix", page: superpowers/plans/2026-05-14-terminal-flash-bugfix.md }
+      - { label: "Python Engine Changes", page: superpowers/plans/2026-05-13-python-engine-changes.md }
+      - { label: "Lua Plugin", page: superpowers/plans/2026-05-13-lua-plugin.md }
+      - { label: "Stage-Based CLI", page: superpowers/plans/2026-05-12-stage-based-cli.md }
+      - { label: "Cartridge Identity", page: superpowers/plans/2026-04-23-cartridge-identity-redesign.md }
+      - { label: "Cartridge Provisioning", page: superpowers/plans/2026-04-20-cartridge-provisioning.md }
+      - { label: "Ingest Pipeline", page: superpowers/plans/2026-04-20-ingest-pipeline.md }
+      - { label: "Stage 7.2 Ingest", page: superpowers/plans/2026-04-19-stage-7-2-ingest-cartridge.md }
+      - { label: "Stage 7.1 GUI", page: superpowers/plans/2026-04-17-stage-7-1-gui-scaffold.md }
+      - { label: "SSH Key Update", page: superpowers/plans/2026-04-17-ssh-key-update.md }
+      - { label: "Soak Test Notifications", page: superpowers/plans/2026-04-16-soak-test-notifications.md }
+
+  - title: GitHub Issue Snapshots
+    items:
+      - { label: "Genre Back-Training", page: github-issues/genre-detection-back-training.md }
+      - { label: "Multi-Genre Tagging", page: github-issues/multi-genre-tagging.md }
+
+  - title: Other
+    items:
+      - { label: "Drift Reports", page: drift-reports/index.md }
+      - { label: Notes, page: Notes.md }
