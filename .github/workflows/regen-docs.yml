@@ -1,4 +1,4 @@
-name: Regenerate Docs and Deploy MkDocs
+name: Regenerate Docs from Issues
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  regen-and-deploy:
+  regen:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,7 +24,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests PyYAML mkdocs-material
+        run: pip install requests PyYAML
 
       - name: Regenerate docs from GitHub Issues
         env:
@@ -39,5 +39,6 @@ jobs:
           git diff --staged --quiet || git commit -m "docs: auto-regenerate from GitHub Issues [skip ci]"
           git push
 
-      - name: Deploy MkDocs to GitHub Pages
-        run: mkdocs gh-deploy --force
+      # MkDocs Pages publish removed (HB-3 Step 1, 2026-05-27).
+      # Wiki is now the primary dev doc surface; published by wiki-publish.yml
+      # (HB-3 Step 4) which runs after this workflow completes.

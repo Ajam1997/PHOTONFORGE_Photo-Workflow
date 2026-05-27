@@ -22,7 +22,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests PyYAML mkdocs-material
+        run: pip install requests PyYAML
 
       - name: Run drift check
         env:
@@ -37,5 +37,6 @@ jobs:
           git diff --staged --quiet || git commit -m "docs: add nightly drift report [skip ci]"
           git push || true
 
-      - name: Rebuild and deploy MkDocs
-        run: mkdocs gh-deploy --force
+      # MkDocs Pages publish removed (HB-3 Step 1, 2026-05-27).
+      # Dev docs are now read from the GitHub Wiki; the docs/ -> Pages render is
+      # deprecated and will be revived later for user-facing documentation.
