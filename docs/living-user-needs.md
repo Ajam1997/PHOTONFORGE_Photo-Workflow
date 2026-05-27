@@ -69,21 +69,21 @@ Decomposes to: [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/i
 [UN-020](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/37): Each photo receives a descriptive semantic filename.
 Acceptance: generate_name() returns a non-empty string. No raw DSC names in output.
 KPM: KPM-1.2
-Stage: 3
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54), [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66), [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67)
 
 [UN-021](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/38): Processed photos are synced to Darktable with scores and metadata.
 Acceptance: library.db contains a record per image. XMP sidecar written per image.
 KPM: NONE
-Stage: 3
+Stage: ?
 Status: VERIFIED
 Decomposes to: [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55)
 
 [UN-022](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/16): Semantic filenames incorporate genre and scoring context for richer descriptions.
 Acceptance: generate_name() uses genre tag and top score dimensions to produce filenames that reflect subject and quality, not just scene description.
 KPM: KPM-1.2
-Stage: 3
+Stage: ?
 Status: DEFINED
 
 [UN-030](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/39): Photos ingest automatically from SD card on insertion.
