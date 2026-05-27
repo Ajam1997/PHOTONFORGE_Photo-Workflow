@@ -208,8 +208,14 @@ def rollup(pr_body: str, dry_run: bool = False) -> None:
         if epic_num:
             print(f"  Stage {stage_num}: closing legacy Epic #{epic_num} (backward compat)")
             if not dry_run:
-                client.replace_status_label(epic_num, "status: validated")
-                client.close_issue(epic_num)
+                try:
+                    client.replace_status_label(epic_num, "status: validated")
+                    client.close_issue(epic_num)
+                except Exception as e:  # noqa: BLE001 — best-effort cleanup
+                    # Epic may have been deleted during the Milestone migration.
+                    # Milestone closure (above) is the canonical action; this is cleanup.
+                    print(f"    note: Epic #{epic_num} not reachable ({type(e).__name__}); "
+                          f"likely deleted during Milestone migration. Skipping.")
 
 
 def main() -> None:
