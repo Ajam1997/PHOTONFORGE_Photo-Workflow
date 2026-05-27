@@ -10,7 +10,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from scripts.github_client import GitHubClient
 
-DOCS = Path("docs")
+DOCS = Path("dev-docs")
 SRC = Path("src")
 DRIFT_DIR = DOCS / "drift-reports"
 

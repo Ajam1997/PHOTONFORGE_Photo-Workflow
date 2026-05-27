@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.github_client import GitHubClient
 
 REPO_ROOT = Path(__file__).parent.parent
-ISSUE_MAP_PATH = REPO_ROOT / "docs" / "github-issue-map.json"
+ISSUE_MAP_PATH = REPO_ROOT / "dev-docs" / "github-issue-map.json"
 REQ_MAP_PATH = REPO_ROOT / "scripts" / "requirement_map.yml"
 
 

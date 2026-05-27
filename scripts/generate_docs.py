@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 from scripts.github_client import GitHubClient
 
-DOCS = Path("docs")
+DOCS = Path("dev-docs")
 SCRIPTS = Path("scripts")
 
 
