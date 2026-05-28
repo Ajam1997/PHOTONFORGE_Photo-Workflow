@@ -1,46 +1,57 @@
 #!/usr/bin/env python3
 """Agent-safe CLI for writing back to GitHub Issues.
 
-Agents (verification, validation) use this script to post results and update
-status labels. Never call the GitHub API directly — this script holds the token.
+Agents (verification, validation) use this script to post results.
+Never call the GitHub API directly â€” this script holds the token.
 
-ID-based commands (preferred — agents use requirement IDs, not Issue numbers):
+This script posts **comments only**. It never moves status labels.
+- `status: verified` on FR/NFR/UN is owned by `scripts/pr_rollup.py` on PR merge.
+- `status: validated` follows from the Epic rollup in `pr_rollup.py`.
+- A regression posts an evidence comment; it does NOT downgrade the label.
 
-  verify-fr <FR-ID> <summary>
-      Post pytest summary and set status: verified on the FR Issue.
-      Example: python scripts/github_comment.py verify-fr FR-1.2 "5/5 passed, 1.8s"
+Every ID-based command requires --next-action â€” the next reader uses that
+line to resume work (HB-8 enables SOP-B "resume mid-flight work"). Every
+comment carries a `via: @<agent>` footer so writer origin is legible (HB-7).
 
-  regress-fr <FR-ID> <reason>
-      Post regression detail and revert to status: defined.
-      Example: python scripts/github_comment.py regress-fr FR-1.2 "expected 0.85 got 0.72"
+ID-based commands:
+
+  verify-fr <FR-ID> <summary> --next-action "<text>" [--via verification]
+      Post a verification evidence comment on the FR Issue.
+
+  regress-fr <FR-ID> <reason> --next-action "<text>" [--via verification]
+      Post a regression evidence comment on the FR Issue. Does NOT move labels.
 
   update-kpm <KPM-ID> <last_measured> <passing|failing|untested>
-      Post measurement result, update Last Measured and KPM Status on the KPM Dashboard board.
-      Example: python scripts/github_comment.py update-kpm KPM-1.2 "1.8s on i7-7500U — 2026-05-23" passing
+             --next-action "<text>" [--via verification]
+      Post measurement; update Last Measured + Status on the KPM Dashboard project board.
 
-  validate-un <UN-ID> <summary>
-      Post E2E summary and set status: validated on the UN Issue.
-      Example: python scripts/github_comment.py validate-un UN-010 "all 3 scenarios passed"
+  validate-un <UN-ID> <summary> --next-action "<text>" [--via validation]
+      Post an E2E evidence comment on the UN Issue.
 
-  validation-failure <UN-ID> <reason>
-      Post comment on UN Issue and open a new type: validation-failure Issue.
-      Example: python scripts/github_comment.py validation-failure UN-010 "wrong clusters on burst"
+  validation-failure <UN-ID> <reason> --next-action "<text>" [--via validation]
+      Post comment on UN Issue and open a new type: validation-failure Issue
+      assigned to @architect.
 
-Low-level commands (for direct Issue number access):
+Low-level commands (Issue number directly; --next-action still required):
 
-  comment <issue_number> <body>
-  set-labels <issue_number> <label1> [<label2> ...]
-  close <issue_number>
+  comment <issue_number> <body> --next-action "<text>" [--via <name>]
+  set-labels <issue_number> <label1> [<label2> ...]    (no footer / no next-action)
+  close <issue_number>                                  (no footer / no next-action)
+
+ID resolution falls back from `dev-docs/github-issue-map.json` to a live
+`gh issue list --search` so a stale map never blocks a handoff (HB-6).
 """
-import sys
+import argparse
 import json
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.github_client import GitHubClient
 
-MAP_PATH = Path("docs/github-issue-map.json")
+MAP_PATH = Path("dev-docs/github-issue-map.json")
 
 
 def load_map() -> dict:
@@ -49,8 +60,12 @@ def load_map() -> dict:
     return {}
 
 
-def lookup_req(issue_map: dict, req_id: str) -> tuple[int, str]:
-    """Return (issue_number, node_id) for a FR, NFR, KPM, or UN ID. Raises KeyError if not found."""
+def lookup_req(client: GitHubClient, issue_map: dict, req_id: str) -> int:
+    """Return Issue number for a FR, NFR, KPM, or UN ID.
+
+    Tries the local map first; falls back to a live GitHub search so a stale
+    map never blocks an agent.
+    """
     prefix = req_id.split("-")[0].lower()
     section_map = {
         "fr": "functional_requirements",
@@ -60,158 +75,246 @@ def lookup_req(issue_map: dict, req_id: str) -> tuple[int, str]:
     }
     section = section_map.get(prefix)
     if section and req_id in issue_map.get(section, {}):
-        entry = issue_map[section][req_id]
-        return entry["number"], entry["node_id"]
-    raise KeyError(f"{req_id} not found in github-issue-map.json")
+        return issue_map[section][req_id]["number"]
+
+    # Fallback: live search by title prefix `[<REQ-ID>]`
+    print(f"note: {req_id} not in local issue map â€” searching live", file=sys.stderr)
+    found = client.find_issue_by_title(f"[{req_id}]")
+    if found:
+        return found["number"]
+
+    # Final fallback: gh CLI search (works even if GitHubClient search misses)
+    try:
+        result = subprocess.run(
+            ["gh", "issue", "list", "--search", f"{req_id} in:title",
+             "--state", "all", "--json", "number,title", "--limit", "5"],
+            capture_output=True, text=True, check=True,
+        )
+        issues = json.loads(result.stdout)
+        for issue in issues:
+            if f"[{req_id}]" in issue["title"]:
+                return issue["number"]
+    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+        pass
+
+    raise KeyError(
+        f"{req_id} not found in github-issue-map.json or via live search. "
+        f"Re-run scripts/seed_github.py if this is a new requirement."
+    )
+
+
+def kpm_project_meta(issue_map: dict) -> tuple[str | None, str | None, str | None]:
+    """Return (project_id, last_measured_field_id, status_field_id) or all None."""
+    projects = issue_map.get("projects", {})
+    kpm = projects.get("kpm_dashboard", {})
+    return (
+        kpm.get("id"),
+        kpm.get("fields", {}).get("last_measured_id"),
+        kpm.get("fields", {}).get("status_id"),
+    )
 
 
 def today_str() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-def cmd_verify_fr(client: GitHubClient, issue_map: dict, fr_id: str, summary: str) -> None:
-    num, _ = lookup_req(issue_map, fr_id)
-    body = f"## ✅ Verification Passed — {today_str()}\n\n**{fr_id}** · {summary}\n\n*Posted by @verification*"
-    client.post_comment(num, body)
-    client.replace_status_label(num, "status: verified")
-    print(f"verified {fr_id} (#{num})")
+def render_footer(via: str, next_action: str) -> str:
+    return f"\n\n---\n**Next action:** {next_action}\n\n*via: @{via}*"
 
 
-def cmd_regress_fr(client: GitHubClient, issue_map: dict, fr_id: str, reason: str) -> None:
-    num, _ = lookup_req(issue_map, fr_id)
-    body = f"## ❌ Regression Detected — {today_str()}\n\n**{fr_id}** · {reason}\n\n*Posted by @verification*"
-    client.post_comment(num, body)
-    client.replace_status_label(num, "status: defined")
-    print(f"regression on {fr_id} (#{num}) — reverted to status: defined")
+# --- command implementations ---
 
-
-def cmd_update_kpm(client: GitHubClient, issue_map: dict, kpm_id: str, last_measured: str, status: str) -> None:
-    if status not in ("passing", "failing", "untested"):
-        print(f"Error: status must be passing|failing|untested, got '{status}'")
-        sys.exit(1)
-
-    num, _ = lookup_req(issue_map, kpm_id)
-    icon = "✅" if status == "passing" else ("❌" if status == "failing" else "⬜")
+def cmd_verify_fr(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
+    num = lookup_req(client, issue_map, args.id)
     body = (
-        f"## {icon} KPM Update — {today_str()}\n\n"
-        f"**{kpm_id}** · `{last_measured}` · **{status}**\n\n"
-        f"*Posted by @verification*"
+        f"## Verification â€” {today_str()}\n\n"
+        f"**{args.id}** Â· {args.summary}"
+        f"{render_footer(args.via, args.next_action)}"
     )
     client.post_comment(num, body)
-    print(f"posted KPM comment on {kpm_id} (#{num})")
+    print(f"posted verification comment on {args.id} (#{num})")
+    print("note: status label NOT moved â€” pr_rollup.py owns that on PR merge.")
 
-    # Update KPM Dashboard board fields
-    projects = issue_map.get("projects", {})
-    kpm_project = projects.get("kpm_dashboard", {})
-    project_id = kpm_project.get("id")
-    fields = kpm_project.get("fields", {})
-    last_measured_field_id = fields.get("last_measured_id")
-    status_field_id = fields.get("status_id")
 
+def cmd_regress_fr(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
+    num = lookup_req(client, issue_map, args.id)
+    body = (
+        f"## Regression â€” {today_str()}\n\n"
+        f"**{args.id}** Â· {args.reason}"
+        f"{render_footer(args.via, args.next_action)}"
+    )
+    client.post_comment(num, body)
+    print(f"posted regression comment on {args.id} (#{num})")
+    print("note: status label NOT downgraded â€” this is evidence only. "
+          "Open an issue or revert the PR if the regression is real.")
+
+
+def cmd_update_kpm(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
+    if args.kpm_status not in ("passing", "failing", "untested"):
+        print(f"Error: status must be passing|failing|untested, got '{args.kpm_status}'")
+        sys.exit(2)
+
+    num = lookup_req(client, issue_map, args.id)
+    body = (
+        f"## KPM Update â€” {today_str()}\n\n"
+        f"**{args.id}** Â· `{args.last_measured}` Â· **{args.kpm_status}**"
+        f"{render_footer(args.via, args.next_action)}"
+    )
+    client.post_comment(num, body)
+    print(f"posted KPM comment on {args.id} (#{num})")
+
+    project_id, last_measured_field_id, status_field_id = kpm_project_meta(issue_map)
     if not project_id or not last_measured_field_id or not status_field_id:
-        print("Warning: KPM board field IDs missing from issue map — skipping board update")
+        print("note: KPM Dashboard board fields not in issue map â€” skipping board update")
         return
 
     item_id = client.find_project_item_by_issue_number(project_id, num)
     if not item_id:
-        print(f"Warning: {kpm_id} (#{num}) not found on KPM Dashboard board — skipping board update")
+        print(f"note: {args.id} (#{num}) not found on KPM Dashboard board â€” skipping board update")
         return
 
-    client.update_project_text_field(project_id, item_id, last_measured_field_id, last_measured)
-
-    option_id = client.get_project_select_option_id(project_id, status_field_id, status)
+    client.update_project_text_field(project_id, item_id, last_measured_field_id, args.last_measured)
+    option_id = client.get_project_select_option_id(project_id, status_field_id, args.kpm_status)
     if option_id:
         client.update_project_select_field(project_id, item_id, status_field_id, option_id)
-        print(f"updated KPM board: last_measured='{last_measured}', status='{status}'")
+        print(f"updated KPM board: last_measured='{args.last_measured}', status='{args.kpm_status}'")
     else:
-        print(f"Warning: could not find option '{status}' on KPM Status field — text field updated only")
+        print(f"note: could not find option '{args.kpm_status}' on KPM Status field â€” text field updated only")
 
 
-def cmd_validate_un(client: GitHubClient, issue_map: dict, un_id: str, summary: str) -> None:
-    num, _ = lookup_req(issue_map, un_id)
-    body = f"## ✅ Validation Passed — {today_str()}\n\n**{un_id}** · {summary}\n\n*Posted by @validation*"
-    client.post_comment(num, body)
-    client.replace_status_label(num, "status: validated")
-    print(f"validated {un_id} (#{num})")
-
-
-def cmd_validation_failure(client: GitHubClient, issue_map: dict, un_id: str, reason: str) -> None:
-    num, _ = lookup_req(issue_map, un_id)
+def cmd_validate_un(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
+    num = lookup_req(client, issue_map, args.id)
     body = (
-        f"## ❌ Validation Failed — {today_str()}\n\n"
-        f"**{un_id}** · {reason}\n\n"
-        f"*Posted by @validation — escalating to @architect*"
+        f"## Validation â€” {today_str()}\n\n"
+        f"**{args.id}** Â· {args.summary}"
+        f"{render_footer(args.via, args.next_action)}"
+    )
+    client.post_comment(num, body)
+    print(f"posted validation comment on {args.id} (#{num})")
+    print("note: status label NOT moved â€” pr_rollup.py + Epic merge own that transition.")
+
+
+def cmd_validation_failure(client: GitHubClient, issue_map: dict, args: argparse.Namespace) -> None:
+    num = lookup_req(client, issue_map, args.id)
+    body = (
+        f"## Validation Failure â€” {today_str()}\n\n"
+        f"**{args.id}** Â· {args.reason}\n\n"
+        f"Escalating to @architect for requirement reassessment."
+        f"{render_footer(args.via, args.next_action)}"
     )
     client.post_comment(num, body)
 
     failure_body = (
-        f"## Validation Failure — {un_id}\n\n"
+        f"## Validation Failure â€” {args.id}\n\n"
         f"**Date:** {today_str()}\n"
-        f"**User Need:** {un_id}\n"
-        f"**Reason:** {reason}\n\n"
-        f"Opened automatically by @validation. Assigned to @architect for requirement reassessment."
+        f"**User Need:** {args.id}\n"
+        f"**Reason:** {args.reason}\n\n"
+        f"Opened automatically by @validation. Assigned to @architect for requirement reassessment.\n\n"
+        f"**Next action:** {args.next_action}\n\n*via: @{args.via}*"
     )
     new_issue = client.create_issue(
-        f"[validation-failure] {un_id} — {today_str()}",
+        f"[validation-failure] {args.id} â€” {today_str()}",
         failure_body,
         ["type: validation-failure"],
     )
-    print(f"posted failure comment on {un_id} (#{num})")
+    print(f"posted failure comment on {args.id} (#{num})")
     print(f"opened validation-failure Issue #{new_issue['number']}")
 
 
+def cmd_comment(client: GitHubClient, args: argparse.Namespace) -> None:
+    body = args.body + render_footer(args.via, args.next_action)
+    result = client.post_comment(args.issue_number, body)
+    print(f"Posted comment {result['id']} on issue #{args.issue_number}")
+
+
+def cmd_set_labels(client: GitHubClient, args: argparse.Namespace) -> None:
+    client.set_labels(args.issue_number, args.labels)
+    print(f"Set labels {args.labels} on issue #{args.issue_number}")
+
+
+def cmd_close(client: GitHubClient, args: argparse.Namespace) -> None:
+    client.close_issue(args.issue_number)
+    print(f"Closed issue #{args.issue_number}")
+
+
+# --- argparse wiring ---
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="github_comment",
+        description="Agent-safe CLI for writing GitHub Issue comments. Comments only â€” never moves status labels.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    def add_next_action(sp: argparse.ArgumentParser, default_via: str) -> None:
+        sp.add_argument("--next-action", required=True,
+                        help="One-line next-step breadcrumb (HB-8 â€” required).")
+        sp.add_argument("--via", default=default_via,
+                        help=f"Agent footer name (default: {default_via}).")
+
+    # verify-fr
+    sp = sub.add_parser("verify-fr", help="Post FR verification evidence comment")
+    sp.add_argument("id"); sp.add_argument("summary")
+    add_next_action(sp, "verification")
+    sp.set_defaults(func=cmd_verify_fr, needs_map=True)
+
+    # regress-fr
+    sp = sub.add_parser("regress-fr", help="Post FR regression evidence comment")
+    sp.add_argument("id"); sp.add_argument("reason")
+    add_next_action(sp, "verification")
+    sp.set_defaults(func=cmd_regress_fr, needs_map=True)
+
+    # update-kpm
+    sp = sub.add_parser("update-kpm", help="Post KPM measurement + update Dashboard board")
+    sp.add_argument("id"); sp.add_argument("last_measured")
+    sp.add_argument("kpm_status", choices=["passing", "failing", "untested"])
+    add_next_action(sp, "verification")
+    sp.set_defaults(func=cmd_update_kpm, needs_map=True)
+
+    # validate-un
+    sp = sub.add_parser("validate-un", help="Post UN validation evidence comment")
+    sp.add_argument("id"); sp.add_argument("summary")
+    add_next_action(sp, "validation")
+    sp.set_defaults(func=cmd_validate_un, needs_map=True)
+
+    # validation-failure
+    sp = sub.add_parser("validation-failure", help="Post UN failure comment + open escalation Issue")
+    sp.add_argument("id"); sp.add_argument("reason")
+    add_next_action(sp, "validation")
+    sp.set_defaults(func=cmd_validation_failure, needs_map=True)
+
+    # low-level: comment (still requires breadcrumb)
+    sp = sub.add_parser("comment", help="Post raw comment on an Issue number")
+    sp.add_argument("issue_number", type=int); sp.add_argument("body")
+    add_next_action(sp, "operator")
+    sp.set_defaults(func=cmd_comment, needs_map=False)
+
+    # low-level: set-labels (no breadcrumb â€” operational maintenance, not handoff)
+    sp = sub.add_parser("set-labels", help="Set labels on Issue (no breadcrumb required)")
+    sp.add_argument("issue_number", type=int); sp.add_argument("labels", nargs="+")
+    sp.set_defaults(func=cmd_set_labels, needs_map=False)
+
+    # low-level: close (no breadcrumb)
+    sp = sub.add_parser("close", help="Close an Issue (no breadcrumb required)")
+    sp.add_argument("issue_number", type=int)
+    sp.set_defaults(func=cmd_close, needs_map=False)
+
+    return p
+
+
 def main() -> None:
-    if len(sys.argv) < 3:
-        print(__doc__)
-        sys.exit(1)
-
-    cmd = sys.argv[1]
+    parser = build_parser()
+    args = parser.parse_args()
     client = GitHubClient()
-    issue_map = load_map()
 
-    # --- ID-based commands ---
-    if cmd == "verify-fr":
-        fr_id, summary = sys.argv[2], sys.argv[3]
-        cmd_verify_fr(client, issue_map, fr_id, summary)
-
-    elif cmd == "regress-fr":
-        fr_id, reason = sys.argv[2], sys.argv[3]
-        cmd_regress_fr(client, issue_map, fr_id, reason)
-
-    elif cmd == "update-kpm":
-        kpm_id, last_measured, status = sys.argv[2], sys.argv[3], sys.argv[4]
-        cmd_update_kpm(client, issue_map, kpm_id, last_measured, status)
-
-    elif cmd == "validate-un":
-        un_id, summary = sys.argv[2], sys.argv[3]
-        cmd_validate_un(client, issue_map, un_id, summary)
-
-    elif cmd == "validation-failure":
-        un_id, reason = sys.argv[2], sys.argv[3]
-        cmd_validation_failure(client, issue_map, un_id, reason)
-
-    # --- Low-level commands ---
-    elif cmd == "comment":
-        issue_number = int(sys.argv[2])
-        body = sys.argv[3]
-        result = client.post_comment(issue_number, body)
-        print(f"Posted comment {result['id']} on issue #{issue_number}")
-
-    elif cmd == "set-labels":
-        issue_number = int(sys.argv[2])
-        labels = sys.argv[3:]
-        client.set_labels(issue_number, labels)
-        print(f"Set labels {labels} on issue #{issue_number}")
-
-    elif cmd == "close":
-        issue_number = int(sys.argv[2])
-        client.close_issue(issue_number)
-        print(f"Closed issue #{issue_number}")
-
+    if getattr(args, "needs_map", False):
+        issue_map = load_map()
+        # ID-based commands take (client, issue_map, args)
+        args.func(client, issue_map, args)
     else:
-        print(f"Unknown command: {cmd}")
-        print(__doc__)
-        sys.exit(1)
+        # Low-level commands take (client, args)
+        args.func(client, args)
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ Key paths on the Yoga 910:
   Library DB: /mnt/photon_ssd/001/darktable/library.db
 
 Living User Need Document:
-  ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md
+  ~/PHOTONFORGE_Photo-Workflow/dev-docs/living-user-needs.md
 
 ---
 
@@ -47,7 +47,7 @@ Living User Need Document:
 
 1. REQUIREMENT PULLS BY ID ONLY: Never read the full Living User Need Document.
    Pull each requirement by targeted grep:
-     ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md'
+     ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/dev-docs/living-user-needs.md'
 
 2. STAGE-SCOPED LOADING: Load only the UN-IDs that map to the merged stage
    (see Stage-to-Requirement Map). Do not preload all requirements.
@@ -63,7 +63,7 @@ Living User Need Document:
 
 6. LIVING USER NEED DOCUMENT ABSENT: If the file does not exist, write the
    stub (see Appendix A), output:
-   "Living User Need Document not found. Stub written to docs/living-user-needs.md.
+   "Living User Need Document not found. Stub written to dev-docs/living-user-needs.md.
     Populate UN-XXX entries before validation can run."
    Exit.
 
@@ -90,7 +90,7 @@ Extract stage number from merge commit message if present.
 Map to UN-IDs via the Stage-to-Requirement Map.
 
 Check if Living User Need Document exists:
-  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'test -f ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md && echo EXISTS || echo MISSING'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'test -f ~/PHOTONFORGE_Photo-Workflow/dev-docs/living-user-needs.md && echo EXISTS || echo MISSING'
 
 If MISSING: write stub (Appendix A) and exit.
 
@@ -99,7 +99,7 @@ If MISSING: write stub (Appendix A) and exit.
 ## Step 1: Pull Requirements
 
 For each UN-ID in scope:
-  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep -A 8 "^UN-[ID]" ~/PHOTONFORGE_Photo-Workflow/dev-docs/living-user-needs.md'
 
 Extract per requirement:
 - UN-ID
@@ -176,10 +176,10 @@ This test requires human physical action. Use the prompt-and-wait pattern.
 
 Total cycles: 50 (can be split across sessions -- track cycle count in soak log)
 
-Soak log: ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/soak-test-log.md
+Soak log: ~/PHOTONFORGE_Photo-Workflow/dev-docs/ValidationReports/soak-test-log.md
 
 Check current cycle count before starting:
-  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep "Cycle" ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/soak-test-log.md | tail -1'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep "Cycle" ~/PHOTONFORGE_Photo-Workflow/dev-docs/ValidationReports/soak-test-log.md | tail -1'
 
 For each cycle:
 
@@ -199,87 +199,73 @@ For each cycle:
      Fail: output is anything else -- record and halt soak test
   
   6. Append cycle result to soak log:
-     ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'echo "Cycle [N]: [PASS|FAIL] -- $(date)" >> ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/soak-test-log.md'
+     ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'echo "Cycle [N]: [PASS|FAIL] -- $(date)" >> ~/PHOTONFORGE_Photo-Workflow/dev-docs/ValidationReports/soak-test-log.md'
 
 If a FAIL occurs at any cycle: halt, write failure details to soak log,
 escalate to @devops. Do not continue cycling.
 
 ---
 
-## Step 5: Write Validation Report
+## Step 5: Post Results as Issue Comments
 
-Write to: ~/PHOTONFORGE_Photo-Workflow/docs/ValidationReports/YYYY-MM-DD-stage[N]-validation.md
+You do **not** write `dev-docs/ValidationReports/*.md` files. GitHub Issues are
+the canonical record (see `dev-docs/architecture/doc-source-of-truth.md`). Per UN
+in scope, post one comment via `scripts/github_comment.py`. Every call **must**
+include `--next-action "..."` so the next reader (operator or @architect) can
+resume without re-deriving context.
 
----
-# Validation Report -- Stage [N] -- [DATE]
+Examples:
 
-## Merge Commit
-[hash] [message]
+  # UN passed
+  python scripts/github_comment.py validate-un UN-010 \
+    "all 3 grouping scenarios passed; SQLite integrity ok; 0 missing XMP" \
+    --next-action "stage 2 closes; ready to start stage 3"
 
-## Requirements Validated
-| UN-ID | User Need | Acceptance Condition | Result |
-|-------|-----------|----------------------|--------|
-| UN-020 | ... | ... | PASS / FAIL / XFAIL-HARDWARE |
+  # UN failed â†’ opens an escalation Issue automatically
+  python scripts/github_comment.py validation-failure UN-010 \
+    "burst-shot clusters: 4 produced, 1 expected; see /tmp/pipeline_run.log" \
+    --next-action "@architect to reassess FR-1.1 cluster_sessions threshold"
 
-## KPM-1.4 Soak Test
-Cycles completed: [N]/50
-Last cycle: [date]
-Status: IN PROGRESS / COMPLETE / FAILED AT CYCLE [N]
+  # KPM-1.4 soak progress (per cycle batch)
+  python scripts/github_comment.py update-kpm KPM-1.4 \
+    "cycles 12/50 passed; integrity_check ok across all" passing \
+    --next-action "continue soak in next session, cycle 13 onward"
 
-## Edge Cases
-| Scenario | Expected | Actual | Result |
-|----------|----------|--------|--------|
-| Empty SD | Graceful exit | ... | PASS / FAIL |
-| No images | Graceful exit | ... | PASS / FAIL |
-| SSD absent | Error message | ... | PASS / FAIL |
-| Corrupt EXIF | Handled | ... | PASS / FAIL / SKIPPED |
+Each comment ends with a machine-added `via: @validation` footer (HB-7).
 
-## Failures Requiring Escalation
-| Failure | Escalate To | Description |
-|---------|-------------|-------------|
-| ... | @architect / @devops | ... |
+You do **not** move status labels. `validated` transitions are owned by the
+PR-merge rollup combined with the milestone tag on the Epic Issue. Your job
+is to post the evidence; the label follows.
 
-## E2E Test Scripts Written
-[list paths under tests/e2e/ or NONE]
-
-## Overall Status
-ALL PASS | FAILURES PRESENT | SOAK TEST IN PROGRESS
----
+KPM-1.4 soak progress: append cycle-by-cycle progress to the KPM-1.4 Issue
+via `update-kpm` (not to a `dev-docs/ValidationReports/soak-test-log.md` file â€”
+that path is removed under HB-1).
 
 ---
 
-## Step 6: Update Living User Need Document
+## Step 6: Living User Need Document â€” DO NOT EDIT
 
-Only execute for UN-IDs that PASSED in Step 3. Do not update failing requirements.
+The Living User Need Document (`dev-docs/living-user-needs.md`) is auto-generated
+from Issue labels by `scripts/generate_docs.py`. You **do not** edit it with
+`re.sub`, `sed`, or any other write. Post evidence on the UN Issue; the doc
+regenerates from Issue state on the next `regen-docs.yml` run.
 
-Run locally (not via SSH):
+If you find yourself opening `dev-docs/living-user-needs.md` for a write, stop â€”
+that path is removed by HB-1.
 
-  python3 -c "
-import re
-path = 'docs/living-user-needs.md'
-ids = ['UN-XXX', 'UN-YYY']  # substitute actual passing IDs from Step 3
-content = open(path).read()
-for uid in ids:
-    content = re.sub(
-        rf'({re.escape(uid)}:.*?Status:) (?:DEFINED|VERIFIED)',
-        r'\1 VALIDATED', content, flags=re.DOTALL
-    )
-open(path, 'w').write(content)
-print('VALIDATED: ' + ', '.join(ids))
-"
-
-Then commit:
-  git add docs/living-user-needs.md
-  git commit -m "validation: advance [UN-IDs] to VALIDATED -- Stage [N]"
+If the Living User Need Document does not yet exist, do not write the stub â€”
+instead, seed the UN Issues first (`scripts/seed_github.py`) and run
+`scripts/generate_docs.py`. The stub-on-demand path in Appendix A is retained
+for documentation only and is *not* an instruction to execute.
 
 ---
 
 ## Appendix A: Living User Need Document Stub
 
 If the document does not exist, create it at:
-~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md
+~/PHOTONFORGE_Photo-Workflow/dev-docs/living-user-needs.md
 
-  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cat > ~/PHOTONFORGE_Photo-Workflow/docs/living-user-needs.md << "EOF"
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'cat > ~/PHOTONFORGE_Photo-Workflow/dev-docs/living-user-needs.md << "EOF"
 # Living User Need Document -- PHOTONForge
 
 ## Format
@@ -373,3 +359,16 @@ EOF'
 - Do not escalate requirement failures to @engineer -- that goes to @architect
 - Do not interact with planning briefs or approval flags
 - Pull UN-IDs by grep only, never full document reads
+- Do not edit dev-docs/living-user-needs.md or any AUTO-managed doc
+- Do not move status labels (pr_rollup.py + Epic-merge own that transition)
+
+---
+
+## Paired Superpowers Skills
+
+**Mandatory:** `superpowers:verification-before-completion` â€” paste raw E2E
+output, SQLite query results, and file-listing output into the Issue comment.
+A summary without evidence is not a validation. The skill's rubric is the
+philosophical foundation for this agent.
+
+This pairing is also surfaced in CLAUDE.md â†’ Agent Roster.

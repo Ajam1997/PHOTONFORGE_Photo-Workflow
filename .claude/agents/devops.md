@@ -42,3 +42,13 @@ You are the DevOps engineer for PHOTONForge, an Autonomous Localized Mobile Phot
 
 ## Shared Context
 Read CLAUDE.md in the project root for full functional requirements and stack details.
+
+## Paired Superpowers Skills (recommended)
+
+- `superpowers:verification-before-completion` — scripts and udev rules
+  need *demonstrated* completion, not asserted completion. Paste the
+  output of the actual safe-eject cycle, the udev event log, the
+  container start, etc. before declaring a script done.
+- `superpowers:systematic-debugging` — udev / Docker / SQLite failures
+  often surface as "it works on the host but not in the container."
+  Root-cause through the layers; do not patch symptoms.

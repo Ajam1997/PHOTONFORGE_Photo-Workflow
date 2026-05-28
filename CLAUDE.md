@@ -6,11 +6,19 @@ Ingests from SD/SSD, analyzes, scores, names, and syncs to Darktable.
 All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / Ubuntu 24.04.
 
 ## Agent Roster
-- @architect (opus, read-only): architecture, interfaces, CLAUDE.md maintenance
-- @engineer (sonnet): src/, tests/, models/
-- @devops (sonnet): deploy/, scripts/
-- @verification (sonnet): commit-level test enforcement, KPM benchmarks
-- @validation (sonnet): milestone E2E validation, user need compliance
+
+| Agent | Scope | Superpowers pairing |
+|---|---|---|
+| @architect (opus, read-only) | architecture, interfaces, CLAUDE.md maintenance | recommend: `brainstorming`, `writing-plans`, `subagent-driven-development` |
+| @engineer (haiku) | src/, tests/, models/ | recommend: `test-driven-development`, `subagent-driven-development`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees` |
+| @devops (sonnet) | deploy/, scripts/, udev | recommend: `verification-before-completion`, `systematic-debugging` |
+| @verification (inherit) | commit-level test enforcement, KPM benchmarks | **mandate**: `verification-before-completion` |
+| @validation (inherit) | milestone E2E validation, user need compliance | **mandate**: `verification-before-completion` |
+| @systemmaster (operator-only) | deep cross-cutting reviews | n/a |
+
+Start every session with `dev-docs/start-work-checklist.md` (â‰ˆ60s).
+The full pairing rationale lives in
+`dev-docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` Â§6.4.
 
 ## Architecture Decisions
 - Composition over inheritance. AnalysisPipeline delegates to module functions.
@@ -18,7 +26,7 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 - onnxruntime CPU provider only. No GPU paths.
 
 ## Constraints
-- NFR-2.1: 100% offline at runtime. No network calls during pipeline execution. Initial machine provisioning (OS, packages, model downloads, quantization) may use the internet — see scripts/provision_models.sh.
+- NFR-2.1: 100% offline at runtime. No network calls during pipeline execution. Initial machine provisioning (OS, packages, model downloads, quantization) may use the internet â€” see scripts/provision_models.sh.
 - NFR-2.2: Total RSS <= 1.5 GB; CPU affinity capped at 80%.
 - NFR-2.3: library.db + user config live on external SSD, not host.
 - NFR-2.4: zenity dialog when SD inserted without SSD connected.
@@ -50,6 +58,8 @@ scripts/   -- safe_eject.sh, manage_ssd.sh, install_udev.sh
 deploy/    -- Dockerfile, docker-compose.yml, udev/
 tests/     -- fixtures/, test_*.py
 models/    -- florence2_int8/ (vendored, not downloaded)
+dev-docs/  -- developer documentation (markdown source for the GitHub Wiki)
+docs/      -- placeholder for future end-user documentation (currently empty)
 
 ## Build Sequence
 1. Scaffold (@architect): pyproject.toml, directory structure, empty modules ✓
@@ -57,32 +67,53 @@ models/    -- florence2_int8/ (vendored, not downloaded)
 3. Inference + Bridge (@engineer): Florence-2-base-ft naming + Darktable SQLite/XMP ✓
 4. Host Integration (@devops): udev rules, SSD cartridge scripts, Dockerfile ✓
 5. Integration (@engineer + @architect): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
-6. Scoring System Modularization (@engineer, in progress): replace the monolithic `score_fusion.py` with a five-module pipeline (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) driven by the 16-Subject × 12-Photo-Type taxonomy. Subject is the region router; Type is the aesthetic weighter; master score is `min(technical, aesthetic)` with a swappable fusion strategy. Per-Type weights live in SQLite (`aesthetic_weights` table) bootstrapped from `docs/research/scoring-redesign.md §5`. Interfaces are locked in `docs/architecture/scoring-module-contracts.md`; execute the 6-step migration checklist at the bottom of that doc, one independently revertable step per PR. Backward compatibility for `pipeline.py` / `darktable_bridge.py` / XMP writer is preserved via `FusionResult`'s existing flat fields and `SubScoreBundle.as_flat_dict()`. Step 1 brief: `docs/architecture/stage-6-engineer-brief.md`.
+6. Scoring System Modularization (@engineer, in progress): replace the monolithic `score_fusion.py` with a five-module pipeline (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) driven by the 16-Subject × 12-Photo-Type taxonomy. Subject is the region router; Type is the aesthetic weighter; master score is `min(technical, aesthetic)` with a swappable fusion strategy. Per-Type weights live in SQLite (`aesthetic_weights` table) bootstrapped from `dev-docs/research/scoring-redesign.md §5`. Interfaces are locked in `dev-docs/architecture/scoring-module-contracts.md`; execute the 6-step migration checklist at the bottom of that doc, one independently revertable step per PR. Backward compatibility for `pipeline.py` / `darktable_bridge.py` / XMP writer is preserved via `FusionResult`'s existing flat fields and `SubScoreBundle.as_flat_dict()`. Step 1 brief: `dev-docs/architecture/stage-6-engineer-brief.md`.
 
-Full spec: docs/photo-workflow-architecture-v4.docx
+Full spec: dev-docs/Archive/photo-workflow-architecture-v4.docx
 
 ## Agent Write-back Protocol
 
-Agents write results back to GitHub Issues via `scripts/github_comment.py`.
-**Never call the GitHub API directly.** All commands read GITHUB_TOKEN from environment.
-Issue numbers are resolved automatically from `docs/github-issue-map.json`.
+**Canonical source of truth: GitHub Issues.** `dev-docs/` is a render target via
+`scripts/generate_docs.py`; the wiki is a one-way export. Agents post evidence
+as Issue comments. Agents do **not** edit `dev-docs/living-user-needs.md` or any
+other AUTO-managed file by hand, and they do **not** move status labels â€” that
+is `pr_rollup.py`'s job on PR merge. See `dev-docs/architecture/doc-source-of-truth.md`.
 
-**@verification** (after every commit to main):
+Agents write results via `scripts/github_comment.py`. **Never call the GitHub
+API directly.** All commands read GITHUB_TOKEN from environment. Requirement
+IDs (FR-X.Y, UN-XXX, KPM-X.Y) are resolved live via `gh issue list --search`;
+no local map file is required.
+
+Every comment **must** end with a `**Next action:** ...` line (HB-8 â€” enables
+SOP-B "resume mid-flight work"). Every agent comment carries a `via: @<agent>`
+footer so the writer's origin is legible to the next reader (HB-7).
+
+**@verification** (after every commit to main, posts measurements only):
 ```bash
 # On test pass:
-python scripts/github_comment.py verify-fr FR-1.2 "pytest: 5/5 passed, 1.8s avg"
+python scripts/github_comment.py verify-fr FR-1.2 \
+  "pytest: 5/5 passed, 1.8s avg" \
+  --next-action "merge ready; @engineer to open PR"
 # On regression:
-python scripts/github_comment.py regress-fr FR-1.2 "test_sharpness failed: expected 0.85 got 0.72"
+python scripts/github_comment.py regress-fr FR-1.2 \
+  "test_sharpness failed: expected 0.85 got 0.72" \
+  --next-action "@engineer revisit blur kernel threshold"
 # After benchmark:
-python scripts/github_comment.py update-kpm KPM-1.2 "1.8s on i7-7500U — 2026-05-23" passing
+python scripts/github_comment.py update-kpm KPM-1.2 \
+  "1.8s on i7-7500U â€” 2026-05-23" passing \
+  --next-action "no action; KPM still inside budget"
 ```
 
-**@validation** (on milestone merge or manual invocation):
+**@validation** (on milestone merge or manual invocation, posts evidence only):
 ```bash
 # On E2E pass:
-python scripts/github_comment.py validate-un UN-010 "all 3 grouping scenarios passed"
+python scripts/github_comment.py validate-un UN-010 \
+  "all 3 grouping scenarios passed" \
+  --next-action "stage 2 closes; ready to start stage 3"
 # On E2E failure:
-python scripts/github_comment.py validation-failure UN-010 "wrong clusters on burst shots — 4 grouped, expected 1"
+python scripts/github_comment.py validation-failure UN-010 \
+  "wrong clusters on burst shots â€” 4 grouped, expected 1" \
+  --next-action "@architect to reassess FR-1.1 dHash threshold"
 ```
 
 ## Remote Execution

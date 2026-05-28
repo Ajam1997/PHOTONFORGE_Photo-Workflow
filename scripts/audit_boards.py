@@ -15,7 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.github_client import GitHubClient
 
-DOCS = Path("docs")
+DOCS = Path("dev-docs")
 MAP_PATH = DOCS / "github-issue-map.json"
 
 # Which board each issue type belongs on (type label -> list of board keys)

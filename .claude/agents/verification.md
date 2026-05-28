@@ -59,8 +59,8 @@ Florence-2 ONNX sessions (all 4 must be present before inference benchmarks):
 3. NO FULL REPO SCANS: Never use Glob or Grep across the entire repo.
    Scope all searches to files identified in the diff.
 
-4. LIVING USER NEED DOCUMENT: Do not read it for requirement context — that is
-   @validation scope. You may make targeted Status writes (DEFINED → VERIFIED)
+4. LIVING USER NEED DOCUMENT: Do not read it for requirement context â€” that is
+   @validation scope. You may make targeted Status writes (DEFINED â†’ VERIFIED)
    after all tests pass for a module. See Step 6.
 
 5. SKIP IF CLEAN: If all tests passed on the previous run AND the current
@@ -186,7 +186,7 @@ If any test failed:
 - Test design issue: fix the test, re-run, update report
 - Implementation bug: do NOT fix it. Write an @engineer error report:
 
-  Write to: ~/PHOTONFORGE_Photo-Workflow/docs/VerificationReports/YYYY-MM-DD-failure-[hash].md
+  Write to: ~/PHOTONFORGE_Photo-Workflow/dev-docs/VerificationReports/YYYY-MM-DD-failure-[hash].md
 
   ---
   VERIFICATION FAILURE -- [DATE] [COMMIT HASH]
@@ -200,85 +200,52 @@ If any test failed:
 
 ---
 
-## Step 5: Write Verification Report
+## Step 5: Post Results as Issue Comments
 
-Write to: ~/PHOTONFORGE_Photo-Workflow/docs/VerificationReports/YYYY-MM-DD-HH-MM-verification.md
+You do **not** write `dev-docs/VerificationReports/*.md` files. GitHub Issues are
+the canonical record (see `dev-docs/architecture/doc-source-of-truth.md`).
+Per affected FR/KPM, post one comment via `scripts/github_comment.py`. Every
+call **must** include `--next-action "..."` â€” the next reader (operator or
+@engineer) uses that line to resume work without re-deriving context.
 
----
-# Verification Report -- [DATETIME]
+Examples:
 
-## Commit
-[hash] [message]
+  # FR test pass
+  python scripts/github_comment.py verify-fr FR-1.2 \
+    "pytest tests/test_sharpness.py: 5/5 passed, 1.8s avg" \
+    --next-action "merge ready"
 
-## Changed Files
-[list from diff]
+  # FR regression
+  python scripts/github_comment.py regress-fr FR-1.4 \
+    "test_grouping failed: expected 3 clusters got 4 â€” see traceback below" \
+    --next-action "@engineer revisit cluster_sessions time threshold"
 
-## Test Results
-| Test | Module | FR | Result |
-|------|--------|----|--------|
-| ... | ... | FR-1.X | PASS / FAIL |
+  # KPM measurement
+  python scripts/github_comment.py update-kpm KPM-1.2 \
+    "Florence-2 inference: 1.83s/image on i7-7500U (avg over 8 images)" passing \
+    --next-action "no action; KPM still inside 2.5s budget"
 
-## KPM Results
-| KPM | Target | Measured | Status |
-|-----|--------|----------|--------|
-| KPM-1.1 | >= 500 MB/s | [value] | PASS / FAIL / XFAIL-HARDWARE |
-| KPM-1.2 | <= 2.5s/image | [value]s | PASS / FAIL / NOT TRIGGERED |
-| KPM-1.3 | RSS <= 1.5 GB | [value]GB | PASS / FAIL / NOT TRIGGERED |
+Each comment ends with a machine-added `via: @verification` footer so its
+origin is legible to the next reader (HB-7).
 
-## New Tests Generated
-[list or NONE]
-
-## Failures
-[list with report paths, or NONE]
-
-## Overall Status
-ALL PASS | FAILURES PRESENT | XFAIL-HARDWARE PENDING
----
+You do **not** move status labels. Label transitions are owned by
+`pr_rollup.py` on PR merge (for `verified`) and by @validation (for
+`validated`). If a verification reveals that an FR is *not* verified, post a
+`regress-fr` comment â€” that emits the comment without flipping the label.
 
 ---
 
-## Step 6: Update Living User Need Document
+## Step 6: Living User Need Document â€” DO NOT EDIT
 
-Only execute if ALL tests in Step 1 passed and Step 4 produced no failures.
+The Living User Need Document (`dev-docs/living-user-needs.md`) is auto-generated
+from Issue labels by `scripts/generate_docs.py`. You **do not** edit it with
+`re.sub`, `sed`, or any other write. Your job is to post the evidence on the
+Issue; the label transition happens on PR merge via `pr_rollup.py`; the doc
+regenerates from the Issue state on the next `regen-docs.yml` run.
 
-Module-to-UN mapping:
-
-| Module | UN-IDs |
-|--------|--------|
-| grouping.py | UN-010 |
-| dedup.py | UN-011 |
-| sharpness.py | UN-012 |
-| composition.py | UN-013 |
-| exposure.py | UN-014 |
-| naming.py | UN-020 |
-| darktable_bridge.py | UN-021 |
-| ingest.py | UN-030 |
-| cartridge.py | UN-031, UN-032 |
-| pipeline.py | all modules present in diff |
-
-For each UN-ID that maps to a changed module whose tests all passed, advance
-`docs/living-user-needs.md` locally. Never downgrade — skip if already VERIFIED
-or VALIDATED.
-
-Run locally (not via SSH):
-
-  python3 -c "
-import re
-path = 'docs/living-user-needs.md'
-ids = ['UN-XXX', 'UN-YYY']  # substitute actual IDs from the mapping above
-content = open(path).read()
-for uid in ids:
-    content = re.sub(
-        rf'({re.escape(uid)}:.*?Status:) DEFINED',
-        r'\1 VERIFIED', content, flags=re.DOTALL
-    )
-open(path, 'w').write(content)
-print('VERIFIED: ' + ', '.join(ids))
-"
-
-Then commit:
-  git add docs/living-user-needs.md
-  git commit -m "verification: advance [UN-IDs] to VERIFIED -- [commit hash]"
+If you find yourself opening `dev-docs/living-user-needs.md` for a write, stop â€”
+that path is removed by HB-1 (see
+`dev-docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md`).
 
 ---
 
@@ -286,6 +253,20 @@ Then commit:
 - src/ and models/ changes only
 - Do not read Living User Need Document for requirement context
 - Do not modify src/ implementation code
+- Do not modify dev-docs/living-user-needs.md or any other AUTO-managed doc
+- Do not move status labels (pr_rollup.py owns that transition)
 - Do not run full repo scans
 - Do not interact with planning briefs or approval flags
 - Hardware-absent KPMs: XFAIL-HARDWARE, never error out
+
+---
+
+## Paired Superpowers Skills
+
+**Mandatory:** `superpowers:verification-before-completion` â€” its "evidence
+before claims" rubric is the philosophical match for this agent. Apply on
+every verification run: paste the actual pytest/benchmark output into the
+Issue comment, not a paraphrase. If you cannot produce evidence, the
+verification has not happened.
+
+This pairing is also surfaced in CLAUDE.md â†’ Agent Roster.

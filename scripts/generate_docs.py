@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 from scripts.github_client import GitHubClient
 
-DOCS = Path("docs")
+DOCS = Path("dev-docs")
 SCRIPTS = Path("scripts")
 
 
@@ -31,6 +31,28 @@ def _body_field(body: str, field: str) -> str:
     """Extract field value from issue body like '**Field:** value' -> 'value'"""
     m = re.search(rf"\*\*{re.escape(field)}:\*\*\s*(.+?)(?=\n\n|\Z)", body, re.DOTALL)
     return m.group(1).strip() if m else ""
+
+
+def _body_list_field(body: str, field: str) -> list[str]:
+    """Extract a bullet-list field. Example:
+
+        **Verified By:**
+        - pytest: tests/test_sharpness.py::test_x
+        - pytest: tests/test_sharpness.py::test_y
+
+    Returns ["pytest: tests/test_sharpness.py::test_x", "pytest: tests/test_sharpness.py::test_y"].
+    Blank line or next `**Field:**` heading ends the section.
+    """
+    pattern = rf"\*\*{re.escape(field)}:\*\*\s*\n((?:[ \t]*-\s*.+\n?)+)"
+    m = re.search(pattern, body)
+    if not m:
+        return []
+    items: list[str] = []
+    for line in m.group(1).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            items.append(stripped[2:].strip())
+    return items
 
 
 def render_user_needs_section(
@@ -121,16 +143,105 @@ def render_kpm_table(issues: list[dict]) -> str:
     return "\n".join(rows)
 
 
-def render_roadmap_section(epic_issues: list[dict]) -> str:
-    """Render roadmap table with stage, title, status."""
-    lines = ["| Stage | Title | Status |", "|:---|:---|:---|"]
-    for issue in sorted(epic_issues, key=lambda i: i["title"]):
-        title = issue["title"].removeprefix("[Epic] ")
-        labels = [l["name"] for l in issue.get("labels", [])]
-        stage = next((l.removeprefix("stage: ") for l in labels if l.startswith("stage: ")), "?")
-        state = "Done" if issue.get("state") == "closed" else "In Progress"
+def render_vv_matrix(
+    un_issues: list[dict],
+    fr_issues: list[dict],
+    nfr_issues: list[dict],
+    kpm_issues: list[dict],
+) -> str:
+    """Render the V&V matrix table.
+
+    Columns: ID · Type · Verified By · Validated By · Coverage
+    Coverage flags: ✓ verified+validated, ⚠ partial, ✗ neither (unverified).
+    """
+    rows = [
+        "| ID | Type | Verified By | Validated By | Coverage |",
+        "|:---|:---|:---|:---|:---:|",
+    ]
+
+    def coverage(verified: list[str], validated: list[str], req_type: str) -> str:
+        # UNs derive verification from children — no direct check here.
+        # KPMs are self-validating.
+        if req_type == "user-need":
+            return "✓" if validated else "⚠"
+        if req_type == "kpm":
+            return "✓" if verified else "✗"
+        if verified and validated:
+            return "✓"
+        if verified or validated:
+            return "⚠"
+        return "✗"
+
+    def row_for(issue: dict, req_type_label: str, req_type_key: str) -> str:
+        req_id = _extract_id(issue["title"])
+        body = issue.get("body", "") or ""
+        verified = _body_list_field(body, "Verified By")
+        validated = _body_list_field(body, "Validated By")
+        cov = coverage(verified, validated, req_type_key)
+        v_cell = "<br>".join(f"`{x}`" for x in verified) if verified else "—"
+        va_cell = "<br>".join(f"`{x}`" for x in validated) if validated else "—"
         url = issue["html_url"]
-        lines.append(f"| {stage} | [{title}]({url}) | {state} |")
+        return f"| [{req_id}]({url}) | {req_type_label} | {v_cell} | {va_cell} | {cov} |"
+
+    grouped = (
+        [(i, "UN", "user-need") for i in sorted(un_issues, key=lambda i: _extract_id(i["title"]))]
+        + [(i, "FR", "fr") for i in sorted(fr_issues, key=lambda i: _extract_id(i["title"]))]
+        + [(i, "NFR", "nfr") for i in sorted(nfr_issues, key=lambda i: _extract_id(i["title"]))]
+        + [(i, "KPM", "kpm") for i in sorted(kpm_issues, key=lambda i: _extract_id(i["title"]))]
+    )
+    for issue, label, key in grouped:
+        rows.append(row_for(issue, label, key))
+
+    # Footer: coverage summary
+    total = len(grouped)
+    full = sum(
+        1 for issue, _, key in grouped
+        if coverage(_body_list_field(issue.get("body") or "", "Verified By"),
+                    _body_list_field(issue.get("body") or "", "Validated By"),
+                    key) == "✓"
+    )
+    rows.append("")
+    rows.append(f"_Coverage: **{full} / {total}** requirements fully verified+validated. "
+                f"Per `dev-docs/architecture/vv-matrix.md`._")
+    return "\n".join(rows)
+
+
+_STAGE_TITLE_RE = re.compile(r"^Stage\s+(\d+)\b")
+
+
+def render_roadmap_section(milestones: list[dict]) -> str:
+    """Render roadmap table from GitHub Milestones (post Increment 3 migration).
+
+    Each milestone titled like "Stage N — Title" becomes one row.
+    Status is derived from milestone state + open/closed counts:
+      - "Done"        — milestone state == "closed"
+      - "In Progress" — milestone state == "open", any issues closed
+      - "Not Started" — milestone state == "open", zero issues closed
+    """
+    lines = ["| Stage | Title | Status | Progress |", "|:---|:---|:---|:---|"]
+    stage_entries: list[tuple[int, str]] = []
+    for ms in milestones:
+        m = _STAGE_TITLE_RE.match(ms.get("title", ""))
+        if not m:
+            continue
+        stage_num = int(m.group(1))
+        title = ms["title"]
+        url = ms["html_url"]
+        open_count = ms.get("open_issues", 0)
+        closed_count = ms.get("closed_issues", 0)
+        total = open_count + closed_count
+        if ms.get("state") == "closed":
+            status = "Done"
+        elif closed_count > 0:
+            status = "In Progress"
+        else:
+            status = "Not Started"
+        progress = f"{closed_count}/{total}" if total else "—"
+        stage_entries.append(
+            (stage_num, f"| {stage_num} | [{title}]({url}) | {status} | {progress} |")
+        )
+    for _, row in sorted(stage_entries):
+        lines.append(row)
     return "\n".join(lines)
 
 
@@ -153,7 +264,7 @@ def main() -> None:
     fr_issues = client.list_issues(labels="type: fr", state="all")
     nfr_issues = client.list_issues(labels="type: nfr", state="all")
     kpm_issues = client.list_issues(labels="type: kpm", state="all")
-    epic_issues = client.list_issues(labels="type: epic", state="all")
+    milestones = client.list_milestones(state="all")
 
     # Regenerate living-user-needs.md
     un_path = DOCS / "living-user-needs.md"
@@ -171,6 +282,10 @@ def main() -> None:
     text = inject_auto_section(text, "fr_table", render_fr_table(fr_issues))
     text = inject_auto_section(text, "nfr_table", render_nfr_table(nfr_issues))
     text = inject_auto_section(text, "kpm_table", render_kpm_table(kpm_issues))
+    text = inject_auto_section(
+        text, "vv_matrix",
+        render_vv_matrix(un_issues, fr_issues, nfr_issues, kpm_issues),
+    )
     arch_path.write_text(text, encoding="utf-8")
     print(f"Updated {arch_path}")
 
@@ -178,7 +293,7 @@ def main() -> None:
     roadmap_path = DOCS / "roadmap.md"
     if roadmap_path.exists():
         text = roadmap_path.read_text(encoding="utf-8")
-        text = inject_auto_section(text, "roadmap", render_roadmap_section(epic_issues))
+        text = inject_auto_section(text, "roadmap", render_roadmap_section(milestones))
         roadmap_path.write_text(text, encoding="utf-8")
         print(f"Updated {roadmap_path}")
 
