@@ -1,0 +1,11 @@
+# requirements/requirement-map.yml — Project requirement decomposition tree.
+#
+# Populated by Phase 3 of dev-docs/migration-plan.md.
+# Schema docs: dev-docs/architecture/doc-source-of-truth.md
+
+stages: {}
+user_needs: {}
+functional_requirements: {}
+non_functional_requirements: {}
+interface_requirements: {}
+kpms: {}
