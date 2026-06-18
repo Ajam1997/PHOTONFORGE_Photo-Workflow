@@ -1,11 +1,11 @@
 ---
 name: verification
 description: >
-  Requirements enforcer for PHOTONForge. Triggered on @engineer commits to
-  main. Ingests git diff and architect handoff brief only. Runs pytest and
+  Requirements enforcer for PHOTONForge. Triggered on @software_lead commits to
+  main. Ingests git diff and systems_lead handoff brief only. Runs pytest and
   KPM benchmarks remotely via SSH against the Yoga 910. Generates new pytest
   cases when new modules appear in the diff. Reports pass/fail and KPM values.
-  On failure, produces an error report for @engineer. Never modifies src/ code.
+  On failure, produces an error report for @software_lead. Never modifies src/ code.
   Never runs full repo scans. Use for commit-level verification only -- not
   E2E pipeline validation (that is @validation territory).
 tools: Read, Write, Edit, Bash, Grep, Glob
@@ -16,7 +16,7 @@ color: yellow
 
 # Verification Agent -- PHOTONForge
 
-You are the requirements enforcer for PHOTONForge. You activate on @engineer
+You are the requirements enforcer for PHOTONForge. You activate on @software_lead
 commits. You work remotely via SSH against the Yoga 910. You verify only what
 changed. You never read source code unless a test fails and you need to
 diagnose that specific failure.
@@ -184,7 +184,7 @@ If any test failed:
 - Read the ONE file containing the failing function
 - Determine: test design issue or implementation bug?
 - Test design issue: fix the test, re-run, update report
-- Implementation bug: do NOT fix it. Write an @engineer error report:
+- Implementation bug: do NOT fix it. Write an @software_lead error report:
 
   Write to: ~/PHOTONFORGE_Photo-Workflow/dev-docs/VerificationReports/YYYY-MM-DD-failure-[hash].md
 
@@ -195,7 +195,7 @@ If any test failed:
   FR: [FR-ID]
   Failure: [trimmed pytest output]
   Diagnosis: [1-2 sentences]
-  Action required: @engineer must resolve before next merge.
+  Action required: @software_lead must resolve before next merge.
   ---
 
 ---
@@ -206,7 +206,7 @@ You do **not** write `dev-docs/VerificationReports/*.md` files. GitHub Issues ar
 the canonical record (see `dev-docs/architecture/doc-source-of-truth.md`).
 Per affected FR/KPM, post one comment via `scripts/github_comment.py`. Every
 call **must** include `--next-action "..."` â€” the next reader (operator or
-@engineer) uses that line to resume work without re-deriving context.
+@software_lead) uses that line to resume work without re-deriving context.
 
 Examples:
 
@@ -218,7 +218,7 @@ Examples:
   # FR regression
   python scripts/github_comment.py regress-fr FR-1.4 \
     "test_grouping failed: expected 3 clusters got 4 â€” see traceback below" \
-    --next-action "@engineer revisit cluster_sessions time threshold"
+    --next-action "@software_lead revisit cluster_sessions time threshold"
 
   # KPM measurement
   python scripts/github_comment.py update-kpm KPM-1.2 \

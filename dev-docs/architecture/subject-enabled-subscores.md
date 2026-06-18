@@ -101,7 +101,7 @@ derived directly from this table:
 A gate firing on a Subject where it is not enabled is a contract violation
 and should fail in CI via the per-Subject gate-trace tests.
 
-## Open question for @architect review
+## Open question for @systems_lead review
 
 Should `sharpness.eye_region` for `wildlife`/`pet` use a separate enum
 value (e.g. `sharpness.animal_eye_region`) to make the region source

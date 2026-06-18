@@ -51,15 +51,15 @@ flowchart TB
 
 | Block | KPM | Constraint | Owner |
 |---|---|---|---|
-| `ingest_volume` | KPM-1.1 | rsync rate ≥ 80% USB 3.0 BW | @devops |
-| `cluster_sessions` | KPM-1.10 | grouping precision ≥ 90% F1 | @engineer |
-| `deduplicate` | KPM-1.6 | false-positive rate ≤ 1% | @engineer |
-| `generate_name` | KPM-1.2 | ≤ 2.5 s/image | @engineer |
-| `generate_name` | KPM-1.7 | naming output validity ≥ 95% | @engineer |
-| `fuse_scores` | KPM-1.8 | scoring determinism: variance ≤ 0.01 on identical re-run | @engineer |
-| entire flow | KPM-1.3 | peak RSS ≤ 1.5 GB | @engineer |
-| entire flow | KPM-1.5 | end-to-end throughput ≥ 10 photos/min | @engineer |
-| entire flow | KPM-1.9 | peak CPU ≤ 80% of cores | @devops |
+| `ingest_volume` | KPM-1.1 | rsync rate ≥ 80% USB 3.0 BW | @software_lead |
+| `cluster_sessions` | KPM-1.10 | grouping precision ≥ 90% F1 | @software_lead |
+| `deduplicate` | KPM-1.6 | false-positive rate ≤ 1% | @software_lead |
+| `generate_name` | KPM-1.2 | ≤ 2.5 s/image | @software_lead |
+| `generate_name` | KPM-1.7 | naming output validity ≥ 95% | @software_lead |
+| `fuse_scores` | KPM-1.8 | scoring determinism: variance ≤ 0.01 on identical re-run | @software_lead |
+| entire flow | KPM-1.3 | peak RSS ≤ 1.5 GB | @software_lead |
+| entire flow | KPM-1.5 | end-to-end throughput ≥ 10 photos/min | @software_lead |
+| entire flow | KPM-1.9 | peak CPU ≤ 80% of cores | @software_lead |
 
 ## Concurrency notes
 

@@ -33,7 +33,7 @@ Instructions:
 6. Write the validation report to:
      dev-docs/ValidationReports/YYYY-MM-DD-stage[STAGE_NUMBER]-validation.md
 
-7. If any UN-ID fails, escalate to @architect. Do not escalate to @engineer.
+7. If any UN-ID fails, escalate to @systems_lead. Do not escalate to @software_lead.
 
 Do not read any files under src/photo_workflow/.
 Do not modify tests/test_*.py.
@@ -78,7 +78,7 @@ Instructions:
 6. Update Status field in living-user-needs.md for each UN-ID that passes:
    DEFINED -> VALIDATED
 
-7. If any UN-ID fails, escalate to @architect with the validation report path.
+7. If any UN-ID fails, escalate to @systems_lead with the validation report path.
 
 Do not read any files under src/photo_workflow/.
 Do not modify tests/test_*.py.

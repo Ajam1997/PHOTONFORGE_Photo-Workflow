@@ -14,7 +14,7 @@ Revision 7.0 | May 23, 2026 | Development Platform: Claude Code (Multi-Agent)
 
 PhotonForge is an autonomous ingest-to-edit photography system that transforms a Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition) into a purpose-built photography workstation. The system ingests from SD cards, analyzes and scores images, generates semantic filenames, and syncs results to Darktable -- all offline, all local.
 
-The system architecture spans three layers: (1) a Python analysis pipeline for image intelligence, (2) a host integration layer using udev, Docker, and shell scripts, and (3) a Darktable Lua script that renders a PHOTONForge control panel in the lighttable view. Development uses Claude Code with a five-agent roster: @architect, @engineer, @devops, @verification, and @validation.
+The system architecture spans three layers: (1) a Python analysis pipeline for image intelligence, (2) a host integration layer using udev, Docker, and shell scripts, and (3) a Darktable Lua script that renders a PHOTONForge control panel in the lighttable view. Development uses Claude Code with a five-agent roster: @systems_lead, @software_lead, @verification, @validation, and @systemmaster.
 
 ---
 
@@ -351,22 +351,22 @@ The inference subsystem targets the i7-7500U's AVX2 instruction set with a 4-mod
 
 | Agent | Model | Tools | Scope | Memory | Color |
 |:---|:---|:---|:---|:---|:---|
-| @architect | opus | Read, Grep, Glob (read-only) | CLAUDE.md, architecture, interface contracts, dependency decisions | user | blue |
-| @engineer | sonnet | All tools | src/, tests/test_*.py, models/ | project | green |
-| @devops | sonnet | All tools | deploy/, scripts/ | project | orange |
-| @verification | sonnet | All tools | tests/test_*.py, docs/VerificationReports/ | project | yellow |
-| @validation | sonnet | All tools | tests/e2e/, docs/ValidationReports/, living-user-needs.md (by ID) | project | cyan |
+| @systems_lead | opus | Read, Grep, Glob, Write, Edit (read-only on src/) | CLAUDE.md, requirements tree, architecture, interface contracts (ICDs), dependency decisions | user | blue |
+| @software_lead | haiku | Read, Write, Edit, Bash, Grep, Glob | src/, tests/, models/ + host integration (deploy/, scripts/, udev) — the single implementation discipline (Profile A; absorbs the former @devops scope) | project | green |
+| @verification | inherit | Read, Write, Edit, Bash, Grep, Glob | tests/test_*.py, docs/VerificationReports/; commit-level test enforcement + KPM benchmarks | project | yellow |
+| @validation | inherit | Read, Write, Edit, Bash, Grep, Glob | tests/e2e/, docs/ValidationReports/, living-user-needs.md (by ID); milestone E2E validation | project | cyan |
+| @systemmaster | inherit | Read, Write, Edit, Bash, Grep, Glob | deep cross-cutting reviews (operator-invoked only) | n/a | magenta |
 
 ### 5.1 @verification (Requirements Enforcer)
 
-**Trigger:** @engineer commit to main
-**Input:** git diff HEAD~1 + @architect handoff brief (requirement IDs only)
+**Trigger:** @software_lead commit to main
+**Input:** git diff HEAD~1 + @systems_lead handoff brief (requirement IDs only)
 
 - **Unit test generation:** Create/extend pytest cases from diffs. Never modifies src/.
 - **KPM benchmarks:** KPM-1.2 timing, KPM-1.3 RSS, KPM-1.1 bandwidth.
 - **Context rules:** Diff-only reads. Single-failure file read on test failure. No full repo scans.
 - **Writes:** tests/test_*.py (new/extended), docs/VerificationReports/
-- **On failure:** Error report to @engineer. Never rewrites source code.
+- **On failure:** Error report to @software_lead. Never rewrites source code.
 
 ### 5.2 @validation (User Needs Advocate)
 
@@ -378,17 +378,17 @@ The inference subsystem targets the i7-7500U's AVX2 instruction set with a 4-mod
 - **Edge cases:** Empty SD, no images, SSD unmounted, corrupt EXIF.
 - **Context rules:** UN-ID grep only. Never reads src/ implementation.
 - **Writes:** tests/e2e/, docs/ValidationReports/, soak-test-log.md
-- **On failure:** Escalate to @architect for requirement reassessment.
+- **On failure:** Escalate to @systems_lead for requirement reassessment.
 - **Hardware-absent:** XFAIL-HARDWARE marker. Never silent skip.
 
 ### 5.3 Escalation Paths
 
 | Failure Source | Target | Action |
 |:---|:---|:---|
-| @verification test failure | @engineer | Error report with failing test, diff, requirement ID |
-| @validation E2E failure | @architect | Workflow compliance report with UN-ID mismatch |
+| @verification test failure | @software_lead | Error report with failing test, diff, requirement ID |
+| @validation E2E failure | @systems_lead | Workflow compliance report with UN-ID mismatch |
 | Hardware-absent test | XFAIL-HARDWARE | Marked, logged in soak-test-log.md for manual execution |
-| KPM regression | @engineer (1.2/1.3) or @devops (1.1/1.4) | Benchmark report with measured vs. target values |
+| KPM regression | @software_lead | Benchmark report with measured vs. target values |
 
 ### 5.4 Token Optimization Guardrails
 
@@ -556,15 +556,15 @@ photo-workflow/
 
 | Stage | Owner | Scope | Acceptance Criteria | UN-IDs |
 |:---|:---|:---|:---|:---|
-| 1. Scaffold | @architect | Project init, CLAUDE.md, pyproject.toml, agents | pip install -e . succeeds; pytest discovers tests; claude agents lists 5 | UN-001, UN-002 |
-| 2. Core Engine | @engineer | FR-1.2 through FR-1.6 | All tests pass; memory < 500 MB per module | UN-010 to UN-014 |
-| 3. Inference + Bridge | @engineer | FR-1.7 (Florence-2 4-model naming) + FR-1.8 (Darktable SQLite/XMP) | KPM-1.2 <= 2.5s/image; zero DB corruption | UN-020, UN-021 |
-| 4. Host Integration | @devops | FR-1.1, FR-1.9, FR-1.10: udev, cartridge, safe eject, Docker | KPM-1.1 >= 80% BW; KPM-1.4 50 safe removals | UN-030 to UN-032 |
-| 5. Parallel Build | @engineer + @devops | Concurrent Stage 2-4 (agent teams) | All individual stage criteria met | All Stage 2-4 |
-| 5.1 Batch CLI | @engineer | Stage-based CLI (scan/dedup/score/name/sync/status), JSONL manifest, resume/checkpoint, progress display | All subcommands work independently; 7000-photo batch completes with resume | UN-050 to UN-054 |
-| 6. Integration | @architect (lead) | Full pipeline E2E on Yoga 910 | All KPMs verified; SD-to-Darktable autonomous | All UN-IDs |
-| 7.1 Lua Panel | @engineer | Darktable Lua script: 3-tab panel (Ingest, Status, Cartridge), pipeline subprocess invocation | Panel renders in lighttable, pipeline runs from UI, cartridge eject works | -- |
-| 7.2 Polish | @engineer + @devops | Progress streaming, warning display, library refresh after sync | Real-time stage feedback, low-score warnings shown, lighttable refreshes | -- |
+| 1. Scaffold | @systems_lead | Project init, CLAUDE.md, pyproject.toml, agents | pip install -e . succeeds; pytest discovers tests; claude agents lists 5 | UN-001, UN-002 |
+| 2. Core Engine | @software_lead | FR-1.2 through FR-1.6 | All tests pass; memory < 500 MB per module | UN-010 to UN-014 |
+| 3. Inference + Bridge | @software_lead | FR-1.7 (Florence-2 4-model naming) + FR-1.8 (Darktable SQLite/XMP) | KPM-1.2 <= 2.5s/image; zero DB corruption | UN-020, UN-021 |
+| 4. Host Integration | @software_lead | FR-1.1, FR-1.9, FR-1.10: udev, cartridge, safe eject, Docker | KPM-1.1 >= 80% BW; KPM-1.4 50 safe removals | UN-030 to UN-032 |
+| 5. Parallel Build | @software_lead | Concurrent Stage 2-4 (agent teams) | All individual stage criteria met | All Stage 2-4 |
+| 5.1 Batch CLI | @software_lead | Stage-based CLI (scan/dedup/score/name/sync/status), JSONL manifest, resume/checkpoint, progress display | All subcommands work independently; 7000-photo batch completes with resume | UN-050 to UN-054 |
+| 6. Integration | @systems_lead (lead) | Full pipeline E2E on Yoga 910 | All KPMs verified; SD-to-Darktable autonomous | All UN-IDs |
+| 7.1 Lua Panel | @software_lead | Darktable Lua script: 3-tab panel (Ingest, Status, Cartridge), pipeline subprocess invocation | Panel renders in lighttable, pipeline runs from UI, cartridge eject works | -- |
+| 7.2 Polish | @software_lead | Progress streaming, warning display, library refresh after sync | Real-time stage feedback, low-score warnings shown, lighttable refreshes | -- |
 
 ---
 
@@ -610,7 +610,7 @@ Client-side testing runs via SSH to alex@10.27.27.10. The Yoga 910 hosts the run
 
 ### 11.3 V&V Execution Model
 
-@architect defines requirements -> @engineer implements -> @verification validates implementation against requirements (loop to @engineer on failure) -> merge to main -> @validation validates workflow against user needs (loop to @architect if feature works but misses user need).
+@systems_lead defines requirements -> @software_lead implements -> @verification validates implementation against requirements (loop to @software_lead on failure) -> merge to main -> @validation validates workflow against user needs (loop to @systems_lead if feature works but misses user need).
 
 Both V&V agents execute via Claude Code SSH sessions against the Yoga 910 for hardware-coupled validation.
 

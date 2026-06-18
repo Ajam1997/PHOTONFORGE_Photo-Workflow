@@ -1,6 +1,6 @@
 # HB-3 Engineer Brief — Wiki Becomes Primary Dev Doc Surface
 
-**Owner:** @devops
+**Owner:** @software_lead
 **Reviewer on completion:** operator (no automated verification — this is infra)
 **Source-of-truth for decisions:** `docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` §5 HB-3 + the 2026-05-27 operator answers below
 **Step:** 1 of 4 (this brief = the whole plan; execution split into 4 sequential commits/PRs)

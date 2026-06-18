@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-27
 **Branch:** `feature/gui-layer` (from `main` @ `ab88401`)
-**Author:** @architect session — brainstorming + architecture design
+**Author:** @systems_lead session — brainstorming + architecture design
 **Status:** Design complete, no implementation code yet
 
 ---

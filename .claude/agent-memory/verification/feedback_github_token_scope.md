@@ -13,4 +13,4 @@ This means `python scripts/github_comment.py update-kpm` will:
 
 **Why:** The GitHub Project board (PVT_kwHOAp7_Us4BYnas) requires read:project scope for GraphQL queries.
 
-**How to apply:** When running update-kpm commands, expect the board field update to fail. The issue comment still lands. Flag this to @devops or @architect to add read:project scope to the PAT. Do not treat the traceback as a verification failure — it is a token config issue.
+**How to apply:** When running update-kpm commands, expect the board field update to fail. The issue comment still lands. Flag this to @software_lead or @systems_lead to add read:project scope to the PAT. Do not treat the traceback as a verification failure — it is a token config issue.
