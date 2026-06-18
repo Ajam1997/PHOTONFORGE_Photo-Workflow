@@ -51,17 +51,17 @@ def _make_context(
 
 def test_genres_list_complete() -> None:
     """All built-in labels should be defined across both axes."""
-    assert len(SUBJECTS) == 16
-    assert len(PHOTO_TYPES) == 12
-    # 16 + 12 - 2 (landscape and wildlife overlap) = 26 unique
-    assert len(ALL_LABELS) == 26
+    assert len(SUBJECTS) == 13
+    assert len(PHOTO_TYPES) == 11
+    # 13 + 11, fully orthogonal (no shared labels) = 24 unique
+    assert len(ALL_LABELS) == 24
     assert GENRES is ALL_LABELS
-    for s in ("person", "people", "child", "wildlife", "pet", "plant",
-              "landscape", "seascape", "cityscape", "building", "vehicle",
-              "food", "object", "text", "night-sky", "abstract"):
+    for s in ("people", "pet", "wildlife", "plant", "landscape",
+              "seascape", "sky", "cityscape", "building", "vehicle",
+              "food", "object", "abstract"):
         assert s in SUBJECTS
-    for t in ("portrait", "candid", "landscape", "street", "wildlife",
-              "macro", "architecture", "action", "aerial", "long-exposure",
+    for t in ("portrait", "candid", "scenic", "street", "macro",
+              "architecture", "action", "aerial", "long-exposure",
               "still-life", "documentary"):
         assert t in PHOTO_TYPES
 
@@ -117,7 +117,7 @@ def test_yolo_evidence_person_boosts_portrait() -> None:
         class_id=0, class_name="person", bbox=(100, 50, 600, 800), confidence=0.9
     )
     evidence = _compute_yolo_evidence_type([person_det], image_area=1500 * 1000)
-    assert evidence["portrait"] > evidence["landscape"]
+    assert evidence["portrait"] > evidence["scenic"]
 
 
 def test_yolo_evidence_no_detections_neutral() -> None:
@@ -138,11 +138,11 @@ def test_exif_prior_telephoto_boosts_wildlife() -> None:
     assert prior["wildlife"] > prior["landscape"]
 
 
-def test_exif_prior_wide_angle_boosts_landscape() -> None:
-    """Wide focal length + small aperture boosts landscape on type axis."""
+def test_exif_prior_wide_angle_boosts_scenic() -> None:
+    """Wide focal length + small aperture boosts scenic on type axis."""
     exif = {"focal_length": 16.0, "aperture": 11.0, "shutter": 1 / 30, "iso": 100}
     prior = _compute_exif_prior_axis(exif, PHOTO_TYPES, _TYPE_EXIF_PRIORS)
-    assert prior["landscape"] > prior["portrait"]
+    assert prior["scenic"] > prior["portrait"]
 
 
 def test_exif_prior_empty_returns_uniform() -> None:

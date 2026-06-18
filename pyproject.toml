@@ -43,6 +43,9 @@ photo-cartridge = "photo_workflow.cartridge:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+photo_workflow = ["data/*.db"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"

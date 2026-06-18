@@ -24,11 +24,22 @@ _RMBG_INPUT_SIZE = 320
 _YOLO_INPUT_SIZE = 640
 
 
+# Default trained genre prototypes shipped with the package. Used when no
+# explicit training DB (e.g. an evolving cartridge calibration) is supplied, so a
+# fresh install scores against the bundled baseline weights rather than the raw
+# text-template prototypes in genre_prototypes.npy.
+DEFAULT_TRAINING_DB = Path(__file__).resolve().parent / "data" / "genre_weights.db"
+
+
 class ModelSessions:
     """Lazy-loaded, long-lived ONNX inference sessions."""
 
     def __init__(self, model_dir: Path, training_db_path: Path | None = None) -> None:
         self._model_dir = model_dir
+        # Precedence for genre prototypes: explicit training DB (cartridge) >
+        # bundled default weights > hardcoded genre_prototypes.npy.
+        if training_db_path is None and DEFAULT_TRAINING_DB.exists():
+            training_db_path = DEFAULT_TRAINING_DB
         self._training_db_path = training_db_path
         self._sessions: dict[str, Any] = {}
 

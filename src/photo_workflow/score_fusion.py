@@ -34,23 +34,11 @@ _DT_PURPLE = 4
 _DT_NONE = -1
 
 SUBJECT_WEIGHTS: dict[str, dict[str, float]] = {
-    "person": {
-        "eye_sharpness": 0.25, "subject_sharpness": 0.15,
-        "face_exposure": 0.15, "expression_proxy": 0.15,
-        "exposure_overall": 0.10, "aesthetic_clip": 0.10,
-        "blur_type_penalty": 0.05, "behavior_proxy": 0.05,
-    },
     "people": {
         "eye_sharpness": 0.20, "expression_proxy": 0.18,
         "subject_sharpness": 0.15, "face_exposure": 0.12,
         "exposure_overall": 0.10, "aesthetic_clip": 0.10,
         "blur_type_penalty": 0.05, "behavior_proxy": 0.10,
-    },
-    "child": {
-        "eye_sharpness": 0.22, "expression_proxy": 0.20,
-        "subject_sharpness": 0.15, "face_exposure": 0.13,
-        "exposure_overall": 0.10, "aesthetic_clip": 0.10,
-        "blur_type_penalty": 0.05, "behavior_proxy": 0.05,
     },
     "wildlife": {
         "eye_sharpness": 0.28, "subject_sharpness": 0.15,
@@ -112,15 +100,10 @@ SUBJECT_WEIGHTS: dict[str, dict[str, float]] = {
         "color_contrast": 0.10, "blur_type_penalty": 0.05,
         "highlight_clip": 0.10,
     },
-    "text": {
-        "subject_sharpness": 0.35, "exposure_overall": 0.25,
-        "highlight_clip": 0.10, "color_contrast": 0.10,
-        "aesthetic_clip": 0.10, "blur_type_penalty": 0.10,
-    },
-    "night-sky": {
+    "sky": {
         "exposure_overall": 0.25, "dynamic_range": 0.20,
-        "aesthetic_clip": 0.20, "subject_sharpness": 0.15,
-        "highlight_clip": 0.10, "color_contrast": 0.10,
+        "aesthetic_clip": 0.20, "color_contrast": 0.15,
+        "highlight_clip": 0.10, "subject_sharpness": 0.10,
     },
     "abstract": {
         "aesthetic_clip": 0.30, "color_contrast": 0.20,
@@ -142,7 +125,7 @@ TYPE_WEIGHTS: dict[str, dict[str, float]] = {
         "balance": 0.10, "motion_tolerance": 0.10,
         "negative_space": 0.10, "face_exposure": 0.10,
     },
-    "landscape": {
+    "scenic": {
         "zone_entropy": 0.15, "dynamic_range": 0.15,
         "front_to_back_sharp": 0.15, "composition_rot": 0.10,
         "leading_lines": 0.10, "negative_space": 0.10,
@@ -154,12 +137,6 @@ TYPE_WEIGHTS: dict[str, dict[str, float]] = {
         "negative_space": 0.10, "motion_tolerance": 0.10,
         "balance": 0.10, "aesthetic_clip": 0.15,
         "symmetry": 0.10, "exposure_overall": 0.15,
-    },
-    "wildlife": {
-        "composition_rot": 0.15, "subject_isolation": 0.15,
-        "aesthetic_clip": 0.15, "balance": 0.10,
-        "negative_space": 0.15, "exposure_overall": 0.10,
-        "blur_type_penalty": 0.10, "behavior_proxy": 0.10,
     },
     "macro": {
         "sharpness_contrast": 0.20, "negative_space": 0.15,
