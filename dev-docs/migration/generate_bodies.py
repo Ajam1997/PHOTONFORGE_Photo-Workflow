@@ -156,7 +156,9 @@ def do_kpm(it, rid, body):
         if m:
             parts.append(f"**Measurement Method:** {m}")
     if not has(body, "Linked Requirements"):
-        linked = (kpm[rid].get("parent_uns") or []) + (kpm[rid].get("parent_frs") or [])
+        e = kpm[rid]
+        linked = ((e.get("parent_uns") or []) + (e.get("parent_nfrs") or [])
+                  + (e.get("parent_frs") or []))
         parts.append(f"**Linked Requirements:** {', '.join(linked) if linked else 'NONE'}")
     return append_sections(body, *parts) if parts else body
 
@@ -174,7 +176,25 @@ for it in issues:
     n = it["number"]
     body = fix_paths(it["body"] or "")
     rid = issue_to_rid.get(n)
-    if rid in un:
+
+    # ── Phase-4 structural decisions (special cases) ──
+    if n == 62:
+        # Renumbered NFR-2.4 dup -> NFR-2.5; spec refined to match UN-041.
+        body = set_line(body, "Specification",
+                        "User-visible notification (zenity/desktop) when the SD "
+                        "card is safe to remove after photos transfer to the SSD. "
+                        "Distinct from NFR-2.4 (SD-inserted-without-SSD dialog).")
+        body = set_line(body, "Parent UN", "UN-041")
+        out = do_nfr(it, "NFR-2.5", body)
+    elif n == 75:
+        # Fixture Corpus: reclassify type:fr -> verification fixture.
+        hdr = ("**Type:** Verification fixture (reclassified from type:fr in Phase 4)\n\n"
+               "**Used by:** KPM-1.6, KPM-1.7, KPM-1.8, KPM-1.10 (labeled reference "
+               "set for measuring dedup FP rate, naming validity, scoring determinism, "
+               "and session-grouping precision).\n\n"
+               "**Location:** `tests/fixtures/` + `corpus/`\n\n")
+        out = hdr + body.strip() + "\n"
+    elif rid in un:
         out = do_un(it, rid, body)
     elif rid in fr:
         out = do_fr(it, rid, body)
@@ -186,4 +206,22 @@ for it in issues:
         out = do_out(it, body)
     (OUT / f"{n:03d}.md").write_text(out, encoding="utf-8")
 
-print(f"Generated {len(issues)} bodies (preserve+append).")
+# ── NEW Issue: NFR-2.2 Resource Budget (created on apply) ──
+nfr22 = (
+    "**Parent UN:** UN-030\n\n"
+    "**Specification:** Resource budget for the full scoring pipeline on the "
+    "i7-7500U target:\n"
+    "- Peak RSS <= 1.5 GB during the score stage (CLIP + YOLO + Florence-2 INT8 "
+    "all resident)\n"
+    "- Peak CPU <= 80% of available logical cores (leave headroom for the "
+    "Darktable UI)\n\n"
+    "**Linked Budget:** NONE (this NFR *is* the resource budget)\n\n"
+    "**Verified By:**\n- (none yet)\n\n"
+    "**Validated By:**\n- (none yet)\n\n"
+    "_Created in Phase 4 to parent KPM-1.3 (Peak RSS) and KPM-1.9 (CPU Cap), "
+    "which previously cited a nonexistent NFR-2.2. Constraint defined in "
+    "CLAUDE.md (NFR-2.2)._\n"
+)
+(OUT / "NEW-NFR-2.2.md").write_text(nfr22, encoding="utf-8")
+
+print(f"Generated {len(issues)} bodies + 1 new (NFR-2.2). (preserve+append)")

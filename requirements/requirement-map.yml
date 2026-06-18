@@ -144,16 +144,16 @@ user_needs:
     title: "Photos ingest automatically from SD card on insertion."
     issue: 39
     functional_requirements: [FR-1.1]
-    non_functional_requirements: [NFR-2.1, NFR-2.4]
+    non_functional_requirements: [NFR-2.1, NFR-2.2, NFR-2.4]
     interface_requirements: []
-    kpms: [KPM-1.1, KPM-1.5, KPM-1.9]   # cross-cutting KPMs land here
+    kpms: [KPM-1.1, KPM-1.5]   # KPM-1.9 re-parented to NFR-2.2 (Phase 4)
   UN-031:
     title: "SSD cartridges function as portable photo libraries."
     issue: 40
     functional_requirements: [FR-1.9]
     non_functional_requirements: [NFR-2.3]
     interface_requirements: []
-    kpms: [KPM-1.3]   # cross-cutting placeholder
+    kpms: []   # KPM-1.3 re-parented to NFR-2.2 (Phase 4)
   UN-032:
     title: "SSD cartridges eject safely without data loss."
     issue: 41
@@ -172,7 +172,7 @@ user_needs:
     title: "System should automatically eject and notify the SD card after transferring photos to the SSD."
     issue: 43
     functional_requirements: []
-    non_functional_requirements: [NFR-2.4]   # duplicate label, see notes
+    non_functional_requirements: [NFR-2.5]   # Phase 4: was NFR-2.4 dup, now NFR-2.5
     interface_requirements: []
     kpms: []
   UN-050:
@@ -283,7 +283,7 @@ functional_requirements:
 # verification/.
 
 # ============================================================================
-# Non-functional requirements (4 Issues, 3 unique IDs)
+# Non-functional requirements (5 — Phase 4 added NFR-2.2 + split NFR-2.5)
 # ============================================================================
 
 non_functional_requirements:
@@ -292,6 +292,12 @@ non_functional_requirements:
     issue: 59
     parent_uns: [UN-030]
     kpms: []
+  NFR-2.2:
+    title: "Resource Budget"
+    issue: null     # Phase 4: NEW Issue to be created on apply
+    parent_uns: [UN-030]
+    kpms: [KPM-1.3, KPM-1.9]
+    notes: "Created in Phase 4 to give KPM-1.3 (Peak RSS <=1.5GB) and KPM-1.9 (CPU cap <=80%) a real parent. Both KPM bodies already cite 'NFR-2.2'; CLAUDE.md defines the constraint. Spec: RSS <= 1.5 GB peak during full scoring pipeline; CPU <= 80% of available cores."
   NFR-2.3:
     title: "Database Portability"
     issue: 61
@@ -299,10 +305,16 @@ non_functional_requirements:
     kpms: []
   NFR-2.4:
     title: "Interactive UI Prompts"
-    issue: 60     # Phase 4: Issue #62 is a duplicate; consolidate or split
-    parent_uns: [UN-030, UN-041]
+    issue: 60
+    parent_uns: [UN-030]
     kpms: []
-    notes: "Issue #62 has the same NFR-2.4 label and identical specification text but a different Parent UN (UN-041 vs UN-030). Phase 4: either merge into a single Issue or split into NFR-2.4 + NFR-2.5."
+    notes: "Phase 4: scope narrowed to UN-030 (zenity dialog when SD inserted without SSD). The UN-041 concern split out to NFR-2.5."
+  NFR-2.5:
+    title: "Eject Notification"
+    issue: 62       # Phase 4: was a duplicate NFR-2.4 label; renumbered + respec'd
+    parent_uns: [UN-041]
+    kpms: []
+    notes: "Phase 4: Issue #62 carried a duplicate NFR-2.4 label. Renumbered to NFR-2.5 and spec refined to match its parent UN-041 (user-visible notification when the SD card is safe to remove after transfer to SSD), rather than duplicating NFR-2.4's SD-without-SSD dialog."
 
 # ============================================================================
 # Interface requirements (none yet)
@@ -343,10 +355,10 @@ kpms:
   KPM-1.3:
     title: "Analyzer Peak RSS"
     issue: 68
-    parent_uns: [UN-031]    # placeholder; cross-cutting NFR-style
+    parent_uns: []
+    parent_nfrs: [NFR-2.2]    # Phase 4: re-parented to the new Resource Budget NFR
     parent_frs: []
     aggregation: independent
-    notes: "Body references FR-2.2 which doesn't exist; cross-cutting. Phase 4: re-parent as NFR-2.2 (memory budget)."
   KPM-1.4:
     title: "Data Integrity"
     issue: 65
@@ -380,10 +392,10 @@ kpms:
   KPM-1.9:
     title: "CPU Cap Compliance"
     issue: 73
-    parent_uns: [UN-030]    # placeholder; cross-cutting performance NFR
+    parent_uns: []
+    parent_nfrs: [NFR-2.2]    # Phase 4: re-parented to the new Resource Budget NFR
     parent_frs: []
     aggregation: independent
-    notes: "Body references FR-2.2 which doesn't exist. Phase 4: re-parent as NFR-2.2 (CPU budget) once that requirement gets formalized."
   KPM-1.10:
     title: "Session Grouping Precision"
     issue: 74
