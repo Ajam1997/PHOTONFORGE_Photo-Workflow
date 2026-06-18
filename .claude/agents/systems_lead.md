@@ -1,5 +1,5 @@
 ---
-name: architect
+name: systems_lead
 description: >
   Systems architect for the photo workflow project. Handles project
   structure decisions, interface contracts between modules, dependency

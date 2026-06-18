@@ -1,10 +1,13 @@
 ---
-name: engineer
+name: software_lead
 description: >
-  Python engineer for the photo workflow intelligence engine. Handles
-  all src/ module implementation, unit tests, ONNX inference integration,
-  and Darktable SQLite bridge. Use for implementing FRs 1.2-1.8,
-  writing tests, and optimizing for the i7-8550U AVX2 target.
+  Software lead for the photo workflow project (Profile A — the single
+  implementation discipline). Owns all src/ module implementation, unit
+  tests, ONNX inference integration, and the Darktable SQLite bridge
+  (FRs 1.2-1.8), AND the host-integration scope formerly held by
+  @devops: deploy/, scripts/, udev rules for the Yoga 910 USB topology,
+  SSD cartridge management, and safe-ejection (FRs 1.1, 1.9, 1.10).
+  Optimizes for the i7-7500U AVX2 target.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: haiku
 memory: project

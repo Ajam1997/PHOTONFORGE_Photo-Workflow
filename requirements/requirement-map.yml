@@ -36,9 +36,12 @@
 #     IF-3.2 (#92) Scoring/Naming -> Darktable bridge
 #     IF-4.1 (#93) Ingest -> pipeline
 #
-# Still open (later phases):
-#   - Agent-handle references in Issue bodies (@architect/@engineer/
-#     @devops) get swept to template names in Phase 7.
+# Phase 7 DONE (2026-05-29): agent roster migrated to template names.
+#   architect->systems_lead, engineer->software_lead, devops folded into
+#   software_lead. Swept across .claude/agents/, CLAUDE.md, and 11 Issue
+#   bodies (#31,63,64,65,68-74).
+#
+# Still open: Phase 8 (run render chain), Phase 9 (cleanup).
 
 # ============================================================================
 # Stage -> UN map (template Profile A 5-stage flow)
