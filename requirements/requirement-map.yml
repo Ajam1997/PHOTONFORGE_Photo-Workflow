@@ -15,27 +15,24 @@
 # the template Profile A 5-stage flow (Scaffold -> Core Engine -> Integration
 # -> V&V -> Release).
 #
-# Known issues flagged for Phase 4 normalization:
-#   - NFR-2.4 has two Issues (#60 and #62) with the same label.
-#     Phase 4: split into NFR-2.4 (zenity SD-without-SSD) + NFR-2.5
-#     (or merge into one Issue if specifications are identical).
-#   - "Fixture Corpus" (#75) is labeled type:fr but is a test artifact,
-#     not a functional requirement. Phase 4: reclassify as verification
-#     fixture, remove from FR list.
-#   - UN-022 (genre+scoring semantic filenames) is currently unwired
-#     downward. Likely belongs to FR-1.7.1 / FR-1.7.2 family. Confirm
-#     in Phase 4.
-#   - FR-1.7.1 and FR-1.7.2 bodies don't explicitly cite Parent UN.
-#     Inferred as UN-020 + UN-022 (multi-parent). Confirm in Phase 4.
-#   - Several KPMs (1.3, 1.4, 1.5, 1.9) are cross-cutting and don't fit
-#     a single parent UN; they're listed under UN-030 + UN-031 ranges
-#     as a placeholder. Phase 5 (architecture-contracts) may surface
-#     better parents.
-#   - No IF requirements exist yet. Photo-workflow is a single-discipline
-#     (software) project, so cross-discipline IFs don't apply. Internal
-#     module IFs (e.g. scoring->fusion) are partially captured in
-#     dev-docs/architecture/scoring-module-contracts.md; Phase 6 will
-#     promote them to formal IF Issues + ICDs.
+# Phase 4 RESOLVED (applied to GitHub 2026-05-29):
+#   - NFR-2.4 duplicate (#60/#62): #60 stays NFR-2.4 (UN-030); #62
+#     renumbered to NFR-2.5 (UN-041, eject notification).  [DONE]
+#   - "Fixture Corpus" (#75): reclassified type:fr -> verification
+#     fixture; type:fr label removed.  [DONE]
+#   - NFR-2.2 (Resource Budget) created as Issue #88; KPM-1.3 + KPM-1.9
+#     re-parented to it via parent_nfrs.  [DONE]
+#   - FR-1.7.1 / FR-1.7.2 -> UN-020 + UN-022 multi-parent links kept
+#     (consistent with their design-body content).
+#
+# Still open (later phases):
+#   - No IF requirements yet. Single-discipline (software) project, so
+#     cross-discipline IFs don't apply. Internal module IFs (scoring->
+#     fusion, Florence-2->naming) are partially captured in
+#     dev-docs/architecture/scoring-module-contracts.md; Phase 6 promotes
+#     them to formal IF Issues + ICDs.
+#   - Agent-handle references in Issue bodies (@architect/@engineer/
+#     @devops) get swept to template names in Phase 7.
 
 # ============================================================================
 # Stage -> UN map (template Profile A 5-stage flow)
@@ -294,7 +291,7 @@ non_functional_requirements:
     kpms: []
   NFR-2.2:
     title: "Resource Budget"
-    issue: null     # Phase 4: NEW Issue to be created on apply
+    issue: 88       # Phase 4: created on apply
     parent_uns: [UN-030]
     kpms: [KPM-1.3, KPM-1.9]
     notes: "Created in Phase 4 to give KPM-1.3 (Peak RSS <=1.5GB) and KPM-1.9 (CPU cap <=80%) a real parent. Both KPM bodies already cite 'NFR-2.2'; CLAUDE.md defines the constraint. Spec: RSS <= 1.5 GB peak during full scoring pipeline; CPU <= 80% of available cores."

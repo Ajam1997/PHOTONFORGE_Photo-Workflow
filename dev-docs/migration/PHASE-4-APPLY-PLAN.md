@@ -1,6 +1,6 @@
 # Phase 4 — Apply Plan (GitHub mutations)
 
-**Status:** awaiting operator review. NOTHING below has run yet.
+**Status:** APPLIED 2026-05-29. NFR-2.2 = Issue #88. All 72 mutations succeeded (2 labels already existed → no-op; 67 body edits; 1 create; 2 special edits).
 
 When you approve, the apply step executes these GitHub mutations in
 order. Every body comes from `issue-bodies-new/<NNN>.md`. Rollback
