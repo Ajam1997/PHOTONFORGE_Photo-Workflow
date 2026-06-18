@@ -506,6 +506,30 @@ def _compute_clip_similarity_axis(
     return {axis_labels[i]: float(probs[i]) for i in range(len(axis_labels))}
 
 
+# Cap on the squared z-score inside Gaussian-likelihood experts. Without it, an
+# out-of-range feature value (e.g. a sharpness_contrast far from every prior mean)
+# makes exp(-0.5*z**2) underflow to exactly 0 for all-but-one label, turning a soft
+# prior into a one-hot veto that overrides CLIP in the product-of-experts fusion.
+# Capping z**2 keeps each expert a bounded nudge (min factor exp(-_GAUSSIAN_Z2_CAP/2)).
+_GAUSSIAN_Z2_CAP = 4.0
+
+# Per-expert fusion weights in signal order [CLIP, EXIF, YOLO, context, sharpness].
+# CLIP is the trained prototype signal and is weighted to dominate; the heuristic
+# experts contribute as gentle nudges so a single miscalibrated one cannot hijack
+# the result on out-of-distribution images.
+_FUSION_WEIGHTS = [4.0, 1.0, 1.0, 1.0, 1.0]
+
+# Each expert is blended this far toward uniform before fusion, bounding how hard
+# any single expert can veto a label it assigns near-zero probability.
+_EXPERT_SMOOTHING = 0.20
+
+
+def _capped_gauss(diff: float, std: float) -> float:
+    """Gaussian likelihood factor with the squared z-score capped (never 0)."""
+    z2 = (diff / max(std, 0.1)) ** 2
+    return math.exp(-0.5 * min(z2, _GAUSSIAN_Z2_CAP))
+
+
 def _compute_context_likelihood_axis(
     ctx: SubjectContext,
     axis_labels: list[str],
@@ -526,12 +550,10 @@ def _compute_context_likelihood_axis(
         priors = axis_priors.get(label, {})
 
         face_mean, face_std = priors.get("face_count", (0.0, 1.0))
-        face_diff = face_count - face_mean
-        evidence[label] *= math.exp(-0.5 * (face_diff / max(face_std, 0.1)) ** 2)
+        evidence[label] *= _capped_gauss(face_count - face_mean, face_std)
 
         area_mean, area_std = priors.get("subject_area_ratio", (0.2, 0.2))
-        area_diff = area_ratio - area_mean
-        evidence[label] *= math.exp(-0.5 * (area_diff / max(area_std, 0.1)) ** 2)
+        evidence[label] *= _capped_gauss(area_ratio - area_mean, area_std)
 
         if primary_class:
             class_bonus = priors.get("primary_class", {}).get(primary_class, 1.0)
@@ -553,8 +575,7 @@ def _compute_sharpness_likelihood_axis(
 
     for label in axis_labels:
         mean, std = axis_priors.get(label, (1.5, 1.0))
-        diff = sharpness_contrast - mean
-        evidence[label] = math.exp(-0.5 * (diff / max(std, 0.1)) ** 2)
+        evidence[label] = _capped_gauss(sharpness_contrast - mean, std)
 
     total = sum(evidence.values())
     if total > 0:
@@ -565,17 +586,33 @@ def _compute_sharpness_likelihood_axis(
 def _fuse_axis(
     signals: list[dict[str, float]],
     axis_labels: list[str],
+    weights: list[float] | None = None,
 ) -> dict[str, float]:
-    """Product-of-experts fusion for one axis."""
-    product = {g: 1.0 for g in axis_labels}
-    for sig in signals:
-        for g in axis_labels:
-            product[g] *= sig.get(g, 1.0 / len(axis_labels))
+    """Weighted product-of-experts fusion (log-space) for one axis.
 
-    total = sum(product.values())
+    CLIP is the trained, reliable signal; the EXIF/YOLO/context/sharpness experts
+    are weak heuristics that are noisy on out-of-distribution images. ``weights``
+    lets the caller make CLIP dominant so a single miscalibrated heuristic can
+    nudge but not override it. A small floor keeps log() finite.
+    """
+    n = len(axis_labels)
+    if weights is None:
+        weights = [1.0] * len(signals)
+    uniform = 1.0 / n
+    logp = {g: 0.0 for g in axis_labels}
+    for sig, w in zip(signals, weights):
+        # Smooth each expert toward uniform so a label it (wrongly) assigns ~0 to
+        # cannot be vetoed — every expert becomes a bounded nudge, not a gate.
+        for g in axis_labels:
+            p = (1.0 - _EXPERT_SMOOTHING) * sig.get(g, uniform) + _EXPERT_SMOOTHING * uniform
+            logp[g] += w * math.log(p)
+
+    hi = max(logp.values())
+    exp = {g: math.exp(logp[g] - hi) for g in axis_labels}
+    total = sum(exp.values())
     if total > 0:
-        return {g: product[g] / total for g in axis_labels}
-    return {g: 1.0 / len(axis_labels) for g in axis_labels}
+        return {g: exp[g] / total for g in axis_labels}
+    return {g: uniform for g in axis_labels}
 
 
 def route_genre(
@@ -623,7 +660,8 @@ def route_genre(
     subj_ctx   = _compute_context_likelihood_axis(ctx, SUBJECTS, _SUBJECT_CONTEXT_PRIORS)
     subj_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, SUBJECTS, _SUBJECT_SHARPNESS_PRIORS)
 
-    subj_dist = _fuse_axis([subj_clip, subj_exif, subj_yolo, subj_ctx, subj_sharp], SUBJECTS)
+    subj_dist = _fuse_axis([subj_clip, subj_exif, subj_yolo, subj_ctx, subj_sharp], SUBJECTS,
+                           weights=_FUSION_WEIGHTS)
 
     # --- Type axis signals ---------------------------------------------------
     type_clip  = _compute_clip_similarity_axis(ctx.clip_embedding, type_protos, PHOTO_TYPES)
@@ -632,7 +670,8 @@ def route_genre(
     type_ctx   = _compute_context_likelihood_axis(ctx, PHOTO_TYPES, _TYPE_CONTEXT_PRIORS)
     type_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, PHOTO_TYPES, _TYPE_SHARPNESS_PRIORS)
 
-    type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES)
+    type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES,
+                           weights=_FUSION_WEIGHTS)
 
     # --- Pick winners --------------------------------------------------------
     subject = max(subj_dist, key=subj_dist.__getitem__)
