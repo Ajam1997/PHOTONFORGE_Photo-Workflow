@@ -301,7 +301,11 @@ def test_recalibrate_prototypes_shape_validation(tmp_path: Path):
 
 
 def test_recalibrate_prototypes_cosine_similarity(tmp_path: Path):
-    """recalibrate_prototypes should compute reasonable cosine similarity."""
+    """recalibrate_prototypes should compute reasonable cosine similarity.
+
+    Seeded for determinism so the cosine assertion never flakes on random draws.
+    """
+    np.random.seed(0)
     corpus_path = tmp_path / "genres.jsonl"
     lines = []
     for i in range(12):

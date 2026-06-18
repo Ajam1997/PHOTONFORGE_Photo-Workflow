@@ -219,7 +219,7 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
     """Generate two-axis prototype embeddings using MobileCLIP-S2 text encoder.
 
     Uses a 7-template prompt ensemble for both subject and photo type classes.
-    Output shape: (28, 512) — first 16 rows = subjects, next 12 rows = types.
+    Output shape: (24, 512) — first 13 rows = subjects, next 11 rows = types.
     Each prototype is the L2-normalized mean of all template embeddings for that class.
     """
     out_file = models_dir / "genre_prototypes.npy"
@@ -257,21 +257,18 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
 
     # Subject fill text — descriptive phrases for each class
     _SUBJECT_FILL = {
-        "person": "person",
-        "people": "group of people",
-        "child": "child",
-        "wildlife": "wild animal in nature",
+        "people": "people",
         "pet": "domestic pet",
+        "wildlife": "wild animal in nature",
         "plant": "plant or flower",
         "landscape": "natural landscape",
         "seascape": "ocean or sea",
-        "cityscape": "city or urban area",
+        "sky": "sky with clouds or stars",
+        "cityscape": "city skyline",
         "building": "building or architecture",
         "vehicle": "vehicle",
         "food": "food or meal",
         "object": "object or product",
-        "text": "text or signage",
-        "night-sky": "night sky or stars",
         "abstract": "abstract pattern",
     }
 
@@ -279,9 +276,8 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
     _TYPE_FILL = {
         "portrait": "portrait",
         "candid": "candid",
-        "landscape": "landscape",
+        "scenic": "scenic vista or wide view",
         "street": "street",
-        "wildlife": "wildlife",
         "macro": "macro close-up",
         "architecture": "architectural",
         "action": "action or sports",
@@ -291,15 +287,15 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
         "documentary": "documentary",
     }
 
-    # Order matching the class labels
+    # Order matching the class labels (must match genre_router.SUBJECTS)
     subjects_ordered = [
-        "person", "people", "child", "wildlife", "pet",
-        "plant", "landscape", "seascape", "cityscape", "building",
-        "vehicle", "food", "object", "text", "night-sky", "abstract"
+        "people", "pet", "wildlife", "plant", "landscape",
+        "seascape", "sky", "cityscape", "building", "vehicle",
+        "food", "object", "abstract"
     ]
     types_ordered = [
-        "portrait", "candid", "landscape", "street", "wildlife",
-        "macro", "architecture", "action", "aerial", "long-exposure",
+        "portrait", "candid", "scenic", "street", "macro",
+        "architecture", "action", "aerial", "long-exposure",
         "still-life", "documentary"
     ]
 
@@ -329,7 +325,7 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
             mean_embedding /= mean_embedding.norm()
             embeddings[photo_type] = mean_embedding.cpu().numpy()
 
-    # Stack in order: subjects (16) then types (12)
+    # Stack in order: subjects (13) then types (11)
     all_ordered = subjects_ordered + types_ordered
     proto_matrix = np.stack([embeddings[g] for g in all_ordered])
     np.save(str(out_file), proto_matrix)

@@ -17,30 +17,26 @@ from .scoring_types import GenreResult, ObjectDetection, SubjectContext
 logger = logging.getLogger(__name__)
 
 SUBJECTS = [
-    "person",
     "people",
-    "child",
-    "wildlife",
     "pet",
+    "wildlife",
     "plant",
     "landscape",
     "seascape",
+    "sky",
     "cityscape",
     "building",
     "vehicle",
     "food",
     "object",
-    "text",
-    "night-sky",
     "abstract",
 ]
 
 PHOTO_TYPES = [
     "portrait",
     "candid",
-    "landscape",
+    "scenic",
     "street",
-    "wildlife",
     "macro",
     "architecture",
     "action",
@@ -65,25 +61,17 @@ _ANIMAL_CLASS_IDS = {14, 15, 16, 17, 18, 19, 20, 21, 22, 23}
 # ---------------------------------------------------------------------------
 
 _SUBJECT_EXIF_PRIORS = {
-    "person": {
-        "focal_length": (4.2, 0.6), "aperture": (0.5, 0.5),
-        "shutter": (-6.5, 0.8), "iso": (5.5, 0.8),
-    },
     "people": {
-        "focal_length": (3.6, 0.6), "aperture": (1.3, 0.5),
-        "shutter": (-5.5, 0.8), "iso": (5.8, 0.8),
-    },
-    "child": {
-        "focal_length": (4.2, 0.6), "aperture": (0.5, 0.5),
-        "shutter": (-6.5, 0.8), "iso": (5.5, 0.8),
-    },
-    "wildlife": {
-        "focal_length": (5.7, 0.8), "aperture": (1.2, 0.5),
-        "shutter": (-7.0, 1.0), "iso": (6.4, 0.8),
+        "focal_length": (3.9, 0.7), "aperture": (0.9, 0.6),
+        "shutter": (-6.0, 0.9), "iso": (5.6, 0.8),
     },
     "pet": {
         "focal_length": (4.5, 0.8), "aperture": (0.8, 0.5),
         "shutter": (-6.5, 1.0), "iso": (6.0, 0.8),
+    },
+    "wildlife": {
+        "focal_length": (5.7, 0.8), "aperture": (1.2, 0.5),
+        "shutter": (-7.0, 1.0), "iso": (6.4, 0.8),
     },
     "plant": {
         "focal_length": (4.2, 0.8), "aperture": (1.2, 0.6),
@@ -96,6 +84,12 @@ _SUBJECT_EXIF_PRIORS = {
     "seascape": {
         "focal_length": (3.0, 0.8), "aperture": (2.2, 0.3),
         "shutter": (-3.0, 2.0), "iso": (4.6, 0.5),
+    },
+    # sky spans daytime cloud/sunset (fast, low ISO) through astro
+    # (long shutter, high ISO); wide stds keep the prior weak.
+    "sky": {
+        "focal_length": (3.0, 1.0), "aperture": (1.3, 1.0),
+        "shutter": (-3.0, 3.0), "iso": (6.0, 1.6),
     },
     "cityscape": {
         "focal_length": (3.5, 0.7), "aperture": (1.8, 0.4),
@@ -117,14 +111,6 @@ _SUBJECT_EXIF_PRIORS = {
         "focal_length": (4.0, 0.7), "aperture": (1.8, 0.6),
         "shutter": (-5.0, 1.0), "iso": (5.0, 0.8),
     },
-    "text": {
-        "focal_length": (3.5, 0.6), "aperture": (1.5, 0.5),
-        "shutter": (-5.5, 1.0), "iso": (5.5, 0.8),
-    },
-    "night-sky": {
-        "focal_length": (2.9, 0.5), "aperture": (0.3, 0.5),
-        "shutter": (2.0, 1.5), "iso": (8.2, 0.8),
-    },
     "abstract": {
         "focal_length": (3.8, 1.0), "aperture": (1.5, 1.0),
         "shutter": (-5.0, 2.0), "iso": (5.5, 1.0),
@@ -140,17 +126,13 @@ _TYPE_EXIF_PRIORS = {
         "focal_length": (3.5, 0.6), "aperture": (1.2, 0.5),
         "shutter": (-5.5, 0.8), "iso": (5.8, 0.8),
     },
-    "landscape": {
+    "scenic": {
         "focal_length": (3.0, 0.6), "aperture": (2.2, 0.3),
         "shutter": (-3.0, 2.0), "iso": (4.6, 0.5),
     },
     "street": {
         "focal_length": (3.5, 0.5), "aperture": (1.4, 0.5),
         "shutter": (-6.0, 0.8), "iso": (6.2, 0.8),
-    },
-    "wildlife": {
-        "focal_length": (5.7, 0.8), "aperture": (1.2, 0.5),
-        "shutter": (-7.0, 1.0), "iso": (6.4, 0.8),
     },
     "macro": {
         "focal_length": (4.3, 0.3), "aperture": (2.1, 0.3),
@@ -190,20 +172,10 @@ _CONFIDENCE_THRESHOLD = 0.45
 # ---------------------------------------------------------------------------
 
 _SUBJECT_CONTEXT_PRIORS = {
-    "person": {
-        "face_count": (1.0, 0.3),
-        "subject_area_ratio": (0.2, 0.1),
-        "primary_class": {"person": 2.5},
-    },
     "people": {
-        "face_count": (3.0, 1.5),
-        "subject_area_ratio": (0.15, 0.1),
-        "primary_class": {"person": 2.0},
-    },
-    "child": {
-        "face_count": (1.0, 0.3),
-        "subject_area_ratio": (0.15, 0.1),
-        "primary_class": {"person": 2.0},
+        "face_count": (1.5, 1.5),
+        "subject_area_ratio": (0.18, 0.12),
+        "primary_class": {"person": 2.2},
     },
     "wildlife": {
         "face_count": (0.0, 0.5),
@@ -230,6 +202,11 @@ _SUBJECT_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.1, 0.1),
         "primary_class": {"boat": 1.5},
     },
+    "sky": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.1, 0.1),
+        "primary_class": {},
+    },
     "cityscape": {
         "face_count": (0.0, 0.5),
         "subject_area_ratio": (0.1, 0.1),
@@ -255,16 +232,6 @@ _SUBJECT_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.3, 0.2),
         "primary_class": {},
     },
-    "text": {
-        "face_count": (0.0, 0.4),
-        "subject_area_ratio": (0.3, 0.15),
-        "primary_class": {},
-    },
-    "night-sky": {
-        "face_count": (0.0, 0.5),
-        "subject_area_ratio": (0.1, 0.1),
-        "primary_class": {},
-    },
     "abstract": {
         "face_count": (0.0, 0.5),
         "subject_area_ratio": (0.3, 0.2),
@@ -283,7 +250,7 @@ _TYPE_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.15, 0.1),
         "primary_class": {"person": 1.5},
     },
-    "landscape": {
+    "scenic": {
         "face_count": (0.0, 0.5),
         "subject_area_ratio": (0.1, 0.1),
         "primary_class": {},
@@ -292,11 +259,6 @@ _TYPE_CONTEXT_PRIORS = {
         "face_count": (0.5, 0.4),
         "subject_area_ratio": (0.15, 0.1),
         "primary_class": {"person": 1.3},
-    },
-    "wildlife": {
-        "face_count": (0.0, 0.5),
-        "subject_area_ratio": (0.2, 0.15),
-        "primary_class": {"bird": 1.5, "bear": 1.5},
     },
     "macro": {
         "face_count": (0.0, 0.5),
@@ -340,30 +302,26 @@ _TYPE_CONTEXT_PRIORS = {
 # ---------------------------------------------------------------------------
 
 _SUBJECT_SHARPNESS_PRIORS = {
-    "person": (2.0, 0.8),
-    "people": (1.5, 0.8),
-    "child": (1.5, 0.8),
-    "wildlife": (2.5, 1.0),
+    "people": (1.8, 0.9),
     "pet": (2.5, 1.0),
+    "wildlife": (2.5, 1.0),
     "plant": (2.0, 1.0),
     "landscape": (1.0, 0.5),
     "seascape": (1.0, 0.6),
+    "sky": (0.8, 0.7),
     "cityscape": (1.0, 0.5),
     "building": (1.0, 0.5),
     "vehicle": (1.5, 0.8),
     "food": (2.0, 0.8),
     "object": (2.0, 0.8),
-    "text": (1.0, 0.5),
-    "night-sky": (0.5, 0.5),
     "abstract": (1.5, 1.5),
 }
 
 _TYPE_SHARPNESS_PRIORS = {
     "portrait": (3.0, 1.2),
     "candid": (1.5, 0.8),
-    "landscape": (1.0, 0.5),
+    "scenic": (1.0, 0.5),
     "street": (1.5, 0.8),
-    "wildlife": (2.5, 1.0),
     "macro": (2.5, 1.0),
     "architecture": (1.0, 0.5),
     "action": (1.5, 1.0),
@@ -448,11 +406,8 @@ def _compute_yolo_evidence_subject(detections: list[ObjectDetection], image_area
             has_food = True
             evidence["food"] *= 3.0
 
-    # Person count logic
-    if person_count == 1:
-        evidence["person"] *= 2.5
-        evidence["child"] *= 1.5
-    elif person_count >= 2:
+    # Person presence logic (people is a single subject regardless of count)
+    if person_count >= 1:
         evidence["people"] *= 2.5
 
     # Suppress incompatible labels
@@ -461,11 +416,9 @@ def _compute_yolo_evidence_subject(detections: list[ObjectDetection], image_area
         evidence["landscape"] *= 0.2
 
     if has_food:
-        evidence["person"] *= 0.1
         evidence["people"] *= 0.1
 
     if not has_animal and not has_person and not has_food:
-        evidence["person"] *= 0.2
         evidence["people"] *= 0.2
         evidence["pet"] *= 0.2
 
@@ -496,7 +449,6 @@ def _compute_yolo_evidence_type(
 
         if det.class_id in _ANIMAL_CLASS_IDS and area_ratio > 0.05:
             has_animal = True
-            evidence["wildlife"] *= 2.0
 
         if det.class_name == "person":
             person_count += 1
@@ -527,7 +479,7 @@ def _compute_yolo_evidence_type(
             evidence["candid"] *= 1.5
 
     if not has_person and not has_animal and not has_food:
-        evidence["landscape"] *= 1.5
+        evidence["scenic"] *= 1.5
         evidence["architecture"] *= 1.5
 
     total = sum(evidence.values())

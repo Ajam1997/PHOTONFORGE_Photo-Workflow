@@ -25,12 +25,12 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 SUBJECTS = [
-    "person", "people", "child", "wildlife", "pet", "plant",
-    "landscape", "seascape", "cityscape", "building", "vehicle",
-    "food", "object", "text", "night-sky", "abstract",
+    "people", "pet", "wildlife", "plant", "landscape",
+    "seascape", "sky", "cityscape", "building", "vehicle",
+    "food", "object", "abstract",
 ]
 PHOTO_TYPES = [
-    "portrait", "candid", "landscape", "street", "wildlife", "macro",
+    "portrait", "candid", "scenic", "street", "macro",
     "architecture", "action", "aerial", "long-exposure", "still-life",
     "documentary",
 ]
@@ -40,21 +40,21 @@ _CLIP_INPUT_SIZE = 256
 # ── Unsplash keyword → class mappings ──────────────────────────────────────
 
 _UNSPLASH_SUBJECT_KEYWORDS: dict[str, list[str]] = {
-    "person": ["portrait", "face", "man", "woman", "headshot"],
-    "people": ["crowd", "group", "team", "gathering", "audience"],
-    "child": ["child", "kid", "baby", "toddler", "infant"],
-    "wildlife": ["wildlife", "wild animal", "bird", "deer", "eagle", "fox", "bear", "wolf"],
+    "people": ["portrait", "face", "man", "woman", "headshot", "crowd",
+               "group", "team", "gathering", "child", "kid", "baby"],
     "pet": ["dog", "cat", "puppy", "kitten", "pet"],
+    "wildlife": ["wildlife", "wild animal", "bird", "deer", "eagle", "fox", "bear", "wolf"],
     "plant": ["flower", "plant", "botanical", "leaf", "blossom", "flora"],
     "landscape": ["mountain", "valley", "forest", "desert", "meadow", "field", "canyon", "hill"],
     "seascape": ["ocean", "sea", "beach", "coast", "wave", "shore", "reef", "tide"],
+    "sky": ["sky", "clouds", "sunset", "sunrise", "night sky", "stars",
+            "milky way", "aurora", "astrophotography"],
     "cityscape": ["skyline", "downtown", "metropolis", "city skyline"],
     "building": ["church", "bridge", "tower", "castle", "cathedral", "temple", "monument"],
     "vehicle": ["car", "truck", "motorcycle", "airplane", "boat", "train", "bicycle"],
     "food": ["food", "meal", "cooking", "dish", "cuisine", "breakfast", "dinner", "lunch"],
-    "object": ["product", "tool", "device", "gadget", "furniture", "clock", "watch"],
-    "text": ["sign", "typography", "graffiti", "neon sign", "letter", "billboard"],
-    "night-sky": ["night sky", "stars", "milky way", "aurora", "astrophotography", "constellation"],
+    "object": ["product", "tool", "device", "gadget", "furniture", "clock", "watch",
+               "sign", "typography", "graffiti", "billboard"],
     "abstract": ["abstract art", "geometric", "fractal", "kaleidoscope", "psychedelic"],
 }
 
@@ -64,12 +64,11 @@ _UNSPLASH_TYPE_KEYWORDS: dict[str, list[str]] = {
         "candid", "unposed", "natural moment", "spontaneous",
         "behind the scenes", "snapshot",
     ],
-    "landscape": [
+    "scenic": [
         "panorama", "vista", "scenic", "horizon",
         "sunset landscape", "sunrise landscape",
     ],
     "street": ["street photography", "city life", "pedestrian", "urban life"],
-    "wildlife": ["wildlife photography", "bird photography", "safari", "nature wildlife"],
     "macro": ["macro", "microscopic", "extreme close-up", "insect macro", "water drop"],
     "architecture": ["architecture", "interior design", "modern building", "facade"],
     "action": ["action", "sport", "running", "jumping", "motion blur", "athlete"],
@@ -83,7 +82,7 @@ _UNSPLASH_TYPE_KEYWORDS: dict[str, list[str]] = {
 }
 
 _COCO_SUBJECT_MAP: dict[int, str] = {
-    1: "person", 2: "vehicle", 3: "vehicle", 4: "vehicle", 5: "vehicle",
+    1: "people", 2: "vehicle", 3: "vehicle", 4: "vehicle", 5: "vehicle",
     6: "vehicle", 7: "vehicle", 8: "vehicle", 9: "vehicle",
     15: "wildlife", 16: "pet", 17: "pet",
     18: "wildlife", 19: "wildlife", 20: "wildlife", 21: "wildlife",
@@ -576,18 +575,17 @@ def _generate_text_prototypes() -> np.ndarray:
         "an award-winning {} photograph",
     ]
     SUBJ_F = {
-        "person": "person", "people": "group of people", "child": "child",
-        "wildlife": "wild animal in nature", "pet": "domestic pet",
-        "plant": "plant or flower", "landscape": "natural landscape",
-        "seascape": "ocean or sea", "cityscape": "city or urban area",
+        "people": "people", "pet": "domestic pet",
+        "wildlife": "wild animal in nature", "plant": "plant or flower",
+        "landscape": "natural landscape", "seascape": "ocean or sea",
+        "sky": "sky with clouds or stars", "cityscape": "city skyline",
         "building": "building or architecture", "vehicle": "vehicle",
         "food": "food or meal", "object": "object or product",
-        "text": "text or signage", "night-sky": "night sky or stars",
         "abstract": "abstract pattern",
     }
     TYPE_F = {
-        "portrait": "portrait", "candid": "candid", "landscape": "landscape",
-        "street": "street", "wildlife": "wildlife", "macro": "macro close-up",
+        "portrait": "portrait", "candid": "candid", "scenic": "scenic vista or wide view",
+        "street": "street", "macro": "macro close-up",
         "architecture": "architectural", "action": "action or sports",
         "aerial": "aerial or drone", "long-exposure": "long exposure",
         "still-life": "still life", "documentary": "documentary",

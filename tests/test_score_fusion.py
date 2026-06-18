@@ -43,7 +43,7 @@ def _make_exposure(**kwargs) -> ExposureScores:
     return ExposureScores(**defaults)
 
 
-def _make_genre(subject: str = "wildlife", photo_type: str = "wildlife",
+def _make_genre(subject: str = "wildlife", photo_type: str = "candid",
                 subject_confidence: float = 0.85, type_confidence: float = 0.5) -> GenreResult:
     subj_dist = {s: 0.02 for s in SUBJECTS}
     subj_dist[subject] = subject_confidence
@@ -313,7 +313,7 @@ def test_expression_proxy_no_face() -> None:
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=-1.0),
-        genre=_make_genre("general", "landscape"),
+        genre=_make_genre("general", "scenic"),
         aesthetic=0.6,
     )
     assert result.sub_scores["expression_proxy"] == 0.5
@@ -362,7 +362,7 @@ def test_no_hard_reject_no_faces() -> None:
         sharpness=_make_sharpness(),
         composition=_make_composition(),
         exposure=_make_exposure(face_exposure=-1.0),
-        genre=_make_genre("general", "landscape"),
+        genre=_make_genre("general", "scenic"),
         aesthetic=0.7,
     )
     assert result.hard_reject is False
