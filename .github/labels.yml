@@ -1,0 +1,107 @@
+# .github/labels.yml — canonical repo label set.
+# Consumed by scripts/sync_labels.py (pure-Python; gh CLI).
+# Generated from the live repo during migration Phase 8 (2026-05-29).
+
+- name: "UX"
+  color: "D4C5F9"
+  description: "User experience improvement"
+
+- name: "bug"
+  color: "d73a4a"
+  description: "Something isn't working"
+
+- name: "documentation"
+  color: "0075ca"
+  description: "Improvements or additions to documentation"
+
+- name: "duplicate"
+  color: "cfd3d7"
+  description: "This issue or pull request already exists"
+
+- name: "enhancement"
+  color: "a2eeef"
+  description: "New feature or request"
+
+- name: "good first issue"
+  color: "7057ff"
+  description: "Good for newcomers"
+
+- name: "help wanted"
+  color: "008672"
+  description: "Extra attention is needed"
+
+- name: "invalid"
+  color: "e4e669"
+  description: "This doesn't seem right"
+
+- name: "performance"
+  color: "F9D0C4"
+  description: "Performance bottleneck or optimization"
+
+- name: "pipeline"
+  color: "BFD4F2"
+  description: "Python pipeline engine (src/photo_workflow/)"
+
+- name: "plugin: lua"
+  color: "C5DEF5"
+  description: "Darktable Lua plugin (lua/photonforge/)"
+
+- name: "priority: high"
+  color: "B60205"
+  description: "High priority item"
+
+- name: "priority: low"
+  color: "0E8A16"
+  description: "Low priority â€” future/experimental"
+
+- name: "priority: medium"
+  color: "FBCA04"
+  description: "Medium priority"
+
+- name: "question"
+  color: "d876e3"
+  description: "Further information is requested"
+
+- name: "status: defined"
+  color: "888888"
+  description: "Requirement written, not implemented"
+
+- name: "status: in-progress"
+  color: "d4a017"
+  description: "Active development"
+
+- name: "status: validated"
+  color: "196127"
+  description: "@validation confirmed E2E"
+
+- name: "status: verified"
+  color: "a8d8a8"
+  description: "@verification passed"
+
+- name: "type: epic"
+  color: "6f42c1"
+  description: "Roadmap stage grouping"
+
+- name: "type: fr"
+  color: "2ea44f"
+  description: "Functional requirement"
+
+- name: "type: if"
+  color: "ff9500"
+  description: "Interface requirement (IF-X.Y)"
+
+- name: "type: kpm"
+  color: "e08000"
+  description: "Key performance measure"
+
+- name: "type: nfr"
+  color: "1d9fa6"
+  description: "Non-functional requirement"
+
+- name: "type: user-need"
+  color: "0075ca"
+  description: "UN-XXX user need item"
+
+- name: "wontfix"
+  color: "ffffff"
+  description: "This will not be worked on"

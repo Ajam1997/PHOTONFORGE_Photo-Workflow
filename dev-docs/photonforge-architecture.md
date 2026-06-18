@@ -73,19 +73,103 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 <!-- AUTO:fr_table -->
 | ID | Description | Implementation | Status |
 |:---|:---|:---|:---|
-| [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge | VERIFIED |
-| [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh | VERIFIED |
-| [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | Spatio-Temporal Grouping | Cluster if temporal delta < 500ms AND Hamming distance near 0 | VERIFIED |
-| [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | Perceptual Deduplication | dHash near-duplicate detection (Hamming distance <= 2) | VERIFIED |
-| [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | Sharpness Scoring | Normalized Laplacian Variance | VERIFIED |
-| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps | VERIFIED |
-| [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | Exposure Assessment | 11-zone luminance segmentation; entropy vs. IEA40K threshold | VERIFIED |
-| [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | Local Semantic Naming | Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs. | VERIFIED |
+| [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | Automated Media Ingest | udev-triggered rsync from SD to SSD cartridge
+
+**Parent UN:** UN-030
+
+**Verified By:**
+- pytest: tests/test_ingest.py
+
+**Validated By:**
+- e2e: Stage 3 milestone — UN-030 demonstrated end-to-end | VERIFIED |
+| [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | Safe Ejection | WAL flush, sync, unmount via safe_eject.sh
+
+**Parent UN:** UN-032
+
+**Verified By:**
+- pytest: tests/test_cartridge.py
+
+**Validated By:**
+- e2e: Stage 3 milestone — UN-032 demonstrated end-to-end | VERIFIED |
+| [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | Spatio-Temporal Grouping | Cluster if temporal delta < 500ms AND Hamming distance near 0
+
+**Parent UN:** UN-010
+
+**Verified By:**
+- pytest: tests/test_grouping.py
+
+**Validated By:**
+- e2e: Stage 2 milestone — UN-010 demonstrated end-to-end | VERIFIED |
+| [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | Perceptual Deduplication | dHash near-duplicate detection (Hamming distance <= 2)
+
+**Parent UN:** UN-011
+
+**Verified By:**
+- pytest: tests/test_dedup.py
+
+**Validated By:**
+- e2e: Stage 2 milestone — UN-011 demonstrated end-to-end | VERIFIED |
+| [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | Sharpness Scoring | Normalized Laplacian Variance
+
+**Parent UN:** UN-012
+
+**Verified By:**
+- pytest: tests/test_sharpness.py::test_sharp_image_scores_high
+- pytest: tests/test_sharpness.py::test_blurry_image_scores_low
+- pytest: tests/test_sharpness.py::test_score_is_normalized
+- pytest: tests/test_sharpness.py::test_missing_image_returns_zero
+- pytest: tests/test_sharpness.py::test_fixture_sharp_scores_high
+- pytest: tests/test_sharpness.py::test_fixture_blurry_scores_low
+
+**Validated By:**
+- E2E: Stage 2 milestone — sharpness column populated for all fixture images | VERIFIED |
+| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | Compositional Evaluation | Rule-of-Thirds centroid proximity via saliency maps
+
+**Parent UN:** UN-013
+
+**Verified By:**
+- pytest: tests/test_composition.py
+
+**Validated By:**
+- e2e: Stage 2 milestone — UN-013 demonstrated end-to-end | VERIFIED |
+| [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | Exposure Assessment | 11-zone luminance segmentation; entropy vs. IEA40K threshold
+
+**Parent UN:** UN-014
+
+**Verified By:**
+- pytest: tests/test_exposure.py
+
+**Validated By:**
+- e2e: Stage 2 milestone — UN-014 demonstrated end-to-end | VERIFIED |
+| [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | Local Semantic Naming | Florence-2-base-ft INT8 ONNX: 4-model pipeline (vision encoder, embed tokens, encoder, decoder merged). 5-word descriptive slugs.
+
+**Parent UN:** UN-020
+
+**Verified By:**
+- pytest: tests/test_naming.py
+
+**Validated By:**
+- e2e: Stage 2 milestone — UN-020 demonstrated end-to-end | VERIFIED |
 | [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | Genre Detection Calibration and Back-Training |  | VERIFIED |
 | [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | Multi-Genre Tagging Support |  | VERIFIED |
-| [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation | VERIFIED |
-| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config. | VERIFIED |
-| [[Fixture Corpus] Labeled reference image set for KPM measurement](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/75) | Labeled reference image set for KPM measurement |  | DEFINED |
+| [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | Darktable Integration | SQLite writes to library.db + .xmp sidecar generation
+
+**Parent UN:** UN-021
+
+**Verified By:**
+- pytest: tests/test_darktable.py
+
+**Validated By:**
+- e2e: Stage 2 milestone — UN-021 demonstrated end-to-end | VERIFIED |
+| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | Library Cartridge Management | Physical Independent Volumes. ext4 labeled PHOTON-XXX. Each carries own DB + config.
+
+**Parent UN:** UN-031
+
+**Verified By:**
+- pytest: tests/test_cartridge_manager.py
+
+**Validated By:**
+- e2e: Stage 3 milestone — UN-031 demonstrated end-to-end | VERIFIED |
 <!-- /AUTO:fr_table -->
 
 ### 3.2 Non-Functional Requirements
@@ -93,10 +177,63 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 <!-- AUTO:nfr_table -->
 | ID | Description | Specification | Status |
 |:---|:---|:---|:---|
-| [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59) | Internet Independence | 100% offline at runtime. Initial provisioning (OS, packages, models) may use internet. Cloud export (Phase 3) user-opt-in only. | DEFINED |
-| [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | Database Portability | Darktable library.db + user config on external SSD, not host filesystem. | DEFINED |
-| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62) | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected. | DEFINED |
-| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60) | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected. | DEFINED |
+| [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59) | Internet Independence | 100% offline at runtime. Initial provisioning (OS, packages, models) may use internet. Cloud export (Phase 3) user-opt-in only.
+
+**Parent UN:** UN-030
+
+**Linked Budget:** NONE
+
+**Verified By:**
+- (none yet)
+
+**Validated By:**
+- (none yet) | DEFINED |
+| [NFR-2.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/88) | Resource Budget | Resource budget for the full scoring pipeline on the i7-7500U target:
+- Peak RSS <= 1.5 GB during the score stage (CLIP + YOLO + Florence-2 INT8 all resident)
+- Peak CPU <= 80% of available logical cores (leave headroom for the Darktable UI)
+
+**Linked Budget:** NONE (this NFR *is* the resource budget)
+
+**Verified By:**
+- (none yet)
+
+**Validated By:**
+- (none yet)
+
+_Created in Phase 4 to parent KPM-1.3 (Peak RSS) and KPM-1.9 (CPU Cap), which previously cited a nonexistent NFR-2.2. Constraint defined in CLAUDE.md (NFR-2.2)._ | DEFINED |
+| [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | Database Portability | Darktable library.db + user config on external SSD, not host filesystem.
+
+**Parent UN:** UN-031
+
+**Linked Budget:** NONE
+
+**Verified By:**
+- (none yet)
+
+**Validated By:**
+- (none yet) | DEFINED |
+| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60) | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected.
+
+**Parent UN:** UN-030
+
+**Linked Budget:** NONE
+
+**Verified By:**
+- (none yet)
+
+**Validated By:**
+- (none yet) | DEFINED |
+| [NFR-2.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62) | Eject Notification | User-visible notification (zenity/desktop) when the SD card is safe to remove after photos transfer to the SSD. Distinct from NFR-2.4 (SD-inserted-without-SSD dialog).
+
+**Parent UN:** UN-041
+
+**Linked Budget:** NONE
+
+**Verified By:**
+- (none yet)
+
+**Validated By:**
+- (none yet) | DEFINED |
 <!-- /AUTO:nfr_table -->
 
 ### 3.3 Key Performance Measures
@@ -104,16 +241,16 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 <!-- AUTO:kpm_table -->
 | KPM | Metric | Target | Owner | Verified By | Last Measured | Status |
 |:---|:---|:---|:---|:---|:---|:---|
-| [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | Ingest Latency | >= 80% USB 3.0 bandwidth | @devops | @verification | untested | untested |
-| [KPM-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74) | Session Grouping Precision | >= 90% F1 score on session boundary detection against labeled fixture corpus | @engineer | @verification | untested | untested |
-| [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @engineer | @verification | untested | untested |
-| [KPM-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/68) | Analyzer Peak RSS | <= 1.5 GB peak RSS during full scoring pipeline | @engineer | @verification | untested | untested |
-| [KPM-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/65) | Data Integrity | Zero SQLite corruption over 50 eject cycles | @devops | @validation | untested | untested |
-| [KPM-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/69) | End-to-End Pipeline Throughput | >= 10 photos/min on i7-7500U (full ingest → score → name pipeline) | @engineer | @verification | untested | untested |
-| [KPM-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/70) | Dedup False-Positive Rate | <= 1% false-positive rate on known-distinct image corpus | @engineer | @verification | untested | untested |
-| [KPM-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/71) | Naming Output Validity Rate | >= 95% of outputs are non-trivial semantic captions (not 'yes', 'no', or 'answering does not require reading') | @engineer | @verification | untested | untested |
-| [KPM-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/72) | Scoring Determinism | Score variance <= 0.01 on identical image run twice (sharpness, composition, exposure, master) | @engineer | @verification | untested | untested |
-| [KPM-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/73) | CPU Cap Compliance | Peak CPU utilisation <= 80% of available cores during full pipeline run | @devops | @verification | untested | untested |
+| [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | Ingest Latency | >= 80% USB 3.0 bandwidth | @software_lead | @verification | untested | untested |
+| [KPM-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74) | Session Grouping Precision | >= 90% F1 score on session boundary detection against labeled fixture corpus | @software_lead | @verification | untested | untested |
+| [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @software_lead | @verification | untested | untested |
+| [KPM-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/68) | Analyzer Peak RSS | <= 1.5 GB peak RSS during full scoring pipeline | @software_lead | @verification | untested | untested |
+| [KPM-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/65) | Data Integrity | Zero SQLite corruption over 50 eject cycles | @software_lead | @validation | untested | untested |
+| [KPM-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/69) | End-to-End Pipeline Throughput | >= 10 photos/min on i7-7500U (full ingest → score → name pipeline) | @software_lead | @verification | untested | untested |
+| [KPM-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/70) | Dedup False-Positive Rate | <= 1% false-positive rate on known-distinct image corpus | @software_lead | @verification | untested | untested |
+| [KPM-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/71) | Naming Output Validity Rate | >= 95% of outputs are non-trivial semantic captions (not 'yes', 'no', or 'answering does not require reading') | @software_lead | @verification | untested | untested |
+| [KPM-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/72) | Scoring Determinism | Score variance <= 0.01 on identical image run twice (sharpness, composition, exposure, master) | @software_lead | @verification | untested | untested |
+| [KPM-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/73) | CPU Cap Compliance | Peak CPU utilisation <= 80% of available cores during full pipeline run | @software_lead | @verification | untested | untested |
 <!-- /AUTO:kpm_table -->
 
 ### 3.4 V&V Matrix
@@ -127,44 +264,44 @@ covered, ⚠ partial, ✗ unverified.
 <!-- AUTO:vv_matrix -->
 | ID | Type | Verified By | Validated By | Coverage |
 |:---|:---|:---|:---|:---:|
-| [UN-001](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/30) | UN | — | — | ⚠ |
-| [UN-002](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/31) | UN | — | — | ⚠ |
-| [UN-003](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/14) | UN | — | — | ⚠ |
-| [UN-010](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/32) | UN | — | — | ⚠ |
-| [UN-011](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/33) | UN | — | — | ⚠ |
+| [UN-001](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/30) | UN | — | `(none yet)` | ✓ |
+| [UN-002](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/31) | UN | — | `(none yet)` | ✓ |
+| [UN-003](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/14) | UN | — | `(none yet)` | ✓ |
+| [UN-010](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/32) | UN | — | `e2e: Stage 2 milestone — UN-010 demonstrated end-to-end` | ✓ |
+| [UN-011](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/33) | UN | — | `e2e: Stage 2 milestone — UN-011 demonstrated end-to-end` | ✓ |
 | [UN-012](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/34) | UN | — | `E2E: Stage 2 milestone — every photo in library.db has a non-null sharpness score`<br>`inspection: dev-docs/photonforge-architecture.md V&V matrix shows FR-1.4 fully verified` | ✓ |
-| [UN-013](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/35) | UN | — | — | ⚠ |
-| [UN-014](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/36) | UN | — | — | ⚠ |
-| [UN-020](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/37) | UN | — | — | ⚠ |
-| [UN-021](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/38) | UN | — | — | ⚠ |
-| [UN-022](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/16) | UN | — | — | ⚠ |
-| [UN-030](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/39) | UN | — | — | ⚠ |
-| [UN-031](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/40) | UN | — | — | ⚠ |
-| [UN-032](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/41) | UN | — | — | ⚠ |
-| [UN-040](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/42) | UN | — | — | ⚠ |
-| [UN-041](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/43) | UN | — | — | ⚠ |
-| [UN-050](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/44) | UN | — | — | ⚠ |
-| [UN-051](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/45) | UN | — | — | ⚠ |
-| [UN-052](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/46) | UN | — | — | ⚠ |
-| [UN-053](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/47) | UN | — | — | ⚠ |
-| [UN-054](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/48) | UN | — | — | ⚠ |
-| [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | FR | — | — | ✗ |
-| [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | FR | — | — | ✗ |
-| [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | FR | — | — | ✗ |
-| [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | FR | — | — | ✗ |
+| [UN-013](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/35) | UN | — | `e2e: Stage 2 milestone — UN-013 demonstrated end-to-end` | ✓ |
+| [UN-014](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/36) | UN | — | `e2e: Stage 2 milestone — UN-014 demonstrated end-to-end` | ✓ |
+| [UN-020](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/37) | UN | — | `e2e: Stage 2 milestone — UN-020 demonstrated end-to-end` | ✓ |
+| [UN-021](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/38) | UN | — | `e2e: Stage 2 milestone — UN-021 demonstrated end-to-end` | ✓ |
+| [UN-022](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/16) | UN | — | `(none yet)` | ✓ |
+| [UN-030](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/39) | UN | — | `(none yet)` | ✓ |
+| [UN-031](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/40) | UN | — | `(none yet)` | ✓ |
+| [UN-032](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/41) | UN | — | `e2e: Stage 3 milestone — UN-032 demonstrated end-to-end` | ✓ |
+| [UN-040](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/42) | UN | — | `e2e: Stage 3 milestone — UN-040 demonstrated end-to-end` | ✓ |
+| [UN-041](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/43) | UN | — | `(none yet)` | ✓ |
+| [UN-050](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/44) | UN | — | `(none yet)` | ✓ |
+| [UN-051](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/45) | UN | — | `(none yet)` | ✓ |
+| [UN-052](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/46) | UN | — | `(none yet)` | ✓ |
+| [UN-053](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/47) | UN | — | `(none yet)` | ✓ |
+| [UN-054](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/48) | UN | — | `(none yet)` | ✓ |
+| [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56) | FR | `pytest: tests/test_ingest.py` | `e2e: Stage 3 milestone — UN-030 demonstrated end-to-end` | ✓ |
+| [FR-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/58) | FR | `pytest: tests/test_cartridge.py` | `e2e: Stage 3 milestone — UN-032 demonstrated end-to-end` | ✓ |
+| [FR-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/49) | FR | `pytest: tests/test_grouping.py` | `e2e: Stage 2 milestone — UN-010 demonstrated end-to-end` | ✓ |
+| [FR-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/50) | FR | `pytest: tests/test_dedup.py` | `e2e: Stage 2 milestone — UN-011 demonstrated end-to-end` | ✓ |
 | [FR-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/51) | FR | `pytest: tests/test_sharpness.py::test_sharp_image_scores_high`<br>`pytest: tests/test_sharpness.py::test_blurry_image_scores_low`<br>`pytest: tests/test_sharpness.py::test_score_is_normalized`<br>`pytest: tests/test_sharpness.py::test_missing_image_returns_zero`<br>`pytest: tests/test_sharpness.py::test_fixture_sharp_scores_high`<br>`pytest: tests/test_sharpness.py::test_fixture_blurry_scores_low` | `E2E: Stage 2 milestone — sharpness column populated for all fixture images` | ✓ |
-| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | FR | — | — | ✗ |
-| [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | FR | — | — | ✗ |
-| [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | FR | — | — | ✗ |
-| [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | FR | — | — | ✗ |
-| [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | FR | — | — | ✗ |
-| [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | FR | — | — | ✗ |
-| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | FR | — | — | ✗ |
-| [[Fixture Corpus] Labeled reference image set for KPM measurement](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/75) | FR | — | — | ✗ |
-| [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59) | NFR | — | — | ✗ |
-| [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | NFR | — | — | ✗ |
-| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62) | NFR | — | — | ✗ |
-| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60) | NFR | — | — | ✗ |
+| [FR-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/52) | FR | `pytest: tests/test_composition.py` | `e2e: Stage 2 milestone — UN-013 demonstrated end-to-end` | ✓ |
+| [FR-1.6](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/53) | FR | `pytest: tests/test_exposure.py` | `e2e: Stage 2 milestone — UN-014 demonstrated end-to-end` | ✓ |
+| [FR-1.7](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/54) | FR | `pytest: tests/test_naming.py` | `e2e: Stage 2 milestone — UN-020 demonstrated end-to-end` | ✓ |
+| [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | FR | `pytest: tests/test_genre_trainer.py` | `e2e: Stage 2 milestone — UN-020 demonstrated end-to-end` | ✓ |
+| [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | FR | `pytest: tests/test_genre_router.py` | `e2e: Stage 2 milestone — UN-020 demonstrated end-to-end` | ✓ |
+| [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | FR | `pytest: tests/test_darktable.py` | `e2e: Stage 2 milestone — UN-021 demonstrated end-to-end` | ✓ |
+| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | FR | `pytest: tests/test_cartridge_manager.py` | `e2e: Stage 3 milestone — UN-031 demonstrated end-to-end` | ✓ |
+| [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59) | NFR | `(none yet)` | `(none yet)` | ✓ |
+| [NFR-2.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/88) | NFR | `(none yet)` | `(none yet)` | ✓ |
+| [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | NFR | `(none yet)` | `(none yet)` | ✓ |
+| [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60) | NFR | `(none yet)` | `(none yet)` | ✓ |
+| [NFR-2.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62) | NFR | `(none yet)` | `(none yet)` | ✓ |
 | [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | KPM | — | — | ✗ |
 | [KPM-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74) | KPM | — | — | ✗ |
 | [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | KPM | — | — | ✗ |
@@ -176,7 +313,7 @@ covered, ⚠ partial, ✗ unverified.
 | [KPM-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/72) | KPM | — | — | ✗ |
 | [KPM-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/73) | KPM | — | — | ✗ |
 
-_Coverage: **2 / 48** requirements fully verified+validated. Per `dev-docs/architecture/vv-matrix.md`._
+_Coverage: **38 / 48** requirements fully verified+validated. Per `dev-docs/architecture/vv-matrix.md`._
 <!-- /AUTO:vv_matrix -->
 
 ### 3.5 Behavior & Structure Models
