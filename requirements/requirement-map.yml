@@ -25,12 +25,18 @@
 #   - FR-1.7.1 / FR-1.7.2 -> UN-020 + UN-022 multi-parent links kept
 #     (consistent with their design-body content).
 #
+# Phase 5 DONE: dev-docs/architecture/system-architecture-contracts.md
+#   maps 10 modules + the cross-module interface seed list.
+#
+# Phase 6 DONE (2026-05-29): 5 internal module interfaces formalized as
+#   IF Issues #89-93 + ICD docs under requirements/interfaces/:
+#     IF-1.1 (#89) Lua plugin <-> CLI    — the cross-language contract
+#     IF-2.1 (#90) scoring internals     — points to scoring-module-contracts.md
+#     IF-3.1 (#91) Genre -> Scoring/Naming
+#     IF-3.2 (#92) Scoring/Naming -> Darktable bridge
+#     IF-4.1 (#93) Ingest -> pipeline
+#
 # Still open (later phases):
-#   - No IF requirements yet. Single-discipline (software) project, so
-#     cross-discipline IFs don't apply. Internal module IFs (scoring->
-#     fusion, Florence-2->naming) are partially captured in
-#     dev-docs/architecture/scoring-module-contracts.md; Phase 6 promotes
-#     them to formal IF Issues + ICDs.
 #   - Agent-handle references in Issue bodies (@architect/@engineer/
 #     @devops) get swept to template names in Phase 7.
 
@@ -100,49 +106,49 @@ user_needs:
     issue: 34
     functional_requirements: [FR-1.4]
     non_functional_requirements: []
-    interface_requirements: []
+    interface_requirements: [IF-2.1]
     kpms: [KPM-1.8]
   UN-013:
     title: "Each photo receives a composition score."
     issue: 35
     functional_requirements: [FR-1.5]
     non_functional_requirements: []
-    interface_requirements: []
+    interface_requirements: [IF-2.1]
     kpms: [KPM-1.8]
   UN-014:
     title: "Each photo receives an exposure score."
     issue: 36
     functional_requirements: [FR-1.6]
     non_functional_requirements: []
-    interface_requirements: []
+    interface_requirements: [IF-2.1]
     kpms: [KPM-1.8]
   UN-020:
     title: "Each photo receives a descriptive semantic filename."
     issue: 37
     functional_requirements: [FR-1.7, FR-1.7.1, FR-1.7.2]
     non_functional_requirements: []
-    interface_requirements: []
+    interface_requirements: [IF-3.1]
     kpms: [KPM-1.2, KPM-1.7]
   UN-021:
     title: "Processed photos are synced to Darktable with scores and metadata."
     issue: 38
     functional_requirements: [FR-1.8]
     non_functional_requirements: []
-    interface_requirements: []
+    interface_requirements: [IF-3.2]
     kpms: []
   UN-022:
     title: "Semantic filenames incorporate genre and scoring context for richer descriptions."
     issue: 16
     functional_requirements: [FR-1.7.1, FR-1.7.2]    # multi-parent FRs, see notes
     non_functional_requirements: []
-    interface_requirements: []
+    interface_requirements: [IF-3.1]
     kpms: []
   UN-030:
     title: "Photos ingest automatically from SD card on insertion."
     issue: 39
     functional_requirements: [FR-1.1]
     non_functional_requirements: [NFR-2.1, NFR-2.2, NFR-2.4]
-    interface_requirements: []
+    interface_requirements: [IF-4.1]
     kpms: [KPM-1.1, KPM-1.5]   # KPM-1.9 re-parented to NFR-2.2 (Phase 4)
   UN-031:
     title: "SSD cartridges function as portable photo libraries."
@@ -177,7 +183,7 @@ user_needs:
     issue: 44
     functional_requirements: []
     non_functional_requirements: []
-    interface_requirements: []
+    interface_requirements: [IF-1.1]
     kpms: []
   UN-051:
     title: "The pipeline tracks per-photo processing state across stages via a DB file."
@@ -317,13 +323,36 @@ non_functional_requirements:
 # Interface requirements (none yet)
 # ============================================================================
 
-interface_requirements: {}
-# Photo-workflow is a single-discipline (software) project. Cross-discipline
-# interfaces don't apply. Internal module interfaces (scoring -> fusion,
-# Florence-2 -> naming, pipeline -> Darktable bridge) are partially
-# captured in dev-docs/architecture/scoring-module-contracts.md; Phase 6
-# will promote them to formal IF Issues + ICDs under
-# requirements/interfaces/IF-*.md.
+# Phase 6: internal module interfaces formalized as IF Issues + ICD docs
+# under requirements/interfaces/. Single-discipline (software), so these are
+# module boundaries; the Lua-plugin <-> CLI boundary (IF-1.1) is the one
+# cross-LANGUAGE contract.
+interface_requirements:
+  IF-1.1:
+    title: "Darktable Lua Plugin <-> CLI Orchestrator"
+    issue: 89
+    parent_uns: [UN-050]
+    icd: requirements/interfaces/IF-1.1.md
+  IF-2.1:
+    title: "Scoring subsystem internal contracts"
+    issue: 90
+    parent_uns: [UN-012, UN-013, UN-014]
+    icd: requirements/interfaces/IF-2.1.md
+  IF-3.1:
+    title: "Genre/Subject Classifier -> Scoring + Naming"
+    issue: 91
+    parent_uns: [UN-020, UN-022]
+    icd: requirements/interfaces/IF-3.1.md
+  IF-3.2:
+    title: "Scoring + Naming -> Darktable Bridge"
+    issue: 92
+    parent_uns: [UN-021]
+    icd: requirements/interfaces/IF-3.2.md
+  IF-4.1:
+    title: "Ingest & Cartridge -> Analysis Pipeline"
+    issue: 93
+    parent_uns: [UN-030]
+    icd: requirements/interfaces/IF-4.1.md
 
 # ============================================================================
 # KPMs (10)
