@@ -450,3 +450,30 @@ phases — none of the new structure breaks existing work.
 Operator reviews this doc, answers the 6 decision questions, then we
 execute Phase 0 → Phase 1. If a phase needs adjustment based on
 findings, we revise this plan rather than improvising.
+
+---
+
+## Phase 9 outcome + the github-issue-map deferral (2026-05-29)
+
+Phase 9 done **except** the planned deletion of
+`dev-docs/github-issue-map.json` (Decision #3 = delete).
+
+**Why deferred:** inspection found the map is still **live-depended-upon
+by 6 scripts** — `github_comment.py`, `pr_rollup.py`, `audit_boards.py`,
+`populate_boards.py`, `seed_github.py`, `weekly_progress.py`. Deleting
+it now would break all six. The "delete" decision assumed
+`requirement-map.yml` had superseded it, but those scripts were never
+migrated to read the new map.
+
+**Done in Phase 9:**
+- Root `README.md` written (was a 28-byte stub).
+- `weekly_progress.py` stale path fixed (`docs/` → `dev-docs/`).
+- github-issue-map.json **kept** (load-bearing).
+
+**Phase 10 (new, deferred):** migrate the 6 scripts off
+`github-issue-map.json` and onto `requirements/requirement-map.yml` +
+live `gh` resolution, then delete the map. This is real refactoring
+work, out of scope for a structural migration. Until then the map
+stays as the legacy ID-resolution source.
+
+## Migration status: Phases 1–9 COMPLETE (Phase 10 deferred)
