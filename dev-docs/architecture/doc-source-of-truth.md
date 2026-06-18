@@ -23,7 +23,7 @@ one-way export of `docs/` for the operator's offline memory aid.
 | FR acceptance criteria, KPM target | GitHub Issue body | `docs/photonforge-architecture.md` (FR/NFR/KPM tables), `docs/living-user-needs.md` | Edit the Issue body, then run `generate_docs.py`. |
 | Roadmap stage / stage assignment | GitHub Issue label `stage: N` + Epic Issue | `docs/roadmap.md` | One Epic Issue per stage. |
 | Architecture contracts (module interfaces) | `docs/architecture/<feature>-contracts.md` | n/a (hand-authored, no AUTO) | These are *design* docs, not status docs. Edit freely. |
-| Engineer briefs (per-feature plans) | `docs/architecture/<feature>-engineer-brief.md` | n/a | Authored by @architect, consumed by @engineer. Must include an "Open questions if you stop mid-step" section (HB-8). |
+| Engineer briefs (per-feature plans) | `docs/architecture/<feature>-engineer-brief.md` | n/a | Authored by @systems_lead, consumed by @software_lead. Must include an "Open questions if you stop mid-step" section (HB-8). |
 | Research / scratch notes | `docs/research/*.md` | n/a | Free-form. Not in AUTO regen. |
 | Verification / validation measurements (KPM numbers, pass/fail) | GitHub Issue comment via `github_comment.py` ending in `**Next action:** ...` | n/a | Reports as Issue comments — not as `docs/VerificationReports/*.md` files. See OQ-3 resolution. |
 | System reviews | `docs/SystemReviews/<date>-<topic>.md` | n/a | Operator-invoked deep reviews. |
@@ -55,9 +55,8 @@ source — fix the Issue, not the doc.
 |---|---|---|
 | @verification | Issue comments (with `Next action:` and `via:` footers) via `github_comment.py` | `docs/living-user-needs.md` (any section); status labels |
 | @validation | Issue comments via `github_comment.py`; `tests/e2e/*` | `docs/living-user-needs.md`; status labels; `src/`; `tests/test_*` |
-| @engineer | `src/`, `tests/test_*`, PR descriptions | Status labels |
-| @architect | `docs/architecture/*`, `CLAUDE.md` | Status labels; status-bearing AUTO sections |
-| @devops | `scripts/`, `deploy/`, `.github/workflows/` | Status labels |
+| @software_lead | `src/`, `tests/test_*`, `scripts/`, `deploy/`, `.github/workflows/`, PR descriptions | Status labels |
+| @systems_lead | `docs/architecture/*`, `CLAUDE.md` | Status labels; status-bearing AUTO sections |
 | `pr_rollup.py` (workflow) | `verified` label on PR merge | `validated` label (that's @validation's domain, on milestone) |
 | `generate_docs.py` (workflow) | AUTO sections of the four living docs | Anything outside AUTO sentinels |
 

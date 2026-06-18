@@ -65,6 +65,6 @@ Wire `@verification` and `@validation` agents to post results back to GitHub Iss
 
 **Scope:**
 - `@verification`: after every commit to main, post pytest results and KPM benchmark values as comments on the relevant FR/NFR/KPM Issues; set `status: verified` on pass, revert to `status: defined` on regression; update `Last Measured` and `Status` fields on KPM Dashboard
-- `@validation`: after milestone merge or manual invocation, post E2E results on UN Issues; set `status: validated` on pass; open a `type: validation-failure` Issue assigned to `@architect` on failure
+- `@validation`: after milestone merge or manual invocation, post E2E results on UN Issues; set `status: validated` on pass; open a `type: validation-failure` Issue assigned to `@systems_lead` on failure
 - Ensure `github-issue-map.json` stays current so agents can look up Issue numbers by FR/KPM ID
-- Test the full loop: engineer commits → verification posts → KPM Dashboard updates automatically
+- Test the full loop: @software_lead commits → verification posts → KPM Dashboard updates automatically

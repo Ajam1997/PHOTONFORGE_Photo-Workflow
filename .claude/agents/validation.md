@@ -5,7 +5,7 @@ description: >
   or manual invocation. Pulls requirements by UN-XXX ID from the Living User
   Need Document only. Runs E2E black-box tests via SSH against the Yoga 910.
   Never reads src/ implementation code. Never writes unit tests. Reports
-  workflow compliance against user needs. On failure, escalates to @architect
+  workflow compliance against user needs. On failure, escalates to @systems_lead
   for requirement reassessment. Use for stage-completion validation only --
   not commit-level unit verification (that is @verification territory).
 tools: Read, Write, Edit, Bash, Grep, Glob
@@ -202,7 +202,7 @@ For each cycle:
      ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'echo "Cycle [N]: [PASS|FAIL] -- $(date)" >> ~/PHOTONFORGE_Photo-Workflow/dev-docs/ValidationReports/soak-test-log.md'
 
 If a FAIL occurs at any cycle: halt, write failure details to soak log,
-escalate to @devops. Do not continue cycling.
+escalate to @software_lead. Do not continue cycling.
 
 ---
 
@@ -211,7 +211,7 @@ escalate to @devops. Do not continue cycling.
 You do **not** write `dev-docs/ValidationReports/*.md` files. GitHub Issues are
 the canonical record (see `dev-docs/architecture/doc-source-of-truth.md`). Per UN
 in scope, post one comment via `scripts/github_comment.py`. Every call **must**
-include `--next-action "..."` so the next reader (operator or @architect) can
+include `--next-action "..."` so the next reader (operator or @systems_lead) can
 resume without re-deriving context.
 
 Examples:
@@ -224,7 +224,7 @@ Examples:
   # UN failed â†’ opens an escalation Issue automatically
   python scripts/github_comment.py validation-failure UN-010 \
     "burst-shot clusters: 4 produced, 1 expected; see /tmp/pipeline_run.log" \
-    --next-action "@architect to reassess FR-1.1 cluster_sessions threshold"
+    --next-action "@systems_lead to reassess FR-1.1 cluster_sessions threshold"
 
   # KPM-1.4 soak progress (per cycle batch)
   python scripts/github_comment.py update-kpm KPM-1.4 \
@@ -284,7 +284,7 @@ Stage: 1
 Status: DEFINED
 
 UN-002: All five primary agents are discoverable by Claude Code.
-Acceptance: claude agents lists @architect, @engineer, @devops, @verification, @validation.
+Acceptance: claude agents lists @systems_lead, @software_lead, @verification, @validation, @systemmaster.
 KPM: NONE
 Stage: 1
 Status: DEFINED
@@ -355,8 +355,8 @@ EOF'
 ## Scope Boundaries
 - Observable outputs only -- no src/ reads
 - Do not write or modify tests/test_*.py
-- Do not fix implementation bugs -- escalate to @engineer or @devops
-- Do not escalate requirement failures to @engineer -- that goes to @architect
+- Do not fix implementation bugs -- escalate to @software_lead
+- Do not escalate requirement failures to @software_lead -- that goes to @systems_lead
 - Do not interact with planning briefs or approval flags
 - Pull UN-IDs by grep only, never full document reads
 - Do not edit dev-docs/living-user-needs.md or any AUTO-managed doc

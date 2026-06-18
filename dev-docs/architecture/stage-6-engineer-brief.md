@@ -1,6 +1,6 @@
 # Stage 6 — Step 1 Engineer Brief: New Scoring Dataclasses
 
-**Owner:** @engineer
+**Owner:** @software_lead
 **Reviewer on completion:** @verification
 **Source of truth for interfaces:** [scoring-module-contracts.md](./scoring-module-contracts.md)
 **Step:** 1 of 6 from the migration checklist (final section of the contracts doc)
@@ -77,13 +77,13 @@ When Step 1 lands on `main`:
 ```bash
 python scripts/github_comment.py verify-fr FR-scoring-step1 \
   "pytest tests/test_scoring_types.py: N/N passed; full suite no regressions" \
-  --next-action "@engineer to open Step 2 (region_router) per checklist"
+  --next-action "@software_lead to open Step 2 (region_router) per checklist"
 ```
 
 @verification then confirms: (a) no behavior change in the integration
 tests from Stage 5, (b) the new types are importable but unreferenced
 elsewhere, and (c) the checklist line for Step 1 in the contracts doc gets
-ticked. After verification signs off, @engineer can open Step 2
+ticked. After verification signs off, @software_lead can open Step 2
 (`region_router`).
 
 ## Pointers

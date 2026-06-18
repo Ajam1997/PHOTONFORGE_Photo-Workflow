@@ -8,7 +8,7 @@ PHOTONForge is an offline photo ingest-to-edit pipeline running on a Lenovo Yoga
 
 **Living User Need Document** is at `/home/alex/PHOTONFORGE_Photo-Workflow/dev-docs/living-user-needs.md` on the Yoga 910. As of 2026-04-18 it contains UN-001 through UN-041 (94 lines, no GUI-specific UN-IDs).
 
-**Stage 7.1 (GUI scaffold) gap**: Features delivered -- status bar with SSD/SD indicators, 6-tab nav (Ingest, Library, Darktable, Export, Cartridge, Settings), panel switching, dark theme with CSS custom properties, /proc/mounts polling via Rust mount_monitor -- have NO UN-IDs in the Living User Need Document. @architect must define UN-050+ before Stage 7.x validation can be fully traceable.
+**Stage 7.1 (GUI scaffold) gap**: Features delivered -- status bar with SSD/SD indicators, 6-tab nav (Ingest, Library, Darktable, Export, Cartridge, Settings), panel switching, dark theme with CSS custom properties, /proc/mounts polling via Rust mount_monitor -- have NO UN-IDs in the Living User Need Document. @systems_lead must define UN-050+ before Stage 7.x validation can be fully traceable.
 
 **UN-041 status**: PARTIAL. Notification display pathway is scaffolded (StatusBar shows "No SD card" on unmount). Active eject command (`safe_eject.sh` invocation) and explicit completion notification (dialog/toast) are not yet wired in the GUI.
 
@@ -17,4 +17,4 @@ PHOTONForge is an offline photo ingest-to-edit pipeline running on a Lenovo Yoga
 **ValidationReports path on Yoga 910**: `/home/alex/PHOTONFORGE_Photo-Workflow/dev-docs/ValidationReports/`
 
 Why: Needed to avoid re-discovering coverage gaps and toolchain details on every run.
-How to apply: Check UN-ID coverage before pulling requirements; expect gap at UN-041 for GUI stage runs until @architect defines UN-050+.
+How to apply: Check UN-ID coverage before pulling requirements; expect gap at UN-041 for GUI stage runs until @systems_lead defines UN-050+.
