@@ -257,7 +257,8 @@ def main() -> None:
     """Fetch issues from GitHub and regenerate living docs."""
     client = GitHubClient()
 
-    req_map = yaml.safe_load((SCRIPTS / "requirement_map.yml").read_text(encoding="utf-8"))
+    req_map = yaml.safe_load(
+        Path("requirements/requirement-map.yml").read_text(encoding="utf-8"))
 
     print("Fetching Issues from GitHub...")
     un_issues = client.list_issues(labels="type: user-need", state="all")

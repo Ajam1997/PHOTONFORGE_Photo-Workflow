@@ -18,13 +18,34 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.github_client import GitHubClient
 
 REPO_ROOT = Path(__file__).parent.parent
-ISSUE_MAP_PATH = REPO_ROOT / "dev-docs" / "github-issue-map.json"
-REQ_MAP_PATH = REPO_ROOT / "scripts" / "requirement_map.yml"
+REQ_MAP_PATH = REPO_ROOT / "requirements" / "requirement-map.yml"
+
+
+def _synthesize_issue_map(req_map: dict) -> dict:
+    """Build the legacy issue_map shape ({section: {id: {number: N}}})
+    from requirement-map.yml's `issue:` fields.
+
+    Migration Phase 10: requirement-map.yml is now the single source of
+    truth for ID→issue# resolution. This shim lets the existing rollup
+    logic keep working without the deleted dev-docs/github-issue-map.json.
+    `epics` is empty — Epics were superseded by Milestones, and the
+    milestone close path (build_stage_to_milestone) is already primary.
+    """
+    sections = ("user_needs", "functional_requirements",
+                "non_functional_requirements", "interface_requirements", "kpms")
+    out: dict = {"epics": {}}
+    for sec in sections:
+        out[sec] = {
+            rid: {"number": e["issue"]}
+            for rid, e in (req_map.get(sec) or {}).items()
+            if e.get("issue")
+        }
+    return out
 
 
 def load_maps() -> tuple[dict, dict]:
-    issue_map = json.loads(ISSUE_MAP_PATH.read_text())
     req_map = yaml.safe_load(REQ_MAP_PATH.read_text())
+    issue_map = _synthesize_issue_map(req_map)
     return issue_map, req_map
 
 

@@ -477,3 +477,40 @@ work, out of scope for a structural migration. Until then the map
 stays as the legacy ID-resolution source.
 
 ## Migration status: Phases 1–9 COMPLETE (Phase 10 deferred)
+
+---
+
+## Phase 10 DONE (2026-05-29) — github-issue-map.json deleted
+
+Migrated the consumers, then deleted the map (Decision #3 fulfilled).
+
+**Discovered + fixed a second stale source:** `scripts/requirement_map.yml`
+— an older duplicate of `requirements/requirement-map.yml` that
+`pr_rollup.py` and `generate_docs.py` were reading. Deleted; both
+repointed to the canonical `requirements/requirement-map.yml`.
+
+**Active scripts migrated** (ID→issue# now synthesized from
+requirement-map.yml's `issue:` fields; `epics` empty-safe since
+Milestones superseded Epics):
+- `pr_rollup.py` — `_synthesize_issue_map()` shim; milestone-close is
+  primary, epic-close path empty-safe. Repointed REQ_MAP_PATH.
+- `github_comment.py` — `load_map()` builds the index from
+  requirement-map.yml; live `gh` search fallback unchanged.
+- `generate_docs.py` — req_map path fixed to canonical.
+
+**Legacy scripts quarantined** to `scripts/legacy/` (tied to the
+superseded GitHub Projects + Epics model, none in CI):
+`seed_github.py`, `audit_boards.py`, `populate_boards.py`,
+`weekly_progress.py`. The `weekly-progress.yml` workflow (only CI
+consumer of a quarantined script) was removed — per-Epic weekly
+summaries have been a no-op since Epics → Milestones; reviving under
+Milestones is future work.
+
+**Also:** swept old agent handles in active script docstrings (Phase 7
+follow-through).
+
+Render chain re-verified green after deletion: export_sysml, kpm_rollup
+--dry, init_project --dry, generate_docs all pass; pr_rollup +
+github_comment import clean.
+
+## MIGRATION COMPLETE — Phases 1–10 done.

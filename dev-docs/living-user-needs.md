@@ -207,6 +207,7 @@ KPM: KPM-1.2
 - (none yet)
 Stage: ?
 Status: DEFINED
+Decomposes to: [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66), [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67)
 
 [UN-030](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/39): Photos ingest automatically from SD card on insertion.
 Acceptance: SD insertion triggers rsync to SSD within 10 seconds.
@@ -225,7 +226,7 @@ KPM: KPM-1.1
 - (none yet)
 Stage: ?
 Status: DEFINED
-Decomposes to: [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56), [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59), [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60)
+Decomposes to: [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56), [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59), [NFR-2.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/88), [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60)
 
 [UN-031](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/40): SSD cartridges function as portable photo libraries.
 Acceptance: SSD mounts at /mnt/photon_ssd/001. library.db resides at /mnt/photon_ssd/001/darktable/library.db on cartridge.
@@ -282,7 +283,6 @@ KPM: KPM-1.1
 - e2e: Stage 3 milestone — UN-040 demonstrated end-to-end
 Stage: ?
 Status: VERIFIED
-Decomposes to: [FR-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/56)
 
 [UN-041](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/43): The system should automaticaly eject and notify the SD card after transfering photos to the SSD.
 Acceptance: SD card is ejected and the user is notified that the photos have been transfered to the SSD.
@@ -301,7 +301,7 @@ KPM: KPM-1.4/KPM-1.1
 - (none yet)
 Stage: ?
 Status: DEFINED
-Decomposes to: [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60)
+Decomposes to: [NFR-2.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62)
 
 [UN-050](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/44): The pipeline CLI supports staged execution of individual processing steps.
 Acceptance: photo-workflow exposes subcommands scan, dedup, score, name, sync, status. Each subcommand runs independently and enforces prerequisite stages.
