@@ -1,0 +1,455 @@
+# requirements/requirement-map.yml
+#
+# First-draft decomposition tree for photo-workflow, populated during
+# Phase 3 of dev-docs/migration-plan.md.
+#
+# Sources:
+#   - 21 type:user-need Issues  (UN numbers preserved from original labels)
+#   - 13 type:fr Issues         (FR -> Parent UN extracted from Issue bodies)
+#   - 4 type:nfr Issues         (NFR -> Parent UN extracted from bodies;
+#                                NFR-2.4 has a known duplicate, see notes below)
+#   - 10 type:kpm Issues        (KPM->FR/UN inferred from titles + CLAUDE.md
+#                                context; some are cross-cutting and unparented)
+#
+# Stage mapping per Decision #2: photo-workflow's original 6 stages remap to
+# the template Profile A 5-stage flow (Scaffold -> Core Engine -> Integration
+# -> V&V -> Release).
+#
+# Phase 4 RESOLVED (applied to GitHub 2026-05-29):
+#   - NFR-2.4 duplicate (#60/#62): #60 stays NFR-2.4 (UN-030); #62
+#     renumbered to NFR-2.5 (UN-041, eject notification).  [DONE]
+#   - "Fixture Corpus" (#75): reclassified type:fr -> verification
+#     fixture; type:fr label removed.  [DONE]
+#   - NFR-2.2 (Resource Budget) created as Issue #88; KPM-1.3 + KPM-1.9
+#     re-parented to it via parent_nfrs.  [DONE]
+#   - FR-1.7.1 / FR-1.7.2 -> UN-020 + UN-022 multi-parent links kept
+#     (consistent with their design-body content).
+#
+# Phase 5 DONE: dev-docs/architecture/system-architecture-contracts.md
+#   maps 10 modules + the cross-module interface seed list.
+#
+# Phase 6 DONE (2026-05-29): 5 internal module interfaces formalized as
+#   IF Issues #89-93 + ICD docs under requirements/interfaces/:
+#     IF-1.1 (#89) Lua plugin <-> CLI    — the cross-language contract
+#     IF-2.1 (#90) scoring internals     — points to scoring-module-contracts.md
+#     IF-3.1 (#91) Genre -> Scoring/Naming
+#     IF-3.2 (#92) Scoring/Naming -> Darktable bridge
+#     IF-4.1 (#93) Ingest -> pipeline
+#
+# Phase 7 DONE (2026-05-29): agent roster migrated to template names.
+#   architect->systems_lead, engineer->software_lead, devops folded into
+#   software_lead. Swept across .claude/agents/, CLAUDE.md, and 11 Issue
+#   bodies (#31,63,64,65,68-74).
+#
+# Still open: Phase 8 (run render chain), Phase 9 (cleanup).
+
+# ============================================================================
+# Stage -> UN map (template Profile A 5-stage flow)
+# ============================================================================
+
+stages:
+  1:
+    title: "Stage 1 — Scaffold & Foundation"
+    user_needs: [UN-001, UN-002, UN-003]
+  2:
+    title: "Stage 2 — Core Engine"
+    user_needs: [UN-010, UN-011, UN-012, UN-013, UN-014, UN-020, UN-021, UN-022]
+  3:
+    title: "Stage 3 — Integration"
+    user_needs: [UN-030, UN-031, UN-032, UN-040, UN-041]
+  4:
+    title: "Stage 4 — V&V"
+    user_needs: [UN-050, UN-051, UN-052, UN-053, UN-054]
+  5:
+    title: "Stage 5 — Release"
+    user_needs: []
+
+# ============================================================================
+# User needs (21)
+# ============================================================================
+
+user_needs:
+  UN-001:
+    title: "The system installs without errors on the target machine."
+    issue: 30
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: []
+  UN-002:
+    title: "All five primary agents are discoverable by Claude Code."
+    issue: 31
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: []
+  UN-003:
+    title: "Users can install and configure the system from documentation."
+    issue: 14
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: []
+  UN-010:
+    title: "Photos are automatically grouped into shooting sessions."
+    issue: 32
+    functional_requirements: [FR-1.2]
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: [KPM-1.10]
+  UN-011:
+    title: "Near-duplicate photos are archived."
+    issue: 33
+    functional_requirements: [FR-1.3]
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: [KPM-1.6]
+  UN-012:
+    title: "Each photo receives a sharpness score."
+    issue: 34
+    functional_requirements: [FR-1.4]
+    non_functional_requirements: []
+    interface_requirements: [IF-2.1]
+    kpms: [KPM-1.8]
+  UN-013:
+    title: "Each photo receives a composition score."
+    issue: 35
+    functional_requirements: [FR-1.5]
+    non_functional_requirements: []
+    interface_requirements: [IF-2.1]
+    kpms: [KPM-1.8]
+  UN-014:
+    title: "Each photo receives an exposure score."
+    issue: 36
+    functional_requirements: [FR-1.6]
+    non_functional_requirements: []
+    interface_requirements: [IF-2.1]
+    kpms: [KPM-1.8]
+  UN-020:
+    title: "Each photo receives a descriptive semantic filename."
+    issue: 37
+    functional_requirements: [FR-1.7, FR-1.7.1, FR-1.7.2]
+    non_functional_requirements: []
+    interface_requirements: [IF-3.1]
+    kpms: [KPM-1.2, KPM-1.7]
+  UN-021:
+    title: "Processed photos are synced to Darktable with scores and metadata."
+    issue: 38
+    functional_requirements: [FR-1.8]
+    non_functional_requirements: []
+    interface_requirements: [IF-3.2]
+    kpms: []
+  UN-022:
+    title: "Semantic filenames incorporate genre and scoring context for richer descriptions."
+    issue: 16
+    functional_requirements: [FR-1.7.1, FR-1.7.2]    # multi-parent FRs, see notes
+    non_functional_requirements: []
+    interface_requirements: [IF-3.1]
+    kpms: []
+  UN-030:
+    title: "Photos ingest automatically from SD card on insertion."
+    issue: 39
+    functional_requirements: [FR-1.1]
+    non_functional_requirements: [NFR-2.1, NFR-2.2, NFR-2.4]
+    interface_requirements: [IF-4.1]
+    kpms: [KPM-1.1, KPM-1.5]   # KPM-1.9 re-parented to NFR-2.2 (Phase 4)
+  UN-031:
+    title: "SSD cartridges function as portable photo libraries."
+    issue: 40
+    functional_requirements: [FR-1.9]
+    non_functional_requirements: [NFR-2.3]
+    interface_requirements: []
+    kpms: []   # KPM-1.3 re-parented to NFR-2.2 (Phase 4)
+  UN-032:
+    title: "SSD cartridges eject safely without data loss."
+    issue: 41
+    functional_requirements: [FR-1.10]
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: [KPM-1.4]
+  UN-040:
+    title: "Workflow should move photos from SD to temporary SSD storage to allow safe SD removal before processing."
+    issue: 42
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: []
+  UN-041:
+    title: "System should automatically eject and notify the SD card after transferring photos to the SSD."
+    issue: 43
+    functional_requirements: []
+    non_functional_requirements: [NFR-2.5]   # Phase 4: was NFR-2.4 dup, now NFR-2.5
+    interface_requirements: []
+    kpms: []
+  UN-050:
+    title: "The pipeline CLI supports staged execution of individual processing steps."
+    issue: 44
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: [IF-1.1]
+    kpms: []
+  UN-051:
+    title: "The pipeline tracks per-photo processing state across stages via a DB file."
+    issue: 45
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: []
+  UN-052:
+    title: "Long-running pipeline stages are resumable after interruption."
+    issue: 46
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: []
+  UN-053:
+    title: "The pipeline displays real-time progress with throughput and ETA during batch processing."
+    issue: 47
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: []
+  UN-054:
+    title: "The pipeline gracefully handles per-photo errors without aborting the batch."
+    issue: 48
+    functional_requirements: []
+    non_functional_requirements: []
+    interface_requirements: []
+    kpms: []
+
+# ============================================================================
+# Functional requirements (13)
+# ============================================================================
+
+functional_requirements:
+  FR-1.1:
+    title: "Automated Media Ingest"
+    issue: 56
+    fr_to_uns: [UN-030]
+    kpms: [KPM-1.1]
+  FR-1.2:
+    title: "Spatio-Temporal Grouping"
+    issue: 49
+    fr_to_uns: [UN-010]
+    kpms: [KPM-1.10]
+  FR-1.3:
+    title: "Perceptual Deduplication"
+    issue: 50
+    fr_to_uns: [UN-011]
+    kpms: [KPM-1.6]
+  FR-1.4:
+    title: "Sharpness Scoring"
+    issue: 51
+    fr_to_uns: [UN-012]
+    kpms: [KPM-1.8]
+  FR-1.5:
+    title: "Compositional Evaluation"
+    issue: 52
+    fr_to_uns: [UN-013]
+    kpms: [KPM-1.8]
+  FR-1.6:
+    title: "Exposure Assessment"
+    issue: 53
+    fr_to_uns: [UN-014]
+    kpms: [KPM-1.8]
+  FR-1.7:
+    title: "Local Semantic Naming"
+    issue: 54
+    fr_to_uns: [UN-020]
+    kpms: [KPM-1.2, KPM-1.7]
+  FR-1.7.1:
+    title: "Genre Detection Calibration and Back-Training"
+    issue: 66
+    fr_to_uns: [UN-020, UN-022]     # multi-parent (inferred)
+    kpms: []
+  FR-1.7.2:
+    title: "Multi-Genre Tagging Support"
+    issue: 67
+    fr_to_uns: [UN-020, UN-022]     # multi-parent (inferred)
+    kpms: []
+  FR-1.8:
+    title: "Darktable Integration"
+    issue: 55
+    fr_to_uns: [UN-021]
+    kpms: []
+  FR-1.9:
+    title: "Library Cartridge Management"
+    issue: 57
+    fr_to_uns: [UN-031]
+    kpms: []
+  FR-1.10:
+    title: "Safe Ejection"
+    issue: 58
+    fr_to_uns: [UN-032]
+    kpms: [KPM-1.4]
+
+# Note: Issue #75 "[Fixture Corpus]" is labeled type:fr but is a test
+# artifact, not a functional requirement. Excluded from this section.
+# Phase 4: relabel and capture as verification fixture under
+# verification/.
+
+# ============================================================================
+# Non-functional requirements (5 — Phase 4 added NFR-2.2 + split NFR-2.5)
+# ============================================================================
+
+non_functional_requirements:
+  NFR-2.1:
+    title: "Internet Independence"
+    issue: 59
+    parent_uns: [UN-030]
+    kpms: []
+  NFR-2.2:
+    title: "Resource Budget"
+    issue: 88       # Phase 4: created on apply
+    parent_uns: [UN-030]
+    kpms: [KPM-1.3, KPM-1.9]
+    notes: "Created in Phase 4 to give KPM-1.3 (Peak RSS <=1.5GB) and KPM-1.9 (CPU cap <=80%) a real parent. Both KPM bodies already cite 'NFR-2.2'; CLAUDE.md defines the constraint. Spec: RSS <= 1.5 GB peak during full scoring pipeline; CPU <= 80% of available cores."
+  NFR-2.3:
+    title: "Database Portability"
+    issue: 61
+    parent_uns: [UN-031]
+    kpms: []
+  NFR-2.4:
+    title: "Interactive UI Prompts"
+    issue: 60
+    parent_uns: [UN-030]
+    kpms: []
+    notes: "Phase 4: scope narrowed to UN-030 (zenity dialog when SD inserted without SSD). The UN-041 concern split out to NFR-2.5."
+  NFR-2.5:
+    title: "Eject Notification"
+    issue: 62       # Phase 4: was a duplicate NFR-2.4 label; renumbered + respec'd
+    parent_uns: [UN-041]
+    kpms: []
+    notes: "Phase 4: Issue #62 carried a duplicate NFR-2.4 label. Renumbered to NFR-2.5 and spec refined to match its parent UN-041 (user-visible notification when the SD card is safe to remove after transfer to SSD), rather than duplicating NFR-2.4's SD-without-SSD dialog."
+
+# ============================================================================
+# Interface requirements (none yet)
+# ============================================================================
+
+# Phase 6: internal module interfaces formalized as IF Issues + ICD docs
+# under requirements/interfaces/. Single-discipline (software), so these are
+# module boundaries; the Lua-plugin <-> CLI boundary (IF-1.1) is the one
+# cross-LANGUAGE contract.
+interface_requirements:
+  IF-1.1:
+    title: "Darktable Lua Plugin <-> CLI Orchestrator"
+    issue: 89
+    parent_uns: [UN-050]
+    icd: requirements/interfaces/IF-1.1.md
+  IF-2.1:
+    title: "Scoring subsystem internal contracts"
+    issue: 90
+    parent_uns: [UN-012, UN-013, UN-014]
+    icd: requirements/interfaces/IF-2.1.md
+  IF-3.1:
+    title: "Genre/Subject Classifier -> Scoring + Naming"
+    issue: 91
+    parent_uns: [UN-020, UN-022]
+    icd: requirements/interfaces/IF-3.1.md
+  IF-3.2:
+    title: "Scoring + Naming -> Darktable Bridge"
+    issue: 92
+    parent_uns: [UN-021]
+    icd: requirements/interfaces/IF-3.2.md
+  IF-4.1:
+    title: "Ingest & Cartridge -> Analysis Pipeline"
+    issue: 93
+    parent_uns: [UN-030]
+    icd: requirements/interfaces/IF-4.1.md
+
+# ============================================================================
+# KPMs (10)
+# ============================================================================
+#
+# Most existing KPMs do not declare an explicit parent in their Issue
+# body. Parents below are inferred from titles + CLAUDE.md context.
+# `aggregation: independent` is the default for measured KPMs; KPMs
+# that aggregate across stages (e.g. KPM-1.5 end-to-end throughput)
+# would need `aggregation: sum/max/min` + `aggregates_from`. Phase 4
+# may revise these as KPM target values get filled in.
+
+kpms:
+  KPM-1.1:
+    title: "Ingest Latency"
+    issue: 64
+    parent_uns: [UN-030]
+    parent_frs: [FR-1.1]
+    aggregation: independent
+  KPM-1.2:
+    title: "Inference Speed"
+    issue: 63
+    parent_uns: [UN-020]
+    parent_frs: [FR-1.7]
+    aggregation: independent
+  KPM-1.3:
+    title: "Analyzer Peak RSS"
+    issue: 68
+    parent_uns: []
+    parent_nfrs: [NFR-2.2]    # Phase 4: re-parented to the new Resource Budget NFR
+    parent_frs: []
+    aggregation: independent
+  KPM-1.4:
+    title: "Data Integrity"
+    issue: 65
+    parent_uns: [UN-032]
+    parent_frs: [FR-1.10]
+    aggregation: independent
+  KPM-1.5:
+    title: "End-to-End Pipeline Throughput"
+    issue: 69
+    parent_uns: [UN-030]
+    parent_frs: []
+    aggregation: independent    # could become aggregation: max once per-stage KPMs land
+  KPM-1.6:
+    title: "Dedup False-Positive Rate"
+    issue: 70
+    parent_uns: [UN-011]
+    parent_frs: [FR-1.3]
+    aggregation: independent
+  KPM-1.7:
+    title: "Naming Output Validity Rate"
+    issue: 71
+    parent_uns: [UN-020]
+    parent_frs: [FR-1.7]
+    aggregation: independent
+  KPM-1.8:
+    title: "Scoring Determinism"
+    issue: 72
+    parent_uns: [UN-012, UN-013, UN-014]
+    parent_frs: [FR-1.4, FR-1.5, FR-1.6]
+    aggregation: independent
+  KPM-1.9:
+    title: "CPU Cap Compliance"
+    issue: 73
+    parent_uns: []
+    parent_nfrs: [NFR-2.2]    # Phase 4: re-parented to the new Resource Budget NFR
+    parent_frs: []
+    aggregation: independent
+  KPM-1.10:
+    title: "Session Grouping Precision"
+    issue: 74
+    parent_uns: [UN-010]
+    parent_frs: [FR-1.2]
+    aggregation: independent
+
+# ============================================================================
+# Out-of-tree Issues (not requirements; tracked separately)
+# ============================================================================
+#
+# 19 of the 67 Issues are NOT in this requirement tree:
+#
+# CLOSED bugs (10): #9, #10, #11, #12, #13, #15, #18, #19, #20, #21
+#   These are historical bug fixes already resolved. They stay as
+#   closed Issues for the record but don't have a place in the
+#   requirement decomposition.
+#
+# OPEN enhancement candidates (5): #17, #76, #77, #78, #80
+#   Feature ideas not yet promoted to UNs. Tracked as enhancement-
+#   labeled Issues. Phase 4 reviews each — some may become FRs under
+#   existing UNs; others stay backlog.
+#
+# OPEN Stage 6 sub-tasks (4): #82, #83, #84, #85
+#   Sub-tasks under the in-flight scoring-system modularization work
+#   (CLAUDE.md Stage 6). They're FR-level implementation details, not
+#   independent requirements. Phase 4 considers whether to file as
+#   sub-FRs under FR-1.4/1.5/1.6 or leave as engineering tasks.

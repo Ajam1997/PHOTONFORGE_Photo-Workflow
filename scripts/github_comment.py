@@ -30,7 +30,7 @@ ID-based commands:
 
   validation-failure <UN-ID> <reason> --next-action "<text>" [--via validation]
       Post comment on UN Issue and open a new type: validation-failure Issue
-      assigned to @architect.
+      assigned to @systems_lead.
 
 Low-level commands (Issue number directly; --next-action still required):
 
@@ -38,7 +38,8 @@ Low-level commands (Issue number directly; --next-action still required):
   set-labels <issue_number> <label1> [<label2> ...]    (no footer / no next-action)
   close <issue_number>                                  (no footer / no next-action)
 
-ID resolution falls back from `dev-docs/github-issue-map.json` to a live
+ID resolution reads `requirements/requirement-map.yml` (the canonical
+source since migration Phase 10), then falls back to a live
 `gh issue list --search` so a stale map never blocks a handoff (HB-6).
 """
 import argparse
@@ -48,16 +49,34 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from scripts.github_client import GitHubClient
 
-MAP_PATH = Path("dev-docs/github-issue-map.json")
+REQ_MAP_PATH = Path("requirements/requirement-map.yml")
 
 
 def load_map() -> dict:
-    if MAP_PATH.exists():
-        return json.loads(MAP_PATH.read_text())
-    return {}
+    """Build the {section: {id: {number: N}}} index from requirement-map.yml.
+
+    Phase 10: requirement-map.yml replaced dev-docs/github-issue-map.json
+    as the canonical ID→issue# source. The live-search fallback in
+    lookup_req() still covers anything not yet in the map.
+    """
+    if not REQ_MAP_PATH.exists():
+        return {}
+    req_map = yaml.safe_load(REQ_MAP_PATH.read_text()) or {}
+    sections = ("user_needs", "functional_requirements",
+                "non_functional_requirements", "interface_requirements", "kpms")
+    out: dict = {}
+    for sec in sections:
+        out[sec] = {
+            rid: {"number": e["issue"]}
+            for rid, e in (req_map.get(sec) or {}).items()
+            if e.get("issue")
+        }
+    return out
 
 
 def lookup_req(client: GitHubClient, issue_map: dict, req_id: str) -> int:
@@ -98,7 +117,7 @@ def lookup_req(client: GitHubClient, issue_map: dict, req_id: str) -> int:
         pass
 
     raise KeyError(
-        f"{req_id} not found in github-issue-map.json or via live search. "
+        f"{req_id} not found in requirement-map.yml or via live search. "
         f"Re-run scripts/seed_github.py if this is a new requirement."
     )
 
@@ -199,7 +218,7 @@ def cmd_validation_failure(client: GitHubClient, issue_map: dict, args: argparse
     body = (
         f"## Validation Failure â€” {today_str()}\n\n"
         f"**{args.id}** Â· {args.reason}\n\n"
-        f"Escalating to @architect for requirement reassessment."
+        f"Escalating to @systems_lead for requirement reassessment."
         f"{render_footer(args.via, args.next_action)}"
     )
     client.post_comment(num, body)
@@ -209,7 +228,7 @@ def cmd_validation_failure(client: GitHubClient, issue_map: dict, args: argparse
         f"**Date:** {today_str()}\n"
         f"**User Need:** {args.id}\n"
         f"**Reason:** {args.reason}\n\n"
-        f"Opened automatically by @validation. Assigned to @architect for requirement reassessment.\n\n"
+        f"Opened automatically by @validation. Assigned to @systems_lead for requirement reassessment.\n\n"
         f"**Next action:** {args.next_action}\n\n*via: @{args.via}*"
     )
     new_issue = client.create_issue(

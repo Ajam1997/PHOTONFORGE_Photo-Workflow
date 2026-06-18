@@ -22,6 +22,7 @@ sections:
   - title: PHOTONForge
     items:
       - { label: Home, page: index.md }
+      - { label: "Getting Started", page: getting-started.md }
       - { label: "Start-Work Checklist", page: start-work-checklist.md }
 
   - title: Core Docs
@@ -34,8 +35,13 @@ sections:
 
   - title: Architecture Notes
     items:
+      - { label: "System Architecture Contracts", page: architecture/system-architecture-contracts.md }
       - { label: "Doc Source of Truth", page: architecture/doc-source-of-truth.md }
       - { label: "V&V Matrix Format", page: architecture/vv-matrix.md }
+      - { label: "Artifact Manifest Format", page: architecture/artifact-manifest.md }
+      - { label: "Architecture Contracts Format", page: architecture/architecture-contracts-format.md }
+      - { label: "External Tooling Stack", page: architecture/external-tools.md }
+      - { label: "SysML Export", page: architecture/sysml-export.md }
       - { label: "System State Machine", page: architecture/system-state-machine.md }
       - { label: "Pipeline Activity", page: architecture/pipeline-activity.md }
       - { label: "Module BDD", page: architecture/module-bdd.md }

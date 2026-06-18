@@ -9,12 +9,16 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 
 | Agent | Scope | Superpowers pairing |
 |---|---|---|
-| @architect (opus, read-only) | architecture, interfaces, CLAUDE.md maintenance | recommend: `brainstorming`, `writing-plans`, `subagent-driven-development` |
-| @engineer (haiku) | src/, tests/, models/ | recommend: `test-driven-development`, `subagent-driven-development`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees` |
-| @devops (sonnet) | deploy/, scripts/, udev | recommend: `verification-before-completion`, `systematic-debugging` |
+| @systems_lead (opus, read-only) | requirements tree, architecture, interfaces (ICDs), CLAUDE.md maintenance | recommend: `brainstorming`, `writing-plans`, `subagent-driven-development` |
+| @software_lead (haiku) | src/, tests/, models/ + host integration (deploy/, scripts/, udev) — the single implementation discipline (Profile A; absorbs the former @devops scope) | recommend: `test-driven-development`, `subagent-driven-development`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees` |
 | @verification (inherit) | commit-level test enforcement, KPM benchmarks | **mandate**: `verification-before-completion` |
 | @validation (inherit) | milestone E2E validation, user need compliance | **mandate**: `verification-before-completion` |
 | @systemmaster (operator-only) | deep cross-cutting reviews | n/a |
+
+> **Roster migrated 2026-05-29** to the systems-first-template naming:
+> `@architect`→`@systems_lead`, `@engineer`→`@software_lead`, and the
+> former `@devops` scope folded into `@software_lead` (Profile A has a
+> single implementation discipline). See `dev-docs/migration-plan.md`.
 
 Start every session with `dev-docs/start-work-checklist.md` (â‰ˆ60s).
 The full pairing rationale lives in
@@ -38,10 +42,25 @@ The full pairing rationale lives in
 - FR-1.7: Model is Florence-2-base-ft INT8 ONNX via onnxruntime AVX2.
 
 ## KPMs
-- KPM-1.1: Ingest >= 80% USB 3.0 BW (@devops)
-- KPM-1.2: Florence-2 inference <= 2.5s/image on i7-7500U (@engineer)
-- KPM-1.3: Analyzer RSS <= 1.5 GB (@engineer)
-- KPM-1.4: Zero SQLite corruption / 50 safe-eject cycles (@devops)
+- KPM-1.1: Ingest >= 80% USB 3.0 BW (@software_lead)
+- KPM-1.2: Florence-2 inference <= 2.5s/image on i7-7500U (@software_lead)
+- KPM-1.3: Analyzer RSS <= 1.5 GB (@software_lead)
+- KPM-1.4: Zero SQLite corruption / 50 safe-eject cycles (@software_lead)
+
+Full KPM tree (10 KPMs) with parents + targets: `requirements/requirement-map.yml`.
+
+## Tool Stack
+Profile A (software-only). No EE/ME/firmware tooling.
+- **Language:** Python 3.11+, type hints on all public functions
+- **CLI:** click entry points (`photo-workflow` console script)
+- **Lint/format:** ruff
+- **Test:** pytest (`tests/`)
+- **Inference:** onnxruntime CPU provider (INT8, AVX2) — MobileCLIP, YOLO, Florence-2-base-ft
+- **Editor integration:** Darktable Lua plugin (`lua/photonforge/`) ↔ CLI over subprocess (IF-1.1)
+- **Shell:** bash, `set -euo pipefail`, ShellCheck clean
+
+See `dev-docs/architecture/external-tools.md` for the template's full
+stack rationale (most of it — EE/ME — is N/A for this project).
 
 ## Conventions
 - Python 3.11+, type hints on all public functions; click for CLI entry points
@@ -62,12 +81,12 @@ dev-docs/  -- developer documentation (markdown source for the GitHub Wiki)
 docs/      -- placeholder for future end-user documentation (currently empty)
 
 ## Build Sequence
-1. Scaffold (@architect): pyproject.toml, directory structure, empty modules ✓
-2. Core Engine (@engineer): grouping, dedup, sharpness, composition, exposure + tests ✓
-3. Inference + Bridge (@engineer): Florence-2-base-ft naming + Darktable SQLite/XMP ✓
-4. Host Integration (@devops): udev rules, SSD cartridge scripts, Dockerfile ✓
-5. Integration (@engineer + @architect): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
-6. Scoring System Modularization (@engineer, in progress): replace the monolithic `score_fusion.py` with a five-module pipeline (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) driven by the 16-Subject × 12-Photo-Type taxonomy. Subject is the region router; Type is the aesthetic weighter; master score is `min(technical, aesthetic)` with a swappable fusion strategy. Per-Type weights live in SQLite (`aesthetic_weights` table) bootstrapped from `dev-docs/research/scoring-redesign.md §5`. Interfaces are locked in `dev-docs/architecture/scoring-module-contracts.md`; execute the 6-step migration checklist at the bottom of that doc, one independently revertable step per PR. Backward compatibility for `pipeline.py` / `darktable_bridge.py` / XMP writer is preserved via `FusionResult`'s existing flat fields and `SubScoreBundle.as_flat_dict()`. Step 1 brief: `dev-docs/architecture/stage-6-engineer-brief.md`.
+1. Scaffold (@systems_lead): pyproject.toml, directory structure, empty modules ✓
+2. Core Engine (@software_lead): grouping, dedup, sharpness, composition, exposure + tests ✓
+3. Inference + Bridge (@software_lead): Florence-2-base-ft naming + Darktable SQLite/XMP ✓
+4. Host Integration (@software_lead): udev rules, SSD cartridge scripts, Dockerfile ✓
+5. Integration (@software_lead + @systems_lead): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
+6. Scoring System Modularization (@software_lead, in progress): replace the monolithic `score_fusion.py` with a five-module pipeline (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) driven by the 16-Subject × 12-Photo-Type taxonomy. Subject is the region router; Type is the aesthetic weighter; master score is `min(technical, aesthetic)` with a swappable fusion strategy. Per-Type weights live in SQLite (`aesthetic_weights` table) bootstrapped from `dev-docs/research/scoring-redesign.md §5`. Interfaces are locked in `dev-docs/architecture/scoring-module-contracts.md`; execute the 6-step migration checklist at the bottom of that doc, one independently revertable step per PR. Backward compatibility for `pipeline.py` / `darktable_bridge.py` / XMP writer is preserved via `FusionResult`'s existing flat fields and `SubScoreBundle.as_flat_dict()`. Step 1 brief: `dev-docs/architecture/stage-6-engineer-brief.md`.
 
 Full spec: dev-docs/Archive/photo-workflow-architecture-v4.docx
 
@@ -93,11 +112,11 @@ footer so the writer's origin is legible to the next reader (HB-7).
 # On test pass:
 python scripts/github_comment.py verify-fr FR-1.2 \
   "pytest: 5/5 passed, 1.8s avg" \
-  --next-action "merge ready; @engineer to open PR"
+  --next-action "merge ready; @software_lead to open PR"
 # On regression:
 python scripts/github_comment.py regress-fr FR-1.2 \
   "test_sharpness failed: expected 0.85 got 0.72" \
-  --next-action "@engineer revisit blur kernel threshold"
+  --next-action "@software_lead revisit blur kernel threshold"
 # After benchmark:
 python scripts/github_comment.py update-kpm KPM-1.2 \
   "1.8s on i7-7500U â€” 2026-05-23" passing \
@@ -113,7 +132,7 @@ python scripts/github_comment.py validate-un UN-010 \
 # On E2E failure:
 python scripts/github_comment.py validation-failure UN-010 \
   "wrong clusters on burst shots â€” 4 grouped, expected 1" \
-  --next-action "@architect to reassess FR-1.1 dHash threshold"
+  --next-action "@systems_lead to reassess FR-1.1 dHash threshold"
 ```
 
 ## Remote Execution
