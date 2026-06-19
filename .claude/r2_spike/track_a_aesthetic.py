@@ -83,14 +83,15 @@ def _build_embedders(models_dir: Path, segformer: Path | None, s0_subdir: str):
     return emb
 
 
-def _embed_split(split, n_shards, embedders, cache_dir, hf_cache):
+def _embed_split(split, n_shards, embedders, cache_dir, hf_cache, cap=None):
     """Embed one AVA split with all backbones. Returns {name: X}, y."""
     import pyarrow.parquet as pq
     from PIL import Image
     from huggingface_hub import hf_hub_download, list_repo_files
 
     names = sorted(embedders)
-    cache_f = cache_dir / f"{split}_{n_shards}_{'-'.join(names)}.npz"
+    tag = f"{split}_{n_shards}{'_cap%d' % cap if cap else ''}_{'-'.join(names)}"
+    cache_f = cache_dir / f"{tag}.npz"
     if cache_f.exists():
         d = np.load(cache_f)
         print(f"[{split}] cached: {d['y'].shape[0]} samples")
@@ -112,8 +113,12 @@ def _embed_split(split, n_shards, embedders, cache_dir, hf_cache):
             for n in names:
                 Xs[n].append(vecs[n])
             y.append(float(sc))
-            if len(y) % 500 == 0:
+            if len(y) % 200 == 0:
                 print(f"[{split}] embedded {len(y)} (shard {fi+1}/{len(files)})", flush=True)
+            if cap and len(y) >= cap:
+                break
+        if cap and len(y) >= cap:
+            break
     Xs = {n: np.vstack(v).astype(np.float32) for n, v in Xs.items()}
     y = np.array(y, dtype=np.float32)
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -159,13 +164,15 @@ def main():
     ap.add_argument("--train-shards", type=int, default=4)
     ap.add_argument("--val-shards", type=int, default=1)
     ap.add_argument("--epochs", type=int, default=120)
+    ap.add_argument("--max-train", type=int, help="cap embedded train images (speed)")
+    ap.add_argument("--max-val", type=int, help="cap embedded val images (speed)")
     args = ap.parse_args()
 
     embedders = _build_embedders(args.models_dir, args.segformer, args.s0_subdir)
     print("Backbones:", ", ".join(sorted(embedders)) or "(none found!)")
     hf_cache = args.cache_dir / "hf"
-    Xtr, ytr = _embed_split("train", args.train_shards, embedders, args.cache_dir, hf_cache)
-    Xva, yva = _embed_split("validation", args.val_shards, embedders, args.cache_dir, hf_cache)
+    Xtr, ytr = _embed_split("train", args.train_shards, embedders, args.cache_dir, hf_cache, args.max_train)
+    Xva, yva = _embed_split("validation", args.val_shards, embedders, args.cache_dir, hf_cache, args.max_val)
 
     print("\n=== Track A — aesthetic Spearman (AVA held-out) ===")
     print(f"{'backbone':12s} | {'dim':>5s} | {'val Spearman':>12s}")

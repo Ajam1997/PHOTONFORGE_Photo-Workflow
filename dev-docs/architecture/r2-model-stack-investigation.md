@@ -177,6 +177,37 @@ counts). It is:
 - the filename template source (zero-model naming),
 - the VLM grounding context (Track B prompt).
 
+## Results — Track A (dev box, 2026-06-19)
+
+**Genre probe** (146 labelled corpus frames, stratified 5-fold):
+
+| candidate | subject acc | photo_type acc |
+|---|---|---|
+| clip_s2 (baseline) | 0.627 | 0.548 |
+| clip_s0 | 0.607 | 0.527 |
+| **mit_pooled** | **0.703** | **0.596** |
+| mit+hist | 0.703 | 0.596 (region_hist adds nothing to the linear probe) |
+
+**Aesthetic Spearman** (AVA, capped 600 train / 300 val):
+
+| backbone | Spearman |
+|---|---|
+| clip_s2 | 0.575 |
+| clip_s0 | 0.496 |
+| **mit_pooled** | **0.208** |
+
+**Verdict — PARTIAL consolidation (middle branch).** MiT-b0 pooled features beat
+CLIP on genre and are free (SegFormer runs for regions anyway), but carry **no
+aesthetic signal** (0.208 — segmentation pretraining never saw quality cues). So:
+
+- **Genre routing → MiT-b0** (better than CLIP, no extra model).
+- **Aesthetic stays on CLIP-S2** — full CLIP eviction is NOT viable.
+- Net R2 stack: SegFormer (regions + genre) + CLIP-S2 (aesthetic) + YOLO + YuNet;
+  NIMA + RMBG deleted, depth never added. Simplification + genre-accuracy win,
+  but CLIP-S2 remains resident for aesthetic.
+- Possible follow-up (low confidence it closes the gap): test multi-stage MiT
+  feature concat for aesthetic before fully accepting CLIP-S2 as permanent.
+
 ## Pinned decision thresholds (set before seeing results)
 
 - **Genre:** within ~3% accuracy of MobileCLIP-S2 on the 175-label corpus.
