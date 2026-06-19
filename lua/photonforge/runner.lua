@@ -152,10 +152,10 @@ local function build_cmd(step)
     if models ~= "" then
       cmd = cmd .. " --model-dir " .. shell_quote(models)
     end
+    -- Corpus lives on the cartridge (portable with the library) unless overridden.
     local corpus = config.read("corpus_path")
-    if corpus ~= "" then
-      cmd = cmd .. " --corpus " .. shell_quote(corpus)
-    end
+    if corpus == "" then corpus = drive .. "genre_labels.jsonl" end
+    cmd = cmd .. " --corpus " .. shell_quote(corpus)
     return cmd
 
   elseif step == "rescore" then
@@ -200,10 +200,12 @@ local function build_cmd(step)
               .. " --photon-db " .. shell_quote(db)
               .. " --folder "    .. shell_quote(folder)
               .. " --darktable-library " .. shell_quote(dt_lib)
+    -- Corpus + secondary feedback live on the cartridge (portable) unless overridden.
+    local drive = get_drive_root(dest)
     local corpus = config.read("corpus_path")
-    if corpus ~= "" then
-      cmd = cmd .. " --corpus " .. shell_quote(corpus)
-    end
+    if corpus == "" then corpus = drive .. "genre_labels.jsonl" end
+    cmd = cmd .. " --corpus " .. shell_quote(corpus)
+              .. " --secondary-feedback " .. shell_quote(drive .. "secondary_feedback.jsonl")
     return cmd
   end
   error("Unknown step: " .. step)

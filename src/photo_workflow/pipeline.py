@@ -1261,7 +1261,8 @@ def recalibrate(
             line = line.strip()
             if line:
                 r = _json.loads(line)
-                adapter_labels[r["filename"]] = (r["subject"], r["photo_type"])
+                if r.get("subject") and r.get("photo_type"):  # adapter needs both axes
+                    adapter_labels[r["filename"]] = (r["subject"], r["photo_type"])
         pc = _sql.connect(str(photon_db))
         emb: dict[str, np.ndarray] = {}
         for q in (
@@ -1323,7 +1324,8 @@ def train_adapter(corpus: Path, photon_db: Path, training_db: Path, cv_folds: in
         line = line.strip()
         if line:
             r = _json.loads(line)
-            labels[r["filename"]] = (r["subject"], r["photo_type"])
+            if r.get("subject") and r.get("photo_type"):  # adapter needs both axes
+                labels[r["filename"]] = (r["subject"], r["photo_type"])
 
     pc = _sql.connect(str(photon_db))
     emb: dict[str, np.ndarray] = {}
@@ -1517,11 +1519,18 @@ def collect_corrections(
         dt_subject = dt_subjects[0] if dt_subjects[0] in subjects_set else None
         dt_type = dt_types[0] if dt_types and dt_types[0] in types_set else None
 
-        # --- Subject correction -----------------------------------------------
-        if dt_subject and dt_subject != db_subject:
+        # --- Correction (either axis) -> FULL label to the corpus -------------
+        # Write a complete (subject, photo_type) label whenever the user changed
+        # either axis, taking the current DT tags and falling back to the DB value
+        # for the axis they left as-is. This gives the learned adapter both axes
+        # (it previously only got subject; type went solely to secondary feedback).
+        subj_changed = bool(dt_subject and dt_subject != db_subject)
+        type_changed = bool(dt_type and dt_type != db_type)
+        if subj_changed or type_changed:
             corpus_entries.append({
                 "filename": filename,
-                "subject": dt_subject,
+                "subject": dt_subject or db_subject,
+                "photo_type": dt_type or db_type,
                 "source_folder": folder,
                 "needs_review": False,
                 "labeled_at": now_iso,
@@ -1531,8 +1540,8 @@ def collect_corrections(
             if json_progress:
                 click.echo(json.dumps({
                     "step": "collect-corrections", "file": filename,
-                    "status": "subject-correction",
-                    "was": db_subject, "correction": dt_subject,
+                    "status": "subject-correction" if subj_changed else "type-correction",
+                    "was": db_subject, "correction": dt_subject or db_subject,
                 }))
 
         # --- Type correction --------------------------------------------------
