@@ -2,13 +2,15 @@
 """Provision ONNX models for genre-aware scoring.
 
 Run ONCE during initial machine setup — NOT during pipeline operation.
-Downloads, exports, and INT8-quantizes five models:
+Downloads, exports, and INT8-quantizes four models:
 
   1. RMBG-1.4        — subject/background segmentation
   2. YuNet            — face detection (5-point landmarks)
   3. YOLOv8n          — object detection (80 COCO classes)
   4. MobileCLIP-S2    — CLIP vision encoder (512-dim embeddings)
-  5. NIMA MobileNet    — aesthetic quality assessment (10-bin distribution)
+
+The aesthetic head (clip_aesthetic_head/aesthetic_mlp.onnx) is a CLIP-embedding
+regressor trained separately by scripts/train_aesthetic_head.py, not here.
 
 Usage:
     python scripts/provision_scoring_models.py [--models-dir models] [--force]
@@ -31,7 +33,7 @@ import numpy as np
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 log = logging.getLogger("provision_scoring")
 
-ALL_MODELS = ["rmbg", "yunet", "yolo", "clip", "aesthetic"]
+ALL_MODELS = ["rmbg", "yunet", "yolo", "clip"]
 
 
 def _ensure_dir(path: Path) -> Path:
@@ -338,167 +340,6 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
 
 
 # ---------------------------------------------------------------------------
-# 5. Aesthetic Head (NIMA MobileNet)
-# ---------------------------------------------------------------------------
-def provision_aesthetic(models_dir: Path, force: bool = False) -> None:
-    """Download and export idealo NIMA MobileNet to ONNX INT8.
-
-    NIMA (Neural Image Assessment) outputs a 10-bin probability distribution
-    over quality scores 1-10. Mean score = sum(i * p_i), normalized to [0, 1].
-    """
-    out_dir = _ensure_dir(models_dir / "nima_mobilenet_int8")
-    out_file = out_dir / "model.onnx"
-    if out_file.exists() and not force:
-        log.info("NIMA MobileNet already present at %s", out_file)
-        return
-
-    log.info("Provisioning NIMA MobileNet aesthetic model...")
-
-    # Try full export; fallback to placeholder if tensorflow not available
-    success = _try_export_nima(out_dir, out_file)
-    if not success:
-        _create_nima_placeholder(out_file)
-
-
-def _try_export_nima(out_dir: Path, out_file: Path) -> bool:
-    """Attempt full NIMA export with TensorFlow. Return True if successful."""
-    try:
-        import tensorflow as tf
-        import tf2onnx
-    except ImportError:
-        log.warning("tensorflow or tf2onnx not installed")
-        log.error("pip install tensorflow tf2onnx  (needed for NIMA export)")
-        return False
-
-    log.info("Downloading NIMA MobileNet pre-trained weights...")
-    import urllib.request
-
-    weights_url = (
-        "https://github.com/idealo/image-quality-assessment/raw/master/"
-        "models/MobileNet/weights_mobilenet_aesthetic_0.07.hdf5"
-    )
-    weights_path = out_dir / "weights.hdf5"
-
-    try:
-        urllib.request.urlretrieve(weights_url, str(weights_path))
-        log.info("Downloaded weights to %s", weights_path)
-    except Exception as e:
-        log.error("Failed to download NIMA weights: %s", e)
-        return False
-
-    # Build NIMA architecture: MobileNet backbone + 10-bin classifier
-    log.info("Building NIMA MobileNet architecture...")
-    try:
-        from tensorflow.keras.applications.mobilenet import MobileNet
-        from tensorflow.keras.layers import Dense, Dropout, GlobalAveragePooling2D
-        from tensorflow.keras.models import Model
-
-        base = MobileNet(input_shape=(224, 224, 3), include_top=False, weights=None)
-        x = GlobalAveragePooling2D()(base.output)
-        x = Dropout(0.75)(x)
-        x = Dense(10, activation='softmax')(x)  # 10-bin distribution
-        model = Model(inputs=base.input, outputs=x)
-
-        # Load pre-trained weights
-        log.info("Loading pre-trained weights...")
-        model.load_weights(str(weights_path))
-    except Exception as e:
-        log.error("Failed to build/load NIMA model: %s", e)
-        return False
-
-    # Export to ONNX using tf2onnx
-    log.info("Exporting to ONNX...")
-    fp32_path = out_dir / "model_fp32.onnx"
-    try:
-        import tensorflow as tf
-        spec = (tf.TensorSpec((1, 224, 224, 3), tf.float32, name="input"),)
-        model_proto, _ = tf2onnx.convert.from_keras(
-            model, input_signature=spec, output_path=str(fp32_path)
-        )
-        log.info("ONNX export complete: %s", fp32_path)
-    except Exception as e:
-        log.error("ONNX export failed: %s", e)
-        return False
-
-    # Quantize to INT8
-    log.info("Quantizing to INT8...")
-    try:
-        from onnxruntime.quantization import quantize_dynamic, QuantType
-        quantize_dynamic(str(fp32_path), str(out_file), weight_type=QuantType.QUInt8)
-        fp32_path.unlink()
-        log.info("NIMA MobileNet ready: %s (%.1f MB)", out_file, out_file.stat().st_size / 1e6)
-    except Exception as e:
-        log.warning("INT8 quantization failed (%s), keeping FP32", e)
-        shutil.move(str(fp32_path), str(out_file))
-
-    # Cleanup weights
-    try:
-        weights_path.unlink()
-    except Exception:
-        pass
-
-    return True
-
-
-def _create_nima_placeholder(out_file: Path) -> None:
-    """Create a minimal ONNX placeholder that outputs uniform 10-bin distribution.
-
-    Used as fallback when tensorflow is not available. Allows pipeline to
-    continue with degraded aesthetic scoring (all images score 0.5).
-    """
-    log.warning("Creating NIMA placeholder — scores will be neutral (0.5)")
-    log.warning("To fix: pip install tensorflow tf2onnx && python scripts/provision_scoring_models.py --force")
-
-    try:
-        import onnx
-        from onnx import helper, TensorProto
-
-        # Create input
-        input_tensor = helper.make_tensor_value_info(
-            'input', TensorProto.FLOAT, [1, 224, 224, 3]
-        )
-        # Create output: 10-bin distribution
-        output_tensor = helper.make_tensor_value_info(
-            'output', TensorProto.FLOAT, [1, 10]
-        )
-
-        # Create a constant node that outputs [1/10, 1/10, ..., 1/10]
-        const_value = np.full((1, 10), 0.1, dtype=np.float32)
-        const_tensor = helper.make_tensor(
-            name='uniform_dist',
-            data_type=TensorProto.FLOAT,
-            dims=[1, 10],
-            vals=const_value.tobytes(),
-            raw=True,
-        )
-
-        # Create identity node (just return the constant)
-        node = helper.make_node(
-            'Identity',
-            inputs=['uniform_dist'],
-            outputs=['output'],
-        )
-
-        # Create graph
-        graph = helper.make_graph(
-            [node],
-            'nima_placeholder',
-            [input_tensor],
-            [output_tensor],
-            [const_tensor],
-        )
-
-        # Create model
-        model = helper.make_model(graph, opset_imports=[helper.make_opsetid('', 13)])
-        onnx.checker.check_model(model)
-        onnx.save(model, str(out_file))
-        log.info("Placeholder created: %s", out_file)
-    except Exception as e:
-        log.error("Failed to create placeholder: %s", e)
-        raise
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 PROVISIONERS = {
@@ -506,7 +347,6 @@ PROVISIONERS = {
     "yunet": provision_yunet,
     "yolo": provision_yolo,
     "clip": provision_clip,
-    "aesthetic": provision_aesthetic,
 }
 
 

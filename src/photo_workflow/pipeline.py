@@ -147,9 +147,9 @@ class AnalysisPipeline:
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
 
-                # Aesthetic score from NIMA. None => unavailable, so fusion
-                # renormalizes the profile instead of scoring a constant that
-                # would silently distort every master score.
+                # Aesthetic score from the CLIP-embedding aesthetic head. None =>
+                # unavailable, so fusion renormalizes the profile instead of scoring
+                # a constant that would silently distort every master score.
                 aesthetic_score: float | None = None
                 _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
                 if model_sessions.aesthetic_head is not None and _clip_ok:
@@ -543,7 +543,8 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
 
-                # Aesthetic score from NIMA. None => unavailable (fusion renormalizes).
+                # Aesthetic score from the CLIP-embedding aesthetic head.
+                # None => unavailable (fusion renormalizes).
                 aesthetic_score: float | None = None
                 _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
                 if model_sessions.aesthetic_head is not None and _clip_ok:
