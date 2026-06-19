@@ -478,9 +478,9 @@ def fuse_scores(
 ) -> FusionResult:
     """Fuse all sub-scores into a two-axis genre-weighted master score.
 
-    aesthetic: NIMA aesthetic score, or None when no working aesthetic model is
-        available — in which case aesthetic_clip is dropped and the remaining
-        weights are renormalized (no constant fill).
+    aesthetic: CLIP-embedding aesthetic-head score, or None when no working
+        aesthetic model is available — in which case aesthetic_clip is dropped and
+        the remaining weights are renormalized (no constant fill).
     weight_profiles: optional DB-backed aesthetic weight profiles; falls back to
         the hardcoded defaults when None.
     """

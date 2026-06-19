@@ -296,32 +296,6 @@ def _run_clip_aesthetic(clip_embedding: np.ndarray, session: Any) -> float:
     return float(min(max(out[0], 0.0), 1.0))
 
 
-def _run_nima(image_rgb: np.ndarray, session: Any) -> float:
-    """Run NIMA aesthetic model, return score in [0, 1].
-
-    NIMA outputs a 10-bin probability distribution over scores 1-10.
-    Mean score = sum(i * p_i), normalized to [0, 1] by dividing by 10.
-    """
-    # Resize to NIMA input size (224x224)
-    img = cv2.resize(image_rgb, (224, 224))
-    img = img.astype(np.float32)
-    # MobileNet preprocessing: scale to [-1, 1]
-    img = (img / 127.5) - 1.0
-    img = np.expand_dims(img, axis=0)  # Add batch: (1, 224, 224, 3)
-    # Note: NIMA uses NHWC format (TensorFlow convention)
-
-    input_name = session.get_inputs()[0].name
-    outputs = session.run(None, {input_name: img})
-    probs = outputs[0].flatten()  # 10-bin distribution
-
-    # Mean score: sum(i * p_i) for i=1..10, then normalize to [0, 1]
-    bins = np.arange(1, 11, dtype=np.float32)
-    mean_score = float(np.sum(bins * probs))
-    # Normalize: NIMA scores range 1-10, map to 0-1
-    # Typical "good" photos score 5-7, exceptional 7+
-    return max(0.0, min(1.0, (mean_score - 1.0) / 9.0))
-
-
 def _run_rmbg(image_rgb: np.ndarray, session: Any, original_shape: tuple) -> np.ndarray:
     """Run RMBG-1.4, return binary mask at original resolution."""
     h, w = original_shape[:2]
