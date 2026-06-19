@@ -33,13 +33,32 @@ Long-pole scaffold for the one-shot R2 spike. Spec:
    otherwise. Needs MobileCLIP-S0 provisioned at
    `models/mobileclip_s0_int8/vision_encoder.onnx` for the S0 candidate.
 
-## Still to write (next)
+3. **Track A — genre** (needs the cache):
 
-- `track_a_probe.py` — read cache → logistic-regression genre probes (subject
-  15-way, type 11-way, 5-fold CV) + aesthetic heads per backbone → decision table.
-- `track_b_caption_bench.py` — SmolVLM2 / LFM2.5-VL / Florence-2 ONNX harness ×
-  {bare, instruction, grounded} prompts over the eval frames → caption + latency
-  + RSS table.
+   ```
+   python .claude/r2_spike/track_a_probe.py --cache-dir .claude/r2_spike/cache
+   ```
+
+4. **Track A — aesthetic** (AVA, the load-bearing metric; needs the SegFormer
+   export + MobileCLIP-S0 for the non-baseline backbones):
+
+   ```
+   python .claude/r2_spike/track_a_aesthetic.py \
+       --segformer models/segformer_b0_ade_int8/model.onnx --train-shards 4
+   ```
+
+5. **Track B — caption bench** (quality via transformers .generate() on CPU;
+   latency is a relative dev-box signal, absolute KPM on the Yoga):
+
+   ```
+   python .claude/r2_spike/track_b_caption_bench.py \
+       --eval-dirs <ICELAND> <MISC2026> --cache-dir .claude/r2_spike/cache
+   ```
+
+   Produces `track_b_results/blind.csv` (fill `score_1to5` + `halluc_y_n`) and
+   `blind_key.json` to reveal model/tier after judging. Optional
+   `--grounding-json {stem: {subject, type, time_of_day, colors, ...}}` enriches
+   the grounded tier beyond the region summary derived from the cache.
 
 ## Notes / assumptions to verify on first run
 
