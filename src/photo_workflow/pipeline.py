@@ -105,7 +105,7 @@ class AnalysisPipeline:
         from .exposure import score_exposure
         from .naming import generate_name
         from .darktable_bridge import sync_to_darktable
-        from .subject_context import ModelSessions, build_subject_context, _run_nima
+        from .subject_context import ModelSessions, build_subject_context, _run_clip_aesthetic
         from .sharpness import score_sharpness_detailed
         from .composition import score_composition_detailed
         from .exposure import score_exposure_detailed
@@ -147,14 +147,17 @@ class AnalysisPipeline:
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
 
-                # Get aesthetic score using NIMA (fallback to 0.5 if not available)
-                aesthetic_score = 0.5
-                if model_sessions.aesthetic_head is not None:
+                # Aesthetic score from NIMA. None => unavailable, so fusion
+                # renormalizes the profile instead of scoring a constant that
+                # would silently distort every master score.
+                aesthetic_score: float | None = None
+                _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
+                if model_sessions.aesthetic_head is not None and _clip_ok:
                     try:
-                        aesthetic_score = _run_nima(ctx.image_rgb, model_sessions.aesthetic_head)
+                        aesthetic_score = _run_clip_aesthetic(ctx.clip_embedding, model_sessions.aesthetic_head)
                     except Exception as e:
                         logger.warning("Aesthetic scoring failed: %s", e)
-                        aesthetic_score = 0.5
+                        aesthetic_score = None
 
                 # Fuse all scores using genre weighting
                 fusion = fuse_scores(
@@ -453,7 +456,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     """Score photos for sharpness, composition, exposure, and genre."""
     import sqlite3
 
-    from .subject_context import ModelSessions, build_subject_context, _run_nima
+    from .subject_context import ModelSessions, build_subject_context, _run_clip_aesthetic
     from .sharpness import score_sharpness, score_sharpness_detailed
     from .composition import score_composition, score_composition_detailed
     from .exposure import score_exposure, score_exposure_detailed
@@ -461,6 +464,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     from .scoring_types import GenreResult
     from .score_fusion import fuse_scores
     from .darktable_bridge import compute_color_label
+    from .score_fusion import absolute_star, hybrid_star, stars_to_color_label, _RATING_ABS_FLOOR
     from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_genre_scores, update_stages, clear_stage
 
     if model_dir is None:
@@ -509,6 +513,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     model_sessions = ModelSessions(model_dir, training_db_path=training_db)
 
     errors = 0
+    rated: list[dict] = []  # keepers buffered for the final relative re-rating pass
     for i, row in enumerate(to_score, 1):
         p = source_dir / row["filename"]
         try:
@@ -538,13 +543,15 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
 
-                # Aesthetic score using NIMA
-                aesthetic_score = 0.5
-                if model_sessions.aesthetic_head is not None:
+                # Aesthetic score from NIMA. None => unavailable (fusion renormalizes).
+                aesthetic_score: float | None = None
+                _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
+                if model_sessions.aesthetic_head is not None and _clip_ok:
                     try:
-                        aesthetic_score = _run_nima(ctx.image_rgb, model_sessions.aesthetic_head)
-                    except Exception:
-                        aesthetic_score = 0.5
+                        aesthetic_score = _run_clip_aesthetic(ctx.clip_embedding, model_sessions.aesthetic_head)
+                    except Exception as e:
+                        logger.warning("Aesthetic scoring failed: %s", e)
+                        aesthetic_score = None
 
                 # Fuse scores
                 fusion = fuse_scores(
@@ -581,20 +588,46 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 update_stages(conn, table, row["filename"], "score", auto_commit=False)
                 conn.commit()
 
-                stars = fusion.star_rating
-                color_label = fusion.color_label
-
-                if json_progress:
-                    emit("score", row["filename"], "ok", json_progress=True,
-                         sharpness=round(sharp, 4), composition=round(comp, 4),
-                         exposure=round(expo, 4), master=round(master, 4),
-                         subject=fusion.subject,
-                         subject_confidence=round(fusion.subject_confidence, 3),
-                         photo_type=fusion.photo_type,
-                         type_confidence=round(fusion.type_confidence, 3),
-                         needs_review=fusion.needs_review,
-                         stars=stars, color_label=color_label,
-                         original_name=row["original_name"])
+                # Stream the rating per image (live feedback + interrupt-safe).
+                # Hard-rejects (technical failures: global motion blur, misfocus,
+                # all eyes closed) get Darktable's reject flag. Otherwise an
+                # absolute provisional star (recalibrated for the min-gate range),
+                # refined to a per-shoot percentile in the final pass below.
+                stars = 1
+                common = dict(
+                    sharpness=round(sharp, 4), composition=round(comp, 4),
+                    exposure=round(expo, 4), master=round(master, 4),
+                    subject=fusion.subject,
+                    subject_confidence=round(fusion.subject_confidence, 3),
+                    photo_type=fusion.photo_type,
+                    type_confidence=round(fusion.type_confidence, 3),
+                    needs_review=fusion.needs_review,
+                    original_name=row["original_name"],
+                )
+                if fusion.hard_reject:
+                    if json_progress:
+                        emit("score", row["filename"], "ok", json_progress=True,
+                             reject=True, **common)
+                else:
+                    stars = absolute_star(master, False)
+                    if json_progress:
+                        emit("score", row["filename"], "ok", json_progress=True,
+                             stars=stars, color_label=stars_to_color_label(stars, False),
+                             **common)
+                # Buffer keepers for the final relative re-rating (provisional
+                # absolute stars are shown live; the per-shoot percentile refines
+                # the keepers once the whole folder's distribution is known).
+                if not fusion.hard_reject and master >= _RATING_ABS_FLOOR:
+                    rated.append({
+                        "filename": row["filename"], "master": master, "prov": stars,
+                        "sharpness": round(sharp, 4), "composition": round(comp, 4),
+                        "exposure": round(expo, 4), "subject": fusion.subject,
+                        "subject_confidence": round(fusion.subject_confidence, 3),
+                        "photo_type": fusion.photo_type,
+                        "type_confidence": round(fusion.type_confidence, 3),
+                        "needs_review": fusion.needs_review,
+                        "original_name": row["original_name"],
+                    })
             except Exception as genre_error:
                 # Fallback to legacy scoring
                 logger.warning("Genre-aware scoring failed, falling back to legacy: %s", genre_error)
@@ -606,9 +639,8 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 conn.commit()
 
                 mean = (sharp + comp + expo) / 3.0
-                stars = min(5, round(mean * 5))
-                color_label = compute_color_label(sharp, comp, expo)
-
+                stars = absolute_star(mean, False)
+                color_label = stars_to_color_label(stars, False)
                 if json_progress:
                     emit("score", row["filename"], "ok", json_progress=True,
                          sharpness=round(sharp, 4), composition=round(comp, 4),
@@ -627,6 +659,32 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
 
         if json_progress and i % 10 == 0:
             click.echo(json.dumps({"step": "_progress", "done": i, "total": len(to_score)}))
+
+    # --- final relative re-rating (P6) ---------------------------------------
+    # Live stars above are absolute/provisional. Now rank each keeper against the
+    # WHOLE folder's master distribution and re-emit only those whose star changes
+    # (so the applicator does minimal extra work). Floored/rejected frames already
+    # got their correct 1 star live, so they are not re-rated.
+    if json_progress and rated:
+        all_masters = [
+            r[0] for r in conn.execute(
+                "SELECT master_score FROM photos WHERE folder=? AND master_score IS NOT NULL",
+                (table,),
+            )
+        ]
+        kept_sorted = sorted(m for m in all_masters if m >= _RATING_ABS_FLOOR)
+        for item in rated:
+            stars = hybrid_star(item["master"], False, kept_sorted)
+            if stars == item["prov"]:
+                continue
+            emit("score", item["filename"], "ok", json_progress=True,
+                 sharpness=item["sharpness"], composition=item["composition"],
+                 exposure=item["exposure"], master=round(item["master"], 4),
+                 subject=item["subject"], subject_confidence=item["subject_confidence"],
+                 photo_type=item["photo_type"], type_confidence=item["type_confidence"],
+                 needs_review=item["needs_review"],
+                 stars=stars, color_label=stars_to_color_label(stars, False),
+                 original_name=item["original_name"])
 
     conn.close()
 
@@ -756,6 +814,144 @@ def status(db_path: Path, folder: str) -> None:
     click.echo(f"  Score:         {stage_counts['score']}/{total - dupes} (non-duplicate)")
     click.echo(f"  Name:          {stage_counts['name']}/{total - dupes} (non-duplicate)")
     click.echo(f"  Errors:        {error_count}")
+
+
+@cli.command("suggest-training-set")
+@click.option("--db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path), help="photonforge.db path")
+@click.option("--folder", required=True, help="Folder/table name in photonforge.db")
+@click.option("--k", type=int, default=20, help="Number of frames to suggest for labeling.")
+@click.option("--json-progress", "json_progress", is_flag=True, default=False)
+def suggest_training_set(photon_db: Path, folder: str, k: int, json_progress: bool) -> None:
+    """Pick the ~k most useful needs_review frames to label (active learning).
+
+    Clusters the needs_review CLIP embeddings and selects one representative per
+    cluster (diverse + each represents many similar uncertain frames). Emits
+    'train-candidate' records so the Darktable applicator tags the picks
+    photon|train_candidate — label just those, then Collect Corrections +
+    Recalibrate. Labeling ~k frames improves the model across the whole folder.
+    """
+    import sqlite3 as _sqlite3
+
+    import numpy as _np
+    from .active_learning import select_representatives
+    from .photondb import sanitize_table_name
+
+    table = sanitize_table_name(folder)
+    conn = _sqlite3.connect(str(photon_db))
+    conn.row_factory = _sqlite3.Row
+    rows = conn.execute(
+        "SELECT filename, original_name, clip_embedding FROM photos "
+        "WHERE folder=? AND needs_review=1 AND clip_embedding IS NOT NULL", (table,),
+    ).fetchall()
+    conn.close()
+
+    if not rows:
+        click.echo(json.dumps({"step": "suggest-training-set", "status": "error",
+                               "message": f"no needs_review frames with embeddings in '{table}'"}))
+        return
+
+    X = _np.vstack([_np.frombuffer(r["clip_embedding"], dtype=_np.float32) for r in rows])
+    reps = select_representatives(X, k)
+
+    total = len(reps)
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
+    for i, (idx, csize) in enumerate(reps, 1):
+        r = rows[idx]
+        emit("train-candidate", r["filename"], "ok", json_progress=json_progress,
+             cluster_size=csize, original_name=r["original_name"])
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+    else:
+        click.echo(f"suggest-training-set: tagged {total} candidates from "
+                   f"{len(rows)} needs_review frames in '{table}'.")
+
+
+@cli.command("refresh-review")
+@click.option("--db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path), help="photonforge.db path")
+@click.option("--folder", required=True, help="Folder/table name in photonforge.db")
+@click.option("--model-dir", default=None, type=click.Path(path_type=Path),
+              help="Scoring model directory (for the genre adapter).")
+@click.option("--training-db", default=None, type=click.Path(exists=True, path_type=Path),
+              help="Optional path to training_weights.db.")
+@click.option("--json-progress", "json_progress", is_flag=True, default=False)
+def refresh_review(photon_db: Path, folder: str, model_dir: Path | None,
+                   training_db: Path | None, json_progress: bool) -> None:
+    """Recompute needs_review from cached CLIP embeddings (no image re-decode).
+
+    Re-runs only the (cheap) genre classifier on each scored frame's stored
+    embedding to recompute the margin-based needs_review flag, updates the DB, and
+    re-emits score records (preserving the existing genre + rating) so the
+    Darktable applicator detaches stale photon|needs_review tags. Use this after a
+    needs_review-logic change instead of a full re-score.
+    """
+    import sqlite3 as _sqlite3
+
+    import numpy as _np
+    from .subject_context import ModelSessions
+    from .genre_adapter import predict_axis
+    from .genre_router import SUBJECTS, PHOTO_TYPES, _top2_margin, _REVIEW_MARGIN
+    from .photondb import sanitize_table_name
+
+    if model_dir is None:
+        model_dir = Path(__file__).resolve().parent.parent.parent / "models"
+    table = sanitize_table_name(folder)
+    adapter = ModelSessions(model_dir, training_db_path=training_db).genre_adapter
+    if not adapter or not adapter.get("subject") or not adapter.get("type"):
+        click.echo(json.dumps({"step": "refresh-review", "status": "error",
+                               "message": "no genre adapter available"}))
+        return
+
+    conn = _sqlite3.connect(str(photon_db))
+    conn.row_factory = _sqlite3.Row
+    rows = conn.execute(
+        "SELECT filename, original_name, genres, clip_embedding, needs_review FROM photos "
+        "WHERE folder=? AND is_duplicate=0 AND stages LIKE '%score%' "
+        "AND clip_embedding IS NOT NULL", (table,),
+    ).fetchall()
+
+    total = len(rows)
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
+    changed = 0
+    for i, row in enumerate(rows, 1):
+        emb = _np.frombuffer(row["clip_embedding"], dtype=_np.float32)
+        if emb.size == 0 or _np.allclose(emb, 0.0):
+            continue
+        subj_dist = predict_axis(emb, adapter["subject"], SUBJECTS)
+        type_dist = predict_axis(emb, adapter["type"], PHOTO_TYPES)
+        needs_review = (_top2_margin(subj_dist) < _REVIEW_MARGIN
+                        or _top2_margin(type_dist) < _REVIEW_MARGIN)
+        # Delta-only: skip frames whose flag is unchanged. Re-emitting every frame
+        # makes the DT applicator do thousands of tag writes on the UI thread and
+        # freezes the app; only the flips need DB updates + applicator action.
+        if needs_review == bool(row["needs_review"]):
+            if json_progress and i % 500 == 0:
+                click.echo(json.dumps({"step": "_progress", "done": i, "total": total}))
+            continue
+        conn.execute("UPDATE photos SET needs_review=? WHERE folder=? AND filename=?",
+                     (1 if needs_review else 0, table, row["filename"]))
+        try:
+            g = json.loads(row["genres"]) if row["genres"] else {}
+        except (json.JSONDecodeError, TypeError):
+            g = {}
+        if json_progress:
+            # No `stars` => applicator leaves the rating untouched; it detaches
+            # stale needs_review and re-attaches subject/type + needs_review-if-true.
+            emit("score", row["filename"], "ok", json_progress=True,
+                 subject=g.get("subject", ""), photo_type=g.get("photo_type", ""),
+                 needs_review=needs_review, original_name=row["original_name"])
+        changed += 1
+        if json_progress and i % 500 == 0:
+            click.echo(json.dumps({"step": "_progress", "done": i, "total": total}))
+    conn.commit()
+    conn.close()
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+    else:
+        click.echo(f"refresh-review: {changed}/{total} frames changed needs_review.")
 
 
 @cli.command("sync-tags")
@@ -1047,8 +1243,61 @@ def recalibrate(
             info["alpha"],
         )
 
-    conn.close()
     click.echo(f"OK: Wrote {len(ALL_LABELS)} prototypes (version {version}) to {training_db}")
+
+    # Also retrain the LEARNED ADAPTER (the primary classifier) so plugin-driven
+    # corrections update the model, not just the prototype fallback. Uses the
+    # pure-numpy LR when scikit-learn is absent (the runtime venv behind the DT
+    # Recalibrate button), or sklearn in the dev environment.
+    try:
+        import json as _json
+        import sqlite3 as _sql
+
+        from .genre_adapter import train_linear_adapter
+        from .training_weights_db import upsert_linear_adapter
+
+        adapter_labels: dict[str, tuple[str, str]] = {}
+        for line in open(corpus, encoding="utf-8"):
+            line = line.strip()
+            if line:
+                r = _json.loads(line)
+                if r.get("subject") and r.get("photo_type"):  # adapter needs both axes
+                    adapter_labels[r["filename"]] = (r["subject"], r["photo_type"])
+        pc = _sql.connect(str(photon_db))
+        emb: dict[str, np.ndarray] = {}
+        for q in (
+            "SELECT filename, clip_embedding FROM photos WHERE clip_embedding IS NOT NULL",
+            "SELECT filename, clip_embedding FROM embeddings WHERE clip_embedding IS NOT NULL",
+        ):
+            try:
+                cur = pc.execute(q)
+            except _sql.OperationalError:
+                continue
+            for fn, blob in cur:
+                if fn in adapter_labels and fn not in emb:
+                    emb[fn] = np.frombuffer(blob, dtype=np.float32)
+        pc.close()
+        names = [fn for fn in adapter_labels if fn in emb]
+        if len(names) >= 10:
+            X = np.vstack([emb[fn] for fn in names])
+            ys = np.array([adapter_labels[fn][0] for fn in names])
+            yt = np.array([adapter_labels[fn][1] for fn in names])
+            heads = train_linear_adapter(X, ys, yt)
+            av = next_version(conn)
+            for axis, h in heads.items():
+                upsert_linear_adapter(conn, av, axis, h["classes"], h["weight"],
+                                      h["bias"], h["n_samples"], h["cv_accuracy"])
+            click.echo(
+                f"OK: retrained adapter v{av} on {len(names)} samples "
+                f"(subject CV {heads['subject']['cv_accuracy']:.3f}, "
+                f"type CV {heads['type']['cv_accuracy']:.3f})"
+            )
+        else:
+            click.echo(f"Adapter retrain skipped: only {len(names)} labeled embeddings")
+    except Exception as e:
+        click.echo(f"WARN: adapter retrain failed ({e}); prototypes still updated", err=True)
+
+    conn.close()
 
 
 @training.command("train-adapter")
@@ -1075,7 +1324,8 @@ def train_adapter(corpus: Path, photon_db: Path, training_db: Path, cv_folds: in
         line = line.strip()
         if line:
             r = _json.loads(line)
-            labels[r["filename"]] = (r["subject"], r["photo_type"])
+            if r.get("subject") and r.get("photo_type"):  # adapter needs both axes
+                labels[r["filename"]] = (r["subject"], r["photo_type"])
 
     pc = _sql.connect(str(photon_db))
     emb: dict[str, np.ndarray] = {}
@@ -1269,11 +1519,18 @@ def collect_corrections(
         dt_subject = dt_subjects[0] if dt_subjects[0] in subjects_set else None
         dt_type = dt_types[0] if dt_types and dt_types[0] in types_set else None
 
-        # --- Subject correction -----------------------------------------------
-        if dt_subject and dt_subject != db_subject:
+        # --- Correction (either axis) -> FULL label to the corpus -------------
+        # Write a complete (subject, photo_type) label whenever the user changed
+        # either axis, taking the current DT tags and falling back to the DB value
+        # for the axis they left as-is. This gives the learned adapter both axes
+        # (it previously only got subject; type went solely to secondary feedback).
+        subj_changed = bool(dt_subject and dt_subject != db_subject)
+        type_changed = bool(dt_type and dt_type != db_type)
+        if subj_changed or type_changed:
             corpus_entries.append({
                 "filename": filename,
-                "subject": dt_subject,
+                "subject": dt_subject or db_subject,
+                "photo_type": dt_type or db_type,
                 "source_folder": folder,
                 "needs_review": False,
                 "labeled_at": now_iso,
@@ -1283,8 +1540,8 @@ def collect_corrections(
             if json_progress:
                 click.echo(json.dumps({
                     "step": "collect-corrections", "file": filename,
-                    "status": "subject-correction",
-                    "was": db_subject, "correction": dt_subject,
+                    "status": "subject-correction" if subj_changed else "type-correction",
+                    "was": db_subject, "correction": dt_subject or db_subject,
                 }))
 
         # --- Type correction --------------------------------------------------

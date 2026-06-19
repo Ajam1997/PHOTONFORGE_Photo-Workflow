@@ -58,6 +58,18 @@ def test_route_genre_uses_adapter_over_poe() -> None:
     assert res.subject in SUBJECTS and res.photo_type in PHOTO_TYPES
 
 
+def test_needs_review_margin_based() -> None:
+    """needs_review reflects top1-top2 ambiguity, not absolute confidence."""
+    adapter = {"subject": _head(["vehicle", "object"]),
+               "type": _head(["documentary", "scenic"])}
+    # Peaked: embedding aligns with one class -> large margin -> not flagged.
+    e_peak = np.zeros(512, dtype=np.float32); e_peak[0] = 1.0
+    assert route_genre(_ctx(e_peak), adapter=adapter).needs_review is False
+    # Ambiguous: equal mix of two classes -> tiny margin -> flagged.
+    e_amb = np.zeros(512, dtype=np.float32); e_amb[0] = e_amb[1] = 1 / np.sqrt(2)
+    assert route_genre(_ctx(e_amb), adapter=adapter).needs_review is True
+
+
 def test_route_genre_falls_back_without_clip() -> None:
     # zero embedding -> adapter not usable -> PoE fallback still returns valid labels
     adapter = {"subject": _head(["vehicle"]), "type": _head(["documentary"])}
@@ -93,6 +105,21 @@ def test_long_exposure_gate_via_poe_path() -> None:
     ctx = _ctx(e); ctx.exif = {"shutter": 3.0}
     res = route_genre(ctx, genre_prototypes=None, adapter=None)
     assert res.photo_type == "long-exposure"
+
+
+def test_numpy_adapter_trains_without_sklearn() -> None:
+    """The pure-numpy LR head (runtime fallback) fits separable data + reports CV."""
+    from photo_workflow.genre_adapter import _train_axis_numpy
+    rng = np.random.RandomState(0)
+    X = np.vstack([rng.randn(20, 512) + 3 * np.eye(512)[0],
+                   rng.randn(20, 512) + 3 * np.eye(512)[1]]).astype(np.float32)
+    y = np.array(["vehicle"] * 20 + ["object"] * 20)
+    head = _train_axis_numpy(X, y, cv_folds=3)
+    assert head["weight"].shape == (2, 512)   # one row per class (no binary special-case)
+    assert head["cv_accuracy"] > 0.8
+    e = np.zeros(512, dtype=np.float32); e[0] = 3.0
+    dist = predict_axis(e, head, SUBJECTS)
+    assert max(dist, key=dist.__getitem__) == "vehicle"
 
 
 def test_linear_adapter_db_roundtrip(tmp_path: Path) -> None:

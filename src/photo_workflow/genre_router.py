@@ -176,8 +176,19 @@ _TYPE_EXIF_PRIORS = {
     },
 }
 
-# Confidence threshold below which an axis value is marked for review
-_CONFIDENCE_THRESHOLD = 0.45
+# An axis is "needs review" when its top-1 and top-2 probabilities differ by less
+# than this margin (genuine ambiguity). Calibrated to the learned adapter's softmax
+# spread: ~24% of a hard real folder (ICELAND) is flagged at 0.02, vs ~100% under
+# the old absolute-confidence threshold.
+_REVIEW_MARGIN = 0.02
+
+
+def _top2_margin(dist: dict[str, float]) -> float:
+    """Gap between the top-1 and top-2 probabilities of an axis distribution."""
+    if len(dist) < 2:
+        return 1.0
+    top2 = sorted(dist.values(), reverse=True)[:2]
+    return top2[0] - top2[1]
 
 # ---------------------------------------------------------------------------
 # Subject context priors — split by axis
@@ -769,7 +780,15 @@ def route_genre(
     photo_type = max(type_dist, key=type_dist.__getitem__)
     type_conf = type_dist[photo_type]
 
-    needs_review = subject_conf < _CONFIDENCE_THRESHOLD or type_conf < _CONFIDENCE_THRESHOLD
+    # needs_review flags genuine ambiguity, not low absolute confidence. The
+    # learned adapter spreads calibrated probability over 15 subjects / 11 types,
+    # so a confident top pick is often only ~0.25-0.35 — an absolute threshold
+    # (the old 0.45) flagged ~everything. Instead flag when the top-1 and top-2 on
+    # either axis are nearly tied (small margin), which is scale-invariant and
+    # works for both the adapter and the peaked PoE-fallback distributions.
+    subj_margin = _top2_margin(subj_dist)
+    type_margin = _top2_margin(type_dist)
+    needs_review = subj_margin < _REVIEW_MARGIN or type_margin < _REVIEW_MARGIN
 
     return GenreResult(
         subject=subject,

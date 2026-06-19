@@ -9,10 +9,43 @@ local function normalize_path(p)
   return p:lower()         -- case-insensitive on Windows
 end
 
-local function find_image(filename, folder)
+local function _key(filename, folder)
+  return normalize_path(folder) .. "|" .. (filename or "")
+end
+
+-- Build a {normalized "folder|filename" -> img} index in ONE pass over the
+-- library. Per-record lookups against this are O(1); without it each apply
+-- linearly scanned the whole library (~seconds each on a large catalog, so a
+-- multi-thousand-record step like refresh-review appeared to hang).
+function M.build_index()
+  local idx = {}
+  for _, img in ipairs(dt.database) do
+    if img ~= nil and img.filename ~= nil then
+      idx[_key(img.filename, img.path)] = img
+    end
+  end
+  return idx
+end
+
+-- Detach photon|train_candidate from every image that carries it. Called after
+-- Recalibrate: the candidates have been labeled and folded into the model, so the
+-- tag is stale and would otherwise linger into the next Suggest round.
+function M.clear_train_candidates()
+  local t = dt.tags.find("photon|train_candidate")
+  if t == nil then return 0 end
+  local imgs = {}
+  for _, img in ipairs(t) do imgs[#imgs + 1] = img end  -- snapshot before mutating
+  for _, img in ipairs(imgs) do dt.tags.detach(t, img) end
+  return #imgs
+end
+
+local function find_image(filename, folder, index)
+  if index ~= nil then
+    return index[_key(filename, folder)]
+  end
+  -- Fallback: linear scan (used only if no index was supplied).
   local norm_folder = normalize_path(folder)
   for _, img in ipairs(dt.database) do
-    -- Guard: DT5 database proxies can yield nil-like entries
     if img ~= nil and img.filename == filename
         and normalize_path(img.path) == norm_folder then
       return img
@@ -21,7 +54,7 @@ local function find_image(filename, folder)
   return nil
 end
 
-function M.apply(rec, folder)
+function M.apply(rec, folder, index)
   if rec.step == "_progress" then
     return
   end
@@ -42,9 +75,22 @@ function M.apply(rec, folder)
     return
   end
 
+  -- suggest-training-set: tag the picked frames so the user can filter to a small
+  -- labeling set (photon|train_candidate), then label + Collect Corrections.
+  if rec.step == "train-candidate" then
+    local img = find_image(rec.file, folder, index)
+    if img == nil then
+      dt.print_log(string.format("PHOTONForge train-candidate: image not found: %s", rec.file or ""))
+      return
+    end
+    local tag = dt.tags.create("photon|train_candidate")
+    dt.tags.attach(tag, img)
+    return
+  end
+
   -- sync-tags: apply genre tags via DT API (Python emits subject/photo_type)
   if rec.step == "sync-tags" then
-    local img = find_image(rec.file, folder)
+    local img = find_image(rec.file, folder, index)
     if img == nil then
       dt.print_log(string.format("PHOTONForge sync-tags: image not found: %s", rec.file or ""))
       return
@@ -58,7 +104,7 @@ function M.apply(rec, folder)
     return
   end
 
-  local img = find_image(rec.file, folder)
+  local img = find_image(rec.file, folder, index)
   if img == nil then
     dt.print_log(string.format("PHOTONForge: image not found in library: %s", rec.file or ""))
     return
@@ -71,16 +117,23 @@ function M.apply(rec, folder)
     end
 
   elseif rec.step == "score" then
-    if rec.stars ~= nil then
+    if rec.reject then
+      -- Technical failure -> Darktable reject flag (no star/color).
+      img.rating = -1
+    elseif rec.stars ~= nil then
       img.rating = math.min(5, math.max(0, math.floor(rec.stars + 0.5)))
     end
-    local cl = rec.color_label
-    if cl ~= nil and cl >= 0 then
-      img.red    = (cl == 0)
-      img.yellow = (cl == 1)
-      img.green  = (cl == 2)
-      img.blue   = (cl == 3)
-      img.purple = (cl == 4)
+    if not rec.reject then
+      local cl = rec.color_label
+      if cl ~= nil and cl >= 0 then
+        -- Automatic scoring colors only. PURPLE is reserved as a USER flag
+        -- (mark-for-edit/export) and is deliberately never written here, so a
+        -- re-score can't wipe a manually-set purple selection.
+        img.red    = (cl == 0)
+        img.yellow = (cl == 1)
+        img.green  = (cl == 2)
+        img.blue   = (cl == 3)
+      end
     end
 
     local parts = {}

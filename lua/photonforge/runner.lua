@@ -118,6 +118,27 @@ local function build_cmd(step)
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --darktable-library " .. shell_quote(dt_lib)
 
+  elseif step == "suggest-training-set" then
+    -- Cluster needs_review embeddings and tag ~k representatives for labeling.
+    return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+
+  elseif step == "refresh-review" then
+    -- Recompute needs_review from cached embeddings (no image re-decode) and
+    -- re-emit score recs so the applicator detaches stale photon|needs_review tags.
+    local cmd = base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+    local models = config.read("models_path")
+    if models ~= "" then
+      cmd = cmd .. " --model-dir " .. shell_quote(models)
+    end
+    local drive = get_drive_root(dest)
+    local training_db = drive .. "training_weights.db"
+    local fh = io.open(training_db, "r")
+    if fh then
+      fh:close()
+      cmd = cmd .. " --training-db " .. shell_quote(training_db)
+    end
+    return cmd
+
   elseif step == "recalibrate" then
     -- Recalibrate genre prototypes from corpus labels.
     -- --model-dir omitted: auto-detected from package location.
@@ -131,10 +152,10 @@ local function build_cmd(step)
     if models ~= "" then
       cmd = cmd .. " --model-dir " .. shell_quote(models)
     end
+    -- Corpus lives on the cartridge (portable with the library) unless overridden.
     local corpus = config.read("corpus_path")
-    if corpus ~= "" then
-      cmd = cmd .. " --corpus " .. shell_quote(corpus)
-    end
+    if corpus == "" then corpus = drive .. "genre_labels.jsonl" end
+    cmd = cmd .. " --corpus " .. shell_quote(corpus)
     return cmd
 
   elseif step == "rescore" then
@@ -179,10 +200,12 @@ local function build_cmd(step)
               .. " --photon-db " .. shell_quote(db)
               .. " --folder "    .. shell_quote(folder)
               .. " --darktable-library " .. shell_quote(dt_lib)
+    -- Corpus + secondary feedback live on the cartridge (portable) unless overridden.
+    local drive = get_drive_root(dest)
     local corpus = config.read("corpus_path")
-    if corpus ~= "" then
-      cmd = cmd .. " --corpus " .. shell_quote(corpus)
-    end
+    if corpus == "" then corpus = drive .. "genre_labels.jsonl" end
+    cmd = cmd .. " --corpus " .. shell_quote(corpus)
+              .. " --secondary-feedback " .. shell_quote(drive .. "secondary_feedback.jsonl")
     return cmd
   end
   error("Unknown step: " .. step)
@@ -248,6 +271,11 @@ function M.run_import(log_fn, job)
 end
 
 function M.run_step(step, log_fn, job, progress_fn)
+  -- Clear any stale abort from a previously-stopped run. Without this, a
+  -- standalone button (Suggest / Refresh / Sync) pressed after a Stop would
+  -- immediately short-circuit on the leftover M.abort=true. (run_all checks
+  -- M.abort between steps *before* the next run_step, so this reset is safe there.)
+  M.abort = false
   if step == "import" then
     return M.run_import(log_fn, job)
   end
@@ -288,6 +316,9 @@ function M.run_step(step, log_fn, job, progress_fn)
   end
 
   local dest = config.read("dest_path")
+  -- Index the library once (O(1) per-record lookups in the applicator). These
+  -- steps don't add images, so the index stays valid for the whole run.
+  local index = applicator.build_index()
   local done, total = 0, 0
   local file_count = 0
   local last_pos = 0
@@ -344,7 +375,7 @@ function M.run_step(step, log_fn, job, progress_fn)
           local msg = string.format("[%s] %s  %s  [%s]",
             os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
           log_fn(msg)
-          applicator.apply(rec, dest)
+          applicator.apply(rec, dest, index)
         end
       else
         log_fn(line)
@@ -374,11 +405,20 @@ function M.run_step(step, log_fn, job, progress_fn)
           local msg = string.format("[%s] %s  %s  [%s]",
             os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
           log_fn(msg)
-          applicator.apply(rec, dest)
+          applicator.apply(rec, dest, index)
         elseif not ok then
           log_fn(line)
         end
       end
+    end
+  end
+
+  -- After recalibrate, the labeled candidates are folded into the model; clear
+  -- the now-stale photon|train_candidate tags so the next Suggest round is clean.
+  if step == "recalibrate" then
+    local ok, n = pcall(applicator.clear_train_candidates)
+    if ok and n and n > 0 then
+      log_fn(string.format("[%s] Cleared %d train-candidate tag(s)", os.date("%H:%M:%S"), n))
     end
   end
 

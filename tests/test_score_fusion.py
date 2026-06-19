@@ -106,6 +106,90 @@ def test_missing_profile_falls_back_to_hardcoded() -> None:
     assert 0.0 <= result.master_score <= 1.0
 
 
+def test_aesthetic_none_drops_weight_and_renormalizes() -> None:
+    """aesthetic=None must drop aesthetic_clip and renormalize, not fill a constant."""
+    common = dict(sharpness=_make_sharpness(), composition=_make_composition(),
+                  exposure=_make_exposure(), genre=_make_genre(subject="abstract",
+                                                                photo_type="still-life"))
+    # abstract weights aesthetic_clip 0.30; a constant 0.0 vs 0.5 fill would swing
+    # the master a lot. With renormalization the score must stay a sane [0,1] value
+    # and must NOT equal either constant-fill outcome.
+    none_res = fuse_scores(**common, aesthetic=None)
+    hi = fuse_scores(**common, aesthetic=1.0)
+    lo = fuse_scores(**common, aesthetic=0.0)
+    assert 0.0 <= none_res.master_score <= 1.0
+    # renormalized result is independent of the (absent) aesthetic value, and sits
+    # strictly between the all-low and all-high aesthetic extremes
+    assert lo.master_score < none_res.master_score < hi.master_score
+
+
+def test_face_sentinels_dropped_when_no_face() -> None:
+    """No-face images drop face_exposure/expression_proxy (0.5 sentinels) and
+    renormalize, so the weight goes to real signals instead of a constant."""
+    from photo_workflow.score_fusion import _build_sub_score_dict, _compute_master_score
+    genre = _make_genre(subject="people", photo_type="documentary")
+    ss = _build_sub_score_dict(_make_sharpness(), _make_composition(), _make_exposure(), 1.0)
+    ss = {k: 1.0 for k in ss}            # every real signal maxed...
+    ss["face_exposure"] = 0.5            # ...but the face sentinels are neutral 0.5
+    ss["expression_proxy"] = 0.5
+    full = _compute_master_score(ss, genre)
+    dropped = _compute_master_score(ss, genre, drop_keys=("face_exposure", "expression_proxy"))
+    assert dropped > full                # dropping the 0.5 sentinels lifts the master
+    assert abs(dropped - 1.0) < 1e-6     # renormalized over all-1.0 signals -> 1.0
+
+
+def test_hybrid_star_floor_and_percentile() -> None:
+    """Below-floor / hard-reject -> 1 star; above floor -> percentile within shoot."""
+    from photo_workflow.score_fusion import hybrid_star, stars_to_color_label
+    shoot = sorted([0.30, 0.40, 0.50, 0.55, 0.60, 0.65, 0.70, 0.80, 0.85, 0.95])
+    assert hybrid_star(0.10, False, shoot) == 1          # below absolute floor
+    assert hybrid_star(0.80, True, shoot) == 1           # hard reject overrides
+    assert hybrid_star(0.95, False, shoot) == 5          # top of the shoot
+    assert hybrid_star(0.30, False, shoot) == 2          # bottom kept frame
+    # monotonic: higher master never yields fewer stars
+    prev = 0
+    for m in shoot:
+        s = hybrid_star(m, False, shoot)
+        assert s >= prev
+        prev = s
+    assert stars_to_color_label(5) == 3 and stars_to_color_label(4) == 2
+    assert stars_to_color_label(1) == 1 and stars_to_color_label(3) == -1
+    assert stars_to_color_label(5, hard_reject=True) == -1
+
+
+def test_absolute_star_streaming_mapping() -> None:
+    """absolute_star maps the compressed min-gate range to a full 1-5 spread,
+    floors below the reject threshold, and is monotonic."""
+    from photo_workflow.score_fusion import absolute_star
+    assert absolute_star(0.10) == 1            # below floor
+    assert absolute_star(0.55, hard_reject=True) == 1  # hard reject overrides
+    assert absolute_star(0.65) == 5            # top of the range
+    seq = [absolute_star(m) for m in (0.25, 0.40, 0.50, 0.60, 0.70)]
+    assert seq == sorted(seq)                  # monotonic non-decreasing
+    assert len(set(seq)) >= 4                  # spreads across multiple bins
+
+
+def test_degeneracy_detector_flags_constant_model() -> None:
+    """_aesthetic_session_is_degenerate catches a model that ignores its input."""
+    from photo_workflow.subject_context import _aesthetic_session_is_degenerate
+
+    class _Input:
+        name = "x"
+        shape = ["batch", 8]
+
+    class _ConstSession:
+        def get_inputs(self): return [_Input()]
+        def run(self, _out, _feed): return [np.array([[0.556]], dtype=np.float32)]
+
+    class _LiveSession:
+        def get_inputs(self): return [_Input()]
+        def run(self, _out, feed):
+            return [np.array([[float(np.asarray(feed["x"]).sum())]], dtype=np.float32)]
+
+    assert _aesthetic_session_is_degenerate(_ConstSession()) is True
+    assert _aesthetic_session_is_degenerate(_LiveSession()) is False
+
+
 def test_fuse_scores_returns_fusion_result() -> None:
     """fuse_scores should return a FusionResult."""
     result = fuse_scores(
@@ -203,9 +287,12 @@ def test_no_hard_reject_for_bokeh() -> None:
 def test_color_label_mapping() -> None:
     """Color labels should map correctly from master score."""
     result = fuse_scores(
-        sharpness=_make_sharpness(subject=0.95, eye_region=0.95, overall=0.9),
-        composition=_make_composition(overall=0.85),
-        exposure=_make_exposure(overall=0.9),
+        sharpness=_make_sharpness(subject=0.95, eye_region=0.95, background=0.9, overall=0.9),
+        # min-gate uses individual sub-scores (not `overall`), so set them all high
+        composition=_make_composition(rule_of_thirds=0.9, symmetry=0.9, leading_lines=0.9,
+                                      negative_space=0.9, subject_isolation=0.9, balance=0.9,
+                                      colorfulness=0.9, overall=0.9),
+        exposure=_make_exposure(zone_entropy=0.9, dynamic_range=0.9, overall=0.9),
         genre=_make_genre("wildlife"),
         aesthetic=0.9,
     )
