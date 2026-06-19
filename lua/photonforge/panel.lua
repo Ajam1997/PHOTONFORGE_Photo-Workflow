@@ -244,6 +244,31 @@ function M.build()
     end,
   }
 
+  local refresh_review_btn = dt.new_widget("button") {
+    label = "\u{21BB} Refresh Review Flags",
+    tooltip = "Recompute needs_review from cached embeddings (no re-scoring) and "
+           .. "clear stale photon|needs_review tags in Darktable. Use after a "
+           .. "scoring-logic change.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        append_log("[REVIEW] Recomputing needs_review from cached embeddings...")
+        dt.control.dispatch(function()
+          local ok2, err2 = pcall(runner.run_step, "refresh-review", append_log, nil, update_progress)
+          if not ok2 then
+            append_log("[ERROR] refresh-review: " .. tostring(err2))
+          else
+            append_log("[REVIEW] Done.")
+          end
+          clear_progress()
+        end)
+      end)
+      if not ok then
+        append_log("[ERROR] " .. tostring(err))
+      end
+    end,
+  }
+
   local collect_btn = dt.new_widget("button") {
     label = "\u{21C5} Collect Corrections",
     tooltip = "Detect tag corrections made in Darktable and feed them back to "
@@ -358,6 +383,7 @@ function M.build()
     orientation = "vertical",
     dt.new_widget("box") { orientation = "horizontal", run_btn, stop_btn },
     sync_tags_btn,
+    refresh_review_btn,
     collect_btn,
     dt.new_widget("box") { orientation = "horizontal", recalibrate_btn, correction_loop_btn },
   }

@@ -58,6 +58,18 @@ def test_route_genre_uses_adapter_over_poe() -> None:
     assert res.subject in SUBJECTS and res.photo_type in PHOTO_TYPES
 
 
+def test_needs_review_margin_based() -> None:
+    """needs_review reflects top1-top2 ambiguity, not absolute confidence."""
+    adapter = {"subject": _head(["vehicle", "object"]),
+               "type": _head(["documentary", "scenic"])}
+    # Peaked: embedding aligns with one class -> large margin -> not flagged.
+    e_peak = np.zeros(512, dtype=np.float32); e_peak[0] = 1.0
+    assert route_genre(_ctx(e_peak), adapter=adapter).needs_review is False
+    # Ambiguous: equal mix of two classes -> tiny margin -> flagged.
+    e_amb = np.zeros(512, dtype=np.float32); e_amb[0] = e_amb[1] = 1 / np.sqrt(2)
+    assert route_genre(_ctx(e_amb), adapter=adapter).needs_review is True
+
+
 def test_route_genre_falls_back_without_clip() -> None:
     # zero embedding -> adapter not usable -> PoE fallback still returns valid labels
     adapter = {"subject": _head(["vehicle"]), "type": _head(["documentary"])}

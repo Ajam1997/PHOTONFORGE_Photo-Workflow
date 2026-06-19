@@ -805,6 +805,85 @@ def status(db_path: Path, folder: str) -> None:
     click.echo(f"  Errors:        {error_count}")
 
 
+@cli.command("refresh-review")
+@click.option("--db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path), help="photonforge.db path")
+@click.option("--folder", required=True, help="Folder/table name in photonforge.db")
+@click.option("--model-dir", default=None, type=click.Path(path_type=Path),
+              help="Scoring model directory (for the genre adapter).")
+@click.option("--training-db", default=None, type=click.Path(exists=True, path_type=Path),
+              help="Optional path to training_weights.db.")
+@click.option("--json-progress", "json_progress", is_flag=True, default=False)
+def refresh_review(photon_db: Path, folder: str, model_dir: Path | None,
+                   training_db: Path | None, json_progress: bool) -> None:
+    """Recompute needs_review from cached CLIP embeddings (no image re-decode).
+
+    Re-runs only the (cheap) genre classifier on each scored frame's stored
+    embedding to recompute the margin-based needs_review flag, updates the DB, and
+    re-emits score records (preserving the existing genre + rating) so the
+    Darktable applicator detaches stale photon|needs_review tags. Use this after a
+    needs_review-logic change instead of a full re-score.
+    """
+    import sqlite3 as _sqlite3
+
+    import numpy as _np
+    from .subject_context import ModelSessions
+    from .genre_adapter import predict_axis
+    from .genre_router import SUBJECTS, PHOTO_TYPES, _top2_margin, _REVIEW_MARGIN
+    from .photondb import sanitize_table_name
+
+    if model_dir is None:
+        model_dir = Path(__file__).resolve().parent.parent.parent / "models"
+    table = sanitize_table_name(folder)
+    adapter = ModelSessions(model_dir, training_db_path=training_db).genre_adapter
+    if not adapter or not adapter.get("subject") or not adapter.get("type"):
+        click.echo(json.dumps({"step": "refresh-review", "status": "error",
+                               "message": "no genre adapter available"}))
+        return
+
+    conn = _sqlite3.connect(str(photon_db))
+    conn.row_factory = _sqlite3.Row
+    rows = conn.execute(
+        "SELECT filename, original_name, genres, clip_embedding FROM photos "
+        "WHERE folder=? AND is_duplicate=0 AND stages LIKE '%score%' "
+        "AND clip_embedding IS NOT NULL", (table,),
+    ).fetchall()
+
+    total = len(rows)
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
+    changed = 0
+    for i, row in enumerate(rows, 1):
+        emb = _np.frombuffer(row["clip_embedding"], dtype=_np.float32)
+        if emb.size == 0 or _np.allclose(emb, 0.0):
+            continue
+        subj_dist = predict_axis(emb, adapter["subject"], SUBJECTS)
+        type_dist = predict_axis(emb, adapter["type"], PHOTO_TYPES)
+        needs_review = (_top2_margin(subj_dist) < _REVIEW_MARGIN
+                        or _top2_margin(type_dist) < _REVIEW_MARGIN)
+        conn.execute("UPDATE photos SET needs_review=? WHERE folder=? AND filename=?",
+                     (1 if needs_review else 0, table, row["filename"]))
+        try:
+            g = json.loads(row["genres"]) if row["genres"] else {}
+        except (json.JSONDecodeError, TypeError):
+            g = {}
+        if json_progress:
+            # No `stars` => applicator leaves the rating untouched; it detaches
+            # stale needs_review and re-attaches subject/type + needs_review-if-true.
+            emit("score", row["filename"], "ok", json_progress=True,
+                 subject=g.get("subject", ""), photo_type=g.get("photo_type", ""),
+                 needs_review=needs_review, original_name=row["original_name"])
+        changed += 1
+        if json_progress and i % 50 == 0:
+            click.echo(json.dumps({"step": "_progress", "done": i, "total": total}))
+    conn.commit()
+    conn.close()
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+    else:
+        click.echo(f"refresh-review: recomputed needs_review for {changed}/{total} frames.")
+
+
 @cli.command("sync-tags")
 @click.option("--db", "photon_db", required=True,
               type=click.Path(exists=True, path_type=Path),

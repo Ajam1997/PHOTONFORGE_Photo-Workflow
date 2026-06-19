@@ -118,6 +118,23 @@ local function build_cmd(step)
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --darktable-library " .. shell_quote(dt_lib)
 
+  elseif step == "refresh-review" then
+    -- Recompute needs_review from cached embeddings (no image re-decode) and
+    -- re-emit score recs so the applicator detaches stale photon|needs_review tags.
+    local cmd = base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+    local models = config.read("models_path")
+    if models ~= "" then
+      cmd = cmd .. " --model-dir " .. shell_quote(models)
+    end
+    local drive = get_drive_root(dest)
+    local training_db = drive .. "training_weights.db"
+    local fh = io.open(training_db, "r")
+    if fh then
+      fh:close()
+      cmd = cmd .. " --training-db " .. shell_quote(training_db)
+    end
+    return cmd
+
   elseif step == "recalibrate" then
     -- Recalibrate genre prototypes from corpus labels.
     -- --model-dir omitted: auto-detected from package location.
