@@ -278,7 +278,8 @@ def _build_sub_score_dict(
     else:
         scores["expression_proxy"] = 0.5
     scores["behavior_proxy"] = 1.0 if sharpness.blur_type == "motion_subject" else 0.5
-    scores["color_contrast"] = composition.subject_isolation
+    # Real color richness (Hasler-Süsstrunk), not the old subject_isolation alias.
+    scores["color_contrast"] = composition.colorfulness
 
     return scores
 
@@ -407,8 +408,15 @@ def fuse_scores(
         sharpness, composition, exposure, aesthetic, faces, image_gray,
     )
     hard_reject, reject_reason = _check_hard_gates(sharpness, faces, image_gray)
-    drop_keys = () if aesthetic is not None else ("aesthetic_clip",)
-    master_score = _compute_master_score(sub_scores, genre, weight_profiles, drop_keys=drop_keys)
+    # Drop not-applicable signals so their weight redistributes to real ones
+    # instead of scoring a constant 0.5/0.0: aesthetic when no model, and the
+    # face sentinels (face_exposure / expression_proxy) when there is no face.
+    drop = []
+    if aesthetic is None:
+        drop.append("aesthetic_clip")
+    if not faces:
+        drop += ["face_exposure", "expression_proxy"]
+    master_score = _compute_master_score(sub_scores, genre, weight_profiles, drop_keys=tuple(drop))
     star_rating = _score_to_stars(master_score)
     color_label = _score_to_color_label(master_score, hard_reject)
 

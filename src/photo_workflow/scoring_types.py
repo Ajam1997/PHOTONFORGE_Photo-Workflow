@@ -83,6 +83,7 @@ class CompositionScores:
     subject_isolation: float
     balance: float
     overall: float
+    colorfulness: float = 0.0  # Hasler-Süsstrunk color richness (defaulted for back-compat)
 
 
 @dataclass

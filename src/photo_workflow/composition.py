@@ -88,45 +88,47 @@ def _improved_rot_score(saliency_map: np.ndarray) -> float:
 
 
 def _symmetry_score(img_bgr: np.ndarray) -> float:
-    """Detect bilateral symmetry using ORB keypoint mirroring.
+    """Bilateral (left-right) symmetry via correlation of the image with its mirror.
 
-    Returns score in [0, 1] based on matched symmetric keypoint pairs.
+    The previous version mirrored ORB keypoint *coordinates* but read descriptors
+    off the un-mirrored image, so it almost never matched (scored ~0 for nearly
+    every photo). This compares the actual image to its horizontal flip with a
+    normalized cross-correlation on a blurred, downscaled luminance map — high for
+    bilaterally symmetric scenes, low for asymmetric ones. Returns [0, 1].
     """
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    # Resize for speed
     h, w = gray.shape
-    scale = min(1.0, 1024 / max(h, w))
+    scale = min(1.0, 256 / max(h, w))
     if scale < 1.0:
-        gray = cv2.resize(gray, (int(w * scale), int(h * scale)))
+        gray = cv2.resize(gray, (max(int(w * scale), 1), max(int(h * scale), 1)))
+    gray = cv2.GaussianBlur(gray, (5, 5), 0).astype(np.float32)
 
-    orb = cv2.ORB_create(nfeatures=200)
-    kp, des = orb.detectAndCompute(gray, None)
-
-    if des is None or len(kp) < 10:
+    flipped = gray[:, ::-1]
+    a = gray - gray.mean()
+    b = flipped - flipped.mean()
+    denom = float(np.sqrt((a * a).sum() * (b * b).sum()))
+    if denom < 1e-6:
         return 0.0
+    ncc = float((a * b).sum() / denom)  # [-1, 1]
+    return max(0.0, ncc)
 
-    h_s, w_s = gray.shape
 
-    # Mirror keypoints horizontally and compute matching
-    mirrored_kp = [cv2.KeyPoint(w_s - k.pt[0], k.pt[1], k.size, k.angle) for k in kp]
-    _, mirrored_des = orb.compute(gray, mirrored_kp)
+def _colorfulness_score(img_bgr: np.ndarray) -> float:
+    """Hasler-Süsstrunk colorfulness, normalized to [0, 1].
 
-    if mirrored_des is None:
-        return 0.0
-
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-    matches = bf.knnMatch(des, mirrored_des, k=2)
-
-    # Ratio test
-    good_matches = 0
-    for match_pair in matches:
-        if len(match_pair) >= 2:
-            m, n = match_pair
-            if m.distance < 0.75 * n.distance:
-                good_matches += 1
-
-    score = good_matches / max(len(kp), 1)
-    return min(score * 2.0, 1.0)  # Scale up since perfect symmetry rarely exceeds 0.5
+    A real measure of color richness/saturation spread (the `color_contrast`
+    sub-score used to be a misnamed alias of subject_isolation). ~0 for
+    grayscale/muted, ~1 for vivid scenes.
+    """
+    b = img_bgr[..., 0].astype(np.float32)
+    g = img_bgr[..., 1].astype(np.float32)
+    r = img_bgr[..., 2].astype(np.float32)
+    rg = r - g
+    yb = 0.5 * (r + g) - b
+    std_root = float(np.sqrt(rg.std() ** 2 + yb.std() ** 2))
+    mean_root = float(np.sqrt(rg.mean() ** 2 + yb.mean() ** 2))
+    colorfulness = std_root + 0.3 * mean_root  # Hasler-Süsstrunk metric (~0..150)
+    return float(min(colorfulness / 100.0, 1.0))
 
 
 def _leading_lines_score(img_bgr: np.ndarray, subject_centroid: tuple[float, float]) -> float:
@@ -319,6 +321,7 @@ def score_composition_detailed(ctx: SubjectContext) -> CompositionScores:
 
     isolation = _subject_isolation_score(img_bgr, mask, sharp_contrast)
     balance = _balance_score(saliency)
+    colorfulness = _colorfulness_score(img_bgr)
 
     # Overall: equal-weighted (genre weighting happens in fusion)
     overall = (rot + symmetry + lines + neg_space + isolation + balance) / 6.0
@@ -331,6 +334,7 @@ def score_composition_detailed(ctx: SubjectContext) -> CompositionScores:
         subject_isolation=round(isolation, 4),
         balance=round(balance, 4),
         overall=round(overall, 4),
+        colorfulness=round(colorfulness, 4),
     )
 
 

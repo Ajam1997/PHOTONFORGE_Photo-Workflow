@@ -123,6 +123,21 @@ def test_aesthetic_none_drops_weight_and_renormalizes() -> None:
     assert lo.master_score < none_res.master_score < hi.master_score
 
 
+def test_face_sentinels_dropped_when_no_face() -> None:
+    """No-face images drop face_exposure/expression_proxy (0.5 sentinels) and
+    renormalize, so the weight goes to real signals instead of a constant."""
+    from photo_workflow.score_fusion import _build_sub_score_dict, _compute_master_score
+    genre = _make_genre(subject="people", photo_type="documentary")
+    ss = _build_sub_score_dict(_make_sharpness(), _make_composition(), _make_exposure(), 1.0)
+    ss = {k: 1.0 for k in ss}            # every real signal maxed...
+    ss["face_exposure"] = 0.5            # ...but the face sentinels are neutral 0.5
+    ss["expression_proxy"] = 0.5
+    full = _compute_master_score(ss, genre)
+    dropped = _compute_master_score(ss, genre, drop_keys=("face_exposure", "expression_proxy"))
+    assert dropped > full                # dropping the 0.5 sentinels lifts the master
+    assert abs(dropped - 1.0) < 1e-6     # renormalized over all-1.0 signals -> 1.0
+
+
 def test_degeneracy_detector_flags_constant_model() -> None:
     """_aesthetic_session_is_degenerate catches a model that ignores its input."""
     from photo_workflow.subject_context import _aesthetic_session_is_degenerate
