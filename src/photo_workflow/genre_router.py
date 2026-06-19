@@ -639,6 +639,53 @@ def _fuse_axis(
     return {g: uniform for g in axis_labels}
 
 
+# ---------------------------------------------------------------------------
+# EXIF long-exposure gate
+# ---------------------------------------------------------------------------
+# Folding all EXIF/YOLO/face aux features into the learned CLIP head was measured
+# to be net-negative: on the 271-image corpus it dropped subject CV accuracy
+# 0.882->0.768 and type 0.786->0.694, degrading nearly every class (the all-zero
+# aux block on EXIF-less web images becomes a spurious source-of-image leak).
+# The ONE genuine aux signal is the shutter speed for the long-exposure TYPE,
+# which is near-deterministic. We apply just that, as a narrow high-precision
+# post-classification gate. Measured on the corpus: shutter >= 0.5s predicts
+# long-exposure with precision 0.94 / recall 0.83 (a single false positive, a
+# tripod macro). See .claude/phase2_measure.py for the full ablation.
+_LONG_EXPOSURE_SHUTTER_S = 0.5   # exposure time (s) at/above which the gate fires
+_LONG_EXPOSURE_GATE_CONF = 0.80  # confidence assigned to long-exposure when it fires
+                                 # (conservative vs the measured 0.94 precision)
+
+
+def _apply_long_exposure_gate(
+    type_dist: dict[str, float],
+    exif: dict | None,
+) -> dict[str, float]:
+    """Reassign the type distribution toward long-exposure on a slow shutter.
+
+    Fires only when EXIF carries an exposure time >= ``_LONG_EXPOSURE_SHUTTER_S``.
+    Raises long-exposure to ``_LONG_EXPOSURE_GATE_CONF`` (never lowers it) and
+    rescales the remaining mass across the other types, preserving their relative
+    order. A no-op when EXIF is absent or the shutter is fast.
+    """
+    shutter = (exif or {}).get("shutter")
+    if not shutter or shutter < _LONG_EXPOSURE_SHUTTER_S:
+        return type_dist
+    current = type_dist.get("long-exposure", 0.0)
+    if current >= _LONG_EXPOSURE_GATE_CONF:
+        return type_dist
+    remaining = 1.0 - _LONG_EXPOSURE_GATE_CONF
+    others_total = sum(v for k, v in type_dist.items() if k != "long-exposure")
+    out = {}
+    for k, v in type_dist.items():
+        if k == "long-exposure":
+            out[k] = _LONG_EXPOSURE_GATE_CONF
+        elif others_total > 0:
+            out[k] = v / others_total * remaining
+        else:
+            out[k] = remaining / max(len(type_dist) - 1, 1)
+    return out
+
+
 def route_genre(
     ctx: SubjectContext,
     genre_prototypes: np.ndarray | None = None,
@@ -712,6 +759,9 @@ def route_genre(
 
         type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES,
                                weights=_FUSION_WEIGHTS)
+
+    # --- EXIF long-exposure gate (high-precision aux signal) -----------------
+    type_dist = _apply_long_exposure_gate(type_dist, ctx.exif)
 
     # --- Pick winners --------------------------------------------------------
     subject = max(subj_dist, key=subj_dist.__getitem__)
