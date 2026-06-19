@@ -256,9 +256,12 @@ def test_no_hard_reject_for_bokeh() -> None:
 def test_color_label_mapping() -> None:
     """Color labels should map correctly from master score."""
     result = fuse_scores(
-        sharpness=_make_sharpness(subject=0.95, eye_region=0.95, overall=0.9),
-        composition=_make_composition(overall=0.85),
-        exposure=_make_exposure(overall=0.9),
+        sharpness=_make_sharpness(subject=0.95, eye_region=0.95, background=0.9, overall=0.9),
+        # min-gate uses individual sub-scores (not `overall`), so set them all high
+        composition=_make_composition(rule_of_thirds=0.9, symmetry=0.9, leading_lines=0.9,
+                                      negative_space=0.9, subject_isolation=0.9, balance=0.9,
+                                      colorfulness=0.9, overall=0.9),
+        exposure=_make_exposure(zone_entropy=0.9, dynamic_range=0.9, overall=0.9),
         genre=_make_genre("wildlife"),
         aesthetic=0.9,
     )

@@ -293,20 +293,33 @@ def bootstrap_weight_profiles() -> dict[str, dict[str, dict[str, float]]]:
     return {"subject": SUBJECT_WEIGHTS, "type": TYPE_WEIGHTS}
 
 
+# Sub-scores that measure *capture quality* (the technical gate). Everything
+# else is treated as aesthetic/compositional. master = min(technical, aesthetic):
+# a technically poor frame cannot be rescued by pretty composition, and vice versa.
+_TECHNICAL_KEYS = frozenset({
+    "eye_sharpness", "subject_sharpness", "sharpness_contrast", "front_to_back_sharp",
+    "exposure_overall", "dynamic_range", "zone_entropy", "highlight_clip", "face_exposure",
+    "blur_type_penalty", "motion_tolerance",
+})
+
+
 def _compute_master_score(
     sub_scores: dict[str, float],
     genre: GenreResult,
     weight_profiles: dict[str, dict[str, dict[str, float]]] | None = None,
     drop_keys: tuple[str, ...] = (),
 ) -> float:
-    """Compute the two-axis weighted master score.
+    """Master score = min(technical, aesthetic), each a genre-weighted mean.
 
-    Each axis (subject, photo_type) contributes 50% of the effective weight
-    profile.  The final score is the weighted sum of sub-scores.
+    The per-genre weight profile is partitioned into a technical bucket
+    (``_TECHNICAL_KEYS``) and an aesthetic bucket (everything else). Within each
+    bucket the present sub-scores are combined as a weighted mean (so genre
+    weighting is preserved), then the two buckets are combined with ``min`` so a
+    weak technical OR aesthetic side caps the result. If a bucket has no weight
+    (e.g. all aesthetic signals dropped), the other bucket stands alone.
 
     weight_profiles: optional {'subject': {label: {key: w}}, 'type': {...}} loaded
-    from the aesthetic_weights table. Falls back to the hardcoded defaults, both
-    overall and per-label when a profile is missing for a given genre.
+    from the aesthetic_weights table; falls back to the hardcoded defaults.
     """
     subject_w = (weight_profiles or {}).get("subject") or SUBJECT_WEIGHTS
     type_w = (weight_profiles or {}).get("type") or TYPE_WEIGHTS
@@ -317,27 +330,32 @@ def _compute_master_score(
         PHOTO_TYPES[0] if PHOTO_TYPES[0] in type_w else next(iter(type_w)))
 
     effective_weights: dict[str, float] = {}
-
     for key, weight in subject_w[subj].items():
         effective_weights[key] = effective_weights.get(key, 0.0) + 0.5 * weight
-
     for key, weight in type_w[ptype].items():
         effective_weights[key] = effective_weights.get(key, 0.0) + 0.5 * weight
-
-    # Drop unavailable signals (e.g. aesthetic_clip when no working model) and
-    # renormalize the remaining weights to sum to 1, so a missing signal redistributes
-    # its mass across the real ones instead of scoring a constant (which would
-    # compress the master toward the middle).
     for k in drop_keys:
         effective_weights.pop(k, None)
-    total_w = sum(effective_weights.values())
-    if total_w > 0:
-        effective_weights = {k: w / total_w for k, w in effective_weights.items()}
 
-    master = 0.0
+    tech_num = tech_den = aes_num = aes_den = 0.0
     for key, weight in effective_weights.items():
-        if key in sub_scores:
-            master += weight * sub_scores[key]
+        if key not in sub_scores:
+            continue
+        if key in _TECHNICAL_KEYS:
+            tech_num += weight * sub_scores[key]; tech_den += weight
+        else:
+            aes_num += weight * sub_scores[key]; aes_den += weight
+
+    technical = tech_num / tech_den if tech_den > 0 else None
+    aesthetic = aes_num / aes_den if aes_den > 0 else None
+    if technical is None and aesthetic is None:
+        return 0.0
+    if technical is None:
+        master = aesthetic
+    elif aesthetic is None:
+        master = technical
+    else:
+        master = min(technical, aesthetic)
 
     return max(0.0, min(1.0, master))
 
@@ -416,6 +434,11 @@ def fuse_scores(
         drop.append("aesthetic_clip")
     if not faces:
         drop += ["face_exposure", "expression_proxy"]
+    # behavior_proxy is a 0.5 sentinel unless the frame is a motion-subject capture;
+    # under the min-gate a constant 0.5 would cap the aesthetic bucket, so drop it
+    # when it carries no signal.
+    if sharpness.blur_type != "motion_subject":
+        drop.append("behavior_proxy")
     master_score = _compute_master_score(sub_scores, genre, weight_profiles, drop_keys=tuple(drop))
     star_rating = _score_to_stars(master_score)
     color_label = _score_to_color_label(master_score, hard_reject)
