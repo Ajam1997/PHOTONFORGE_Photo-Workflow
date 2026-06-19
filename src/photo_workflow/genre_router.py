@@ -642,6 +642,7 @@ def _fuse_axis(
 def route_genre(
     ctx: SubjectContext,
     genre_prototypes: np.ndarray | None = None,
+    adapter: dict | None = None,
 ) -> GenreResult:
     """Classify image along two orthogonal axes: Subject and Photo Type.
 
@@ -659,43 +660,58 @@ def route_genre(
         GenreResult with subject, photo_type, confidences, distributions,
         and needs_review flag.
     """
-    # Split CLIP prototypes into subject and type halves
-    subject_protos = None
-    type_protos = None
-    if genre_prototypes is not None:
-        n_subjects = len(SUBJECTS)
-        if genre_prototypes.shape[0] >= n_subjects + len(PHOTO_TYPES):
-            subject_protos = genre_prototypes[:n_subjects]
-            type_protos = genre_prototypes[n_subjects:]
-        else:
-            logger.warning(
-                "genre_prototypes shape %s does not match expected (%d, 512); "
-                "using uniform CLIP priors",
-                genre_prototypes.shape,
-                len(SUBJECTS) + len(PHOTO_TYPES),
-            )
+    clip = ctx.clip_embedding
+    have_clip = clip is not None and not np.allclose(clip, 0.0)
+    use_adapter = (
+        adapter is not None
+        and adapter.get("subject") and adapter.get("type")
+        and have_clip
+    )
 
-    image_area = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
+    if use_adapter:
+        # Learned linear classifier on the CLIP embedding (replaces product-of-experts).
+        from .genre_adapter import predict_axis
 
-    # --- Subject axis signals ------------------------------------------------
-    subj_clip  = _compute_clip_similarity_axis(ctx.clip_embedding, subject_protos, SUBJECTS)
-    subj_exif  = _compute_exif_prior_axis(ctx.exif, SUBJECTS, _SUBJECT_EXIF_PRIORS)
-    subj_yolo  = _compute_yolo_evidence_subject(ctx.detections, image_area)
-    subj_ctx   = _compute_context_likelihood_axis(ctx, SUBJECTS, _SUBJECT_CONTEXT_PRIORS)
-    subj_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, SUBJECTS, _SUBJECT_SHARPNESS_PRIORS)
+        subj_dist = predict_axis(clip, adapter["subject"], SUBJECTS)
+        type_dist = predict_axis(clip, adapter["type"], PHOTO_TYPES)
+    else:
+        # Fallback: product-of-experts over CLIP prototypes + heuristic priors.
+        subject_protos = None
+        type_protos = None
+        if genre_prototypes is not None:
+            n_subjects = len(SUBJECTS)
+            if genre_prototypes.shape[0] >= n_subjects + len(PHOTO_TYPES):
+                subject_protos = genre_prototypes[:n_subjects]
+                type_protos = genre_prototypes[n_subjects:]
+            else:
+                logger.warning(
+                    "genre_prototypes shape %s does not match expected (%d, 512); "
+                    "using uniform CLIP priors",
+                    genre_prototypes.shape,
+                    len(SUBJECTS) + len(PHOTO_TYPES),
+                )
 
-    subj_dist = _fuse_axis([subj_clip, subj_exif, subj_yolo, subj_ctx, subj_sharp], SUBJECTS,
-                           weights=_FUSION_WEIGHTS)
+        image_area = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
 
-    # --- Type axis signals ---------------------------------------------------
-    type_clip  = _compute_clip_similarity_axis(ctx.clip_embedding, type_protos, PHOTO_TYPES)
-    type_exif  = _compute_exif_prior_axis(ctx.exif, PHOTO_TYPES, _TYPE_EXIF_PRIORS)
-    type_yolo  = _compute_yolo_evidence_type(ctx.detections, image_area)
-    type_ctx   = _compute_context_likelihood_axis(ctx, PHOTO_TYPES, _TYPE_CONTEXT_PRIORS)
-    type_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, PHOTO_TYPES, _TYPE_SHARPNESS_PRIORS)
+        # --- Subject axis signals --------------------------------------------
+        subj_clip  = _compute_clip_similarity_axis(clip, subject_protos, SUBJECTS)
+        subj_exif  = _compute_exif_prior_axis(ctx.exif, SUBJECTS, _SUBJECT_EXIF_PRIORS)
+        subj_yolo  = _compute_yolo_evidence_subject(ctx.detections, image_area)
+        subj_ctx   = _compute_context_likelihood_axis(ctx, SUBJECTS, _SUBJECT_CONTEXT_PRIORS)
+        subj_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, SUBJECTS, _SUBJECT_SHARPNESS_PRIORS)
 
-    type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES,
-                           weights=_FUSION_WEIGHTS)
+        subj_dist = _fuse_axis([subj_clip, subj_exif, subj_yolo, subj_ctx, subj_sharp], SUBJECTS,
+                               weights=_FUSION_WEIGHTS)
+
+        # --- Type axis signals -----------------------------------------------
+        type_clip  = _compute_clip_similarity_axis(clip, type_protos, PHOTO_TYPES)
+        type_exif  = _compute_exif_prior_axis(ctx.exif, PHOTO_TYPES, _TYPE_EXIF_PRIORS)
+        type_yolo  = _compute_yolo_evidence_type(ctx.detections, image_area)
+        type_ctx   = _compute_context_likelihood_axis(ctx, PHOTO_TYPES, _TYPE_CONTEXT_PRIORS)
+        type_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, PHOTO_TYPES, _TYPE_SHARPNESS_PRIORS)
+
+        type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES,
+                               weights=_FUSION_WEIGHTS)
 
     # --- Pick winners --------------------------------------------------------
     subject = max(subj_dist, key=subj_dist.__getitem__)

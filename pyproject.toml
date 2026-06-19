@@ -29,6 +29,9 @@ dev = [
     "ruff>=0.4",
     "mypy>=1.10",
 ]
+train = [
+    "scikit-learn>=1.4",
+]
 docs = [
     "requests>=2.32",
     "PyYAML>=6.0",

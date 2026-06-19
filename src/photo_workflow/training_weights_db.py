@@ -68,6 +68,23 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         n_examples INTEGER DEFAULT 0,
         promoted INTEGER DEFAULT 0
     );
+
+    -- Learned linear genre classifier (one row per axis: 'subject' / 'type').
+    -- logits = clip_embedding @ weight.T + bias  ->  softmax over `classes`.
+    CREATE TABLE IF NOT EXISTS genre_adapter_linear (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        version INTEGER NOT NULL,
+        axis TEXT NOT NULL,
+        classes TEXT NOT NULL,
+        weight BLOB NOT NULL,
+        bias BLOB NOT NULL,
+        dim INTEGER NOT NULL,
+        n_samples INTEGER,
+        cv_accuracy REAL,
+        created_at TEXT DEFAULT (datetime('now')),
+        is_active INTEGER DEFAULT 1,
+        UNIQUE(version, axis)
+    );
     """
     )
     conn.commit()
@@ -152,6 +169,65 @@ def get_active_prototypes(conn: sqlite3.Connection) -> dict[str, dict]:
             "alpha": row["alpha"],
         }
     return result
+
+
+def upsert_linear_adapter(
+    conn: sqlite3.Connection,
+    version: int,
+    axis: str,
+    classes: list[str],
+    weight: np.ndarray,
+    bias: np.ndarray,
+    n_samples: int,
+    cv_accuracy: float,
+) -> None:
+    """Store a learned linear classifier head for one axis ('subject'/'type')."""
+    import json
+
+    conn.execute("UPDATE genre_adapter_linear SET is_active=0 WHERE axis=? AND is_active=1", (axis,))
+    conn.execute(
+        """
+        INSERT INTO genre_adapter_linear
+            (version, axis, classes, weight, bias, dim, n_samples, cv_accuracy, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """,
+        (
+            version, axis, json.dumps(list(classes)),
+            np.asarray(weight, dtype=np.float32).tobytes(),
+            np.asarray(bias, dtype=np.float32).tobytes(),
+            int(weight.shape[1]), int(n_samples), float(cv_accuracy),
+        ),
+    )
+    conn.commit()
+
+
+def get_active_linear_adapter(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Retrieve the active linear adapter heads keyed by axis.
+
+    Returns {axis: {"classes": list[str], "weight": (n,dim) f32, "bias": (n,) f32,
+                    "version": int}} — empty dict if none stored.
+    """
+    import json
+
+    try:
+        rows = conn.execute(
+            "SELECT axis, classes, weight, bias, dim, version "
+            "FROM genre_adapter_linear WHERE is_active=1"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict] = {}
+    for row in rows:
+        dim = row["dim"]
+        w = np.frombuffer(row["weight"], dtype=np.float32).reshape(-1, dim)
+        b = np.frombuffer(row["bias"], dtype=np.float32)
+        out[row["axis"]] = {
+            "classes": json.loads(row["classes"]),
+            "weight": w,
+            "bias": b,
+            "version": row["version"],
+        }
+    return out
 
 
 def rollback_to_version(conn: sqlite3.Connection, version: int) -> None:
