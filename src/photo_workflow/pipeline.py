@@ -805,6 +805,58 @@ def status(db_path: Path, folder: str) -> None:
     click.echo(f"  Errors:        {error_count}")
 
 
+@cli.command("suggest-training-set")
+@click.option("--db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path), help="photonforge.db path")
+@click.option("--folder", required=True, help="Folder/table name in photonforge.db")
+@click.option("--k", type=int, default=20, help="Number of frames to suggest for labeling.")
+@click.option("--json-progress", "json_progress", is_flag=True, default=False)
+def suggest_training_set(photon_db: Path, folder: str, k: int, json_progress: bool) -> None:
+    """Pick the ~k most useful needs_review frames to label (active learning).
+
+    Clusters the needs_review CLIP embeddings and selects one representative per
+    cluster (diverse + each represents many similar uncertain frames). Emits
+    'train-candidate' records so the Darktable applicator tags the picks
+    photon|train_candidate — label just those, then Collect Corrections +
+    Recalibrate. Labeling ~k frames improves the model across the whole folder.
+    """
+    import sqlite3 as _sqlite3
+
+    import numpy as _np
+    from .active_learning import select_representatives
+    from .photondb import sanitize_table_name
+
+    table = sanitize_table_name(folder)
+    conn = _sqlite3.connect(str(photon_db))
+    conn.row_factory = _sqlite3.Row
+    rows = conn.execute(
+        "SELECT filename, original_name, clip_embedding FROM photos "
+        "WHERE folder=? AND needs_review=1 AND clip_embedding IS NOT NULL", (table,),
+    ).fetchall()
+    conn.close()
+
+    if not rows:
+        click.echo(json.dumps({"step": "suggest-training-set", "status": "error",
+                               "message": f"no needs_review frames with embeddings in '{table}'"}))
+        return
+
+    X = _np.vstack([_np.frombuffer(r["clip_embedding"], dtype=_np.float32) for r in rows])
+    reps = select_representatives(X, k)
+
+    total = len(reps)
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": 0, "total": total}))
+    for i, (idx, csize) in enumerate(reps, 1):
+        r = rows[idx]
+        emit("train-candidate", r["filename"], "ok", json_progress=json_progress,
+             cluster_size=csize, original_name=r["original_name"])
+    if json_progress:
+        click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
+    else:
+        click.echo(f"suggest-training-set: tagged {total} candidates from "
+                   f"{len(rows)} needs_review frames in '{table}'.")
+
+
 @cli.command("refresh-review")
 @click.option("--db", "photon_db", required=True,
               type=click.Path(exists=True, path_type=Path), help="photonforge.db path")

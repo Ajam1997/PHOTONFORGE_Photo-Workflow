@@ -42,6 +42,19 @@ function M.apply(rec, folder)
     return
   end
 
+  -- suggest-training-set: tag the picked frames so the user can filter to a small
+  -- labeling set (photon|train_candidate), then label + Collect Corrections.
+  if rec.step == "train-candidate" then
+    local img = find_image(rec.file, folder)
+    if img == nil then
+      dt.print_log(string.format("PHOTONForge train-candidate: image not found: %s", rec.file or ""))
+      return
+    end
+    local tag = dt.tags.create("photon|train_candidate")
+    dt.tags.attach(tag, img)
+    return
+  end
+
   -- sync-tags: apply genre tags via DT API (Python emits subject/photo_type)
   if rec.step == "sync-tags" then
     local img = find_image(rec.file, folder)

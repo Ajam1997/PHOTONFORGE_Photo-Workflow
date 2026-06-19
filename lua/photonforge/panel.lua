@@ -244,6 +244,31 @@ function M.build()
     end,
   }
 
+  local suggest_btn = dt.new_widget("button") {
+    label = "\u{2728} Suggest Training Set",
+    tooltip = "Pick a small, diverse set of the most useful needs_review frames "
+           .. "and tag them photon|train_candidate. Filter to that tag, set the "
+           .. "correct subject/type, then Collect Corrections + Recalibrate.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        append_log("[SUGGEST] Selecting representative frames to label...")
+        dt.control.dispatch(function()
+          local ok2, err2 = pcall(runner.run_step, "suggest-training-set", append_log, nil, update_progress)
+          if not ok2 then
+            append_log("[ERROR] suggest-training-set: " .. tostring(err2))
+          else
+            append_log("[SUGGEST] Done. Filter by 'photon|train_candidate' and label those frames.")
+          end
+          clear_progress()
+        end)
+      end)
+      if not ok then
+        append_log("[ERROR] " .. tostring(err))
+      end
+    end,
+  }
+
   local refresh_review_btn = dt.new_widget("button") {
     label = "\u{21BB} Refresh Review Flags",
     tooltip = "Recompute needs_review from cached embeddings (no re-scoring) and "
@@ -383,6 +408,7 @@ function M.build()
     orientation = "vertical",
     dt.new_widget("box") { orientation = "horizontal", run_btn, stop_btn },
     sync_tags_btn,
+    suggest_btn,
     refresh_review_btn,
     collect_btn,
     dt.new_widget("box") { orientation = "horizontal", recalibrate_btn, correction_loop_btn },

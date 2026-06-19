@@ -118,6 +118,10 @@ local function build_cmd(step)
     return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --darktable-library " .. shell_quote(dt_lib)
 
+  elseif step == "suggest-training-set" then
+    -- Cluster needs_review embeddings and tag ~k representatives for labeling.
+    return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+
   elseif step == "refresh-review" then
     -- Recompute needs_review from cached embeddings (no image re-decode) and
     -- re-emit score recs so the applicator detaches stale photon|needs_review tags.
