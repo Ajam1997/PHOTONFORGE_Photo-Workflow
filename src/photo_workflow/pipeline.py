@@ -464,7 +464,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     from .scoring_types import GenreResult
     from .score_fusion import fuse_scores
     from .darktable_bridge import compute_color_label
-    from .score_fusion import absolute_star, stars_to_color_label
+    from .score_fusion import absolute_star, hybrid_star, stars_to_color_label, _RATING_ABS_FLOOR
     from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_genre_scores, update_stages, clear_stage
 
     if model_dir is None:
@@ -513,6 +513,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     model_sessions = ModelSessions(model_dir, training_db_path=training_db)
 
     errors = 0
+    rated: list[dict] = []  # keepers buffered for the final relative re-rating pass
     for i, row in enumerate(to_score, 1):
         p = source_dir / row["filename"]
         try:
@@ -602,6 +603,20 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                          needs_review=fusion.needs_review,
                          stars=stars, color_label=color_label,
                          original_name=row["original_name"])
+                # Buffer keepers for the final relative re-rating (provisional
+                # absolute stars are shown live; the per-shoot percentile refines
+                # the keepers once the whole folder's distribution is known).
+                if not fusion.hard_reject and master >= _RATING_ABS_FLOOR:
+                    rated.append({
+                        "filename": row["filename"], "master": master, "prov": stars,
+                        "sharpness": round(sharp, 4), "composition": round(comp, 4),
+                        "exposure": round(expo, 4), "subject": fusion.subject,
+                        "subject_confidence": round(fusion.subject_confidence, 3),
+                        "photo_type": fusion.photo_type,
+                        "type_confidence": round(fusion.type_confidence, 3),
+                        "needs_review": fusion.needs_review,
+                        "original_name": row["original_name"],
+                    })
             except Exception as genre_error:
                 # Fallback to legacy scoring
                 logger.warning("Genre-aware scoring failed, falling back to legacy: %s", genre_error)
@@ -633,6 +648,32 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
 
         if json_progress and i % 10 == 0:
             click.echo(json.dumps({"step": "_progress", "done": i, "total": len(to_score)}))
+
+    # --- final relative re-rating (P6) ---------------------------------------
+    # Live stars above are absolute/provisional. Now rank each keeper against the
+    # WHOLE folder's master distribution and re-emit only those whose star changes
+    # (so the applicator does minimal extra work). Floored/rejected frames already
+    # got their correct 1 star live, so they are not re-rated.
+    if json_progress and rated:
+        all_masters = [
+            r[0] for r in conn.execute(
+                "SELECT master_score FROM photos WHERE folder=? AND master_score IS NOT NULL",
+                (table,),
+            )
+        ]
+        kept_sorted = sorted(m for m in all_masters if m >= _RATING_ABS_FLOOR)
+        for item in rated:
+            stars = hybrid_star(item["master"], False, kept_sorted)
+            if stars == item["prov"]:
+                continue
+            emit("score", item["filename"], "ok", json_progress=True,
+                 sharpness=item["sharpness"], composition=item["composition"],
+                 exposure=item["exposure"], master=round(item["master"], 4),
+                 subject=item["subject"], subject_confidence=item["subject_confidence"],
+                 photo_type=item["photo_type"], type_confidence=item["type_confidence"],
+                 needs_review=item["needs_review"],
+                 stars=stars, color_label=stars_to_color_label(stars, False),
+                 original_name=item["original_name"])
 
     conn.close()
 
