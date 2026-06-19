@@ -107,6 +107,21 @@ def test_long_exposure_gate_via_poe_path() -> None:
     assert res.photo_type == "long-exposure"
 
 
+def test_numpy_adapter_trains_without_sklearn() -> None:
+    """The pure-numpy LR head (runtime fallback) fits separable data + reports CV."""
+    from photo_workflow.genre_adapter import _train_axis_numpy
+    rng = np.random.RandomState(0)
+    X = np.vstack([rng.randn(20, 512) + 3 * np.eye(512)[0],
+                   rng.randn(20, 512) + 3 * np.eye(512)[1]]).astype(np.float32)
+    y = np.array(["vehicle"] * 20 + ["object"] * 20)
+    head = _train_axis_numpy(X, y, cv_folds=3)
+    assert head["weight"].shape == (2, 512)   # one row per class (no binary special-case)
+    assert head["cv_accuracy"] > 0.8
+    e = np.zeros(512, dtype=np.float32); e[0] = 3.0
+    dist = predict_axis(e, head, SUBJECTS)
+    assert max(dist, key=dist.__getitem__) == "vehicle"
+
+
 def test_linear_adapter_db_roundtrip(tmp_path: Path) -> None:
     conn = open_training_db(tmp_path / "tw.db")
     ensure_schema(conn)

@@ -1243,8 +1243,60 @@ def recalibrate(
             info["alpha"],
         )
 
-    conn.close()
     click.echo(f"OK: Wrote {len(ALL_LABELS)} prototypes (version {version}) to {training_db}")
+
+    # Also retrain the LEARNED ADAPTER (the primary classifier) so plugin-driven
+    # corrections update the model, not just the prototype fallback. Uses the
+    # pure-numpy LR when scikit-learn is absent (the runtime venv behind the DT
+    # Recalibrate button), or sklearn in the dev environment.
+    try:
+        import json as _json
+        import sqlite3 as _sql
+
+        from .genre_adapter import train_linear_adapter
+        from .training_weights_db import upsert_linear_adapter
+
+        adapter_labels: dict[str, tuple[str, str]] = {}
+        for line in open(corpus, encoding="utf-8"):
+            line = line.strip()
+            if line:
+                r = _json.loads(line)
+                adapter_labels[r["filename"]] = (r["subject"], r["photo_type"])
+        pc = _sql.connect(str(photon_db))
+        emb: dict[str, np.ndarray] = {}
+        for q in (
+            "SELECT filename, clip_embedding FROM photos WHERE clip_embedding IS NOT NULL",
+            "SELECT filename, clip_embedding FROM embeddings WHERE clip_embedding IS NOT NULL",
+        ):
+            try:
+                cur = pc.execute(q)
+            except _sql.OperationalError:
+                continue
+            for fn, blob in cur:
+                if fn in adapter_labels and fn not in emb:
+                    emb[fn] = np.frombuffer(blob, dtype=np.float32)
+        pc.close()
+        names = [fn for fn in adapter_labels if fn in emb]
+        if len(names) >= 10:
+            X = np.vstack([emb[fn] for fn in names])
+            ys = np.array([adapter_labels[fn][0] for fn in names])
+            yt = np.array([adapter_labels[fn][1] for fn in names])
+            heads = train_linear_adapter(X, ys, yt)
+            av = next_version(conn)
+            for axis, h in heads.items():
+                upsert_linear_adapter(conn, av, axis, h["classes"], h["weight"],
+                                      h["bias"], h["n_samples"], h["cv_accuracy"])
+            click.echo(
+                f"OK: retrained adapter v{av} on {len(names)} samples "
+                f"(subject CV {heads['subject']['cv_accuracy']:.3f}, "
+                f"type CV {heads['type']['cv_accuracy']:.3f})"
+            )
+        else:
+            click.echo(f"Adapter retrain skipped: only {len(names)} labeled embeddings")
+    except Exception as e:
+        click.echo(f"WARN: adapter retrain failed ({e}); prototypes still updated", err=True)
+
+    conn.close()
 
 
 @training.command("train-adapter")
