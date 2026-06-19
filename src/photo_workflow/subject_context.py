@@ -87,9 +87,25 @@ class ModelSessions:
 
     @property
     def aesthetic_head(self) -> Any:
-        return self._load_session(
-            "aesthetic_head", "nima_mobilenet_int8", "model.onnx"
-        )
+        """NIMA aesthetic session, or None if missing OR degenerate.
+
+        Both vendored aesthetic models have shipped as untrained placeholders
+        that emit a constant for any input (provisioning fell back when
+        TensorFlow was absent). A one-time self-check rejects such a model so it
+        can't silently pin every aesthetic_clip to a constant — the failure that
+        this property exists to make loud.
+        """
+        if "aesthetic_head_checked" not in self._sessions:
+            sess = self._load_session("aesthetic_head", "nima_mobilenet_int8", "model.onnx")
+            if sess is not None and _aesthetic_session_is_degenerate(sess):
+                logger.warning(
+                    "Aesthetic model at nima_mobilenet_int8 is degenerate (constant "
+                    "output) — disabling. Re-provision a trained model "
+                    "(scripts/provision_scoring_models.py aesthetic)."
+                )
+                sess = None
+            self._sessions["aesthetic_head_checked"] = sess
+        return self._sessions["aesthetic_head_checked"]
 
     @property
     def genre_prototypes(self) -> np.ndarray | None:
@@ -237,6 +253,28 @@ def _run_clip(image_rgb: np.ndarray, session: Any) -> np.ndarray:
     if norm > 0:
         embedding = embedding / norm
     return embedding.astype(np.float32)
+
+
+def _aesthetic_session_is_degenerate(session: Any) -> bool:
+    """True if the model emits ~identical output for two very different inputs.
+
+    Catches untrained/placeholder models (zero weights -> constant output). Input
+    shape is taken from the session so this works for image- or embedding-input
+    heads. Conservative: any error -> not degenerate (don't disable on a fluke).
+    """
+    try:
+        inp = session.get_inputs()[0]
+        shape = [1 if (not isinstance(d, int) or d <= 0) else d for d in inp.shape]
+        # Two clearly different, valid-range inputs; any non-trivial model maps
+        # them to different outputs.
+        a = np.full(shape, -0.5, dtype=np.float32)
+        b = np.full(shape, 0.5, dtype=np.float32)
+        name = inp.name
+        oa = np.asarray(session.run(None, {name: a})[0]).flatten()
+        ob = np.asarray(session.run(None, {name: b})[0]).flatten()
+        return float(np.abs(oa - ob).max()) < 1e-4
+    except Exception:
+        return False
 
 
 def _run_nima(image_rgb: np.ndarray, session: Any) -> float:
@@ -493,4 +531,5 @@ def build_subject_context(path: Path, model_sessions: ModelSessions) -> SubjectC
         clip_embedding=clip_embedding,
         exif=exif,
         sharpness_contrast=sharpness_contrast,
+        image_rgb=image_rgb,
     )

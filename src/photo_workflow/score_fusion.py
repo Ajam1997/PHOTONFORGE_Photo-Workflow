@@ -232,11 +232,16 @@ def _build_sub_score_dict(
     sharpness: SharpnessScores,
     composition: CompositionScores,
     exposure: ExposureScores,
-    aesthetic: float,
+    aesthetic: float | None,
     faces: list[FaceDetection] | None = None,
     image_gray: np.ndarray | None = None,
 ) -> dict[str, float]:
-    """Map module outputs to the flat sub-score dictionary used by weight profiles."""
+    """Map module outputs to the flat sub-score dictionary used by weight profiles.
+
+    ``aesthetic`` may be None when no working aesthetic model is available; the
+    value stored is then a neutral placeholder and the caller drops the
+    ``aesthetic_clip`` weight (see ``_compute_master_score`` drop_keys).
+    """
     scores: dict[str, float] = {
         "eye_sharpness": sharpness.eye_region,
         "subject_sharpness": sharpness.subject,
@@ -250,7 +255,7 @@ def _build_sub_score_dict(
         "zone_entropy": exposure.zone_entropy,
         "dynamic_range": exposure.dynamic_range,
         "exposure_overall": exposure.overall,
-        "aesthetic_clip": aesthetic,
+        "aesthetic_clip": aesthetic if aesthetic is not None else 0.0,
     }
 
     # Face exposure (use neutral 0.5 if no face)
@@ -291,6 +296,7 @@ def _compute_master_score(
     sub_scores: dict[str, float],
     genre: GenreResult,
     weight_profiles: dict[str, dict[str, dict[str, float]]] | None = None,
+    drop_keys: tuple[str, ...] = (),
 ) -> float:
     """Compute the two-axis weighted master score.
 
@@ -316,6 +322,16 @@ def _compute_master_score(
 
     for key, weight in type_w[ptype].items():
         effective_weights[key] = effective_weights.get(key, 0.0) + 0.5 * weight
+
+    # Drop unavailable signals (e.g. aesthetic_clip when no working model) and
+    # renormalize the remaining weights to sum to 1, so a missing signal redistributes
+    # its mass across the real ones instead of scoring a constant (which would
+    # compress the master toward the middle).
+    for k in drop_keys:
+        effective_weights.pop(k, None)
+    total_w = sum(effective_weights.values())
+    if total_w > 0:
+        effective_weights = {k: w / total_w for k, w in effective_weights.items()}
 
     master = 0.0
     for key, weight in effective_weights.items():
@@ -374,21 +390,25 @@ def fuse_scores(
     composition: CompositionScores,
     exposure: ExposureScores,
     genre: GenreResult,
-    aesthetic: float,
+    aesthetic: float | None,
     faces: list[FaceDetection] | None = None,
     image_gray: np.ndarray | None = None,
     weight_profiles: dict[str, dict[str, dict[str, float]]] | None = None,
 ) -> FusionResult:
     """Fuse all sub-scores into a two-axis genre-weighted master score.
 
+    aesthetic: NIMA aesthetic score, or None when no working aesthetic model is
+        available — in which case aesthetic_clip is dropped and the remaining
+        weights are renormalized (no constant fill).
     weight_profiles: optional DB-backed aesthetic weight profiles; falls back to
-    the hardcoded defaults when None.
+        the hardcoded defaults when None.
     """
     sub_scores = _build_sub_score_dict(
         sharpness, composition, exposure, aesthetic, faces, image_gray,
     )
     hard_reject, reject_reason = _check_hard_gates(sharpness, faces, image_gray)
-    master_score = _compute_master_score(sub_scores, genre, weight_profiles)
+    drop_keys = () if aesthetic is not None else ("aesthetic_clip",)
+    master_score = _compute_master_score(sub_scores, genre, weight_profiles, drop_keys=drop_keys)
     star_rating = _score_to_stars(master_score)
     color_label = _score_to_color_label(master_score, hard_reject)
 

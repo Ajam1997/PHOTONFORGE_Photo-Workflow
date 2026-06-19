@@ -55,6 +55,10 @@ class SubjectContext:
     # Sharpness contrast (subject Tenengrad / background Tenengrad)
     sharpness_contrast: float = 0.0
 
+    # RGB view of image_bgr (channel-swapped). Defaulted so existing
+    # constructors keep working; populated by build_subject_context.
+    image_rgb: np.ndarray | None = None
+
 
 @dataclass
 class SharpnessScores:

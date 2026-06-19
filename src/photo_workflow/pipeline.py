@@ -147,14 +147,16 @@ class AnalysisPipeline:
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
 
-                # Get aesthetic score using NIMA (fallback to 0.5 if not available)
-                aesthetic_score = 0.5
+                # Aesthetic score from NIMA. None => unavailable, so fusion
+                # renormalizes the profile instead of scoring a constant that
+                # would silently distort every master score.
+                aesthetic_score: float | None = None
                 if model_sessions.aesthetic_head is not None:
                     try:
                         aesthetic_score = _run_nima(ctx.image_rgb, model_sessions.aesthetic_head)
                     except Exception as e:
                         logger.warning("Aesthetic scoring failed: %s", e)
-                        aesthetic_score = 0.5
+                        aesthetic_score = None
 
                 # Fuse all scores using genre weighting
                 fusion = fuse_scores(
@@ -538,13 +540,14 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
 
-                # Aesthetic score using NIMA
-                aesthetic_score = 0.5
+                # Aesthetic score from NIMA. None => unavailable (fusion renormalizes).
+                aesthetic_score: float | None = None
                 if model_sessions.aesthetic_head is not None:
                     try:
                         aesthetic_score = _run_nima(ctx.image_rgb, model_sessions.aesthetic_head)
-                    except Exception:
-                        aesthetic_score = 0.5
+                    except Exception as e:
+                        logger.warning("Aesthetic scoring failed: %s", e)
+                        aesthetic_score = None
 
                 # Fuse scores
                 fusion = fuse_scores(

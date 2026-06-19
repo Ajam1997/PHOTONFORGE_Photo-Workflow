@@ -106,6 +106,44 @@ def test_missing_profile_falls_back_to_hardcoded() -> None:
     assert 0.0 <= result.master_score <= 1.0
 
 
+def test_aesthetic_none_drops_weight_and_renormalizes() -> None:
+    """aesthetic=None must drop aesthetic_clip and renormalize, not fill a constant."""
+    common = dict(sharpness=_make_sharpness(), composition=_make_composition(),
+                  exposure=_make_exposure(), genre=_make_genre(subject="abstract",
+                                                                photo_type="still-life"))
+    # abstract weights aesthetic_clip 0.30; a constant 0.0 vs 0.5 fill would swing
+    # the master a lot. With renormalization the score must stay a sane [0,1] value
+    # and must NOT equal either constant-fill outcome.
+    none_res = fuse_scores(**common, aesthetic=None)
+    hi = fuse_scores(**common, aesthetic=1.0)
+    lo = fuse_scores(**common, aesthetic=0.0)
+    assert 0.0 <= none_res.master_score <= 1.0
+    # renormalized result is independent of the (absent) aesthetic value, and sits
+    # strictly between the all-low and all-high aesthetic extremes
+    assert lo.master_score < none_res.master_score < hi.master_score
+
+
+def test_degeneracy_detector_flags_constant_model() -> None:
+    """_aesthetic_session_is_degenerate catches a model that ignores its input."""
+    from photo_workflow.subject_context import _aesthetic_session_is_degenerate
+
+    class _Input:
+        name = "x"
+        shape = ["batch", 8]
+
+    class _ConstSession:
+        def get_inputs(self): return [_Input()]
+        def run(self, _out, _feed): return [np.array([[0.556]], dtype=np.float32)]
+
+    class _LiveSession:
+        def get_inputs(self): return [_Input()]
+        def run(self, _out, feed):
+            return [np.array([[float(np.asarray(feed["x"]).sum())]], dtype=np.float32)]
+
+    assert _aesthetic_session_is_degenerate(_ConstSession()) is True
+    assert _aesthetic_session_is_degenerate(_LiveSession()) is False
+
+
 def test_fuse_scores_returns_fusion_result() -> None:
     """fuse_scores should return a FusionResult."""
     result = fuse_scores(
