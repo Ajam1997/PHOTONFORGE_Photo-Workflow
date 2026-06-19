@@ -204,3 +204,91 @@ counts). It is:
 - RMBG deletion depends on close-up-genre IoU; may force RMBG/SegFormer coexist.
 - CPU latency of decoder-only VLMs is unmeasured on the i7-7500U (WebGPU/M1
   figures do not transfer).
+
+---
+
+## Spike Specification (v1) — designed to run once
+
+### Shared setup (the "do it once" core)
+
+**One SegFormer-b0 export, dual-output.** Custom ONNX export exposing **both**
+the seg map (→ region map + histogram) **and** the pooled encoder features (→
+Track A backbone candidate). INT8. Stock seg ONNX outputs only the map — the
+feature tap must be added at export.
+
+**One cached extraction pass** over `{175-label corpus} ∪ {~30 eval frames}`,
+storing per image in `.npz` (mirrors `.claude/ava_cache`):
+`clip_s2_emb[512]`, `clip_s0_emb[…]`, `mit_b0_pooled[256]`, `region_hist[8]`,
+`region_map`, YOLO detections, face count, EXIF. All probes/heads/prompts read
+this cache — no model re-runs.
+
+**Region-type taxonomy** (genre-agnostic map; subject role assigned
+genre-conditionally on top): `sky · water · vegetation · ground · structure ·
+subject · face(YuNet) · other`. (See taxonomy table above.)
+
+### Eval frame set
+
+~30 frames drawn from **both ICELAND and MISC2026**, deliberately spread across
+*scene* genres (landscape/seascape/cityscape) **and** *close-up* genres
+(food/macro/product/abstract) — the scene-vs-closeup split stresses both
+SegFormer-as-mask and MiT-b0-as-backbone.
+
+### Run location
+
+**Dev box first** — decides the architecture via relative ranking + functional
+validation. Latency/RSS there are *not* the KPM gate. **Yoga (i7-7500U) ratifies**
+the absolute KPM-1.2 (≤2.5s) and RSS (≤1.5GB) budgets before anything ships.
+Env prereq on the dev box: project venv with `onnxruntime`, `transformers`,
+`optimum` (the current host system Python lacks `cv2`/`onnxruntime`).
+
+### Track A protocol
+
+- **Candidates:** MobileCLIP-S2 (baseline) · MobileCLIP-S0 · MiT-b0-pooled ·
+  MiT-b0-pooled ⊕ region_hist. (TinyCLIP-19M = stretch.)
+- **Genre:** two logistic-regression linear probes — subject (15-way) and type
+  (11-way) — stratified 5-fold CV on the 175 labels; report mean top-1 per axis.
+- **Aesthetic:** MLP head per backbone via the `train_aesthetic_head.py` harness;
+  Spearman on the AVA holdout.
+- **Output:** decision-matrix table → the Track A decision tree above.
+
+### Track B protocol
+
+- **Models:** Florence-2-base-ft (control) · SmolVLM2-500M · SmolVLM2-256M ·
+  LFM2.5-VL-450M.
+- **Prompt tiers** (drafts; refine before run):
+  - *bare:* `"Describe this image."`
+  - *instruction:* `"Write one concise, natural caption describing this
+    photograph. Output only the caption, no preamble."`
+  - *grounded:* `"Facts: a {subject}/{type} photo{, {time_of_day}}{,
+    {shutter_class}}{, {aperture_class}}. Visible regions: {region summary}.
+    Dominant colors: {colors}. Write ONE natural sentence describing what is
+    visible. Use the facts as context but describe the specific subject, action,
+    and mood you see. Do not invent names, places, or text. Output only the
+    caption."` (grounding fields come from the SceneRecord / extraction cache.)
+- **Quality:** blind side-by-side table (model × prompt, source hidden), user
+  scores accuracy / richness / fluency / hallucination.
+- **Cost:** latency + RSS, dev box (relative) → Yoga (absolute).
+- **Hypothesis under test:** smallest model + grounded prompt ≥ Florence-2.
+
+### Provisioning checklist
+
+- SegFormer-b0 ADE20K → custom dual-output INT8 ONNX.
+- MobileCLIP-S0 INT8 ONNX (S2 already provisioned).
+- SmolVLM2-500M / -256M ONNX (onnx-community); LFM2.5-VL-450M ONNX (LiquidAI).
+
+### SceneRecord schema (shared output; spike + per-region scoring + namer)
+
+```
+subject_tag, subject_conf, type_tag, type_conf
+region_map[H×W int8], region_coverage{type: ratio}
+subject_roles: list[region_type]          # genre-conditional pick of "subject"
+per_region: {type: {dominant_color, sharpness, exposure}}
+objects: [{class, count, bbox}]           # YOLO
+faces: {count, eye_state}                  # YuNet
+exif: {focal_class, aperture_class, shutter_class, time_of_day, iso}
+aesthetic, master_score, stars             # from scoring
+```
+
+Aligns with the R1 passive data-collection plan (per-region sharpness/exposure +
+user keep/reject/star decisions logged during R1 scoring to train the R2
+region→quality policy).
