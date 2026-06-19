@@ -312,15 +312,26 @@ single most common way to mis-spec an "AI laptop" for this use case.
 
 ---
 
-## 7. Open Items
+## 7. Open Questions (carry-forward, in priority order)
 
-- Battery chemistry/capacity and DC-input wiring (PH2.0 10–15V) — spec after §6 draw test.
-- Whether in-bag naming is viable or deferred-to-dock — decided by the §6 Florence-2 number.
-- RP2040 firmware language (MicroPython recommended) and the host↔MCU serial protocol —
-  needs a @systems_lead scope sign-off (§3.7) before any firmware work.
-- **Profile 2 EP abstraction:** design the onnxruntime execution-provider seam in the edit
-  layer (CPU default → OpenVINO on NPU hosts) and the CLAUDE.md amendment scoping it to the
-  GUI/edit modules. Prerequisite before any Phase 3 neural-module work.
-- Local wireless design (own AP vs. direct pairing) and the notification protocol — ties
-  into the `gui-layer-handoff-brief.md` bridges staying UI-agnostic so the phone is a
-  client, not a rewrite.
+These are *decided-to-defer*, not undecided. Nothing below blocks recording the hardware
+direction; each is the next concrete step toward making R2 buildable.
+
+1. **Florence-2 benchmark on the N150 — the go/no-go number.** Time ≥10 representative raws
+   end-to-end (harness wired to the naming entrypoint) and confirm KPM-1.2 (≤ 2.5s/image).
+   This decides whether in-bag naming is viable or must be **deferred to the dock**. Highest
+   priority because it can change Profile 1's job description. See the §6 checklist.
+
+2. **Profile 2 execution-provider abstraction.** Design the onnxruntime EP seam in the edit
+   layer (CPU default → **OpenVINO** on NPU hosts) and the **CLAUDE.md amendment** scoping
+   the "CPU-only / no GPU paths" exception to the GUI/edit modules only. Prerequisite before
+   any Phase 3 neural-module work.
+
+3. **Profile 1 physical build-out.** Three coupled sub-items:
+   - **Battery** chemistry/capacity + DC-input wiring (PH2.0 10–15V), sized from the §6
+     sustained-draw measurement.
+   - **Local wireless** design (own AP vs. direct pairing) + notification protocol — must
+     keep the `gui-layer-handoff-brief.md` bridges UI-agnostic so the phone is a client,
+     not a rewrite.
+   - **RP2040 firmware** language (MicroPython recommended) + host↔MCU serial protocol —
+     needs a **@systems_lead scope sign-off** (§3.7) before any firmware work begins.
