@@ -43,6 +43,18 @@ def _ort(path: Path):
     return ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
 
 
+def _run_clip(rgb: np.ndarray, session) -> np.ndarray:
+    import cv2
+
+    shp = session.get_inputs()[0].shape  # S2=256, S0=224
+    size = shp[2] if isinstance(shp[2], int) and shp[2] > 0 else 256
+    img = cv2.resize(rgb, (size, size)).astype(np.float32) / 255.0
+    img = np.transpose(img, (2, 0, 1))[None]
+    out = session.run(None, {session.get_inputs()[0].name: img})[0].flatten()
+    n = np.linalg.norm(out)
+    return (out / n if n > 0 else out).astype(np.float32)
+
+
 def _seg_pooled(rgb: np.ndarray, session) -> np.ndarray:
     import cv2
 
@@ -55,7 +67,7 @@ def _seg_pooled(rgb: np.ndarray, session) -> np.ndarray:
 
 def _build_embedders(models_dir: Path, segformer: Path | None, s0_subdir: str):
     """Return {name: callable(rgb)->vec} for each available backbone."""
-    from photo_workflow.subject_context import ModelSessions, _run_clip
+    from photo_workflow.subject_context import ModelSessions
 
     emb = {}
     s2 = ModelSessions(model_dir=models_dir).clip_vision

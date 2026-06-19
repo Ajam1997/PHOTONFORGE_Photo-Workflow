@@ -66,9 +66,12 @@ def _load_rgb(path: Path) -> np.ndarray:
     return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
-def _run_clip(image_rgb: np.ndarray, session, size: int = 256) -> np.ndarray:
+def _run_clip(image_rgb: np.ndarray, session, size: int | None = None) -> np.ndarray:
     import cv2
 
+    if size is None:  # read the model's own spatial size (S2=256, S0=224)
+        shp = session.get_inputs()[0].shape
+        size = shp[2] if isinstance(shp[2], int) and shp[2] > 0 else 256
     img = cv2.resize(image_rgb, (size, size)).astype(np.float32) / 255.0
     img = np.transpose(img, (2, 0, 1))[None]
     out = session.run(None, {session.get_inputs()[0].name: img})[0].flatten()
