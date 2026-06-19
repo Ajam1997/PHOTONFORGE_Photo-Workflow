@@ -27,6 +27,18 @@ function M.build_index()
   return idx
 end
 
+-- Detach photon|train_candidate from every image that carries it. Called after
+-- Recalibrate: the candidates have been labeled and folded into the model, so the
+-- tag is stale and would otherwise linger into the next Suggest round.
+function M.clear_train_candidates()
+  local t = dt.tags.find("photon|train_candidate")
+  if t == nil then return 0 end
+  local imgs = {}
+  for _, img in ipairs(t) do imgs[#imgs + 1] = img end  -- snapshot before mutating
+  for _, img in ipairs(imgs) do dt.tags.detach(t, img) end
+  return #imgs
+end
+
 local function find_image(filename, folder, index)
   if index ~= nil then
     return index[_key(filename, folder)]

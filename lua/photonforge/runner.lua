@@ -413,6 +413,15 @@ function M.run_step(step, log_fn, job, progress_fn)
     end
   end
 
+  -- After recalibrate, the labeled candidates are folded into the model; clear
+  -- the now-stale photon|train_candidate tags so the next Suggest round is clean.
+  if step == "recalibrate" then
+    local ok, n = pcall(applicator.clear_train_candidates)
+    if ok and n and n > 0 then
+      log_fn(string.format("[%s] Cleared %d train-candidate tag(s)", os.date("%H:%M:%S"), n))
+    end
+  end
+
   log_fn(string.format("[%s] Step finished (%d items)", os.date("%H:%M:%S"), done))
   return true
 end
