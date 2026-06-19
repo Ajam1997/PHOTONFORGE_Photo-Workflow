@@ -138,6 +138,25 @@ def test_face_sentinels_dropped_when_no_face() -> None:
     assert abs(dropped - 1.0) < 1e-6     # renormalized over all-1.0 signals -> 1.0
 
 
+def test_hybrid_star_floor_and_percentile() -> None:
+    """Below-floor / hard-reject -> 1 star; above floor -> percentile within shoot."""
+    from photo_workflow.score_fusion import hybrid_star, stars_to_color_label
+    shoot = sorted([0.30, 0.40, 0.50, 0.55, 0.60, 0.65, 0.70, 0.80, 0.85, 0.95])
+    assert hybrid_star(0.10, False, shoot) == 1          # below absolute floor
+    assert hybrid_star(0.80, True, shoot) == 1           # hard reject overrides
+    assert hybrid_star(0.95, False, shoot) == 5          # top of the shoot
+    assert hybrid_star(0.30, False, shoot) == 2          # bottom kept frame
+    # monotonic: higher master never yields fewer stars
+    prev = 0
+    for m in shoot:
+        s = hybrid_star(m, False, shoot)
+        assert s >= prev
+        prev = s
+    assert stars_to_color_label(5) == 3 and stars_to_color_label(4) == 2
+    assert stars_to_color_label(1) == 1 and stars_to_color_label(3) == -1
+    assert stars_to_color_label(5, hard_reject=True) == -1
+
+
 def test_degeneracy_detector_flags_constant_model() -> None:
     """_aesthetic_session_is_degenerate catches a model that ignores its input."""
     from photo_workflow.subject_context import _aesthetic_session_is_degenerate

@@ -464,6 +464,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     from .scoring_types import GenreResult
     from .score_fusion import fuse_scores
     from .darktable_bridge import compute_color_label
+    from .score_fusion import hybrid_star, stars_to_color_label, _RATING_ABS_FLOOR
     from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_genre_scores, update_stages, clear_stage
 
     if model_dir is None:
@@ -512,6 +513,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     model_sessions = ModelSessions(model_dir, training_db_path=training_db)
 
     errors = 0
+    rated: list[dict] = []  # buffered per-image results; rated in a 2nd pass (P6)
     for i, row in enumerate(to_score, 1):
         p = source_dir / row["filename"]
         try:
@@ -586,20 +588,19 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 update_stages(conn, table, row["filename"], "score", auto_commit=False)
                 conn.commit()
 
-                stars = fusion.star_rating
-                color_label = fusion.color_label
-
-                if json_progress:
-                    emit("score", row["filename"], "ok", json_progress=True,
-                         sharpness=round(sharp, 4), composition=round(comp, 4),
-                         exposure=round(expo, 4), master=round(master, 4),
-                         subject=fusion.subject,
-                         subject_confidence=round(fusion.subject_confidence, 3),
-                         photo_type=fusion.photo_type,
-                         type_confidence=round(fusion.type_confidence, 3),
-                         needs_review=fusion.needs_review,
-                         stars=stars, color_label=color_label,
-                         original_name=row["original_name"])
+                # Buffer for the 2nd-pass hybrid rating (stars assigned relative to
+                # the whole shoot, not per image).
+                rated.append({
+                    "filename": row["filename"], "master": master,
+                    "hard_reject": fusion.hard_reject,
+                    "sharpness": round(sharp, 4), "composition": round(comp, 4),
+                    "exposure": round(expo, 4), "subject": fusion.subject,
+                    "subject_confidence": round(fusion.subject_confidence, 3),
+                    "photo_type": fusion.photo_type,
+                    "type_confidence": round(fusion.type_confidence, 3),
+                    "needs_review": fusion.needs_review,
+                    "original_name": row["original_name"],
+                })
             except Exception as genre_error:
                 # Fallback to legacy scoring
                 logger.warning("Genre-aware scoring failed, falling back to legacy: %s", genre_error)
@@ -611,15 +612,13 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 conn.commit()
 
                 mean = (sharp + comp + expo) / 3.0
-                stars = min(5, round(mean * 5))
-                color_label = compute_color_label(sharp, comp, expo)
-
-                if json_progress:
-                    emit("score", row["filename"], "ok", json_progress=True,
-                         sharpness=round(sharp, 4), composition=round(comp, 4),
-                         exposure=round(expo, 4), stars=stars, color_label=color_label,
-                         genre="general", genre_confidence=0.0,
-                         original_name=row["original_name"])
+                rated.append({
+                    "filename": row["filename"], "master": mean, "hard_reject": False,
+                    "sharpness": round(sharp, 4), "composition": round(comp, 4),
+                    "exposure": round(expo, 4), "subject": "general",
+                    "subject_confidence": 0.0, "photo_type": "", "type_confidence": 0.0,
+                    "needs_review": False, "original_name": row["original_name"],
+                })
         except Exception as exc:
             conn.execute(
                 "UPDATE photos SET error=? WHERE folder=? AND filename=?",
@@ -632,6 +631,29 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
 
         if json_progress and i % 10 == 0:
             click.echo(json.dumps({"step": "_progress", "done": i, "total": len(to_score)}))
+
+    # --- 2nd pass: hybrid per-shoot rating (P6) ------------------------------
+    # Rank each scored frame's master against the WHOLE folder's distribution
+    # (not just this run's batch), so resume runs stay consistent. Absolute floor
+    # decides keep/reject; percentile within the shoot assigns the upper stars.
+    all_masters = [
+        r[0] for r in conn.execute(
+            "SELECT master_score FROM photos WHERE folder=? AND master_score IS NOT NULL",
+            (table,),
+        )
+    ]
+    kept_sorted = sorted(m for m in all_masters if m >= _RATING_ABS_FLOOR)
+    for item in rated:
+        stars = hybrid_star(item["master"], item["hard_reject"], kept_sorted)
+        color_label = stars_to_color_label(stars, item["hard_reject"])
+        if json_progress:
+            emit("score", item["filename"], "ok", json_progress=True,
+                 sharpness=item["sharpness"], composition=item["composition"],
+                 exposure=item["exposure"], master=round(item["master"], 4),
+                 subject=item["subject"], subject_confidence=item["subject_confidence"],
+                 photo_type=item["photo_type"], type_confidence=item["type_confidence"],
+                 needs_review=item["needs_review"], stars=stars, color_label=color_label,
+                 original_name=item["original_name"])
 
     conn.close()
 

@@ -360,6 +360,50 @@ def _compute_master_score(
     return max(0.0, min(1.0, master))
 
 
+# --- P6: hybrid per-shoot rating ------------------------------------------
+# Absolute keep/reject floor: a frame below this (or hard-rejected) is 1 star
+# regardless of the shoot. Above it, stars are assigned by percentile *within the
+# shoot* — "best of this batch" — which is robust to the absolute-score drift the
+# aesthetic model's domain shift introduces.
+_RATING_ABS_FLOOR = 0.25
+
+
+def stars_to_color_label(stars: int, hard_reject: bool = False) -> int:
+    """Map a star rating to a Darktable color label int (-1 = none)."""
+    if hard_reject:
+        return _DT_NONE
+    if stars >= 5:
+        return _DT_BLUE
+    if stars >= 4:
+        return _DT_GREEN
+    if stars <= 1:
+        return _DT_YELLOW
+    return _DT_NONE
+
+
+def hybrid_star(master: float, hard_reject: bool, kept_sorted: list[float]) -> int:
+    """Star rating from the absolute floor + percentile within the shoot.
+
+    kept_sorted: ascending master scores of the shoot's kept frames (>= floor).
+    Top 10% -> 5, next 20% -> 4, next 30% -> 3, rest -> 2; below floor / reject -> 1.
+    """
+    import bisect
+
+    if hard_reject or master < _RATING_ABS_FLOOR:
+        return 1
+    k = len(kept_sorted)
+    if k <= 1:
+        return 3
+    pct = bisect.bisect_left(kept_sorted, master) / (k - 1)
+    if pct >= 0.90:
+        return 5
+    if pct >= 0.70:
+        return 4
+    if pct >= 0.40:
+        return 3
+    return 2
+
+
 _EYES_CLOSED_THRESHOLD = 0.15
 
 
