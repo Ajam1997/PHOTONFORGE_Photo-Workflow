@@ -208,6 +208,24 @@ aesthetic signal** (0.208 — segmentation pretraining never saw quality cues). 
 - Possible follow-up (low confidence it closes the gap): test multi-stage MiT
   feature concat for aesthetic before fully accepting CLIP-S2 as permanent.
 
+## Results — Track B (dev box, 2026-06-19)
+
+12 genre-diverse frames × {bare, instruction, grounded}; 72 captions, 0 errors.
+
+- **Both SmolVLM-500M and LFM2-VL-450M produce fluent, accurate captions** and
+  are viable Florence-2 replacements. Grounded prompting visibly enriches output
+  and the anti-parroting guardrail held (models described what they saw even when
+  a frame's genre label was wrong).
+- **Latency** (dev-box PyTorch, *relative only*): ~9 s/caption warm, LFM2
+  marginally faster. Absolute KPM-1.2 needs INT8-ONNX on the Yoga — not yet run.
+- **Florence-2 fails to load under transformers 5.12** (`forced_bos_token_id`);
+  still ships via the ONNX `naming.py` path, but it's bit-rotting upstream — a
+  mild point toward switching.
+- **Final captioner pick is a prose preference** → blind judging of
+  `.claude/r2_spike/track_b_results/blind.csv` (reveal via `blind_key.json`).
+- Env note: these VLM image processors require `torchvision`; the decode must
+  slice newly-generated tokens (format-agnostic) to avoid role-token echo.
+
 ## Pinned decision thresholds (set before seeing results)
 
 - **Genre:** within ~3% accuracy of MobileCLIP-S2 on the 175-label corpus.
