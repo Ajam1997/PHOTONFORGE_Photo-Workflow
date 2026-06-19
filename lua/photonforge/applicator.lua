@@ -9,10 +9,31 @@ local function normalize_path(p)
   return p:lower()         -- case-insensitive on Windows
 end
 
-local function find_image(filename, folder)
+local function _key(filename, folder)
+  return normalize_path(folder) .. "|" .. (filename or "")
+end
+
+-- Build a {normalized "folder|filename" -> img} index in ONE pass over the
+-- library. Per-record lookups against this are O(1); without it each apply
+-- linearly scanned the whole library (~seconds each on a large catalog, so a
+-- multi-thousand-record step like refresh-review appeared to hang).
+function M.build_index()
+  local idx = {}
+  for _, img in ipairs(dt.database) do
+    if img ~= nil and img.filename ~= nil then
+      idx[_key(img.filename, img.path)] = img
+    end
+  end
+  return idx
+end
+
+local function find_image(filename, folder, index)
+  if index ~= nil then
+    return index[_key(filename, folder)]
+  end
+  -- Fallback: linear scan (used only if no index was supplied).
   local norm_folder = normalize_path(folder)
   for _, img in ipairs(dt.database) do
-    -- Guard: DT5 database proxies can yield nil-like entries
     if img ~= nil and img.filename == filename
         and normalize_path(img.path) == norm_folder then
       return img
@@ -21,7 +42,7 @@ local function find_image(filename, folder)
   return nil
 end
 
-function M.apply(rec, folder)
+function M.apply(rec, folder, index)
   if rec.step == "_progress" then
     return
   end
@@ -45,7 +66,7 @@ function M.apply(rec, folder)
   -- suggest-training-set: tag the picked frames so the user can filter to a small
   -- labeling set (photon|train_candidate), then label + Collect Corrections.
   if rec.step == "train-candidate" then
-    local img = find_image(rec.file, folder)
+    local img = find_image(rec.file, folder, index)
     if img == nil then
       dt.print_log(string.format("PHOTONForge train-candidate: image not found: %s", rec.file or ""))
       return
@@ -57,7 +78,7 @@ function M.apply(rec, folder)
 
   -- sync-tags: apply genre tags via DT API (Python emits subject/photo_type)
   if rec.step == "sync-tags" then
-    local img = find_image(rec.file, folder)
+    local img = find_image(rec.file, folder, index)
     if img == nil then
       dt.print_log(string.format("PHOTONForge sync-tags: image not found: %s", rec.file or ""))
       return
@@ -71,7 +92,7 @@ function M.apply(rec, folder)
     return
   end
 
-  local img = find_image(rec.file, folder)
+  local img = find_image(rec.file, folder, index)
   if img == nil then
     dt.print_log(string.format("PHOTONForge: image not found in library: %s", rec.file or ""))
     return

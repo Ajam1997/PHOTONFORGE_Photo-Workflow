@@ -309,6 +309,9 @@ function M.run_step(step, log_fn, job, progress_fn)
   end
 
   local dest = config.read("dest_path")
+  -- Index the library once (O(1) per-record lookups in the applicator). These
+  -- steps don't add images, so the index stays valid for the whole run.
+  local index = applicator.build_index()
   local done, total = 0, 0
   local file_count = 0
   local last_pos = 0
@@ -365,7 +368,7 @@ function M.run_step(step, log_fn, job, progress_fn)
           local msg = string.format("[%s] %s  %s  [%s]",
             os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
           log_fn(msg)
-          applicator.apply(rec, dest)
+          applicator.apply(rec, dest, index)
         end
       else
         log_fn(line)
@@ -395,7 +398,7 @@ function M.run_step(step, log_fn, job, progress_fn)
           local msg = string.format("[%s] %s  %s  [%s]",
             os.date("%H:%M:%S"), rec.step or "?", rec.file or "", rec.status or "")
           log_fn(msg)
-          applicator.apply(rec, dest)
+          applicator.apply(rec, dest, index)
         elseif not ok then
           log_fn(line)
         end
