@@ -129,7 +129,7 @@ function M.build()
       placeholder = placeholder,
     }
     entries[config_key] = entry
-    if config_key == "sd_path" or config_key == "dest_path" then
+    if config_key == "dest_path" then
       set_name(entry, "pf_entry_required")
     end
 
@@ -157,7 +157,7 @@ function M.build()
 
   local config_editor = dt.new_widget("box") {
     orientation = "vertical",
-    make_path_row("SD card path:", "sd_path", "required\u{2026}"),
+    make_path_row("SD card path:", "sd_path", "ingest only\u{2026}"),
     make_path_row("Destination:",  "dest_path", "required\u{2026}"),
     make_path_row("Corpus JSONL (training only):", "corpus_path", "optional\u{2026}"),
     tz_box,
@@ -168,8 +168,10 @@ function M.build()
 
   local config_toggle  -- forward ref for closures below
 
+  -- Destination is the only hard requirement (DB + photos live there). SD card
+  -- path is needed by the ingest step only, so it does not gate Run.
   local function is_configured()
-    return config.read("sd_path") ~= "" and config.read("dest_path") ~= ""
+    return config.read("dest_path") ~= ""
   end
 
   local function refresh_config_summary()
@@ -313,13 +315,11 @@ function M.build()
     end
   end
 
-  -- Maroon "required" border on the two mandatory path entries — cleared once a
+  -- Maroon "required" border on the mandatory Destination entry — cleared once a
   -- value is present. Reads live entry text (updates on save / action, not keystroke).
   local function refresh_required_marks()
-    for _, k in ipairs({ "sd_path", "dest_path" }) do
-      local e = entries[k]
-      if e then set_name(e, e.text == "" and "pf_entry_required" or "pf_entry_set") end
-    end
+    local e = entries["dest_path"]
+    if e then set_name(e, e.text == "" and "pf_entry_required" or "pf_entry_set") end
   end
 
   local function refresh_run_enabled()
