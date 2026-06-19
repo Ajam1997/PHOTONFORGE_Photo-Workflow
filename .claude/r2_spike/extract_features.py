@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -118,7 +119,19 @@ def _db_embeddings(db_path: Path, filenames: set[str]) -> dict[str, np.ndarray]:
     return out
 
 
-def _iter_corpus(corpus: Path, image_root: Path | None):
+def _build_index(root: Path | None) -> dict[str, Path]:
+    """One-time filename -> path index (handles source_folder name mismatches)."""
+    idx: dict[str, Path] = {}
+    if not root or not root.exists():
+        return idx
+    for dirpath, _dirs, files in os.walk(root):
+        for f in files:
+            if Path(f).suffix.lower() in _IMG_EXTS:
+                idx.setdefault(f, Path(dirpath) / f)
+    return idx
+
+
+def _iter_corpus(corpus: Path, index: dict[str, Path]):
     for line in corpus.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
@@ -127,11 +140,7 @@ def _iter_corpus(corpus: Path, image_root: Path | None):
         fn = rec.get("filename")
         if not fn:
             continue
-        path = None
-        if image_root:
-            cand = image_root / rec.get("source_folder", "") / fn
-            path = cand if cand.exists() else next(image_root.rglob(fn), None)
-        yield fn, path, rec.get("subject"), rec.get("photo_type")
+        yield fn, index.get(fn), rec.get("subject"), rec.get("photo_type")
 
 
 def main() -> None:
@@ -162,7 +171,9 @@ def main() -> None:
     # Build the work list.
     work: list[tuple[str, Path | None, str | None, str | None, str]] = []
     if args.corpus:
-        work += [(fn, p, subj, pt, "corpus") for fn, p, subj, pt in _iter_corpus(args.corpus, args.image_root)]
+        index = _build_index(args.image_root)
+        log.info("Indexed %d image files under %s", len(index), args.image_root)
+        work += [(fn, p, subj, pt, "corpus") for fn, p, subj, pt in _iter_corpus(args.corpus, index)]
     for d in args.eval_dirs:
         for p in sorted(d.rglob("*")):
             if p.suffix.lower() in _IMG_EXTS:

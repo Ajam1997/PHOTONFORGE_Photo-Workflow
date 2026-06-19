@@ -93,6 +93,7 @@ def main() -> None:
         },
         opset_version=17,
         do_constant_folding=True,
+        dynamo=False,
     )
 
     log.info("Quantizing dynamic INT8 -> %s", out_file)
