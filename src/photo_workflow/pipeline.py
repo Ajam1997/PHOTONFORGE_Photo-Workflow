@@ -589,20 +589,31 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                 conn.commit()
 
                 # Stream the rating per image (live feedback + interrupt-safe).
-                # Absolute thresholds recalibrated for the min-gate's compressed range.
-                stars = absolute_star(master, fusion.hard_reject)
-                color_label = stars_to_color_label(stars, fusion.hard_reject)
-                if json_progress:
-                    emit("score", row["filename"], "ok", json_progress=True,
-                         sharpness=round(sharp, 4), composition=round(comp, 4),
-                         exposure=round(expo, 4), master=round(master, 4),
-                         subject=fusion.subject,
-                         subject_confidence=round(fusion.subject_confidence, 3),
-                         photo_type=fusion.photo_type,
-                         type_confidence=round(fusion.type_confidence, 3),
-                         needs_review=fusion.needs_review,
-                         stars=stars, color_label=color_label,
-                         original_name=row["original_name"])
+                # Hard-rejects (technical failures: global motion blur, misfocus,
+                # all eyes closed) get Darktable's reject flag. Otherwise an
+                # absolute provisional star (recalibrated for the min-gate range),
+                # refined to a per-shoot percentile in the final pass below.
+                stars = 1
+                common = dict(
+                    sharpness=round(sharp, 4), composition=round(comp, 4),
+                    exposure=round(expo, 4), master=round(master, 4),
+                    subject=fusion.subject,
+                    subject_confidence=round(fusion.subject_confidence, 3),
+                    photo_type=fusion.photo_type,
+                    type_confidence=round(fusion.type_confidence, 3),
+                    needs_review=fusion.needs_review,
+                    original_name=row["original_name"],
+                )
+                if fusion.hard_reject:
+                    if json_progress:
+                        emit("score", row["filename"], "ok", json_progress=True,
+                             reject=True, **common)
+                else:
+                    stars = absolute_star(master, False)
+                    if json_progress:
+                        emit("score", row["filename"], "ok", json_progress=True,
+                             stars=stars, color_label=stars_to_color_label(stars, False),
+                             **common)
                 # Buffer keepers for the final relative re-rating (provisional
                 # absolute stars are shown live; the per-shoot percentile refines
                 # the keepers once the whole folder's distribution is known).

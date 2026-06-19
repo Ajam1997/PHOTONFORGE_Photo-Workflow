@@ -84,16 +84,21 @@ function M.apply(rec, folder)
     end
 
   elseif rec.step == "score" then
-    if rec.stars ~= nil then
+    if rec.reject then
+      -- Technical failure -> Darktable reject flag (no star/color).
+      img.rating = -1
+    elseif rec.stars ~= nil then
       img.rating = math.min(5, math.max(0, math.floor(rec.stars + 0.5)))
     end
-    local cl = rec.color_label
-    if cl ~= nil and cl >= 0 then
-      img.red    = (cl == 0)
-      img.yellow = (cl == 1)
-      img.green  = (cl == 2)
-      img.blue   = (cl == 3)
-      img.purple = (cl == 4)
+    if not rec.reject then
+      local cl = rec.color_label
+      if cl ~= nil and cl >= 0 then
+        img.red    = (cl == 0)
+        img.yellow = (cl == 1)
+        img.green  = (cl == 2)
+        img.blue   = (cl == 3)
+        img.purple = (cl == 4)
+      end
     end
 
     local parts = {}
