@@ -30,6 +30,8 @@ SUBJECTS = [
     "food",
     "object",
     "abstract",
+    "monument",
+    "waterfall",
 ]
 
 PHOTO_TYPES = [
@@ -114,6 +116,16 @@ _SUBJECT_EXIF_PRIORS = {
     "abstract": {
         "focal_length": (3.8, 1.0), "aperture": (1.5, 1.0),
         "shutter": (-5.0, 2.0), "iso": (5.5, 1.0),
+    },
+    # monument ~ building (mid focal, stopped-down, daylight)
+    "monument": {
+        "focal_length": (3.2, 0.7), "aperture": (2.0, 0.4),
+        "shutter": (-3.0, 2.0), "iso": (4.8, 0.6),
+    },
+    # waterfall ~ landscape/seascape, often long-exposure (slow shutter)
+    "waterfall": {
+        "focal_length": (3.2, 0.8), "aperture": (2.2, 0.4),
+        "shutter": (-3.5, 2.5), "iso": (4.6, 0.7),
     },
 }
 
@@ -237,6 +249,16 @@ _SUBJECT_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.3, 0.2),
         "primary_class": {},
     },
+    "monument": {
+        "face_count": (0.0, 0.6),
+        "subject_area_ratio": (0.3, 0.18),
+        "primary_class": {"clock": 1.3},
+    },
+    "waterfall": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.25, 0.18),
+        "primary_class": {},
+    },
 }
 
 _TYPE_CONTEXT_PRIORS = {
@@ -315,6 +337,8 @@ _SUBJECT_SHARPNESS_PRIORS = {
     "food": (2.0, 0.8),
     "object": (2.0, 0.8),
     "abstract": (1.5, 1.5),
+    "monument": (1.2, 0.6),
+    "waterfall": (1.0, 0.7),
 }
 
 _TYPE_SHARPNESS_PRIORS = {

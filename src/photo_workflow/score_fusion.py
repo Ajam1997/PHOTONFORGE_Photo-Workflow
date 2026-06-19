@@ -110,6 +110,17 @@ SUBJECT_WEIGHTS: dict[str, dict[str, float]] = {
         "subject_sharpness": 0.15, "exposure_overall": 0.15,
         "blur_type_bonus": 0.10, "negative_space": 0.10,
     },
+    "monument": {
+        "subject_sharpness": 0.25, "exposure_overall": 0.20,
+        "aesthetic_clip": 0.15, "highlight_clip": 0.10,
+        "leading_lines": 0.10, "symmetry": 0.10,
+        "blur_type_penalty": 0.10,
+    },
+    "waterfall": {
+        "subject_sharpness": 0.20, "exposure_overall": 0.20,
+        "aesthetic_clip": 0.20, "dynamic_range": 0.15,
+        "blur_type_bonus": 0.15, "color_contrast": 0.10,
+    },
 }
 
 TYPE_WEIGHTS: dict[str, dict[str, float]] = {
