@@ -269,6 +269,11 @@ function M.run_import(log_fn, job)
 end
 
 function M.run_step(step, log_fn, job, progress_fn)
+  -- Clear any stale abort from a previously-stopped run. Without this, a
+  -- standalone button (Suggest / Refresh / Sync) pressed after a Stop would
+  -- immediately short-circuit on the leftover M.abort=true. (run_all checks
+  -- M.abort between steps *before* the next run_step, so this reset is safe there.)
+  M.abort = false
   if step == "import" then
     return M.run_import(log_fn, job)
   end
