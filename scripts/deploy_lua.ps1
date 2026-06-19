@@ -74,6 +74,14 @@ foreach ($f in $files) {
     }
 }
 
+# --- Copy the companion CSS theme (optional polish) --------------------------
+$cssSrc = Join-Path $srcDir "photonforge.css"
+if (Test-Path $cssSrc) {
+    $cssDst = Join-Path $dstDir "photonforge.css"
+    Copy-Item $cssSrc $cssDst -Force
+    Write-Host "[copy]  photonforge.css"
+}
+
 # --- Ensure luarc has the require line ---------------------------------------
 $requireLine = 'require "photonforge/main"'
 $luarcOk = $false
@@ -100,3 +108,7 @@ if ($copied -gt 0) {
 } else {
     Write-Host "All $upToDate file(s) already up to date - nothing to do."
 }
+Write-Host ""
+Write-Host "Optional polish: paste lua\photonforge\photonforge.css into"
+Write-Host "  Darktable -> Preferences -> 'user.css' -> Save and apply, then restart."
+Write-Host "The panel works without it; the CSS adds accent fills and status colors."

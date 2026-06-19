@@ -258,6 +258,17 @@ function M.kill()
   os.remove(get_sentinel_path())
 end
 
+-- Resolve the shell command for a step without running it. Used by the
+-- panel's developer mode to show the exact CLI invocation. Never throws.
+function M.preview_cmd(step)
+  if step == "import" then
+    return "(handled in-process via dt.database.import — no shell command)"
+  end
+  local ok, cmd = pcall(build_cmd, step)
+  if ok then return cmd end
+  return "(could not resolve: " .. tostring(cmd) .. ")"
+end
+
 function M.run_import(log_fn, job)
   local dest = config.read("dest_path")
   log_fn(string.format("[%s] Importing %s into Darktable library...", os.date("%H:%M:%S"), dest))

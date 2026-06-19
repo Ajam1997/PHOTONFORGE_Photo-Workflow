@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  @keyframes pf-pulse { 0%,100%{ opacity:1; } 50%{ opacity:.25; } }
+  @keyframes pf-shimmer { 0%{ background-position:-120px 0; } 100%{ background-position:120px 0; } }
+  body { margin:0; background:#242424; }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background:#3a3a3a; border-radius:5px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+</style>
+</helmet>
+<div style="width:max-content; min-width:100%; min-height:100vh; box-sizing:border-box; padding:48px; background:#242424; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; color:#d7d7d7; --pf-accent: {{ accent }}; --pf-on-accent: {{ onAccent }};">
+
+  <!-- ============ HEADER ============ -->
+  <div style="max-width:1180px; margin-bottom:40px;">
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:10px;">
+      <div style="width:30px; height:30px; border-radius:7px; background:var(--pf-accent,#7d2733); display:flex; align-items:center; justify-content:center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-on-accent,#f6e7ea)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"></path></svg>
+      </div>
+      <h1 style="margin:0; font-size:26px; font-weight:650; letter-spacing:-0.4px; color:#ececec;">PHOTONForge — Panel Redesign</h1>
+    </div>
+    <p style="margin:0; font-size:14.5px; line-height:1.6; color:#9a9a9a; max-width:760px;">Release-1 information-architecture &amp; visual polish for the Darktable left-dock lib. Buildable states map 1:1 to the Lua widget palette + GTK3-CSS subset; the dream dashboard is a deliberately out-of-envelope concept. Accent is a tweakable prop (default dark maroon) layered over Darktable's native dark theme.</p>
+  </div>
+
+  <!-- ============ ROW 1: BUILDABLE STATES ============ -->
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+    <span style="font-size:11px; font-weight:700; letter-spacing:1.5px; color:var(--pf-accent,#7d2733);">BUILDABLE · RELEASE 1</span>
+    <span style="height:1px; flex:1; min-width:200px; background:#3a3a3a;"></span>
+    <span style="font-size:12px; color:#777;">maps to <code style="font-family:ui-monospace,Consolas,monospace; color:#9a9a9a;">dt.new_widget()</code> + GTK3-CSS</span>
+  </div>
+
+  <div style="display:flex; gap:40px; align-items:flex-start; margin-bottom:64px;">
+
+    <!-- FRAME 1: IDLE (annotated) -->
+    <div data-screen-label="Idle / Configured" style="flex:none; display:flex; gap:18px; align-items:flex-start;">
+      <div style="flex:none; width:332px;">
+        <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">A · Idle, configured <span style="color:#666; font-weight:400;">— default resting state</span></div>
+        <!-- PANEL -->
+        <div style="width:332px; background:#1b1b1b; border:1px solid #2e2e2e; border-radius:6px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.4);">
+
+          <!-- titlebar -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:#202020; border-bottom:1px solid #2e2e2e;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="width:7px; height:7px; border-radius:50%; background:#6f9f5f;"></span>
+              <span style="font-size:12.5px; font-weight:650; letter-spacing:.3px; color:#dcdcdc;">PHOTONFORGE</span>
+            </div>
+            <span style="font-size:10.5px; color:#777; letter-spacing:.5px;">IDLE</span>
+          </div>
+
+          <!-- cartridge strip -->
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 13px; background:#181818; border-bottom:1px solid #262626;">
+            <div style="display:flex; align-items:center; gap:9px; min-width:0;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-accent,#7d2733)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><line x1="22" y1="12" x2="2" y2="12"></line><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><line x1="6" y1="16" x2="6.01" y2="16"></line><line x1="10" y1="16" x2="10.01" y2="16"></line></svg>
+              <div style="min-width:0;">
+                <div style="font-size:11.5px; color:#dcdcdc; font-weight:600; line-height:1.25;">PHOTON-001 · ICELAND</div>
+                <div style="font-size:9.5px; color:#6f6f6f; font-family:ui-monospace,Consolas,monospace;">412 GB free · /mnt/ssd</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:4px; flex:none;">
+              <span title="Archive cartridge" style="width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid #313131; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></span>
+              <span title="Restore from archive" style="width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid #313131; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg></span>
+              <span title="Provision new cartridge" style="width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid #313131; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
+              <span title="Safe eject" style="width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid #313131; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14"></path><polygon points="12 5 19 14 5 14"></polygon></svg></span>
+            </div>
+          </div>
+
+          <!-- config (collapsed summary) -->
+          <div style="padding:10px 13px; border-bottom:1px solid #262626;">
+            <div style="display:flex; align-items:center; justify-content:space-between; cursor:default;">
+              <div style="display:flex; align-items:center; gap:7px; font-size:11px; font-weight:700; letter-spacing:1px; color:#8a8a8a;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"></polyline></svg>
+                CONFIGURATION
+              </div>
+              <span style="font-size:10.5px; color:#6f9f5f;">3 paths set</span>
+            </div>
+            <div style="margin-top:6px; font-size:10.5px; color:#6a6a6a; font-family:ui-monospace,Consolas,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">/media/SD · ~/Photos/2026 · resume · both</div>
+          </div>
+
+          <!-- tab switch -->
+          <div style="display:flex; gap:4px; padding:9px 11px; background:#191919;">
+            <div style="flex:1; text-align:center; padding:7px 0; font-size:12px; font-weight:600; color:var(--pf-on-accent,#f6e7ea); background:var(--pf-accent,#7d2733); border-radius:5px;">Pipeline</div>
+            <div style="flex:1; text-align:center; padding:7px 0; font-size:12px; font-weight:500; color:#9a9a9a; background:#242424; border:1px solid #313131; border-radius:5px;">Training</div>
+          </div>
+
+          <!-- pipeline body -->
+          <div style="padding:12px 13px 13px;">
+            <div style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777; padding-bottom:7px; border-bottom:1px solid #2c2c2c; margin-bottom:9px;">PIPELINE STEPS</div>
+
+            <!-- step rows -->
+            <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:13px;">
+              <!-- ingest -->
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 4px; border-radius:4px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="width:14px; height:14px; border-radius:3px; background:#222; border:1px solid #3d3d3d;"></span>
+                  <span style="font-size:12.5px; color:#8a8a8a;">ingest</span>
+                  <span style="font-size:8.5px; letter-spacing:.5px; color:#5f5f5f; border:1px solid #333; border-radius:3px; padding:1px 4px;">ONCE</span>
+                </div>
+                <span style="font-size:10px; color:#6f9f5f; font-family:ui-monospace,Consolas,monospace;">06-17 14:02 ✓</span>
+              </div>
+              <!-- import -->
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 4px; border-radius:4px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="width:14px; height:14px; border-radius:3px; background:#222; border:1px solid #3d3d3d;"></span>
+                  <span style="font-size:12.5px; color:#8a8a8a;">import</span>
+                  <span style="font-size:8.5px; letter-spacing:.5px; color:#5f5f5f; border:1px solid #333; border-radius:3px; padding:1px 4px;">ONCE</span>
+                </div>
+                <span style="font-size:10px; color:#6f9f5f; font-family:ui-monospace,Consolas,monospace;">06-17 14:08 ✓</span>
+              </div>
+              <!-- dedup (enabled) -->
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 4px; border-radius:4px; background:#202020;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="width:14px; height:14px; border-radius:3px; background:var(--pf-accent,#7d2733); display:flex; align-items:center; justify-content:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-on-accent,#f6e7ea)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                  <span style="font-size:12.5px; color:#dcdcdc;">dedup</span>
+                </div>
+                <span style="font-size:10px; color:#6f9f5f; font-family:ui-monospace,Consolas,monospace;">06-17 14:11 ✓</span>
+              </div>
+              <!-- score (enabled) -->
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 4px; border-radius:4px; background:#202020;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="width:14px; height:14px; border-radius:3px; background:var(--pf-accent,#7d2733); display:flex; align-items:center; justify-content:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-on-accent,#f6e7ea)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                  <span style="font-size:12.5px; color:#dcdcdc;">score</span>
+                </div>
+                <span style="font-size:10px; color:#c05a4f; font-family:ui-monospace,Consolas,monospace;">06-16 22:40 ✗</span>
+              </div>
+              <!-- name (enabled) -->
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:5px 4px; border-radius:4px; background:#202020;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="width:14px; height:14px; border-radius:3px; background:var(--pf-accent,#7d2733); display:flex; align-items:center; justify-content:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-on-accent,#f6e7ea)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span>
+                  <span style="font-size:12.5px; color:#dcdcdc;">name</span>
+                </div>
+                <span style="font-size:10px; color:#5f5f5f; font-family:ui-monospace,Consolas,monospace;">—</span>
+              </div>
+            </div>
+
+            <!-- mode + filetype combos -->
+            <div style="display:flex; gap:8px; margin-bottom:13px;">
+              <div style="flex:1;">
+                <div style="font-size:9.5px; letter-spacing:.5px; color:#6f6f6f; margin-bottom:3px;">RUN MODE</div>
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; background:#161616; border-bottom:2px solid var(--pf-accent,#7d2733); border-radius:3px 3px 0 0; font-size:12px; color:#cfcfcf;"><span>resume</span><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:9.5px; letter-spacing:.5px; color:#6f6f6f; margin-bottom:3px;">FILE TYPE</div>
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; background:#161616; border-bottom:2px solid #3a3a3a; border-radius:3px 3px 0 0; font-size:12px; color:#cfcfcf;"><span>both</span><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+              </div>
+            </div>
+
+            <!-- primary action -->
+            <div style="display:flex; gap:7px;">
+              <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:7px; padding:11px 0; background:var(--pf-accent,#7d2733); border-radius:5px; font-size:13.5px; font-weight:650; color:var(--pf-on-accent,#f6e7ea);">
+                <svg width="13" height="13" viewBox="0 0 24 24" style="fill:var(--pf-on-accent,#f6e7ea)" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+                Run
+              </div>
+              <div style="flex:none; width:48px; display:flex; align-items:center; justify-content:center; padding:11px 0; background:#1e1e1e; border:1px solid #313131; border-radius:5px; opacity:.4;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#888" stroke="none"><rect x="5" y="5" width="14" height="14" rx="1"></rect></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- log -->
+          <div style="border-top:1px solid #262626;">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 13px 6px;">
+              <span style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777;">ACTIVITY LOG</span>
+              <span style="font-size:9.5px; color:#5f5f5f;">200-line buffer</span>
+            </div>
+            <div style="margin:0 11px 11px; height:96px; background:#121212; border:1px solid #262626; border-radius:4px; padding:8px 9px; font-family:ui-monospace,Consolas,monospace; font-size:10px; line-height:1.65; overflow:hidden;">
+              <div style="color:#5f5f5f;">14:11:02 <span style="color:#6f9f5f;">[OK]</span> dedup → 38 kept, 6 dropped</div>
+              <div style="color:#5f5f5f;">22:40:18 <span style="color:#c05a4f;">[ERROR]</span> score: CUDA oom @ img 12</div>
+              <div style="color:#5f5f5f;">22:40:18 <span style="color:var(--pf-accent,#7d2733);">[RUN]</span> run_all aborted</div>
+              <div style="color:#4a4a4a;">— idle —</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- annotation notes -->
+      <div style="flex:none; width:184px; padding-top:30px; display:flex; flex-direction:column; gap:13px;">
+        <div style="font-size:10px; letter-spacing:.5px; color:#777;">WIDGET MAPPING</div>
+        <div style="font-size:11px; line-height:1.45; color:#9a9a9a;"><code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">box</code> + <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">label</code> titlebar; status via <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">name</code>+color</div>
+        <div style="font-size:11px; line-height:1.45; color:#9a9a9a;"><code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">section_label</code> collapsible — paths block <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">visible</code> toggled</div>
+        <div style="font-size:11px; line-height:1.45; color:#9a9a9a;">Cartridge strip = <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">box</code> + <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">label</code>; Archive / Restore (backup) + Provision / Eject = <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">button</code> (FR-1.9/1.10)</div>
+        <div style="font-size:11px; line-height:1.45; color:#9a9a9a;">Tab switch = 2× <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">button</code> driving a <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">stack</code></div>
+        <div style="font-size:11px; line-height:1.45; color:#9a9a9a;">Each step = <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">check_button</code> + <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">label</code> in an h-<code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">box</code></div>
+        <div style="font-size:11px; line-height:1.45; color:#9a9a9a;">Mode / type = bauhaus <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">combobox</code></div>
+        <div style="font-size:11px; line-height:1.45; color:#9a9a9a;">Run / Stop = <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">button</code>; Stop <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">sensitive=false</code> when idle</div>
+        <div style="font-size:11px; line-height:1.45; color:#9a9a9a;">Log = read-only <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">text_view</code>, <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">dt_monospace</code></div>
+        <div style="margin-top:4px; padding:8px 10px; background:#1f1216; border:1px solid #3a1c22; border-radius:5px; font-size:10.5px; line-height:1.5; color:#c98692;">⚠ Per-line log color is an <b>approximation</b> — GTK <code style="font-family:ui-monospace,Consolas,monospace;">text_view</code> renders one flat color.</div>
+      </div>
+    </div>
+
+    <!-- FRAME 2: RUNNING -->
+    <div data-screen-label="Running" style="flex:none; width:332px;">
+      <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">B · Running <span style="color:#666; font-weight:400;">— long job, walk-away</span></div>
+      <div style="width:332px; background:#1b1b1b; border:1px solid #2e2e2e; border-radius:6px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.4);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:#202020; border-bottom:1px solid #2e2e2e;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:var(--pf-accent,#7d2733); animation:pf-pulse 1.4s ease-in-out infinite;"></span>
+            <span style="font-size:12.5px; font-weight:650; letter-spacing:.3px; color:#dcdcdc;">PHOTONFORGE</span>
+          </div>
+          <span style="font-size:10.5px; color:var(--pf-accent,#7d2733); letter-spacing:.5px;">RUNNING</span>
+        </div>
+
+        <!-- cartridge strip -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 13px; background:#181818; border-bottom:1px solid #262626;">
+          <div style="display:flex; align-items:center; gap:9px; min-width:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-accent,#7d2733)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><line x1="22" y1="12" x2="2" y2="12"></line><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><line x1="6" y1="16" x2="6.01" y2="16"></line><line x1="10" y1="16" x2="10.01" y2="16"></line></svg>
+            <div style="min-width:0;">
+              <div style="font-size:11.5px; color:#dcdcdc; font-weight:600; line-height:1.25;">PHOTON-001 · ICELAND</div>
+              <div style="font-size:9.5px; color:#6f6f6f; font-family:ui-monospace,Consolas,monospace;">writing · do not eject</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:4px; flex:none; opacity:.35;">
+            <span style="width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid #313131; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></span>
+            <span style="width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid #313131; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg></span>
+            <span style="width:26px; height:26px; display:flex; align-items:center; justify-content:center; background:#222; border:1px solid #313131; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14"></path><polygon points="12 5 19 14 5 14"></polygon></svg></span>
+          </div>
+        </div>
+
+        <!-- live status dashboard -->
+        <div style="padding:14px 13px; background:#191919; border-bottom:1px solid #262626;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px;">
+            <span style="font-size:14px; font-weight:600; color:#ececec;">score</span>
+            <span style="font-size:12px; font-family:ui-monospace,Consolas,monospace; color:var(--pf-accent,#7d2733);">312 / 840</span>
+          </div>
+          <!-- pseudo progress: row of fixed boxes (buildable approximation) -->
+          <div style="display:flex; gap:2px; margin:8px 0 9px;">
+            <span style="flex:1; height:8px; border-radius:2px; background:var(--pf-accent,#7d2733);"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:var(--pf-accent,#7d2733);"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:var(--pf-accent,#7d2733);"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:linear-gradient(90deg,var(--pf-accent,#7d2733),#4d141c);"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:#2c2c2c;"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:#2c2c2c;"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:#2c2c2c;"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:#2c2c2c;"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:#2c2c2c;"></span>
+            <span style="flex:1; height:8px; border-radius:2px; background:#2c2c2c;"></span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:10.5px; font-family:ui-monospace,Consolas,monospace; color:#8a8a8a;">
+            <span>elapsed 2h 14m</span>
+            <span>~3h 50m left</span>
+          </div>
+        </div>
+
+        <!-- step ticker -->
+        <div style="padding:11px 13px; border-bottom:1px solid #262626;">
+          <div style="display:flex; flex-direction:column; gap:3px; font-size:11.5px;">
+            <div style="display:flex; align-items:center; gap:8px; color:#6f9f5f;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> dedup <span style="margin-left:auto; color:#5f5f5f; font-family:ui-monospace,Consolas,monospace;">done</span></div>
+            <div style="display:flex; align-items:center; gap:8px; color:var(--pf-accent,#7d2733);"><span style="width:11px; height:11px; display:flex; align-items:center; justify-content:center;"><span style="width:6px; height:6px; border-radius:50%; background:var(--pf-accent,#7d2733); animation:pf-pulse 1.4s ease-in-out infinite;"></span></span> score <span style="margin-left:auto; color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">37%</span></div>
+            <div style="display:flex; align-items:center; gap:8px; color:#5f5f5f;"><span style="width:11px; height:11px; display:flex; align-items:center; justify-content:center;">○</span> name <span style="margin-left:auto; color:#4a4a4a; font-family:ui-monospace,Consolas,monospace;">queued</span></div>
+          </div>
+        </div>
+
+        <!-- stop primary -->
+        <div style="padding:12px 13px;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:7px; padding:11px 0; background:#1e1414; border:1px solid #5a2c28; border-radius:5px; font-size:13px; font-weight:600; color:#c8675c;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="5" y="5" width="14" height="14" rx="1"></rect></svg>
+            Stop
+          </div>
+        </div>
+
+        <!-- streaming log -->
+        <div style="border-top:1px solid #262626;">
+          <div style="padding:8px 13px 6px;"><span style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777;">ACTIVITY LOG</span></div>
+          <div style="margin:0 11px 11px; height:104px; background:#121212; border:1px solid #262626; border-radius:4px; padding:8px 9px; font-family:ui-monospace,Consolas,monospace; font-size:10px; line-height:1.65; overflow:hidden;">
+            <div style="color:#5f5f5f;">16:22:41 <span style="color:var(--pf-accent,#7d2733);">[RUN]</span> score 310/840</div>
+            <div style="color:#5f5f5f;">16:22:43 <span style="color:var(--pf-accent,#7d2733);">[RUN]</span> score 311/840</div>
+            <div style="color:#5f5f5f;">16:22:44 IMG_4821.ARW → wildlife 0.91</div>
+            <div style="color:#5f5f5f;">16:22:46 <span style="color:var(--pf-accent,#7d2733);">[RUN]</span> score 312/840</div>
+            <div style="color:#5f5f5f;">16:22:47 IMG_4822.ARW → portrait 0.84</div>
+            <div style="color:var(--pf-accent,#7d2733);">▌</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRAME 3: TRAINING TAB -->
+    <div data-screen-label="Training tab" style="flex:none; width:332px;">
+      <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">C · Training tab <span style="color:#666; font-weight:400;">— correction loop</span></div>
+      <div style="width:332px; background:#1b1b1b; border:1px solid #2e2e2e; border-radius:6px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.4);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:#202020; border-bottom:1px solid #2e2e2e;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:#6f9f5f;"></span>
+            <span style="font-size:12.5px; font-weight:650; letter-spacing:.3px; color:#dcdcdc;">PHOTONFORGE</span>
+          </div>
+          <span style="font-size:10.5px; color:#777; letter-spacing:.5px;">IDLE</span>
+        </div>
+        <div style="display:flex; gap:4px; padding:9px 11px; background:#191919; border-bottom:1px solid #262626;">
+          <div style="flex:1; text-align:center; padding:7px 0; font-size:12px; font-weight:500; color:#9a9a9a; background:#242424; border:1px solid #313131; border-radius:5px;">Pipeline</div>
+          <div style="flex:1; text-align:center; padding:7px 0; font-size:12px; font-weight:600; color:var(--pf-on-accent,#f6e7ea); background:var(--pf-accent,#7d2733); border-radius:5px;">Training</div>
+        </div>
+
+        <div style="padding:13px;">
+          <div style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777; padding-bottom:7px; border-bottom:1px solid #2c2c2c; margin-bottom:6px;">CORRECTION LOOP</div>
+          <p style="margin:0 0 13px; font-size:11px; line-height:1.55; color:#7f7f7f;">Review &amp; fix genre tags in Darktable, then harvest them back into the training corpus. Run steps in order, or the full loop.</p>
+
+          <!-- numbered steps -->
+          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; background:#202020; border:1px solid #2d2d2d; border-radius:5px;">
+              <span style="width:18px; height:18px; flex:none; border-radius:50%; background:#262626; border:1px solid #3a3a3a; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999;">1</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="7.5 4.21 12 6.81 16.5 4.21"></polyline></svg>
+              <span style="font-size:12.5px; color:#cfcfcf;">Collect Corrections</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; background:#202020; border:1px solid #2d2d2d; border-radius:5px;">
+              <span style="width:18px; height:18px; flex:none; border-radius:50%; background:#262626; border:1px solid #3a3a3a; display:flex; align-items:center; justify-content:center; font-size:10px; color:#999;">2</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9a9a9a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              <span style="font-size:12.5px; color:#cfcfcf;">Recalibrate</span>
+            </div>
+          </div>
+
+          <!-- secondary utilities -->
+          <div style="display:flex; gap:7px; margin-bottom:14px;">
+            <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 0; background:#1e1e1e; border:1px solid #313131; border-radius:5px; font-size:11px; color:#b5b5b5;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+              Sync Tags
+            </div>
+            <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 0; background:#1e1e1e; border:1px solid #313131; border-radius:5px; font-size:11px; color:#b5b5b5;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              Refresh Flags
+            </div>
+          </div>
+
+          <!-- primary loop -->
+          <div style="display:flex; align-items:center; justify-content:center; gap:7px; padding:11px 0; background:var(--pf-accent,#7d2733); border-radius:5px; font-size:13px; font-weight:650; color:var(--pf-on-accent,#f6e7ea);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-on-accent,#f6e7ea)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            Full Correction Loop
+          </div>
+        </div>
+
+        <!-- training weights inspector -->
+        <div style="border-top:1px solid #262626; padding:11px 13px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:9px;">
+            <span style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777;">TRAINING WEIGHTS</span>
+            <span style="font-size:9.5px; font-family:ui-monospace,Consolas,monospace; color:var(--pf-accent,#7d2733);">v14 · F1 0.82</span>
+          </div>
+
+          <div style="font-size:9px; letter-spacing:.5px; color:#6a6a6a; margin-bottom:5px;">SUBJECT PROTOTYPES</div>
+          <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:10px;">
+            <div style="display:flex; align-items:center; gap:8px;"><span style="flex:none; width:62px; font-size:11px; color:#bbb;">wildlife</span><span style="flex:1; height:6px; border-radius:3px; background:#242424; overflow:hidden;"><span style="display:block; height:100%; width:91%; background:var(--pf-accent,#7d2733);"></span></span><span style="flex:none; width:30px; text-align:right; font-size:9.5px; font-family:ui-monospace,Consolas,monospace; color:#8a8a8a;">0.91</span></div>
+            <div style="display:flex; align-items:center; gap:8px;"><span style="flex:none; width:62px; font-size:11px; color:#bbb;">person</span><span style="flex:1; height:6px; border-radius:3px; background:#242424; overflow:hidden;"><span style="display:block; height:100%; width:88%; background:var(--pf-accent,#7d2733);"></span></span><span style="flex:none; width:30px; text-align:right; font-size:9.5px; font-family:ui-monospace,Consolas,monospace; color:#8a8a8a;">0.88</span></div>
+            <div style="display:flex; align-items:center; gap:8px;"><span style="flex:none; width:62px; font-size:11px; color:#bbb;">building</span><span style="flex:1; height:6px; border-radius:3px; background:#242424; overflow:hidden;"><span style="display:block; height:100%; width:74%; background:var(--pf-accent,#7d2733);"></span></span><span style="flex:none; width:30px; text-align:right; font-size:9.5px; font-family:ui-monospace,Consolas,monospace; color:#8a8a8a;">0.74</span></div>
+          </div>
+
+          <div style="font-size:9px; letter-spacing:.5px; color:#6a6a6a; margin-bottom:5px;">PHOTO-TYPE WEIGHTS</div>
+          <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:11px;">
+            <div style="display:flex; align-items:center; gap:8px;"><span style="flex:none; width:62px; font-size:11px; color:#bbb;">portrait</span><span style="flex:1; height:6px; border-radius:3px; background:#242424; overflow:hidden;"><span style="display:block; height:100%; width:84%; background:var(--pf-accent,#7d2733);"></span></span><span style="flex:none; width:30px; text-align:right; font-size:9.5px; font-family:ui-monospace,Consolas,monospace; color:#8a8a8a;">0.84</span></div>
+            <div style="display:flex; align-items:center; gap:8px;"><span style="flex:none; width:62px; font-size:11px; color:#bbb;">landscape</span><span style="flex:1; height:6px; border-radius:3px; background:#242424; overflow:hidden;"><span style="display:block; height:100%; width:79%; background:var(--pf-accent,#7d2733);"></span></span><span style="flex:none; width:30px; text-align:right; font-size:9.5px; font-family:ui-monospace,Consolas,monospace; color:#8a8a8a;">0.79</span></div>
+            <div style="display:flex; align-items:center; gap:8px;"><span style="flex:none; width:62px; font-size:11px; color:#bbb;">street</span><span style="flex:1; height:6px; border-radius:3px; background:#242424; overflow:hidden;"><span style="display:block; height:100%; width:61%; background:var(--pf-accent,#7d2733);"></span></span><span style="flex:none; width:30px; text-align:right; font-size:9.5px; font-family:ui-monospace,Consolas,monospace; color:#8a8a8a;">0.61</span></div>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:center; gap:6px; padding:7px 0; background:#1e1e1e; border:1px solid #313131; border-radius:5px; font-size:11px; color:#b5b5b5;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="8" y1="13" x2="16" y2="13"></line><line x1="8" y1="17" x2="16" y2="17"></line></svg>
+            View full weights table
+          </div>
+        </div>
+
+        <div style="border-top:1px solid #262626;">
+          <div style="padding:8px 13px 6px;"><span style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777;">ACTIVITY LOG</span></div>
+          <div style="margin:0 11px 11px; height:72px; background:#121212; border:1px solid #262626; border-radius:4px; padding:8px 9px; font-family:ui-monospace,Consolas,monospace; font-size:10px; line-height:1.65; overflow:hidden;">
+            <div style="color:#5f5f5f;">15:02:11 <span style="color:#6f9f5f;">[OK]</span> collect → 14 corrections</div>
+            <div style="color:#5f5f5f;">15:04:55 <span style="color:#6f9f5f;">[OK]</span> recalibrate → prototypes updated</div>
+            <div style="color:#4a4a4a;">— idle —</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRAME 4: FIRST-RUN -->
+    <div data-screen-label="First run" style="flex:none; width:332px;">
+      <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">D · First run <span style="color:#666; font-weight:400;">— unconfigured guidance</span></div>
+      <div style="width:332px; background:#1b1b1b; border:1px solid #2e2e2e; border-radius:6px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.4);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:#202020; border-bottom:1px solid #2e2e2e;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:#777;"></span>
+            <span style="font-size:12.5px; font-weight:650; letter-spacing:.3px; color:#dcdcdc;">PHOTONFORGE</span>
+          </div>
+          <span style="font-size:10.5px; color:#c98692; letter-spacing:.5px;">SETUP</span>
+        </div>
+
+        <div style="padding:13px;">
+          <div style="display:flex; align-items:flex-start; gap:9px; padding:10px 11px; background:#1f1216; border:1px solid #3a1c22; border-radius:5px; margin-bottom:14px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-accent,#7d2733)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none; margin-top:1px;"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+            <span style="font-size:11.5px; line-height:1.5; color:#c98692;">Set your three paths to begin. The pipeline is disabled until configured.</span>
+          </div>
+
+          <div style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777; padding-bottom:7px; border-bottom:1px solid #2c2c2c; margin-bottom:11px;">CONFIGURATION</div>
+
+          <!-- path rows expanded -->
+          <div style="display:flex; flex-direction:column; gap:11px; margin-bottom:14px;">
+            <div>
+              <div style="font-size:10.5px; color:#8a8a8a; margin-bottom:4px;">SD card path</div>
+              <div style="display:flex; gap:6px;">
+                <div style="flex:1; padding:7px 9px; background:#161616; border:1px solid var(--pf-accent,#7d2733); border-radius:4px; font-size:11px; color:#5f5f5f; font-family:ui-monospace,Consolas,monospace;">required…</div>
+                <div style="flex:none; width:34px; display:flex; align-items:center; justify-content:center; background:#262626; border:1px solid #3a3a3a; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10.5px; color:#8a8a8a; margin-bottom:4px;">Destination</div>
+              <div style="display:flex; gap:6px;">
+                <div style="flex:1; padding:7px 9px; background:#161616; border:1px solid var(--pf-accent,#7d2733); border-radius:4px; font-size:11px; color:#5f5f5f; font-family:ui-monospace,Consolas,monospace;">required…</div>
+                <div style="flex:none; width:34px; display:flex; align-items:center; justify-content:center; background:#262626; border:1px solid #3a3a3a; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
+              </div>
+            </div>
+            <div>
+              <div style="font-size:10.5px; color:#8a8a8a; margin-bottom:4px;">Corpus JSONL <span style="color:#5f5f5f;">(training only)</span></div>
+              <div style="display:flex; gap:6px;">
+                <div style="flex:1; padding:7px 9px; background:#161616; border:1px solid #2c2c2c; border-radius:4px; font-size:11px; color:#5f5f5f; font-family:ui-monospace,Consolas,monospace;">optional…</div>
+                <div style="flex:none; width:34px; display:flex; align-items:center; justify-content:center; background:#262626; border:1px solid #3a3a3a; border-radius:4px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- disabled run -->
+          <div style="display:flex; align-items:center; justify-content:center; gap:7px; padding:11px 0; background:#222; border:1px solid #2e2e2e; border-radius:5px; font-size:13px; font-weight:600; color:#555;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#555" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+            Run — set paths first
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px; font-size:10.5px; line-height:1.5; color:#777; padding:0 2px;">Empty entries get a <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">#pf_entry_required</code> border; Run is <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">sensitive=false</code> until the two required paths resolve.</div>
+    </div>
+
+    <!-- FRAME 5: DEVELOPER MODE -->
+    <div data-screen-label="Developer mode" style="flex:none; width:332px;">
+      <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">E · Developer mode <span style="color:#666; font-weight:400;">— your build-time view</span></div>
+      <div style="width:332px; background:#1b1b1b; border:1px solid #2e2e2e; border-radius:6px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,.4);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:#202020; border-bottom:1px solid #2e2e2e;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="width:7px; height:7px; border-radius:50%; background:#6f9f5f;"></span>
+            <span style="font-size:12.5px; font-weight:650; letter-spacing:.3px; color:#dcdcdc;">PHOTONFORGE</span>
+          </div>
+          <span style="font-size:9px; font-weight:700; color:var(--pf-on-accent,#f6e7ea); background:var(--pf-accent,#7d2733); letter-spacing:.8px; padding:2px 6px; border-radius:3px;">DEV</span>
+        </div>
+
+        <!-- dev toggles -->
+        <div style="padding:11px 13px; background:#191919; border-bottom:1px solid #262626;">
+          <div style="display:flex; gap:7px;">
+            <div style="flex:1; display:flex; align-items:center; gap:6px; padding:6px 8px; background:#202020; border:1px solid #2d2d2d; border-radius:4px;">
+              <span style="width:24px; height:14px; border-radius:8px; background:var(--pf-accent,#7d2733); position:relative; flex:none;"><span style="position:absolute; top:2px; right:2px; width:10px; height:10px; border-radius:50%; background:var(--pf-on-accent,#f6e7ea);"></span></span>
+              <span style="font-size:10.5px; color:#cfcfcf;">verbose</span>
+            </div>
+            <div style="flex:1; display:flex; align-items:center; gap:6px; padding:6px 8px; background:#202020; border:1px solid #2d2d2d; border-radius:4px;">
+              <span style="width:24px; height:14px; border-radius:8px; background:#2c2c2c; position:relative; flex:none;"><span style="position:absolute; top:2px; left:2px; width:10px; height:10px; border-radius:50%; background:#777;"></span></span>
+              <span style="font-size:10.5px; color:#9a9a9a;">dry-run</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- command preview -->
+        <div style="padding:11px 13px; border-bottom:1px solid #262626;">
+          <div style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777; margin-bottom:6px;">RESOLVED COMMAND</div>
+          <div style="padding:8px 9px; background:#121212; border:1px solid #262626; border-radius:4px; font-family:ui-monospace,Consolas,monospace; font-size:9.5px; line-height:1.6; color:#9a9a9a; white-space:pre-wrap;"><span style="color:var(--pf-accent,#7d2733);">photonforge</span> run \
+  --mode resume --type both \
+  --steps dedup,score,name \
+  --sd /media/SD --dest ~/Photos/2026</div>
+        </div>
+
+        <!-- per-step timing -->
+        <div style="padding:11px 13px; border-bottom:1px solid #262626;">
+          <div style="font-size:10px; font-weight:700; letter-spacing:1.2px; color:#777; margin-bottom:7px;">LAST RUN · TIMING</div>
+          <div style="display:flex; flex-direction:column; gap:4px; font-family:ui-monospace,Consolas,monospace; font-size:10px;">
+            <div style="display:flex; justify-content:space-between;"><span style="color:#8a8a8a;">dedup</span><span style="color:#6f9f5f;">exit 0 · 4.2s</span></div>
+            <div style="display:flex; justify-content:space-between;"><span style="color:#8a8a8a;">score</span><span style="color:#c05a4f;">exit 1 · 812ms</span></div>
+            <div style="display:flex; justify-content:space-between;"><span style="color:#8a8a8a;">name</span><span style="color:#5f5f5f;">skipped</span></div>
+          </div>
+        </div>
+
+        <!-- dev tools -->
+        <div style="padding:12px 13px; display:flex; gap:7px;">
+          <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 0; background:#1e1e1e; border:1px solid #313131; border-radius:5px; font-size:11px; color:#b5b5b5;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            Reload module
+          </div>
+          <div style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 0; background:#1e1e1e; border:1px solid #313131; border-radius:5px; font-size:11px; color:#b5b5b5;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            Open log file
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px; font-size:10.5px; line-height:1.5; color:#777; padding:0 2px;">Whole DEV block lives in its own <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">section_label</code> + <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">box</code>, gated by a single <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">visible</code> flag — clean mode hides it entirely.</div>
+    </div>
+
+  </div>
+
+  <!-- ============ ROW 2: DREAM DASHBOARD ============ -->
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+    <span style="font-size:11px; font-weight:700; letter-spacing:1.5px; color:#9c7bd8;">ASPIRATIONAL · DREAM DASHBOARD</span>
+    <span style="height:1px; flex:1; min-width:200px; background:#3a3a3a;"></span>
+    <span style="font-size:12px; color:#777;">concept — <b style="color:#9a9a9a;">exceeds</b> the GTK widget set</span>
+  </div>
+
+  <div style="display:flex; gap:40px; align-items:flex-start; margin-bottom:64px;">
+    <div data-screen-label="Dream dashboard" style="flex:none; width:760px;">
+      <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">F · If the panel could break free of GTK <span style="color:#666; font-weight:400;">— pitch / north-star</span></div>
+      <div style="width:760px; background:#161616; border:1px solid #2e2e2e; border-radius:8px; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,.5);">
+        <!-- topbar -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px; background:linear-gradient(90deg,#201015,#1a1a1a); border-bottom:1px solid #2e2e2e;">
+          <div style="display:flex; align-items:center; gap:11px;">
+            <div style="width:26px; height:26px; border-radius:6px; background:var(--pf-accent,#7d2733); display:flex; align-items:center; justify-content:center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="stroke:var(--pf-on-accent,#f6e7ea)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"></path></svg></div>
+            <span style="font-size:15px; font-weight:650; color:#ececec; letter-spacing:.3px;">PHOTONFORGE</span>
+            <span style="display:flex; align-items:center; gap:6px; margin-left:8px; padding:3px 9px; background:#2a1014; border:1px solid #4a1820; border-radius:20px; font-size:11px; color:var(--pf-accent,#7d2733);"><span style="width:6px; height:6px; border-radius:50%; background:var(--pf-accent,#7d2733); animation:pf-pulse 1.4s ease-in-out infinite;"></span>scoring</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:#8a8a8a; font-family:ui-monospace,Consolas,monospace;"><span>2h 14m elapsed</span><span style="color:#444;">·</span><span style="color:var(--pf-accent,#7d2733);">~3h 50m left</span></div>
+        </div>
+
+        <div style="display:flex;">
+          <!-- main -->
+          <div style="flex:1; padding:18px; border-right:1px solid #262626;">
+            <!-- stat cards -->
+            <div style="display:flex; gap:12px; margin-bottom:18px;">
+              <div style="flex:1; padding:13px 14px; background:#1c1c1c; border:1px solid #2b2b2b; border-radius:7px;">
+                <div style="font-size:10.5px; letter-spacing:.5px; color:#777; margin-bottom:6px;">PHOTOS / HR</div>
+                <div style="font-size:24px; font-weight:650; color:#ececec;">139</div>
+              </div>
+              <div style="flex:1; padding:13px 14px; background:#1c1c1c; border:1px solid #2b2b2b; border-radius:7px;">
+                <div style="font-size:10.5px; letter-spacing:.5px; color:#777; margin-bottom:6px;">ACCEPT RATE</div>
+                <div style="font-size:24px; font-weight:650; color:#6f9f5f;">61%</div>
+              </div>
+              <div style="flex:1; padding:13px 14px; background:#1c1c1c; border:1px solid #2b2b2b; border-radius:7px;">
+                <div style="font-size:10.5px; letter-spacing:.5px; color:#777; margin-bottom:6px;">DUPES CUT</div>
+                <div style="font-size:24px; font-weight:650; color:#ececec;">204</div>
+              </div>
+            </div>
+
+            <!-- pipeline timeline -->
+            <div style="margin-bottom:18px;">
+              <div style="font-size:10.5px; font-weight:700; letter-spacing:1px; color:#777; margin-bottom:11px;">PIPELINE</div>
+              <div style="display:flex; align-items:center; gap:0;">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:none;"><span style="width:30px; height:30px; border-radius:50%; background:#1d2417; border:1.5px solid #6f9f5f; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6f9f5f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:10px; color:#8a8a8a;">ingest</span></div>
+                <span style="flex:1; height:1.5px; background:#6f9f5f; margin:0 -1px 16px;"></span>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:none;"><span style="width:30px; height:30px; border-radius:50%; background:#1d2417; border:1.5px solid #6f9f5f; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6f9f5f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:10px; color:#8a8a8a;">import</span></div>
+                <span style="flex:1; height:1.5px; background:#6f9f5f; margin:0 -1px 16px;"></span>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:none;"><span style="width:30px; height:30px; border-radius:50%; background:#1d2417; border:1.5px solid #6f9f5f; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6f9f5f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span><span style="font-size:10px; color:#8a8a8a;">dedup</span></div>
+                <span style="flex:1; height:1.5px; background:linear-gradient(90deg,#6f9f5f,var(--pf-accent,#7d2733)); margin:0 -1px 16px;"></span>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:none;"><span style="width:34px; height:34px; border-radius:50%; background:#2a1014; border:1.5px solid var(--pf-accent,#7d2733); display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 4px rgba(125,39,51,.20);"><span style="font-size:9px; font-weight:700; color:var(--pf-accent,#7d2733);">37%</span></span><span style="font-size:10px; color:var(--pf-accent,#7d2733);">score</span></div>
+                <span style="flex:1; height:1.5px; background:#2c2c2c; margin:0 -1px 16px;"></span>
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; flex:none;"><span style="width:30px; height:30px; border-radius:50%; background:#1a1a1a; border:1.5px solid #333; display:flex; align-items:center; justify-content:center; font-size:11px; color:#555;">○</span><span style="font-size:10px; color:#5f5f5f;">name</span></div>
+              </div>
+            </div>
+
+            <!-- recent thumbs -->
+            <div>
+              <div style="font-size:10.5px; font-weight:700; letter-spacing:1px; color:#777; margin-bottom:11px;">JUST SCORED</div>
+              <div style="display:flex; gap:9px;">
+                <div style="flex:1;"><div style="height:64px; border-radius:6px; background:linear-gradient(135deg,#3a4a2e,#23311b);"></div><div style="display:flex; justify-content:space-between; margin-top:5px; font-size:9px;"><span style="color:#9a9a9a;">wildlife</span><span style="color:#6f9f5f;">★4.5</span></div></div>
+                <div style="flex:1;"><div style="height:64px; border-radius:6px; background:linear-gradient(135deg,#4a3a3a,#2e2222);"></div><div style="display:flex; justify-content:space-between; margin-top:5px; font-size:9px;"><span style="color:#9a9a9a;">portrait</span><span style="color:#6f9f5f;">★4.0</span></div></div>
+                <div style="flex:1;"><div style="height:64px; border-radius:6px; background:linear-gradient(135deg,#2e3a4a,#1b2531);"></div><div style="display:flex; justify-content:space-between; margin-top:5px; font-size:9px;"><span style="color:#9a9a9a;">landscape</span><span style="color:var(--pf-accent,#7d2733);">★3.0</span></div></div>
+                <div style="flex:1;"><div style="height:64px; border-radius:6px; background:linear-gradient(135deg,#4a463a,#2e2b22);"></div><div style="display:flex; justify-content:space-between; margin-top:5px; font-size:9px;"><span style="color:#9a9a9a;">street</span><span style="color:#c05a4f;">★1.5</span></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- side log -->
+          <div style="flex:none; width:248px; padding:18px 16px;">
+            <div style="display:flex; align-items:center; gap:7px; margin-bottom:11px;">
+              <span style="font-size:10.5px; font-weight:700; letter-spacing:1px; color:#777;">LIVE LOG</span>
+              <div style="display:flex; gap:4px; margin-left:auto;">
+                <span style="font-size:9px; padding:2px 7px; border-radius:10px; background:#2a1014; color:var(--pf-accent,#7d2733);">run</span>
+                <span style="font-size:9px; padding:2px 7px; border-radius:10px; background:#1e1414; color:#c05a4f;">err</span>
+              </div>
+            </div>
+            <div style="font-family:ui-monospace,Consolas,monospace; font-size:10px; line-height:1.85; color:#7a7a7a;">
+              <div>16:22:44 IMG_4821 → <span style="color:#9a9a9a;">wildlife</span> <span style="color:#6f9f5f;">0.91</span></div>
+              <div>16:22:46 IMG_4822 → <span style="color:#9a9a9a;">portrait</span> <span style="color:#6f9f5f;">0.84</span></div>
+              <div>16:22:47 IMG_4823 → <span style="color:#9a9a9a;">street</span> <span style="color:#c05a4f;">0.32</span></div>
+              <div>16:22:49 IMG_4824 → <span style="color:#9a9a9a;">landscape</span> <span style="color:var(--pf-accent,#7d2733);">0.58</span></div>
+              <div>16:22:50 IMG_4825 → <span style="color:#9a9a9a;">wildlife</span> <span style="color:#6f9f5f;">0.88</span></div>
+              <div style="color:var(--pf-accent,#7d2733);">16:22:52 score 312/840 ▌</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:11px; font-size:11px; line-height:1.55; color:#7f7f7f; max-width:720px;">Out of envelope: real progress ring &amp; timeline, stat cards, photo thumbnails, filter chips and per-line log color all exceed the Lua widget palette. Shown as the north-star — the buildable panels above borrow its <i>hierarchy</i> (status-first, primary action, sectioned log) without the unbuildable widgets.</div>
+    </div>
+  </div>
+
+  <!-- ============ ROW 3: SPEC DELIVERABLES ============ -->
+  <div style="display:flex; align-items:center; gap:12px; margin-bottom:20px;">
+    <span style="font-size:11px; font-weight:700; letter-spacing:1.5px; color:#6f9f5f;">HANDOFF · SPEC</span>
+    <span style="height:1px; flex:1; min-width:200px; background:#3a3a3a;"></span>
+  </div>
+
+  <div style="display:flex; gap:40px; align-items:flex-start;">
+
+    <!-- CSS HOOKS -->
+    <div style="flex:none; width:392px;">
+      <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">G · CSS hooks (<code style="font-family:ui-monospace,Consolas,monospace; color:#8a8a8a;">name</code> → GTK3-CSS)</div>
+      <div style="background:#1b1b1b; border:1px solid #2e2e2e; border-radius:7px; padding:16px; font-size:11px; line-height:1.5;">
+        <div style="display:flex; flex-direction:column; gap:11px; font-family:ui-monospace,Consolas,monospace;">
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_run</span> <span style="color:#7a7a7a;">— background:@bauhaus_fill; color:@grey_05; font-weight:bold; border-radius:5px; padding:8px; min-height:34px;</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_run:disabled</span> <span style="color:#7a7a7a;">— background:@grey_15; color:@grey_40;</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_stop</span> <span style="color:#7a7a7a;">— color:@grey_60; border:1px solid @grey_25; (red tint on :hover)</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_tab_active</span> <span style="color:#7a7a7a;">— background:@bauhaus_fill; color:@grey_05;</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_tab_idle</span> <span style="color:#7a7a7a;">— background:@grey_15; color:@grey_60;</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_step_ok</span> <span style="color:#7a7a7a;">— color:#6f9f5f;</span> <span style="color:#5f5f5f;">/* via theme green */</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_step_fail</span> <span style="color:#7a7a7a;">— color:#c05a4f;</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_entry_required</span> <span style="color:#7a7a7a;">— border-color:@bauhaus_fill;</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_log</span> <span style="color:#7a7a7a;">— .dt_monospace; background:@grey_10; font-size:10px;</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_section</span> <span style="color:#7a7a7a;">— .dt_section_label; letter-spacing:1px;</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_cartridge</span> <span style="color:#7a7a7a;">— background:@grey_10; .dt_monospace free-space sublabel.</span></div>
+          <div><span style="color:var(--pf-accent,#7d2733);">#pf_eject</span> <span style="color:#7a7a7a;">— color:@bauhaus_fill on :hover; :disabled while running.</span></div>
+        </div>
+        <div style="margin-top:14px; padding-top:13px; border-top:1px solid #2c2c2c; font-size:10.5px; line-height:1.55; color:#7f7f7f;">All accent comes from <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">@bauhaus_fill</code> — the theme's own highlight — so the panel re-tints with light &amp; dark Darktable themes. No hard-coded hex except the two semantic status colors.</div>
+      </div>
+    </div>
+
+    <!-- ICON LIST -->
+    <div style="flex:none; width:300px;">
+      <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">H · Symbolic icons (mono SVG, recolor via CSS)</div>
+      <div style="background:#1b1b1b; border:1px solid #2e2e2e; border-radius:7px; padding:16px;">
+        <div style="display:flex; flex-direction:column; gap:11px;">
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="#cfcfcf" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">run.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Run</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#cfcfcf" stroke="none"><rect x="5" y="5" width="14" height="14" rx="1"></rect></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">stop.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Stop</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"></path></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">sync.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Sync Tags</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">collect.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Collect</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">recalibrate.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Recalibrate</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">loop.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Full Loop</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">refresh.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Refresh Flags</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">archive.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Archive backup</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">restore.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Restore backup</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14"></path><polygon points="12 5 19 14 5 14"></polygon></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">eject.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Safe Eject</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="12" x2="2" y2="12"></line><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path><line x1="6" y1="16" x2="6.01" y2="16"></line><line x1="10" y1="16" x2="10.01" y2="16"></line></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">cartridge.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Provision</span></div>
+          <div style="display:flex; align-items:center; gap:11px;"><span style="width:30px; height:30px; flex:none; border-radius:6px; background:#202020; border:1px solid #2d2d2d; display:flex; align-items:center; justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cfcfcf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></span><span style="font-size:11px; color:#aaa; font-family:ui-monospace,Consolas,monospace;">folder.svg</span><span style="font-size:10.5px; color:#6f6f6f; margin-left:auto;">Browse</span></div>
+        </div>
+        <div style="margin-top:14px; padding-top:13px; border-top:1px solid #2c2c2c; font-size:10.5px; line-height:1.55; color:#7f7f7f;">Each is a 24×24 symbolic SVG set as <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">background-image</code> on the button's <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">name</code>; <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">color</code> drives the glyph so it follows theme + hover. Replaces all inline emoji.</div>
+      </div>
+    </div>
+
+    <!-- BUILDABILITY NOTES -->
+    <div style="flex:none; width:332px;">
+      <div style="font-size:12px; color:#bcbcbc; margin-bottom:9px; font-weight:600;">I · Buildability notes</div>
+      <div style="background:#1b1b1b; border:1px solid #2e2e2e; border-radius:7px; padding:16px; font-size:11.5px; line-height:1.6;">
+        <div style="display:flex; gap:9px; margin-bottom:13px;">
+          <span style="color:#6f9f5f; flex:none;">✓</span>
+          <span style="color:#aaa;"><b style="color:#cfcfcf;">Tabs, sections, progressive disclosure</b> — real, via <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">stack</code> + buttons, <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">section_label</code>, and <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">visible</code>/<code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">sensitive</code>.</span>
+        </div>
+        <div style="display:flex; gap:9px; margin-bottom:13px;">
+          <span style="color:#6f9f5f; flex:none;">✓</span>
+          <span style="color:#aaa;"><b style="color:#cfcfcf;">Amber accent &amp; status colors</b> — real, via <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">@bauhaus_fill</code> + per-widget <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">name</code> CSS.</span>
+        </div>
+        <div style="display:flex; gap:9px; margin-bottom:13px;">
+          <span style="color:var(--pf-accent,#7d2733); flex:none;">≈</span>
+          <span style="color:#aaa;"><b style="color:#cfcfcf;">Progress bar</b> — <i>approximation</i>. No bar widget; built from a row of fixed <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">box</code> cells recolored by step, plus a <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">label</code> count. Updates discretely, not smoothly.</span>
+        </div>
+        <div style="display:flex; gap:9px; margin-bottom:13px;">
+          <span style="color:var(--pf-accent,#7d2733); flex:none;">≈</span>
+          <span style="color:#aaa;"><b style="color:#cfcfcf;">Per-line log color</b> — <i>approximation</i>. <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">text_view</code> is one flat color. Fallback: keep flat, or prefix lines (<code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">[OK]/[ERR]</code>) for scannability.</span>
+        </div>
+        <div style="display:flex; gap:9px; margin-bottom:13px;">
+          <span style="color:#c05a4f; flex:none;">✗</span>
+          <span style="color:#aaa;"><b style="color:#cfcfcf;">Thumbnails, ring, stat cards, chips</b> — dream-only. Not in the widget set; live in concept F.</span>
+        </div>
+        <div style="display:flex; gap:9px;">
+          <span style="color:#c05a4f; flex:none;">✗</span>
+          <span style="color:#aaa;"><b style="color:#cfcfcf;">Animated pulse / shimmer</b> — decorative only. GTK transition support is limited; never load-bearing — the dot can simply toggle.</span>
+        </div>
+        <div style="display:flex; gap:9px; margin-top:13px;">
+          <span style="color:var(--pf-accent,#7d2733); flex:none;">≈</span>
+          <span style="color:#aaa;"><b style="color:#cfcfcf;">Training-weights inspector</b> — mostly real: version + F1 + per-axis values are <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">label</code>s read from <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">training_weights.db</code>; "View full weights" opens the dump in a <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">text_view</code>. The inline weight <i>bars</i> are the same fixed-box <i>approximation</i> as progress.</span>
+        </div>
+        <div style="display:flex; gap:9px; margin-top:13px;">
+          <span style="color:#6f9f5f; flex:none;">✓</span>
+          <span style="color:#aaa;"><b style="color:#cfcfcf;">Cartridge strip (Archive / Restore / Provision / Eject)</b> — real. Four <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">button</code>s spawn the backup (archive/restore) + <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">photo-cartridge provision</code> / safe-eject jobs; identity + free space are <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">label</code>s. All four go <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">sensitive=false</code> mid-run.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:900},&quot;accentColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7d2733&quot;,&quot;options&quot;:[&quot;#7d2733&quot;,&quot;#5a1a22&quot;,&quot;#9b2c3a&quot;,&quot;#6e2438&quot;,&quot;#d8a24a&quot;],&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accentColor || "#7d2733";
+    const hex = accent.replace("#", "");
+    const r = parseInt(hex.substr(0, 2), 16) || 0;
+    const g = parseInt(hex.substr(2, 2), 16) || 0;
+    const b = parseInt(hex.substr(4, 2), 16) || 0;
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    const onAccent = lum > 140 ? "#1a1306" : "#f6e7ea";
+    return { accent, onAccent };
+  }
+}
+</script>
+</body>
+</html>
