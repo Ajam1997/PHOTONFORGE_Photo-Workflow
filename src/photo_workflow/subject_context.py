@@ -87,21 +87,23 @@ class ModelSessions:
 
     @property
     def aesthetic_head(self) -> Any:
-        """NIMA aesthetic session, or None if missing OR degenerate.
+        """CLIP-embedding aesthetic MLP session, or None if missing OR degenerate.
 
-        Both vendored aesthetic models have shipped as untrained placeholders
-        that emit a constant for any input (provisioning fell back when
-        TensorFlow was absent). A one-time self-check rejects such a model so it
-        can't silently pin every aesthetic_clip to a constant — the failure that
-        this property exists to make loud.
+        The head maps a 512-d MobileCLIP-S2 embedding -> aesthetic score in [0,1]
+        (reuses the embedding already computed for genre routing). A one-time
+        self-check rejects an untrained/placeholder model that emits a constant
+        for any input, so it can't silently pin every aesthetic_clip to a
+        constant — the failure this property exists to make loud.
         """
         if "aesthetic_head_checked" not in self._sessions:
-            sess = self._load_session("aesthetic_head", "nima_mobilenet_int8", "model.onnx")
+            sess = self._load_session(
+                "aesthetic_head", "clip_aesthetic_head", "aesthetic_mlp.onnx"
+            )
             if sess is not None and _aesthetic_session_is_degenerate(sess):
                 logger.warning(
-                    "Aesthetic model at nima_mobilenet_int8 is degenerate (constant "
-                    "output) — disabling. Re-provision a trained model "
-                    "(scripts/provision_scoring_models.py aesthetic)."
+                    "Aesthetic model at clip_aesthetic_head is degenerate (constant "
+                    "output) — disabling. Re-train it "
+                    "(.claude/train_aesthetic_head.py)."
                 )
                 sess = None
             self._sessions["aesthetic_head_checked"] = sess
@@ -265,16 +267,33 @@ def _aesthetic_session_is_degenerate(session: Any) -> bool:
     try:
         inp = session.get_inputs()[0]
         shape = [1 if (not isinstance(d, int) or d <= 0) else d for d in inp.shape]
-        # Two clearly different, valid-range inputs; any non-trivial model maps
-        # them to different outputs.
-        a = np.full(shape, -0.5, dtype=np.float32)
-        b = np.full(shape, 0.5, dtype=np.float32)
+        # Two distinct random inputs; for an embedding head (2-D input) L2-normalize
+        # rows so they sit on the unit sphere (the real embedding manifold), since a
+        # placeholder model can look "responsive" to off-manifold inputs.
+        rng = np.random.RandomState(0)
+        a = rng.randn(*shape).astype(np.float32)
+        b = rng.randn(*shape).astype(np.float32)
+        if len(shape) == 2:
+            a /= np.linalg.norm(a, axis=1, keepdims=True) + 1e-8
+            b /= np.linalg.norm(b, axis=1, keepdims=True) + 1e-8
         name = inp.name
         oa = np.asarray(session.run(None, {name: a})[0]).flatten()
         ob = np.asarray(session.run(None, {name: b})[0]).flatten()
         return float(np.abs(oa - ob).max()) < 1e-4
     except Exception:
         return False
+
+
+def _run_clip_aesthetic(clip_embedding: np.ndarray, session: Any) -> float:
+    """Run the CLIP-embedding aesthetic MLP, return a score in [0, 1].
+
+    Reuses the 512-d MobileCLIP-S2 embedding already computed for the image, so
+    there is no extra image forward pass.
+    """
+    x = np.asarray(clip_embedding, dtype=np.float32).reshape(1, -1)
+    name = session.get_inputs()[0].name
+    out = np.asarray(session.run(None, {name: x})[0]).flatten()
+    return float(min(max(out[0], 0.0), 1.0))
 
 
 def _run_nima(image_rgb: np.ndarray, session: Any) -> float:

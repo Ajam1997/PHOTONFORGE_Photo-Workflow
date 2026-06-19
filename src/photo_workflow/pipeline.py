@@ -105,7 +105,7 @@ class AnalysisPipeline:
         from .exposure import score_exposure
         from .naming import generate_name
         from .darktable_bridge import sync_to_darktable
-        from .subject_context import ModelSessions, build_subject_context, _run_nima
+        from .subject_context import ModelSessions, build_subject_context, _run_clip_aesthetic
         from .sharpness import score_sharpness_detailed
         from .composition import score_composition_detailed
         from .exposure import score_exposure_detailed
@@ -151,9 +151,10 @@ class AnalysisPipeline:
                 # renormalizes the profile instead of scoring a constant that
                 # would silently distort every master score.
                 aesthetic_score: float | None = None
-                if model_sessions.aesthetic_head is not None:
+                _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
+                if model_sessions.aesthetic_head is not None and _clip_ok:
                     try:
-                        aesthetic_score = _run_nima(ctx.image_rgb, model_sessions.aesthetic_head)
+                        aesthetic_score = _run_clip_aesthetic(ctx.clip_embedding, model_sessions.aesthetic_head)
                     except Exception as e:
                         logger.warning("Aesthetic scoring failed: %s", e)
                         aesthetic_score = None
@@ -455,7 +456,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     """Score photos for sharpness, composition, exposure, and genre."""
     import sqlite3
 
-    from .subject_context import ModelSessions, build_subject_context, _run_nima
+    from .subject_context import ModelSessions, build_subject_context, _run_clip_aesthetic
     from .sharpness import score_sharpness, score_sharpness_detailed
     from .composition import score_composition, score_composition_detailed
     from .exposure import score_exposure, score_exposure_detailed
@@ -542,9 +543,10 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
 
                 # Aesthetic score from NIMA. None => unavailable (fusion renormalizes).
                 aesthetic_score: float | None = None
-                if model_sessions.aesthetic_head is not None:
+                _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
+                if model_sessions.aesthetic_head is not None and _clip_ok:
                     try:
-                        aesthetic_score = _run_nima(ctx.image_rgb, model_sessions.aesthetic_head)
+                        aesthetic_score = _run_clip_aesthetic(ctx.clip_embedding, model_sessions.aesthetic_head)
                     except Exception as e:
                         logger.warning("Aesthetic scoring failed: %s", e)
                         aesthetic_score = None
