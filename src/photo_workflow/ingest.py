@@ -43,7 +43,9 @@ def _get_already_ingested(output_dir: Path) -> set[tuple[str, str]]:
         conn = open_db(output_dir)
         table = sanitize_table_name(output_dir.name)
         ensure_table(conn, table)
-        rows = conn.execute(f"SELECT original_name, exif_timestamp FROM [{table}]").fetchall()
+        rows = conn.execute(
+            "SELECT original_name, exif_timestamp FROM photos WHERE folder=?", (table,)
+        ).fetchall()
         conn.close()
         return {(r[0], r[1] or "") for r in rows}
     except Exception:

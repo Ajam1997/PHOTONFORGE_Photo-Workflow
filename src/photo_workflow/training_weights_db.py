@@ -23,9 +23,9 @@ def open_training_db(path: Path) -> sqlite3.Connection:
 
 
 def ensure_schema(conn: sqlite3.Connection) -> None:
-    """Create all four training tables if they don't exist.
+    """Create the training tables if they don't exist.
 
-    Idempotent: safe to call multiple times.
+    genre_prototypes, genre_adapter_linear, aesthetic_weights. Idempotent.
     """
     conn.executescript(
         """
@@ -39,34 +39,6 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         created_at TEXT DEFAULT (datetime('now')),
         is_active INTEGER DEFAULT 1,
         UNIQUE(version, genre)
-    );
-
-    CREATE TABLE IF NOT EXISTS genre_corrections (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        image_path TEXT NOT NULL,
-        clip_embedding BLOB NOT NULL,
-        aux_features BLOB,
-        original_genres TEXT NOT NULL,
-        corrected_genres TEXT NOT NULL,
-        correction_source TEXT DEFAULT 'darktable',
-        corrected_at TEXT DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS genre_adapter (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        version INTEGER NOT NULL,
-        model_onnx BLOB NOT NULL,
-        n_training_samples INTEGER,
-        f1_score REAL,
-        created_at TEXT DEFAULT (datetime('now')),
-        is_active INTEGER DEFAULT 1
-    );
-
-    CREATE TABLE IF NOT EXISTS custom_genres (
-        name TEXT PRIMARY KEY,
-        first_seen_at TEXT DEFAULT (datetime('now')),
-        n_examples INTEGER DEFAULT 0,
-        promoted INTEGER DEFAULT 0
     );
 
     -- Learned linear genre classifier (one row per axis: 'subject' / 'type').

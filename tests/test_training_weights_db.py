@@ -64,16 +64,17 @@ def test_open_training_db_creates_file(tmp_path: Path):
 
 
 def test_ensure_schema_creates_tables(training_db):
-    """ensure_schema should create all four tables."""
+    """ensure_schema creates the live training tables (dead ones were removed)."""
     cursor = training_db.cursor()
     cursor.execute(
         "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     )
     tables = {row[0] for row in cursor.fetchall()}
-    assert "genre_prototypes" in tables
-    assert "genre_corrections" in tables
-    assert "genre_adapter" in tables
-    assert "custom_genres" in tables
+    assert {"genre_prototypes", "genre_adapter_linear", "aesthetic_weights"} <= tables
+    # Dead tables removed in the schema cleanup.
+    assert "genre_adapter" not in tables  # old ONNX adapter
+    assert "genre_corrections" not in tables
+    assert "custom_genres" not in tables
 
 
 def test_ensure_schema_idempotent(training_db):

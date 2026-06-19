@@ -46,7 +46,7 @@ def test_scan_creates_db_entries(photo_dir: Path, db_path: Path):
 
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    rows = conn.execute("SELECT * FROM ICELAND").fetchall()
+    rows = conn.execute("SELECT * FROM photos WHERE folder='ICELAND'").fetchall()
     assert len(rows) == 3
     assert all("scan" in r["stages"] for r in rows)
     conn.close()
@@ -66,7 +66,7 @@ def test_dedup_flags_duplicates(photo_dir: Path, db_path: Path):
 
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    rows = conn.execute("SELECT * FROM ICELAND WHERE is_duplicate=1").fetchall()
+    rows = conn.execute("SELECT * FROM photos WHERE folder='ICELAND' AND is_duplicate=1").fetchall()
     assert len(rows) >= 1
     conn.close()
 
@@ -84,7 +84,7 @@ def test_score_writes_scores(photo_dir: Path, db_path: Path):
 
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    rows = conn.execute("SELECT sharpness FROM ICELAND WHERE is_duplicate=0").fetchall()
+    rows = conn.execute("SELECT sharpness FROM photos WHERE folder='ICELAND' AND is_duplicate=0").fetchall()
     assert all(r["sharpness"] is not None for r in rows)
     conn.close()
 
