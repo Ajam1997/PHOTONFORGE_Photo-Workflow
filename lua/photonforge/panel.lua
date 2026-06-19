@@ -457,6 +457,11 @@ function M.build()
           append_log("[WARN] No steps enabled.")
           return
         end
+        if step_checks["ingest"].value and config.read("sd_path") == "" then
+          append_log("[WARN] Ingest is enabled but no SD card path is set. "
+                  .. "Set the SD card path or uncheck Ingest.")
+          return
+        end
         append_log("[RUN] Starting " .. #enabled .. " steps: " .. table.concat(enabled, ", "))
         set_running(true)
         dt.control.dispatch(function()
