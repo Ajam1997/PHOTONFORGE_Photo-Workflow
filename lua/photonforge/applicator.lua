@@ -93,11 +93,13 @@ function M.apply(rec, folder)
     if not rec.reject then
       local cl = rec.color_label
       if cl ~= nil and cl >= 0 then
+        -- Automatic scoring colors only. PURPLE is reserved as a USER flag
+        -- (mark-for-edit/export) and is deliberately never written here, so a
+        -- re-score can't wipe a manually-set purple selection.
         img.red    = (cl == 0)
         img.yellow = (cl == 1)
         img.green  = (cl == 2)
         img.blue   = (cl == 3)
-        img.purple = (cl == 4)
       end
     end
 

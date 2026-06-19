@@ -30,7 +30,7 @@ _DT_RED = 0
 _DT_YELLOW = 1
 _DT_GREEN = 2
 _DT_BLUE = 3
-_DT_PURPLE = 4
+_DT_PURPLE = 4  # RESERVED as a USER flag (mark-for-edit/export); never auto-assigned
 _DT_NONE = -1
 
 SUBJECT_WEIGHTS: dict[str, dict[str, float]] = {
