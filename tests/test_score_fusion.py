@@ -13,6 +13,7 @@ from photo_workflow.scoring_types import (
     FusionResult,
 )
 from photo_workflow.score_fusion import (
+    bootstrap_weight_profiles,
     estimate_eye_openness,
     fuse_scores,
     SUBJECT_WEIGHTS,
@@ -64,6 +65,45 @@ def _make_genre(subject: str = "wildlife", photo_type: str = "candid",
         type_distribution=type_dist,
         needs_review=False,
     )
+
+
+def test_bootstrap_profiles_reproduce_hardcoded_master() -> None:
+    """DB-backed profiles seeded from the defaults must score identically."""
+    args = dict(sharpness=_make_sharpness(), composition=_make_composition(),
+                exposure=_make_exposure(), genre=_make_genre(), aesthetic=0.65)
+    hardcoded = fuse_scores(**args)
+    via_profiles = fuse_scores(**args, weight_profiles=bootstrap_weight_profiles())
+    assert via_profiles.master_score == hardcoded.master_score
+
+
+def test_custom_profiles_change_master_score() -> None:
+    """A different profile for the active genre must change the master score."""
+    base = fuse_scores(
+        sharpness=_make_sharpness(), composition=_make_composition(),
+        exposure=_make_exposure(), genre=_make_genre(subject="wildlife", photo_type="candid"),
+        aesthetic=0.65,
+    )
+    # All weight on a sub-score that is high here -> higher master.
+    profiles = {"subject": {"wildlife": {"subject_sharpness": 1.0}},
+                "type": {"candid": {"subject_sharpness": 1.0}}}
+    tuned = fuse_scores(
+        sharpness=_make_sharpness(subject=1.0), composition=_make_composition(),
+        exposure=_make_exposure(), genre=_make_genre(subject="wildlife", photo_type="candid"),
+        aesthetic=0.65, weight_profiles=profiles,
+    )
+    assert tuned.master_score != base.master_score
+    assert tuned.master_score == 1.0  # 0.5*1.0 + 0.5*1.0 weight on subject_sharpness=1.0
+
+
+def test_missing_profile_falls_back_to_hardcoded() -> None:
+    """A profiles dict lacking the active genre falls back per-label, not crashes."""
+    profiles = {"subject": {"people": {"subject_sharpness": 1.0}}, "type": {}}
+    result = fuse_scores(
+        sharpness=_make_sharpness(), composition=_make_composition(),
+        exposure=_make_exposure(), genre=_make_genre(subject="wildlife", photo_type="candid"),
+        aesthetic=0.65, weight_profiles=profiles,
+    )
+    assert 0.0 <= result.master_score <= 1.0
 
 
 def test_fuse_scores_returns_fusion_result() -> None:

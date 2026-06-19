@@ -163,6 +163,7 @@ class AnalysisPipeline:
                     exposure_result,
                     genre_result,
                     aesthetic_score,
+                    weight_profiles=model_sessions.aesthetic_weights,
                 )
 
                 # Populate old-style scores for backward compatibility
@@ -546,6 +547,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     exposure_result,
                     genre_result,
                     aesthetic_score,
+                    weight_profiles=model_sessions.aesthetic_weights,
                 )
 
                 sharp = sharpness_result.overall
@@ -1100,6 +1102,43 @@ def train_adapter(corpus: Path, photon_db: Path, training_db: Path, cv_folds: in
     for axis, h in heads.items():
         click.echo(f"  {axis:7}: {len(h['classes'])} classes, {h['n_samples']} samples, "
                    f"CV accuracy {h['cv_accuracy']:.3f}")
+
+
+@training.command("bootstrap-aesthetic-weights")
+@click.option("--training-db", "training_db", required=True, type=click.Path(path_type=Path),
+              help="Path to training_weights.db (output)")
+@click.option("--from-active", is_flag=True,
+              help="Seed from the currently active DB profiles instead of the code defaults")
+def bootstrap_aesthetic_weights(training_db: Path, from_active: bool) -> None:
+    """Seed the aesthetic_weights table from the hardcoded score_fusion defaults.
+
+    This is the one-time bootstrap that moves the per-genre weight profiles out of
+    code and into the (tunable, versioned) DB. Re-running creates a new version.
+    """
+    from .score_fusion import bootstrap_weight_profiles
+    from .training_weights_db import (
+        open_training_db, ensure_schema, next_aesthetic_weights_version,
+        upsert_aesthetic_weights, get_active_aesthetic_weights,
+    )
+
+    conn = open_training_db(training_db)
+    ensure_schema(conn)
+    if from_active:
+        profiles = get_active_aesthetic_weights(conn)
+        if not profiles:
+            click.echo("ERROR: no active aesthetic weights to seed from", err=True)
+            raise SystemExit(1)
+    else:
+        profiles = bootstrap_weight_profiles()
+
+    version = next_aesthetic_weights_version(conn)
+    n = 0
+    for axis, by_label in profiles.items():
+        for label, weights in by_label.items():
+            upsert_aesthetic_weights(conn, version, axis, label, weights)
+            n += 1
+    conn.close()
+    click.echo(f"OK: wrote {n} aesthetic weight profiles (version {version}) -> {training_db}")
 
 
 @training.command("collect-corrections")

@@ -85,6 +85,22 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         is_active INTEGER DEFAULT 1,
         UNIQUE(version, axis)
     );
+
+    -- Per-genre aesthetic scoring weights. One row per (axis, label); `weights`
+    -- is a JSON map {sub_score_key: weight} the score fuser applies to combine
+    -- sub-scores into the master score. axis is 'subject' or 'type'; the fuser
+    -- blends the two axes' active profiles. Tunable / learnable; falls back to
+    -- the hardcoded score_fusion defaults when absent.
+    CREATE TABLE IF NOT EXISTS aesthetic_weights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        version INTEGER NOT NULL,
+        axis TEXT NOT NULL,
+        label TEXT NOT NULL,
+        weights TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        is_active INTEGER DEFAULT 1,
+        UNIQUE(version, axis, label)
+    );
     """
     )
     conn.commit()
@@ -227,6 +243,65 @@ def get_active_linear_adapter(conn: sqlite3.Connection) -> dict[str, dict]:
             "bias": b,
             "version": row["version"],
         }
+    return out
+
+
+def next_aesthetic_weights_version(conn: sqlite3.Connection) -> int:
+    """Next version number for the aesthetic_weights table (highest + 1, or 1)."""
+    try:
+        row = conn.execute("SELECT MAX(version) AS v FROM aesthetic_weights").fetchone()
+    except sqlite3.OperationalError:
+        return 1
+    if row and row["v"] is not None:
+        return row["v"] + 1
+    return 1
+
+
+def upsert_aesthetic_weights(
+    conn: sqlite3.Connection,
+    version: int,
+    axis: str,
+    label: str,
+    weights: dict[str, float],
+) -> None:
+    """Insert a per-genre aesthetic weight profile, deactivating the prior active one.
+
+    Args:
+        axis: 'subject' or 'type'.
+        label: genre label (e.g. 'portrait', 'landscape').
+        weights: {sub_score_key: weight}.
+    """
+    import json
+
+    conn.execute(
+        "UPDATE aesthetic_weights SET is_active=0 WHERE axis=? AND label=? AND is_active=1",
+        (axis, label),
+    )
+    conn.execute(
+        "INSERT INTO aesthetic_weights (version, axis, label, weights, is_active) "
+        "VALUES (?, ?, ?, ?, 1)",
+        (version, axis, label, json.dumps({k: float(v) for k, v in weights.items()})),
+    )
+    conn.commit()
+
+
+def get_active_aesthetic_weights(conn: sqlite3.Connection) -> dict[str, dict[str, dict[str, float]]]:
+    """Retrieve active aesthetic weight profiles, grouped by axis.
+
+    Returns {'subject': {label: {key: weight}}, 'type': {label: {key: weight}}}.
+    Empty dict if the table is absent or unpopulated.
+    """
+    import json
+
+    try:
+        rows = conn.execute(
+            "SELECT axis, label, weights FROM aesthetic_weights WHERE is_active=1"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict[str, dict[str, float]]] = {}
+    for row in rows:
+        out.setdefault(row["axis"], {})[row["label"]] = json.loads(row["weights"])
     return out
 
 
