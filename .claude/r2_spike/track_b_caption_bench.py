@@ -145,10 +145,11 @@ def _caption_chat(model, processor, image, prompt: str, max_new: int) -> str:
     inputs = processor.apply_chat_template(
         messages, add_generation_prompt=True, tokenize=True,
         return_dict=True, return_tensors="pt").to(model.device)
+    in_len = inputs["input_ids"].shape[1]
     ids = model.generate(**inputs, max_new_tokens=max_new, do_sample=False)
-    text = processor.batch_decode(ids, skip_special_tokens=True)[0]
-    # Strip the echoed prompt turn if present.
-    return text.split("Assistant:")[-1].strip()
+    # Decode only the newly generated tokens (format-agnostic; avoids prompt echo).
+    new = ids[:, in_len:]
+    return processor.batch_decode(new, skip_special_tokens=True)[0].strip()
 
 
 def _caption_florence(model, processor, image, max_new: int) -> str:
@@ -162,15 +163,36 @@ def _caption_florence(model, processor, image, max_new: int) -> str:
 
 
 def _load(model_id: str):
+    """Robust load for transformers 5.12: native classes, processor + model
+    fallbacks. florence2/smolvlm/lfm2_vl are all native model_types now, so
+    trust_remote_code is only a last resort."""
     import torch
-    if model_id == FLORENCE_ID:
-        from transformers import AutoModelForCausalLM, AutoProcessor
-        m = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True,
-                                                 torch_dtype=torch.float32).eval()
-        return m, AutoProcessor.from_pretrained(model_id, trust_remote_code=True), True
-    from transformers import AutoModelForImageTextToText, AutoProcessor
-    m = AutoModelForImageTextToText.from_pretrained(model_id, torch_dtype=torch.float32).eval()
-    return m, AutoProcessor.from_pretrained(model_id), False
+    import transformers
+
+    proc = None
+    last = None
+    for kw in ({}, {"trust_remote_code": True}):
+        try:
+            proc = transformers.AutoProcessor.from_pretrained(model_id, **kw)
+            break
+        except Exception as e:  # noqa: BLE001
+            last = e
+    if proc is None:
+        raise RuntimeError(f"processor load failed: {last!r}")
+
+    model = None
+    for cls_name in ("AutoModelForImageTextToText", "AutoModelForVision2Seq"):
+        cls = getattr(transformers, cls_name, None)
+        if cls is None:
+            continue
+        try:
+            model = cls.from_pretrained(model_id, dtype=torch.float32).eval()
+            break
+        except Exception as e:  # noqa: BLE001
+            last = e
+    if model is None:
+        raise RuntimeError(f"model load failed: {last!r}")
+    return model, proc, "florence" in model_id.lower()
 
 
 def main() -> None:
@@ -208,8 +230,9 @@ def main() -> None:
         log.info("Loading %s ...", model_id)
         try:
             model, processor, is_florence = _load(model_id)
-        except Exception as e:  # noqa: BLE001
-            log.warning("Skip %s: %s", model_id, e)
+        except Exception:  # noqa: BLE001
+            import traceback
+            log.warning("Skip %s:\n%s", model_id, traceback.format_exc())
             continue
         for fp in frames:
             image = _load_pil(fp)
