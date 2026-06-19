@@ -269,6 +269,92 @@ function M.preview_cmd(step)
   return "(could not resolve: " .. tostring(cmd) .. ")"
 end
 
+-- ---------------------------------------------------------------------------
+-- Cartridge management (provision / archive / restore)
+--
+-- These launch external, often-elevated commands in their own visible window
+-- so the user can watch progress (and approve UAC/polkit). They do NOT use the
+-- run_step polling loop — they fire-and-forget into a terminal.
+-- ---------------------------------------------------------------------------
+
+-- Launch the Cartridge Manager as a SEPARATE, ELEVATED executable. Provisioning
+-- sets the volume label (admin/root). The destination drive root is the cartridge.
+function M.launch_provision(log_fn)
+  local dest = config.read("dest_path")
+  local drive = get_drive_root(dest)
+  local id = config.read("cartridge_id")
+  local idflag = (id ~= "" and (" --id " .. id)) or ""
+  local inner = 'photo-cartridge provision ' .. shell_quote(drive) .. idflag
+  log_fn(string.format("[%s] Provisioning cartridge (elevated): %s", os.date("%H:%M:%S"), inner))
+  if IS_WINDOWS then
+    -- UAC prompt -> elevated cmd window that stays open (/k) showing the result.
+    local ps = 'Start-Process cmd -Verb RunAs -ArgumentList \'/k\',\'' .. inner .. '\''
+    os.execute('powershell -NoProfile -Command "' .. ps .. '"')
+  else
+    -- pkexec triggers the polkit prompt; run in a terminal so output is visible.
+    os.execute('x-terminal-emulator -e "pkexec ' .. inner .. '" || pkexec ' .. inner .. ' &')
+  end
+  log_fn("[provision] Launched. Approve the elevation prompt; the cartridge window shows progress.")
+end
+
+-- Launch a long-running cartridge command in its own visible terminal window so the
+-- user can watch progress (backups can take a long time). elevated=true wraps it in
+-- the OS privilege prompt (needed when the command sets a volume label).
+local function launch_terminal(inner, elevated)
+  if IS_WINDOWS then
+    if elevated then
+      local ps = 'Start-Process cmd -Verb RunAs -ArgumentList \'/k\',\'' .. inner .. '\''
+      os.execute('powershell -NoProfile -Command "' .. ps .. '"')
+    else
+      os.execute('start "PHOTONForge" cmd /k ' .. inner)
+    end
+  else
+    local cmd = elevated and ('pkexec ' .. inner) or inner
+    os.execute('x-terminal-emulator -e "' .. cmd .. '" || ' .. cmd .. ' &')
+  end
+end
+
+local function backup_flags()
+  local repo = config.read("backup_repo")
+  local pw = config.read("backup_pwfile")
+  if repo == "" then return nil end
+  local f = " -r " .. shell_quote(repo)
+  if pw ~= "" then f = f .. " --password-file " .. shell_quote(pw) end
+  return f
+end
+
+-- Archive the whole cartridge (DB + photos) to the configured restic repo.
+function M.launch_archive(log_fn)
+  local flags = backup_flags()
+  if not flags then
+    log_fn("[archive] Set 'Backup repo' in PHOTONForge preferences first.")
+    dt.print("PHOTONForge: set a Backup repo in preferences")
+    return
+  end
+  local drive = get_drive_root(config.read("dest_path"))
+  local inner = "photo-cartridge archive " .. shell_quote(drive) .. flags .. " --init"
+  log_fn(string.format("[%s] Archiving cartridge: %s", os.date("%H:%M:%S"), inner))
+  launch_terminal(inner, false)
+  log_fn("[archive] Launched in a terminal window; first backup uploads everything, later ones are incremental.")
+end
+
+-- Restore an archived cartridge onto the destination drive (DB + photos).
+function M.launch_restore(log_fn)
+  local flags = backup_flags()
+  if not flags then
+    log_fn("[restore] Set 'Backup repo' in PHOTONForge preferences first.")
+    dt.print("PHOTONForge: set a Backup repo in preferences")
+    return
+  end
+  local drive = get_drive_root(config.read("dest_path"))
+  local id = config.read("cartridge_id")
+  local idflag = (id ~= "" and (" --id " .. id)) or ""
+  local inner = "photo-cartridge restore" .. flags .. " --to " .. shell_quote(drive) .. idflag
+  log_fn(string.format("[%s] Restoring cartridge (elevated): %s", os.date("%H:%M:%S"), inner))
+  launch_terminal(inner, true)
+  log_fn("[restore] Launched. Approve the elevation prompt; the window shows restore progress.")
+end
+
 function M.run_import(log_fn, job)
   local dest = config.read("dest_path")
   log_fn(string.format("[%s] Importing %s into Darktable library...", os.date("%H:%M:%S"), dest))
