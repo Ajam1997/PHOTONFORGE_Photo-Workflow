@@ -286,13 +286,15 @@ def test_purge_orphan_photon_tags(tmp_path: Path) -> None:
     conn.close()
 
     conn = sqlite3.connect(str(data))
-    # 1 = used photon tag, 2/3 = orphaned photon (deprecated), 4 = orphaned non-photon
+    # 1 = used photon tag; 2/3 = orphaned + deprecated (not in taxonomy);
+    # 4 = orphaned non-photon; 5 = orphaned but valid current taxonomy
     conn.executescript(
         "INSERT INTO tags (id, name, synonyms, flags) VALUES "
         "(1,'photon|subject|vehicle','',0),"
         "(2,'photon|type|landscape','',0),"
         "(3,'photon|subject|glacier','',0),"
-        "(4,'vacation','',0);"
+        "(4,'vacation','',0),"
+        "(5,'photon|subject|building','',0);"
     )
     conn.commit()
     conn.close()
@@ -303,14 +305,15 @@ def test_purge_orphan_photon_tags(tmp_path: Path) -> None:
     conn.close()
 
     purged = purge_orphan_photon_tags(lib)
-    assert purged == 2
+    assert purged == 2  # only the deprecated orphans
 
     conn = sqlite3.connect(str(data))
     names = {r[0] for r in conn.execute("SELECT name FROM tags").fetchall()}
     conn.close()
-    assert "photon|subject|vehicle" in names   # used -> kept
-    assert "vacation" in names                 # non-photon orphan -> kept
-    assert "photon|type|landscape" not in names  # deprecated orphan -> purged
+    assert "photon|subject|vehicle" in names    # used -> kept
+    assert "vacation" in names                  # non-photon orphan -> kept
+    assert "photon|subject|building" in names   # valid current taxonomy -> kept
+    assert "photon|type|landscape" not in names   # deprecated orphan -> purged
     assert "photon|subject|glacier" not in names
 
 
