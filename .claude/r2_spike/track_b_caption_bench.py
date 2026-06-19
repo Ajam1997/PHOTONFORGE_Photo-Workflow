@@ -33,7 +33,8 @@ import numpy as np
 logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
 log = logging.getLogger("track_b")
 
-_IMG_EXTS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+_IMG_EXTS = {".jpg", ".jpeg", ".png", ".tif", ".tiff",
+             ".arw", ".cr2", ".nef", ".dng", ".raf"}
 
 CHAT_MODELS = [
     "HuggingFaceTB/SmolVLM2-500M-Video-Instruct",
@@ -83,6 +84,61 @@ def _prompts(stem: str, cache_dir: Path, grounding: dict) -> dict[str, str]:
             "grounded": _grounded(stem, cache_dir, grounding)}
 
 
+_RAW_EXTS = {".arw", ".cr2", ".nef", ".dng", ".raf"}
+
+
+def _load_pil(fp: Path):
+    """RGB -> PIL.Image, RAW-safe (PIL can't open .ARW; use the package loader)."""
+    from PIL import Image
+
+    if fp.suffix.lower() in _RAW_EXTS:
+        import cv2
+
+        from photo_workflow.raw_loader import load_rgb
+        return Image.fromarray(cv2.cvtColor(load_rgb(fp), cv2.COLOR_BGR2RGB))
+    return Image.open(fp).convert("RGB")
+
+
+def _index(root: Path | None) -> dict[str, Path]:
+    import os
+
+    idx: dict[str, Path] = {}
+    if root:
+        for dp, _d, fs in os.walk(root):
+            for f in fs:
+                if Path(f).suffix.lower() in _IMG_EXTS:
+                    idx.setdefault(f, Path(dp) / f)
+    return idx
+
+
+def _eval_from_cache(cache_dir: Path, image_root: Path, n: int):
+    """Pick n labelled corpus frames from the cache, spread across subjects;
+    resolve each to its real image path. Returns (frames, grounding-by-stem)."""
+    import collections
+
+    idx = _index(image_root)
+    by_subj: dict[str, list] = collections.defaultdict(list)
+    for npz in sorted(cache_dir.glob("corpus*__*.npz")):
+        d = np.load(npz, allow_pickle=True)
+        fn = str(d["filename"])
+        p = idx.get(fn)
+        if p is None or not p.exists():
+            continue
+        subj, typ = str(d.get("subject", "")), str(d.get("photo_type", ""))
+        by_subj[subj].append((p, Path(fn).stem, subj, typ))
+    picked = []
+    while len(picked) < n and any(by_subj.values()):
+        for s in list(by_subj):
+            if by_subj[s]:
+                picked.append(by_subj[s].pop(0))
+            if len(picked) >= n:
+                break
+    frames = [p for p, _s, _su, _t in picked]
+    grounding = {stem: {"subject": su, "type": (t if t and t != "general" else "")}
+                 for _p, stem, su, t in picked}
+    return frames, grounding
+
+
 def _caption_chat(model, processor, image, prompt: str, max_new: int) -> str:
     messages = [{"role": "user", "content": [
         {"type": "image", "image": image}, {"type": "text", "text": prompt}]}]
@@ -119,7 +175,11 @@ def _load(model_id: str):
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--eval-dirs", type=Path, nargs="+", required=True)
+    ap.add_argument("--eval-dirs", type=Path, nargs="*", default=[])
+    ap.add_argument("--from-cache", action="store_true",
+                    help="pick eval frames from the extraction cache (labelled, grounded)")
+    ap.add_argument("--image-root", type=Path, help="root to resolve cache filenames to images")
+    ap.add_argument("--n", type=int, default=24, help="frames to pick with --from-cache")
     ap.add_argument("--cache-dir", type=Path, default=Path(".claude/r2_spike/cache"))
     ap.add_argument("--grounding-json", type=Path,
                     help="optional {stem: {subject,type,time_of_day,colors,...}}")
@@ -131,11 +191,13 @@ def main() -> None:
 
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from PIL import Image
 
-    grounding = json.loads(args.grounding_json.read_text()) if args.grounding_json else {}
-    frames = [p for d in args.eval_dirs for p in sorted(d.rglob("*"))
-              if p.suffix.lower() in _IMG_EXTS]
+    if args.from_cache:
+        frames, grounding = _eval_from_cache(args.cache_dir, args.image_root, args.n)
+    else:
+        grounding = json.loads(args.grounding_json.read_text()) if args.grounding_json else {}
+        frames = [p for d in args.eval_dirs for p in sorted(d.rglob("*"))
+                  if p.suffix.lower() in _IMG_EXTS]
     if args.limit:
         frames = frames[: args.limit]
     log.info("Eval frames: %d", len(frames))
@@ -150,7 +212,7 @@ def main() -> None:
             log.warning("Skip %s: %s", model_id, e)
             continue
         for fp in frames:
-            image = Image.open(fp).convert("RGB")
+            image = _load_pil(fp)
             tiers = {"florence": FLORENCE_TASK} if is_florence else _prompts(fp.stem, args.cache_dir, grounding)
             for tier, prompt in tiers.items():
                 t0 = time.perf_counter()
