@@ -1,4 +1,12 @@
-"""SQLite-backed pipeline stage tracker — replaces JSONL manifest."""
+"""SQLite-backed pipeline stage tracker — replaces JSONL manifest.
+
+Schema (single-table, since 2026-06): all analysis rows live in one ``photos``
+table keyed by ``(folder, filename)``; ``folder`` is the ingest folder/session
+that was previously a table name. A separate ``embeddings`` table caches CLIP
+vectors for training corpora (the old CURATED/WEB tables). The public functions
+still take a ``table`` argument — it is the folder value — so callers are
+unchanged from the table-per-folder era.
+"""
 
 from __future__ import annotations
 
@@ -8,7 +16,12 @@ from pathlib import Path
 
 
 def sanitize_table_name(name: str) -> str:
-    """Convert a folder name to a valid SQLite table name."""
+    """Normalize a folder name to a stable key (kept for backward compatibility).
+
+    Historically this produced a SQLite table name; now it just yields the
+    ``folder`` column value, but the same normalization is preserved so existing
+    rows keep matching.
+    """
     sanitized = re.sub(r"[^A-Za-z0-9_]", "_", name)
     if not sanitized:
         return "default"
@@ -18,6 +31,15 @@ def sanitize_table_name(name: str) -> str:
 def _db_path_from_dest(dest: Path) -> Path:
     """Derive photonforge.db path at the parent of dest (the cartridge root)."""
     return dest.parent / "photonforge.db"
+
+
+# Analysis columns in insertion order (excludes the `folder`/`filename` key).
+_PHOTO_COLUMNS = (
+    "original_name", "exif_timestamp", "session_id", "is_duplicate",
+    "sharpness", "composition", "exposure", "semantic_name", "stages", "error",
+    "genre_confidence", "master_score", "sub_scores", "dhash", "genres",
+    "primary_genre", "needs_review", "clip_embedding",
+)
 
 
 def open_db(dest_path: Path) -> sqlite3.Connection:
@@ -35,69 +57,57 @@ def open_db(dest_path: Path) -> sqlite3.Connection:
     return conn
 
 
-def ensure_table(conn: sqlite3.Connection, table: str) -> None:
-    """Create the per-folder table if it doesn't exist."""
-    table = sanitize_table_name(table)
-    conn.execute(f"""
-        CREATE TABLE IF NOT EXISTS [{table}] (
-            filename       TEXT PRIMARY KEY,
-            original_name  TEXT NOT NULL,
-            exif_timestamp TEXT,
-            session_id     TEXT DEFAULT '',
-            is_duplicate   INTEGER DEFAULT 0,
-            sharpness      REAL,
-            composition    REAL,
-            exposure       REAL,
-            semantic_name  TEXT DEFAULT '',
-            stages         TEXT DEFAULT '',
-            error          TEXT DEFAULT '',
-            genre          TEXT DEFAULT '',
+def ensure_schema(conn: sqlite3.Connection) -> None:
+    """Create the single-table schema (photos + embeddings). Idempotent."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS photos (
+            folder           TEXT NOT NULL,
+            filename         TEXT NOT NULL,
+            original_name    TEXT NOT NULL,
+            exif_timestamp   TEXT,
+            session_id       TEXT DEFAULT '',
+            is_duplicate     INTEGER DEFAULT 0,
+            sharpness        REAL,
+            composition      REAL,
+            exposure         REAL,
+            semantic_name    TEXT DEFAULT '',
+            stages           TEXT DEFAULT '',
+            error            TEXT DEFAULT '',
             genre_confidence REAL DEFAULT 0.0,
-            master_score   REAL DEFAULT 0.0,
-            sub_scores     TEXT DEFAULT '',
-            dhash          TEXT DEFAULT ''
-        )
-    """)
+            master_score     REAL DEFAULT 0.0,
+            sub_scores       TEXT DEFAULT '',
+            dhash            TEXT DEFAULT '',
+            genres           TEXT DEFAULT '',
+            primary_genre    TEXT DEFAULT '',
+            needs_review     INTEGER DEFAULT 0,
+            clip_embedding   BLOB,
+            PRIMARY KEY (folder, filename)
+        );
+        CREATE INDEX IF NOT EXISTS idx_photos_folder ON photos(folder);
+
+        -- CLIP embedding cache for training corpora (was the CURATED/WEB tables).
+        -- `source` groups vectors (e.g. 'CURATED', 'WEB'); `ref` is the master
+        -- RAW path or source URL the vector came from.
+        CREATE TABLE IF NOT EXISTS embeddings (
+            source         TEXT NOT NULL,
+            filename       TEXT NOT NULL,
+            clip_embedding BLOB NOT NULL,
+            ref            TEXT DEFAULT '',
+            PRIMARY KEY (source, filename)
+        );
+        """
+    )
     conn.commit()
 
-    # Migration: add new columns to existing tables
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN genre TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass  # Column already exists
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN genre_confidence REAL DEFAULT 0.0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN master_score REAL DEFAULT 0.0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN sub_scores TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN dhash TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN genres TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN primary_genre TEXT DEFAULT ''")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN needs_review INTEGER DEFAULT 0")
-    except sqlite3.OperationalError:
-        pass
-    try:
-        conn.execute(f"ALTER TABLE [{table}] ADD COLUMN clip_embedding BLOB")
-    except sqlite3.OperationalError:
-        pass
-    conn.commit()
+
+def ensure_table(conn: sqlite3.Connection, table: str | None = None) -> None:
+    """Backward-compatible alias for :func:`ensure_schema`.
+
+    The ``table`` argument is ignored — the schema is global now — but the
+    signature is preserved so existing per-folder callers keep working.
+    """
+    ensure_schema(conn)
 
 
 def insert_photo(
@@ -109,11 +119,12 @@ def insert_photo(
     *,
     auto_commit: bool = True,
 ) -> None:
-    """Insert a photo row. Ignores if filename already exists."""
-    table = sanitize_table_name(table)
+    """Insert a photo row. Ignores if (folder, filename) already exists."""
+    folder = sanitize_table_name(table)
     conn.execute(
-        f"INSERT OR IGNORE INTO [{table}] (filename, original_name, exif_timestamp) VALUES (?, ?, ?)",
-        (filename, original_name, exif_timestamp),
+        "INSERT OR IGNORE INTO photos (folder, filename, original_name, exif_timestamp) "
+        "VALUES (?, ?, ?, ?)",
+        (folder, filename, original_name, exif_timestamp),
     )
     if auto_commit:
         conn.commit()
@@ -124,8 +135,10 @@ def update_stages(
     *, auto_commit: bool = True,
 ) -> None:
     """Append a stage to the stages column if not already present."""
-    table = sanitize_table_name(table)
-    row = conn.execute(f"SELECT stages FROM [{table}] WHERE filename=?", (filename,)).fetchone()
+    folder = sanitize_table_name(table)
+    row = conn.execute(
+        "SELECT stages FROM photos WHERE folder=? AND filename=?", (folder, filename)
+    ).fetchone()
     if row is None:
         return
     current = row["stages"] or ""
@@ -133,17 +146,17 @@ def update_stages(
     if stage not in parts:
         parts.append(stage)
     conn.execute(
-        f"UPDATE [{table}] SET stages=? WHERE filename=?",
-        (",".join(parts), filename),
+        "UPDATE photos SET stages=? WHERE folder=? AND filename=?",
+        (",".join(parts), folder, filename),
     )
     if auto_commit:
         conn.commit()
 
 
 def get_pending(conn: sqlite3.Connection, table: str, stage: str) -> list[sqlite3.Row]:
-    """Return rows that do NOT have the given stage in their stages column."""
-    table = sanitize_table_name(table)
-    rows = conn.execute(f"SELECT * FROM [{table}]").fetchall()
+    """Return rows in this folder that do NOT have the given stage."""
+    folder = sanitize_table_name(table)
+    rows = conn.execute("SELECT * FROM photos WHERE folder=?", (folder,)).fetchall()
     return [r for r in rows if stage not in (r["stages"] or "").split(",")]
 
 
@@ -158,10 +171,10 @@ def update_scores(
     auto_commit: bool = True,
 ) -> None:
     """Write scoring results."""
-    table = sanitize_table_name(table)
+    folder = sanitize_table_name(table)
     conn.execute(
-        f"UPDATE [{table}] SET sharpness=?, composition=?, exposure=? WHERE filename=?",
-        (sharpness, composition, exposure, filename),
+        "UPDATE photos SET sharpness=?, composition=?, exposure=? WHERE folder=? AND filename=?",
+        (sharpness, composition, exposure, folder, filename),
     )
     if auto_commit:
         conn.commit()
@@ -172,10 +185,10 @@ def update_semantic(
     *, auto_commit: bool = True,
 ) -> None:
     """Write Florence-2 semantic name."""
-    table = sanitize_table_name(table)
+    folder = sanitize_table_name(table)
     conn.execute(
-        f"UPDATE [{table}] SET semantic_name=? WHERE filename=?",
-        (semantic_name, filename),
+        "UPDATE photos SET semantic_name=? WHERE folder=? AND filename=?",
+        (semantic_name, folder, filename),
     )
     if auto_commit:
         conn.commit()
@@ -186,24 +199,26 @@ def mark_duplicate(
     *, auto_commit: bool = True,
 ) -> None:
     """Set is_duplicate=1."""
-    table = sanitize_table_name(table)
+    folder = sanitize_table_name(table)
     conn.execute(
-        f"UPDATE [{table}] SET is_duplicate=1 WHERE filename=?",
-        (filename,),
+        "UPDATE photos SET is_duplicate=1 WHERE folder=? AND filename=?",
+        (folder, filename),
     )
     if auto_commit:
         conn.commit()
 
 
 def clear_stage(conn: sqlite3.Connection, table: str, stage: str) -> None:
-    """Remove a stage from all rows (for --force mode)."""
-    table = sanitize_table_name(table)
-    rows = conn.execute(f"SELECT filename, stages FROM [{table}]").fetchall()
+    """Remove a stage from all rows in this folder (for --force mode)."""
+    folder = sanitize_table_name(table)
+    rows = conn.execute(
+        "SELECT filename, stages FROM photos WHERE folder=?", (folder,)
+    ).fetchall()
     for row in rows:
         parts = [s for s in (row["stages"] or "").split(",") if s and s != stage]
         conn.execute(
-            f"UPDATE [{table}] SET stages=? WHERE filename=?",
-            (",".join(parts), row["filename"]),
+            "UPDATE photos SET stages=? WHERE folder=? AND filename=?",
+            (",".join(parts), folder, row["filename"]),
         )
     conn.commit()
 
@@ -225,36 +240,20 @@ def update_genre_scores(
 ) -> None:
     """Write genre-aware scoring results including two-axis genre data.
 
-    Args:
-        conn: SQLite connection
-        table: Table name
-        filename: Filename to update
-        genre: Subject (primary genre for backward compatibility)
-        genre_confidence: Subject confidence
-        master_score: Master score
-        sub_scores: Sub-scores dictionary
-        genres: Two-axis genre dict {subject, subject_confidence, photo_type, type_confidence}
-        primary_genre: Primary genre (alias for genre column)
-        needs_review: Whether image needs review (low-confidence fallback)
-        clip_embedding: Raw bytes of CLIP embedding (float32 numpy array)
-        auto_commit: Whether to auto-commit
+    The ``genre`` argument is the subject; it is stored only as ``primary_genre``
+    (the redundant singular ``genre`` column was removed in the schema cleanup).
     """
     import json
-    table = sanitize_table_name(table)
+    folder = sanitize_table_name(table)
     sub_scores_json = json.dumps(sub_scores) if sub_scores else ""
-
-    genres_json = ""
-    if genres:
-        genres_json = json.dumps(genres)
-
-    # Use primary_genre if provided, otherwise use genre
+    genres_json = json.dumps(genres) if genres else ""
     primary_genre_val = primary_genre if primary_genre else genre
 
     conn.execute(
-        f"UPDATE [{table}] SET genre=?, genre_confidence=?, master_score=?, sub_scores=?, "
-        f"genres=?, primary_genre=?, needs_review=?, clip_embedding=? WHERE filename=?",
+        "UPDATE photos SET genre_confidence=?, master_score=?, sub_scores=?, "
+        "genres=?, primary_genre=?, needs_review=?, clip_embedding=? "
+        "WHERE folder=? AND filename=?",
         (
-            genre,
             genre_confidence,
             master_score,
             sub_scores_json,
@@ -262,6 +261,7 @@ def update_genre_scores(
             primary_genre_val,
             1 if needs_review else 0,
             clip_embedding,
+            folder,
             filename,
         ),
     )
@@ -274,19 +274,22 @@ def update_dhash(
     *, auto_commit: bool = True,
 ) -> None:
     """Write cached dHash value."""
-    table = sanitize_table_name(table)
+    folder = sanitize_table_name(table)
     conn.execute(
-        f"UPDATE [{table}] SET dhash=? WHERE filename=?",
-        (str(dhash), filename),
+        "UPDATE photos SET dhash=? WHERE folder=? AND filename=?",
+        (str(dhash), folder, filename),
     )
     if auto_commit:
         conn.commit()
 
 
 def get_dhashes(conn: sqlite3.Connection, table: str) -> dict[str, int]:
-    """Return {filename: dhash_int} for all rows with a cached dHash."""
-    table = sanitize_table_name(table)
-    rows = conn.execute(f"SELECT filename, dhash FROM [{table}] WHERE dhash IS NOT NULL AND dhash != ''").fetchall()
+    """Return {filename: dhash_int} for all rows in this folder with a cached dHash."""
+    folder = sanitize_table_name(table)
+    rows = conn.execute(
+        "SELECT filename, dhash FROM photos WHERE folder=? AND dhash IS NOT NULL AND dhash != ''",
+        (folder,),
+    ).fetchall()
     result: dict[str, int] = {}
     for row in rows:
         try:

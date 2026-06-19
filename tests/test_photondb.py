@@ -1,4 +1,4 @@
-"""Tests for photondb — SQLite-backed pipeline stage tracker."""
+"""Tests for photondb — SQLite-backed pipeline stage tracker (single-table schema)."""
 
 from __future__ import annotations
 
@@ -70,13 +70,14 @@ def test_open_db_windows_drive_root(tmp_path: Path):
     conn.close()
 
 
-def test_ensure_table_creates_table(tmp_path: Path):
+def test_ensure_schema_creates_photos_and_embeddings(tmp_path: Path):
     conn = open_db(tmp_path)
     ensure_table(conn, "ICELAND")
-    cursor = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='ICELAND'"
-    )
-    assert cursor.fetchone() is not None
+    names = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    )}
+    assert "photos" in names
+    assert "embeddings" in names
     conn.close()
 
 
@@ -91,10 +92,25 @@ def test_insert_and_retrieve(tmp_path: Path):
     conn = open_db(tmp_path)
     ensure_table(conn, "ICELAND")
     insert_photo(conn, "ICELAND", "P003ICE0000001.ARW", "DSC03056.ARW", "2026-05-10T14:32:01")
-    rows = conn.execute("SELECT filename, original_name FROM ICELAND").fetchall()
+    rows = conn.execute(
+        "SELECT filename, original_name FROM photos WHERE folder='ICELAND'"
+    ).fetchall()
     assert len(rows) == 1
     assert rows[0][0] == "P003ICE0000001.ARW"
     assert rows[0][1] == "DSC03056.ARW"
+    conn.close()
+
+
+def test_rows_are_scoped_by_folder(tmp_path: Path):
+    """Two folders share one table but stay isolated by the folder column."""
+    conn = open_db(tmp_path)
+    ensure_table(conn, "ICELAND")
+    insert_photo(conn, "ICELAND", "a.jpg", "a.jpg", None)
+    insert_photo(conn, "UTAH", "a.jpg", "a.jpg", None)  # same filename, other folder
+    total = conn.execute("SELECT COUNT(*) FROM photos").fetchone()[0]
+    assert total == 2
+    iceland = conn.execute("SELECT COUNT(*) FROM photos WHERE folder='ICELAND'").fetchone()[0]
+    assert iceland == 1
     conn.close()
 
 
@@ -103,7 +119,7 @@ def test_insert_duplicate_ignored(tmp_path: Path):
     ensure_table(conn, "ICELAND")
     insert_photo(conn, "ICELAND", "P003ICE0000001.ARW", "DSC03056.ARW", "2026-05-10T14:32:01")
     insert_photo(conn, "ICELAND", "P003ICE0000001.ARW", "DSC03056.ARW", "2026-05-10T14:32:01")
-    rows = conn.execute("SELECT COUNT(*) FROM ICELAND").fetchone()
+    rows = conn.execute("SELECT COUNT(*) FROM photos WHERE folder='ICELAND'").fetchone()
     assert rows[0] == 1
     conn.close()
 
@@ -114,7 +130,9 @@ def test_update_stages(tmp_path: Path):
     insert_photo(conn, "T", "a.jpg", "a.jpg", None)
     update_stages(conn, "T", "a.jpg", "scan")
     update_stages(conn, "T", "a.jpg", "dedup")
-    row = conn.execute("SELECT stages FROM T WHERE filename='a.jpg'").fetchone()
+    row = conn.execute(
+        "SELECT stages FROM photos WHERE folder='T' AND filename='a.jpg'"
+    ).fetchone()
     assert row[0] == "scan,dedup"
     conn.close()
 
@@ -125,7 +143,9 @@ def test_update_stages_no_duplicate(tmp_path: Path):
     insert_photo(conn, "T", "a.jpg", "a.jpg", None)
     update_stages(conn, "T", "a.jpg", "scan")
     update_stages(conn, "T", "a.jpg", "scan")
-    row = conn.execute("SELECT stages FROM T WHERE filename='a.jpg'").fetchone()
+    row = conn.execute(
+        "SELECT stages FROM photos WHERE folder='T' AND filename='a.jpg'"
+    ).fetchone()
     assert row[0] == "scan"
     conn.close()
 
@@ -149,7 +169,9 @@ def test_update_scores(tmp_path: Path):
     ensure_table(conn, "T")
     insert_photo(conn, "T", "a.jpg", "a.jpg", None)
     update_scores(conn, "T", "a.jpg", 0.85, 0.72, 0.91)
-    row = conn.execute("SELECT sharpness, composition, exposure FROM T WHERE filename='a.jpg'").fetchone()
+    row = conn.execute(
+        "SELECT sharpness, composition, exposure FROM photos WHERE folder='T' AND filename='a.jpg'"
+    ).fetchone()
     assert tuple(row) == (0.85, 0.72, 0.91)
     conn.close()
 
@@ -159,7 +181,9 @@ def test_update_semantic(tmp_path: Path):
     ensure_table(conn, "T")
     insert_photo(conn, "T", "a.jpg", "a.jpg", None)
     update_semantic(conn, "T", "a.jpg", "golden-sunset-beach")
-    row = conn.execute("SELECT semantic_name FROM T WHERE filename='a.jpg'").fetchone()
+    row = conn.execute(
+        "SELECT semantic_name FROM photos WHERE folder='T' AND filename='a.jpg'"
+    ).fetchone()
     assert row[0] == "golden-sunset-beach"
     conn.close()
 
@@ -169,13 +193,15 @@ def test_mark_duplicate(tmp_path: Path):
     ensure_table(conn, "T")
     insert_photo(conn, "T", "a.jpg", "a.jpg", None)
     mark_duplicate(conn, "T", "a.jpg")
-    row = conn.execute("SELECT is_duplicate FROM T WHERE filename='a.jpg'").fetchone()
+    row = conn.execute(
+        "SELECT is_duplicate FROM photos WHERE folder='T' AND filename='a.jpg'"
+    ).fetchone()
     assert row[0] == 1
     conn.close()
 
 
 def test_update_genre_scores_with_multi_genre(tmp_path: Path):
-    """Test update_genre_scores with two-axis genre dict."""
+    """update_genre_scores stores two-axis genre dict (and no legacy genre column)."""
     conn = open_db(tmp_path)
     ensure_table(conn, "T")
     insert_photo(conn, "T", "a.jpg", "a.jpg", None)
@@ -199,10 +225,10 @@ def test_update_genre_scores_with_multi_genre(tmp_path: Path):
     )
 
     row = conn.execute(
-        "SELECT genre, primary_genre, genres, needs_review, clip_embedding FROM T WHERE filename='a.jpg'"
+        "SELECT primary_genre, genres, needs_review, clip_embedding "
+        "FROM photos WHERE folder='T' AND filename='a.jpg'"
     ).fetchone()
 
-    assert row["genre"] == "wildlife"
     assert row["primary_genre"] == "wildlife"
     assert row["needs_review"] == 0
     assert row["clip_embedding"] == b"fake_embedding_bytes"
@@ -216,26 +242,16 @@ def test_update_genre_scores_with_multi_genre(tmp_path: Path):
     conn.close()
 
 
-def test_migration_adds_new_columns_idempotently(tmp_path: Path):
-    """New columns should be added only once, migration should be idempotent."""
+def test_photos_schema_has_expected_columns(tmp_path: Path):
+    """The photos table carries the analysis columns; legacy `genre` is gone."""
     conn = open_db(tmp_path)
     ensure_table(conn, "T")
-
-    # Check that new columns exist
-    row = conn.execute("PRAGMA table_info(T)").fetchall()
-    col_names = {col[1] for col in row}
-
-    assert "genres" in col_names
-    assert "primary_genre" in col_names
-    assert "needs_review" in col_names
-    assert "clip_embedding" in col_names
-
-    # Call ensure_table again - should not crash
+    col_names = {col[1] for col in conn.execute("PRAGMA table_info(photos)")}
+    assert {"folder", "filename", "genres", "primary_genre", "needs_review",
+            "clip_embedding"} <= col_names
+    assert "genre" not in col_names  # legacy singular column dropped
+    # idempotent
     ensure_table(conn, "T")
-
-    # Columns should still exist
-    row = conn.execute("PRAGMA table_info(T)").fetchall()
-    col_names = {col[1] for col in row}
-    assert "genres" in col_names
-
+    col_names2 = {col[1] for col in conn.execute("PRAGMA table_info(photos)")}
+    assert col_names2 == col_names
     conn.close()

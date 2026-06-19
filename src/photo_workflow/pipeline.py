@@ -306,7 +306,9 @@ def scan(source: Path, db_path: Path, json_progress: bool) -> None:
     )
 
     table = sanitize_table_name(folder_name)
-    all_rows = conn.execute(f"SELECT filename, stages FROM [{table}]").fetchall()
+    all_rows = conn.execute(
+        "SELECT filename, stages FROM photos WHERE folder=?", (table,)
+    ).fetchall()
     already_scanned = {row["filename"] for row in all_rows if "scan" in (row["stages"] or "")}
     to_scan = [p for p in photos if p.name not in already_scanned]
 
@@ -369,14 +371,16 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
     pending = get_pending(conn, table, "dedup")
     if not pending:
         if json_progress:
-            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            total = conn.execute(
+                "SELECT COUNT(*) FROM photos WHERE folder=?", (table,)
+            ).fetchone()[0]
             click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
         else:
             click.echo("All photos already deduped. Use --force to redo.")
         conn.close()
         return
 
-    all_rows = conn.execute(f"SELECT * FROM [{table}]").fetchall()
+    all_rows = conn.execute("SELECT * FROM photos WHERE folder=?", (table,)).fetchall()
 
     # Build timestamp map from DB to avoid re-reading EXIF from disk
     timestamps: dict[str, datetime] = {}
@@ -411,8 +415,8 @@ def dedup(db_path: Path, folder: str, source_dir: Path, json_progress: bool, for
     for rec in records:
         fname = rec.path.name
         conn.execute(
-            f"UPDATE [{table}] SET session_id=?, is_duplicate=? WHERE filename=?",
-            (rec.session_id, 1 if rec.is_duplicate else 0, fname),
+            "UPDATE photos SET session_id=?, is_duplicate=? WHERE folder=? AND filename=?",
+            (rec.session_id, 1 if rec.is_duplicate else 0, table, fname),
         )
         update_stages(conn, table, fname, "dedup", auto_commit=False)
         status = "duplicate" if rec.is_duplicate else "ok"
@@ -475,13 +479,13 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
         )
         for fn in target_filenames:
             row = conn.execute(
-                f"SELECT filename, stages FROM [{table}] WHERE filename=?", (fn,)
+                "SELECT filename, stages FROM photos WHERE folder=? AND filename=?", (table, fn)
             ).fetchone()
             if row:
                 parts = [s for s in (row["stages"] or "").split(",") if s and s != "score"]
                 conn.execute(
-                    f"UPDATE [{table}] SET stages=? WHERE filename=?",
-                    (",".join(parts), fn),
+                    "UPDATE photos SET stages=? WHERE folder=? AND filename=?",
+                    (",".join(parts), table, fn),
                 )
         conn.commit()
     elif force:
@@ -492,7 +496,9 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
 
     if not to_score:
         if json_progress:
-            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            total = conn.execute(
+                "SELECT COUNT(*) FROM photos WHERE folder=?", (table,)
+            ).fetchone()[0]
             click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
         else:
             click.echo("All non-duplicate photos already scored.")
@@ -611,8 +617,8 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                          original_name=row["original_name"])
         except Exception as exc:
             conn.execute(
-                f"UPDATE [{table}] SET error=? WHERE filename=?",
-                (str(exc), row["filename"]),
+                "UPDATE photos SET error=? WHERE folder=? AND filename=?",
+                (str(exc), table, row["filename"]),
             )
             conn.commit()
             errors += 1
@@ -671,7 +677,9 @@ def name(
 
     if not to_name:
         if json_progress:
-            total = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+            total = conn.execute(
+                "SELECT COUNT(*) FROM photos WHERE folder=?", (table,)
+            ).fetchone()[0]
             click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
         else:
             click.echo("All non-duplicate photos already named.")
@@ -696,8 +704,8 @@ def name(
                 emit("name", row["filename"], "ok", json_progress=True, semantic_name=slug)
         except Exception as exc:
             conn.execute(
-                f"UPDATE [{table}] SET error=? WHERE filename=?",
-                (str(exc), row["filename"]),
+                "UPDATE photos SET error=? WHERE folder=? AND filename=?",
+                (str(exc), table, row["filename"]),
             )
             conn.commit()
             errors += 1
@@ -728,7 +736,7 @@ def status(db_path: Path, folder: str) -> None:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     table = sanitize_table_name(folder)
-    rows = conn.execute(f"SELECT * FROM [{table}]").fetchall()
+    rows = conn.execute("SELECT * FROM photos WHERE folder=?", (table,)).fetchall()
     conn.close()
 
     total = len(rows)
@@ -779,7 +787,7 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
     conn.row_factory = _sqlite3.Row
 
     exists = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        "SELECT 1 FROM photos WHERE folder=? LIMIT 1", (table,)
     ).fetchone()
     if not exists:
         click.echo(json.dumps({"step": "sync-tags", "status": "error",
@@ -788,8 +796,8 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
         return
 
     rows = conn.execute(
-        f"SELECT filename, genres FROM [{table}] "
-        "WHERE genres IS NOT NULL AND genres != '{{}}' AND genres != ''"
+        "SELECT filename, genres FROM photos WHERE folder=? "
+        "AND genres IS NOT NULL AND genres != '{}' AND genres != ''", (table,)
     ).fetchall()
     conn.close()
 
@@ -1071,11 +1079,17 @@ def train_adapter(corpus: Path, photon_db: Path, training_db: Path, cv_folds: in
 
     pc = _sql.connect(str(photon_db))
     emb: dict[str, np.ndarray] = {}
-    for (t,) in pc.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"):
-        cols = [c[1] for c in pc.execute(f'PRAGMA table_info("{t}")')]
-        if "clip_embedding" not in cols or "filename" not in cols:
+    # Embeddings live in photos.clip_embedding (analysis rows) and the embeddings
+    # cache (training corpora: CURATED/WEB). Read both.
+    for q in (
+        "SELECT filename, clip_embedding FROM photos WHERE clip_embedding IS NOT NULL",
+        "SELECT filename, clip_embedding FROM embeddings WHERE clip_embedding IS NOT NULL",
+    ):
+        try:
+            cur = pc.execute(q)
+        except _sql.OperationalError:
             continue
-        for fn, blob in pc.execute(f'SELECT filename, clip_embedding FROM "{t}" WHERE clip_embedding IS NOT NULL'):
+        for fn, blob in cur:
             if fn in labels and fn not in emb:
                 emb[fn] = np.frombuffer(blob, dtype=np.float32)
     pc.close()
@@ -1198,7 +1212,7 @@ def collect_corrections(
     conn.row_factory = _sqlite3.Row
 
     exists = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+        "SELECT 1 FROM photos WHERE folder=? LIMIT 1", (table,)
     ).fetchone()
     if not exists:
         click.echo(json.dumps({
@@ -1209,8 +1223,8 @@ def collect_corrections(
         return
 
     rows = conn.execute(
-        f"SELECT filename, primary_genre, genres FROM [{table}] "
-        "WHERE primary_genre IS NOT NULL"
+        "SELECT filename, primary_genre, genres FROM photos WHERE folder=? "
+        "AND primary_genre IS NOT NULL", (table,)
     ).fetchall()
     conn.close()
 
@@ -1315,7 +1329,7 @@ def collect_corrections(
             fn = entry["filename"]
             corrected_subject = entry["subject"]
             row = update_conn.execute(
-                f"SELECT genres FROM [{table}] WHERE filename=?", (fn,)
+                "SELECT genres FROM photos WHERE folder=? AND filename=?", (table, fn)
             ).fetchone()
             try:
                 old_data = json.loads(row[0]) if row and row[0] else {}
@@ -1330,8 +1344,8 @@ def collect_corrections(
                     old_data["type_confidence"] = 1.0
                     break
             update_conn.execute(
-                f"UPDATE [{table}] SET primary_genre=?, genres=? WHERE filename=?",
-                (corrected_subject, json.dumps(old_data), fn),
+                "UPDATE photos SET primary_genre=?, genres=? WHERE folder=? AND filename=?",
+                (corrected_subject, json.dumps(old_data), table, fn),
             )
             corrected_filenames.append(fn)
         # Type-only corrections (no subject change)
@@ -1340,7 +1354,7 @@ def collect_corrections(
             if fn in {e["filename"] for e in corpus_entries}:
                 continue
             row = update_conn.execute(
-                f"SELECT genres FROM [{table}] WHERE filename=?", (fn,)
+                "SELECT genres FROM photos WHERE folder=? AND filename=?", (table, fn)
             ).fetchone()
             try:
                 old_data = json.loads(row[0]) if row and row[0] else {}
@@ -1349,8 +1363,8 @@ def collect_corrections(
             old_data["photo_type"] = entry["photo_type"]
             old_data["type_confidence"] = 1.0
             update_conn.execute(
-                f"UPDATE [{table}] SET genres=? WHERE filename=?",
-                (json.dumps(old_data), fn),
+                "UPDATE photos SET genres=? WHERE folder=? AND filename=?",
+                (json.dumps(old_data), table, fn),
             )
             corrected_filenames.append(fn)
         update_conn.commit()

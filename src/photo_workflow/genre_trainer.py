@@ -92,10 +92,11 @@ def _load_embeddings(
     photon_db_path: Path,
     filenames: list[str],
 ) -> dict[str, np.ndarray]:
-    """Load CLIP embeddings from photonforge.db per-folder tables.
+    """Load CLIP embeddings from photonforge.db for the requested filenames.
 
-    Queries all tables in photonforge.db (except system tables) to find
-    clip_embedding BLOBs for the requested filenames.
+    Reads from both the ``photos`` analysis table (clip_embedding column) and the
+    ``embeddings`` cache (training corpora: CURATED/WEB). Falls back to scanning
+    any legacy per-folder tables so a not-yet-migrated DB still works.
 
     Args:
         photon_db_path: Path to photonforge.db
@@ -112,32 +113,33 @@ def _load_embeddings(
     try:
         conn = sqlite3.connect(str(photon_db_path))
         cursor = conn.cursor()
-
-        # Get all user-defined tables (exclude system tables)
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-        )
-        tables = [row[0] for row in cursor.fetchall()]
-
         filename_set = set(filenames)
+        placeholders = ",".join("?" * len(filename_set))
 
-        for table_name in tables:
+        # Preferred sources (single-table schema). Fall back to legacy per-folder
+        # tables only if neither exists yet.
+        sources = ["photos", "embeddings"]
+        existing = {
+            row[0] for row in cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+            )
+        }
+        if not ({"photos", "embeddings"} & existing):
+            sources = [t for t in existing]
+
+        for table_name in sources:
             try:
-                # Check if table has clip_embedding column
                 cursor.execute(f"PRAGMA table_info({table_name})")
                 columns = {row[1] for row in cursor.fetchall()}
                 if "clip_embedding" not in columns or "filename" not in columns:
                     continue
-
-                # Query embeddings for filenames in this table
-                placeholders = ",".join("?" * len(filename_set))
-                query = f"SELECT filename, clip_embedding FROM {table_name} WHERE filename IN ({placeholders}) AND clip_embedding IS NOT NULL"
-                cursor.execute(query, list(filename_set))
-
-                for filename, embedding_bytes in cursor.fetchall():
-                    if embedding_bytes:
-                        embedding = np.frombuffer(embedding_bytes, dtype=np.float32)
-                        result[filename] = embedding
+                query = (
+                    f"SELECT filename, clip_embedding FROM {table_name} "
+                    f"WHERE filename IN ({placeholders}) AND clip_embedding IS NOT NULL"
+                )
+                for filename, embedding_bytes in cursor.execute(query, list(filename_set)):
+                    if embedding_bytes and filename not in result:
+                        result[filename] = np.frombuffer(embedding_bytes, dtype=np.float32)
             except Exception as e:
                 logger.debug("Failed to query table %s: %s", table_name, e)
                 continue
