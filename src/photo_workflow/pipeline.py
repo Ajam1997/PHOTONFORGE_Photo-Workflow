@@ -907,7 +907,7 @@ def refresh_review(photon_db: Path, folder: str, model_dir: Path | None,
     conn = _sqlite3.connect(str(photon_db))
     conn.row_factory = _sqlite3.Row
     rows = conn.execute(
-        "SELECT filename, original_name, genres, clip_embedding FROM photos "
+        "SELECT filename, original_name, genres, clip_embedding, needs_review FROM photos "
         "WHERE folder=? AND is_duplicate=0 AND stages LIKE '%score%' "
         "AND clip_embedding IS NOT NULL", (table,),
     ).fetchall()
@@ -924,6 +924,13 @@ def refresh_review(photon_db: Path, folder: str, model_dir: Path | None,
         type_dist = predict_axis(emb, adapter["type"], PHOTO_TYPES)
         needs_review = (_top2_margin(subj_dist) < _REVIEW_MARGIN
                         or _top2_margin(type_dist) < _REVIEW_MARGIN)
+        # Delta-only: skip frames whose flag is unchanged. Re-emitting every frame
+        # makes the DT applicator do thousands of tag writes on the UI thread and
+        # freezes the app; only the flips need DB updates + applicator action.
+        if needs_review == bool(row["needs_review"]):
+            if json_progress and i % 500 == 0:
+                click.echo(json.dumps({"step": "_progress", "done": i, "total": total}))
+            continue
         conn.execute("UPDATE photos SET needs_review=? WHERE folder=? AND filename=?",
                      (1 if needs_review else 0, table, row["filename"]))
         try:
@@ -937,14 +944,14 @@ def refresh_review(photon_db: Path, folder: str, model_dir: Path | None,
                  subject=g.get("subject", ""), photo_type=g.get("photo_type", ""),
                  needs_review=needs_review, original_name=row["original_name"])
         changed += 1
-        if json_progress and i % 50 == 0:
+        if json_progress and i % 500 == 0:
             click.echo(json.dumps({"step": "_progress", "done": i, "total": total}))
     conn.commit()
     conn.close()
     if json_progress:
         click.echo(json.dumps({"step": "_progress", "done": total, "total": total}))
     else:
-        click.echo(f"refresh-review: recomputed needs_review for {changed}/{total} frames.")
+        click.echo(f"refresh-review: {changed}/{total} frames changed needs_review.")
 
 
 @cli.command("sync-tags")
