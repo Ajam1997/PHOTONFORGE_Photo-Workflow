@@ -1,15 +1,12 @@
 local dt = require "darktable"
 local config      = require "photonforge/config"
 local panel       = require "photonforge/panel"
-local tags        = require "photonforge/tags"
 local tag_manager = require "photonforge/tag_manager"
 
--- Seed photon|subject|* and photon|type|* tags into the Darktable library
--- so the hierarchy is visible before any image is scored.
-local seed_ok, seed_err = pcall(tags.seed_tag_library)
-if not seed_ok then
-  dt.print_log("PHOTONForge: tag seeding failed (non-fatal): " .. tostring(seed_err))
-end
+-- Tags are created on demand when a genre is actually applied (sync-tags /
+-- tag_manager). We intentionally do NOT pre-seed the full tag hierarchy: it
+-- created empty tags that went stale across taxonomy changes and cluttered the
+-- tag list with "deprecated" names that no image used.
 
 -- Enforce single-tag-per-axis when the user changes selection
 local listen_ok, listen_err = pcall(tag_manager.register_selection_listener)

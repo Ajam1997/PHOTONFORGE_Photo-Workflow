@@ -30,6 +30,8 @@ SUBJECTS = [
     "food",
     "object",
     "abstract",
+    "monument",
+    "waterfall",
 ]
 
 PHOTO_TYPES = [
@@ -114,6 +116,16 @@ _SUBJECT_EXIF_PRIORS = {
     "abstract": {
         "focal_length": (3.8, 1.0), "aperture": (1.5, 1.0),
         "shutter": (-5.0, 2.0), "iso": (5.5, 1.0),
+    },
+    # monument ~ building (mid focal, stopped-down, daylight)
+    "monument": {
+        "focal_length": (3.2, 0.7), "aperture": (2.0, 0.4),
+        "shutter": (-3.0, 2.0), "iso": (4.8, 0.6),
+    },
+    # waterfall ~ landscape/seascape, often long-exposure (slow shutter)
+    "waterfall": {
+        "focal_length": (3.2, 0.8), "aperture": (2.2, 0.4),
+        "shutter": (-3.5, 2.5), "iso": (4.6, 0.7),
     },
 }
 
@@ -237,6 +249,16 @@ _SUBJECT_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.3, 0.2),
         "primary_class": {},
     },
+    "monument": {
+        "face_count": (0.0, 0.6),
+        "subject_area_ratio": (0.3, 0.18),
+        "primary_class": {"clock": 1.3},
+    },
+    "waterfall": {
+        "face_count": (0.0, 0.5),
+        "subject_area_ratio": (0.25, 0.18),
+        "primary_class": {},
+    },
 }
 
 _TYPE_CONTEXT_PRIORS = {
@@ -315,6 +337,8 @@ _SUBJECT_SHARPNESS_PRIORS = {
     "food": (2.0, 0.8),
     "object": (2.0, 0.8),
     "abstract": (1.5, 1.5),
+    "monument": (1.2, 0.6),
+    "waterfall": (1.0, 0.7),
 }
 
 _TYPE_SHARPNESS_PRIORS = {
@@ -506,6 +530,30 @@ def _compute_clip_similarity_axis(
     return {axis_labels[i]: float(probs[i]) for i in range(len(axis_labels))}
 
 
+# Cap on the squared z-score inside Gaussian-likelihood experts. Without it, an
+# out-of-range feature value (e.g. a sharpness_contrast far from every prior mean)
+# makes exp(-0.5*z**2) underflow to exactly 0 for all-but-one label, turning a soft
+# prior into a one-hot veto that overrides CLIP in the product-of-experts fusion.
+# Capping z**2 keeps each expert a bounded nudge (min factor exp(-_GAUSSIAN_Z2_CAP/2)).
+_GAUSSIAN_Z2_CAP = 4.0
+
+# Per-expert fusion weights in signal order [CLIP, EXIF, YOLO, context, sharpness].
+# CLIP is the trained prototype signal and is weighted to dominate; the heuristic
+# experts contribute as gentle nudges so a single miscalibrated one cannot hijack
+# the result on out-of-distribution images.
+_FUSION_WEIGHTS = [4.0, 1.0, 1.0, 1.0, 1.0]
+
+# Each expert is blended this far toward uniform before fusion, bounding how hard
+# any single expert can veto a label it assigns near-zero probability.
+_EXPERT_SMOOTHING = 0.20
+
+
+def _capped_gauss(diff: float, std: float) -> float:
+    """Gaussian likelihood factor with the squared z-score capped (never 0)."""
+    z2 = (diff / max(std, 0.1)) ** 2
+    return math.exp(-0.5 * min(z2, _GAUSSIAN_Z2_CAP))
+
+
 def _compute_context_likelihood_axis(
     ctx: SubjectContext,
     axis_labels: list[str],
@@ -526,12 +574,10 @@ def _compute_context_likelihood_axis(
         priors = axis_priors.get(label, {})
 
         face_mean, face_std = priors.get("face_count", (0.0, 1.0))
-        face_diff = face_count - face_mean
-        evidence[label] *= math.exp(-0.5 * (face_diff / max(face_std, 0.1)) ** 2)
+        evidence[label] *= _capped_gauss(face_count - face_mean, face_std)
 
         area_mean, area_std = priors.get("subject_area_ratio", (0.2, 0.2))
-        area_diff = area_ratio - area_mean
-        evidence[label] *= math.exp(-0.5 * (area_diff / max(area_std, 0.1)) ** 2)
+        evidence[label] *= _capped_gauss(area_ratio - area_mean, area_std)
 
         if primary_class:
             class_bonus = priors.get("primary_class", {}).get(primary_class, 1.0)
@@ -553,8 +599,7 @@ def _compute_sharpness_likelihood_axis(
 
     for label in axis_labels:
         mean, std = axis_priors.get(label, (1.5, 1.0))
-        diff = sharpness_contrast - mean
-        evidence[label] = math.exp(-0.5 * (diff / max(std, 0.1)) ** 2)
+        evidence[label] = _capped_gauss(sharpness_contrast - mean, std)
 
     total = sum(evidence.values())
     if total > 0:
@@ -565,22 +610,86 @@ def _compute_sharpness_likelihood_axis(
 def _fuse_axis(
     signals: list[dict[str, float]],
     axis_labels: list[str],
+    weights: list[float] | None = None,
 ) -> dict[str, float]:
-    """Product-of-experts fusion for one axis."""
-    product = {g: 1.0 for g in axis_labels}
-    for sig in signals:
-        for g in axis_labels:
-            product[g] *= sig.get(g, 1.0 / len(axis_labels))
+    """Weighted product-of-experts fusion (log-space) for one axis.
 
-    total = sum(product.values())
+    CLIP is the trained, reliable signal; the EXIF/YOLO/context/sharpness experts
+    are weak heuristics that are noisy on out-of-distribution images. ``weights``
+    lets the caller make CLIP dominant so a single miscalibrated heuristic can
+    nudge but not override it. A small floor keeps log() finite.
+    """
+    n = len(axis_labels)
+    if weights is None:
+        weights = [1.0] * len(signals)
+    uniform = 1.0 / n
+    logp = {g: 0.0 for g in axis_labels}
+    for sig, w in zip(signals, weights):
+        # Smooth each expert toward uniform so a label it (wrongly) assigns ~0 to
+        # cannot be vetoed — every expert becomes a bounded nudge, not a gate.
+        for g in axis_labels:
+            p = (1.0 - _EXPERT_SMOOTHING) * sig.get(g, uniform) + _EXPERT_SMOOTHING * uniform
+            logp[g] += w * math.log(p)
+
+    hi = max(logp.values())
+    exp = {g: math.exp(logp[g] - hi) for g in axis_labels}
+    total = sum(exp.values())
     if total > 0:
-        return {g: product[g] / total for g in axis_labels}
-    return {g: 1.0 / len(axis_labels) for g in axis_labels}
+        return {g: exp[g] / total for g in axis_labels}
+    return {g: uniform for g in axis_labels}
+
+
+# ---------------------------------------------------------------------------
+# EXIF long-exposure gate
+# ---------------------------------------------------------------------------
+# Folding all EXIF/YOLO/face aux features into the learned CLIP head was measured
+# to be net-negative: on the 271-image corpus it dropped subject CV accuracy
+# 0.882->0.768 and type 0.786->0.694, degrading nearly every class (the all-zero
+# aux block on EXIF-less web images becomes a spurious source-of-image leak).
+# The ONE genuine aux signal is the shutter speed for the long-exposure TYPE,
+# which is near-deterministic. We apply just that, as a narrow high-precision
+# post-classification gate. Measured on the corpus: shutter >= 0.5s predicts
+# long-exposure with precision 0.94 / recall 0.83 (a single false positive, a
+# tripod macro). See .claude/phase2_measure.py for the full ablation.
+_LONG_EXPOSURE_SHUTTER_S = 0.5   # exposure time (s) at/above which the gate fires
+_LONG_EXPOSURE_GATE_CONF = 0.80  # confidence assigned to long-exposure when it fires
+                                 # (conservative vs the measured 0.94 precision)
+
+
+def _apply_long_exposure_gate(
+    type_dist: dict[str, float],
+    exif: dict | None,
+) -> dict[str, float]:
+    """Reassign the type distribution toward long-exposure on a slow shutter.
+
+    Fires only when EXIF carries an exposure time >= ``_LONG_EXPOSURE_SHUTTER_S``.
+    Raises long-exposure to ``_LONG_EXPOSURE_GATE_CONF`` (never lowers it) and
+    rescales the remaining mass across the other types, preserving their relative
+    order. A no-op when EXIF is absent or the shutter is fast.
+    """
+    shutter = (exif or {}).get("shutter")
+    if not shutter or shutter < _LONG_EXPOSURE_SHUTTER_S:
+        return type_dist
+    current = type_dist.get("long-exposure", 0.0)
+    if current >= _LONG_EXPOSURE_GATE_CONF:
+        return type_dist
+    remaining = 1.0 - _LONG_EXPOSURE_GATE_CONF
+    others_total = sum(v for k, v in type_dist.items() if k != "long-exposure")
+    out = {}
+    for k, v in type_dist.items():
+        if k == "long-exposure":
+            out[k] = _LONG_EXPOSURE_GATE_CONF
+        elif others_total > 0:
+            out[k] = v / others_total * remaining
+        else:
+            out[k] = remaining / max(len(type_dist) - 1, 1)
+    return out
 
 
 def route_genre(
     ctx: SubjectContext,
     genre_prototypes: np.ndarray | None = None,
+    adapter: dict | None = None,
 ) -> GenreResult:
     """Classify image along two orthogonal axes: Subject and Photo Type.
 
@@ -598,41 +707,61 @@ def route_genre(
         GenreResult with subject, photo_type, confidences, distributions,
         and needs_review flag.
     """
-    # Split CLIP prototypes into subject and type halves
-    subject_protos = None
-    type_protos = None
-    if genre_prototypes is not None:
-        n_subjects = len(SUBJECTS)
-        if genre_prototypes.shape[0] >= n_subjects + len(PHOTO_TYPES):
-            subject_protos = genre_prototypes[:n_subjects]
-            type_protos = genre_prototypes[n_subjects:]
-        else:
-            logger.warning(
-                "genre_prototypes shape %s does not match expected (%d, 512); "
-                "using uniform CLIP priors",
-                genre_prototypes.shape,
-                len(SUBJECTS) + len(PHOTO_TYPES),
-            )
+    clip = ctx.clip_embedding
+    have_clip = clip is not None and not np.allclose(clip, 0.0)
+    use_adapter = (
+        adapter is not None
+        and adapter.get("subject") and adapter.get("type")
+        and have_clip
+    )
 
-    image_area = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
+    if use_adapter:
+        # Learned linear classifier on the CLIP embedding (replaces product-of-experts).
+        from .genre_adapter import predict_axis
 
-    # --- Subject axis signals ------------------------------------------------
-    subj_clip  = _compute_clip_similarity_axis(ctx.clip_embedding, subject_protos, SUBJECTS)
-    subj_exif  = _compute_exif_prior_axis(ctx.exif, SUBJECTS, _SUBJECT_EXIF_PRIORS)
-    subj_yolo  = _compute_yolo_evidence_subject(ctx.detections, image_area)
-    subj_ctx   = _compute_context_likelihood_axis(ctx, SUBJECTS, _SUBJECT_CONTEXT_PRIORS)
-    subj_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, SUBJECTS, _SUBJECT_SHARPNESS_PRIORS)
+        subj_dist = predict_axis(clip, adapter["subject"], SUBJECTS)
+        type_dist = predict_axis(clip, adapter["type"], PHOTO_TYPES)
+    else:
+        # Fallback: product-of-experts over CLIP prototypes + heuristic priors.
+        subject_protos = None
+        type_protos = None
+        if genre_prototypes is not None:
+            n_subjects = len(SUBJECTS)
+            if genre_prototypes.shape[0] >= n_subjects + len(PHOTO_TYPES):
+                subject_protos = genre_prototypes[:n_subjects]
+                type_protos = genre_prototypes[n_subjects:]
+            else:
+                logger.warning(
+                    "genre_prototypes shape %s does not match expected (%d, 512); "
+                    "using uniform CLIP priors",
+                    genre_prototypes.shape,
+                    len(SUBJECTS) + len(PHOTO_TYPES),
+                )
 
-    subj_dist = _fuse_axis([subj_clip, subj_exif, subj_yolo, subj_ctx, subj_sharp], SUBJECTS)
+        image_area = ctx.image_bgr.shape[0] * ctx.image_bgr.shape[1]
 
-    # --- Type axis signals ---------------------------------------------------
-    type_clip  = _compute_clip_similarity_axis(ctx.clip_embedding, type_protos, PHOTO_TYPES)
-    type_exif  = _compute_exif_prior_axis(ctx.exif, PHOTO_TYPES, _TYPE_EXIF_PRIORS)
-    type_yolo  = _compute_yolo_evidence_type(ctx.detections, image_area)
-    type_ctx   = _compute_context_likelihood_axis(ctx, PHOTO_TYPES, _TYPE_CONTEXT_PRIORS)
-    type_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, PHOTO_TYPES, _TYPE_SHARPNESS_PRIORS)
+        # --- Subject axis signals --------------------------------------------
+        subj_clip  = _compute_clip_similarity_axis(clip, subject_protos, SUBJECTS)
+        subj_exif  = _compute_exif_prior_axis(ctx.exif, SUBJECTS, _SUBJECT_EXIF_PRIORS)
+        subj_yolo  = _compute_yolo_evidence_subject(ctx.detections, image_area)
+        subj_ctx   = _compute_context_likelihood_axis(ctx, SUBJECTS, _SUBJECT_CONTEXT_PRIORS)
+        subj_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, SUBJECTS, _SUBJECT_SHARPNESS_PRIORS)
 
-    type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES)
+        subj_dist = _fuse_axis([subj_clip, subj_exif, subj_yolo, subj_ctx, subj_sharp], SUBJECTS,
+                               weights=_FUSION_WEIGHTS)
+
+        # --- Type axis signals -----------------------------------------------
+        type_clip  = _compute_clip_similarity_axis(clip, type_protos, PHOTO_TYPES)
+        type_exif  = _compute_exif_prior_axis(ctx.exif, PHOTO_TYPES, _TYPE_EXIF_PRIORS)
+        type_yolo  = _compute_yolo_evidence_type(ctx.detections, image_area)
+        type_ctx   = _compute_context_likelihood_axis(ctx, PHOTO_TYPES, _TYPE_CONTEXT_PRIORS)
+        type_sharp = _compute_sharpness_likelihood_axis(ctx.sharpness_contrast, PHOTO_TYPES, _TYPE_SHARPNESS_PRIORS)
+
+        type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES,
+                               weights=_FUSION_WEIGHTS)
+
+    # --- EXIF long-exposure gate (high-precision aux signal) -----------------
+    type_dist = _apply_long_exposure_gate(type_dist, ctx.exif)
 
     # --- Pick winners --------------------------------------------------------
     subject = max(subj_dist, key=subj_dist.__getitem__)

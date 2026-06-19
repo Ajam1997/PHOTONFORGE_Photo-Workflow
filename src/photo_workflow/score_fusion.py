@@ -110,6 +110,17 @@ SUBJECT_WEIGHTS: dict[str, dict[str, float]] = {
         "subject_sharpness": 0.15, "exposure_overall": 0.15,
         "blur_type_bonus": 0.10, "negative_space": 0.10,
     },
+    "monument": {
+        "subject_sharpness": 0.25, "exposure_overall": 0.20,
+        "aesthetic_clip": 0.15, "highlight_clip": 0.10,
+        "leading_lines": 0.10, "symmetry": 0.10,
+        "blur_type_penalty": 0.10,
+    },
+    "waterfall": {
+        "subject_sharpness": 0.20, "exposure_overall": 0.20,
+        "aesthetic_clip": 0.20, "dynamic_range": 0.15,
+        "blur_type_bonus": 0.15, "color_contrast": 0.10,
+    },
 }
 
 TYPE_WEIGHTS: dict[str, dict[str, float]] = {
@@ -267,24 +278,43 @@ def _build_sub_score_dict(
     return scores
 
 
+def bootstrap_weight_profiles() -> dict[str, dict[str, dict[str, float]]]:
+    """The hardcoded default weight profiles, in the DB-backed layout.
+
+    Returns {'subject': SUBJECT_WEIGHTS, 'type': TYPE_WEIGHTS}. Used both as the
+    in-code fallback and as the seed for the aesthetic_weights table.
+    """
+    return {"subject": SUBJECT_WEIGHTS, "type": TYPE_WEIGHTS}
+
+
 def _compute_master_score(
     sub_scores: dict[str, float],
     genre: GenreResult,
+    weight_profiles: dict[str, dict[str, dict[str, float]]] | None = None,
 ) -> float:
     """Compute the two-axis weighted master score.
 
     Each axis (subject, photo_type) contributes 50% of the effective weight
     profile.  The final score is the weighted sum of sub-scores.
+
+    weight_profiles: optional {'subject': {label: {key: w}}, 'type': {...}} loaded
+    from the aesthetic_weights table. Falls back to the hardcoded defaults, both
+    overall and per-label when a profile is missing for a given genre.
     """
-    subj = genre.subject if genre.subject in SUBJECT_WEIGHTS else SUBJECTS[0]
-    ptype = genre.photo_type if genre.photo_type in TYPE_WEIGHTS else PHOTO_TYPES[0]
+    subject_w = (weight_profiles or {}).get("subject") or SUBJECT_WEIGHTS
+    type_w = (weight_profiles or {}).get("type") or TYPE_WEIGHTS
+
+    subj = genre.subject if genre.subject in subject_w else (
+        SUBJECTS[0] if SUBJECTS[0] in subject_w else next(iter(subject_w)))
+    ptype = genre.photo_type if genre.photo_type in type_w else (
+        PHOTO_TYPES[0] if PHOTO_TYPES[0] in type_w else next(iter(type_w)))
 
     effective_weights: dict[str, float] = {}
 
-    for key, weight in SUBJECT_WEIGHTS[subj].items():
+    for key, weight in subject_w[subj].items():
         effective_weights[key] = effective_weights.get(key, 0.0) + 0.5 * weight
 
-    for key, weight in TYPE_WEIGHTS[ptype].items():
+    for key, weight in type_w[ptype].items():
         effective_weights[key] = effective_weights.get(key, 0.0) + 0.5 * weight
 
     master = 0.0
@@ -347,13 +377,18 @@ def fuse_scores(
     aesthetic: float,
     faces: list[FaceDetection] | None = None,
     image_gray: np.ndarray | None = None,
+    weight_profiles: dict[str, dict[str, dict[str, float]]] | None = None,
 ) -> FusionResult:
-    """Fuse all sub-scores into a two-axis genre-weighted master score."""
+    """Fuse all sub-scores into a two-axis genre-weighted master score.
+
+    weight_profiles: optional DB-backed aesthetic weight profiles; falls back to
+    the hardcoded defaults when None.
+    """
     sub_scores = _build_sub_score_dict(
         sharpness, composition, exposure, aesthetic, faces, image_gray,
     )
     hard_reject, reject_reason = _check_hard_gates(sharpness, faces, image_gray)
-    master_score = _compute_master_score(sub_scores, genre)
+    master_score = _compute_master_score(sub_scores, genre, weight_profiles)
     star_rating = _score_to_stars(master_score)
     color_label = _score_to_color_label(master_score, hard_reject)
 

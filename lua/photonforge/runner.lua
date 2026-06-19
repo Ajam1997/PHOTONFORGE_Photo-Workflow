@@ -79,6 +79,12 @@ local function build_cmd(step)
   elseif step == "score" then
     local cmd = base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest) .. mode_flag
+    -- Pin the scoring model dir so CLIP/genre models load regardless of how the
+    -- package is installed (a non-editable install cannot auto-detect models/).
+    local models = config.read("models_path")
+    if models ~= "" then
+      cmd = cmd .. " --model-dir " .. shell_quote(models)
+    end
     -- Use calibrated prototypes if training_weights.db is present on the cartridge
     local drive = get_drive_root(dest)
     local training_db = drive .. "training_weights.db"
@@ -89,9 +95,16 @@ local function build_cmd(step)
     end
     return cmd
   elseif step == "name" then
-    return base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
+    local cmd = base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest)
               .. mode_flag
+    -- The name (Florence-2) step expects the florence2_int8 subdir of models/.
+    local models = config.read("models_path")
+    if models ~= "" then
+      local sep = IS_WINDOWS and "\\" or "/"
+      cmd = cmd .. " --model-dir " .. shell_quote(models .. sep .. "florence2_int8")
+    end
+    return cmd
 
   elseif step == "sync-tags" then
     -- Push genres from photonforge.db into Darktable's library.db.
@@ -114,6 +127,10 @@ local function build_cmd(step)
     local cmd = "photo-workflow training recalibrate"
               .. " --photon-db " .. shell_quote(db)
               .. " --training-db " .. shell_quote(training_db)
+    local models = config.read("models_path")
+    if models ~= "" then
+      cmd = cmd .. " --model-dir " .. shell_quote(models)
+    end
     local corpus = config.read("corpus_path")
     if corpus ~= "" then
       cmd = cmd .. " --corpus " .. shell_quote(corpus)
@@ -136,6 +153,10 @@ local function build_cmd(step)
       cmd = cmd .. " --only-files " .. shell_quote(manifest) .. " --skip-genre"
     else
       cmd = cmd .. " --force"
+    end
+    local models = config.read("models_path")
+    if models ~= "" then
+      cmd = cmd .. " --model-dir " .. shell_quote(models)
     end
     local drive = get_drive_root(dest)
     local training_db = drive .. "training_weights.db"

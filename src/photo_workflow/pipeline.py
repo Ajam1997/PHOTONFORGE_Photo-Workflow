@@ -139,7 +139,8 @@ class AnalysisPipeline:
                 ctx = build_subject_context(record.path, model_sessions)
 
                 # Route genre using CLIP + EXIF + YOLO
-                genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes)
+                genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes,
+                                          adapter=model_sessions.genre_adapter)
 
                 # Score with detailed sub-scores
                 sharpness_result = score_sharpness_detailed(ctx)
@@ -162,6 +163,7 @@ class AnalysisPipeline:
                     exposure_result,
                     genre_result,
                     aesthetic_score,
+                    weight_profiles=model_sessions.aesthetic_weights,
                 )
 
                 # Populate old-style scores for backward compatibility
@@ -524,7 +526,8 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                         needs_review=bool(row["needs_review"]),
                     )
                 else:
-                    genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes)
+                    genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes,
+                                          adapter=model_sessions.genre_adapter)
                 sharpness_result = score_sharpness_detailed(ctx)
                 composition_result = score_composition_detailed(ctx)
                 exposure_result = score_exposure_detailed(ctx)
@@ -544,6 +547,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     exposure_result,
                     genre_result,
                     aesthetic_score,
+                    weight_profiles=model_sessions.aesthetic_weights,
                 )
 
                 sharp = sharpness_result.overall
@@ -767,7 +771,7 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
     """
     import sqlite3 as _sqlite3
 
-    from .darktable_bridge import clear_photon_tags, write_darktable_keywords
+    from .darktable_bridge import clear_photon_tags, write_darktable_keywords, purge_orphan_photon_tags
     from .photondb import sanitize_table_name
 
     table = sanitize_table_name(folder)
@@ -831,7 +835,11 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
     if json_progress:
         click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
     else:
-        click.echo(f"Synced tags for {done}/{total} photos in '{folder}'.")
+        # Garbage-collect deprecated/renamed photon tag definitions left empty by
+        # re-scores (clear_photon_tags only drops associations, not the tags).
+        purged = purge_orphan_photon_tags(dt_library)
+        click.echo(f"Synced tags for {done}/{total} photos in '{folder}'."
+                   + (f" Purged {purged} orphaned photon tags." if purged else ""))
 
 
 @cli.command()
@@ -1033,6 +1041,104 @@ def recalibrate(
 
     conn.close()
     click.echo(f"OK: Wrote {len(ALL_LABELS)} prototypes (version {version}) to {training_db}")
+
+
+@training.command("train-adapter")
+@click.option("--corpus", default=_DEFAULT_CORPUS, type=click.Path(path_type=Path),
+              help="Path to genre_labels.jsonl")
+@click.option("--photon-db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path),
+              help="Path to photonforge.db (to load CLIP embeddings)")
+@click.option("--training-db", "training_db", required=True, type=click.Path(path_type=Path),
+              help="Path to training_weights.db (output)")
+@click.option("--cv-folds", default=5, type=int, help="Cross-validation folds for the accuracy report")
+def train_adapter(corpus: Path, photon_db: Path, training_db: Path, cv_folds: int) -> None:
+    """Train the learned linear genre classifier (subject + type) on the corpus."""
+    import json as _json
+    import sqlite3 as _sql
+
+    from .genre_adapter import train_linear_adapter
+    from .training_weights_db import (
+        open_training_db, ensure_schema, next_version, upsert_linear_adapter,
+    )
+
+    labels: dict[str, tuple[str, str]] = {}
+    for line in open(corpus, encoding="utf-8"):
+        line = line.strip()
+        if line:
+            r = _json.loads(line)
+            labels[r["filename"]] = (r["subject"], r["photo_type"])
+
+    pc = _sql.connect(str(photon_db))
+    emb: dict[str, np.ndarray] = {}
+    for (t,) in pc.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"):
+        cols = [c[1] for c in pc.execute(f'PRAGMA table_info("{t}")')]
+        if "clip_embedding" not in cols or "filename" not in cols:
+            continue
+        for fn, blob in pc.execute(f'SELECT filename, clip_embedding FROM "{t}" WHERE clip_embedding IS NOT NULL'):
+            if fn in labels and fn not in emb:
+                emb[fn] = np.frombuffer(blob, dtype=np.float32)
+    pc.close()
+
+    names = [fn for fn in labels if fn in emb]
+    if not names:
+        click.echo("ERROR: no labeled images with CLIP embeddings found", err=True)
+        raise SystemExit(1)
+    X = np.vstack([emb[fn] for fn in names])
+    ys = np.array([labels[fn][0] for fn in names])
+    yt = np.array([labels[fn][1] for fn in names])
+
+    click.echo(f"Training linear adapter on {len(names)} labeled embeddings...")
+    heads = train_linear_adapter(X, ys, yt, cv_folds=cv_folds)
+
+    conn = open_training_db(training_db)
+    ensure_schema(conn)
+    version = next_version(conn)
+    for axis, h in heads.items():
+        upsert_linear_adapter(conn, version, axis, h["classes"], h["weight"], h["bias"],
+                              h["n_samples"], h["cv_accuracy"])
+    conn.close()
+    click.echo(f"OK: trained adapter (version {version}) -> {training_db}")
+    for axis, h in heads.items():
+        click.echo(f"  {axis:7}: {len(h['classes'])} classes, {h['n_samples']} samples, "
+                   f"CV accuracy {h['cv_accuracy']:.3f}")
+
+
+@training.command("bootstrap-aesthetic-weights")
+@click.option("--training-db", "training_db", required=True, type=click.Path(path_type=Path),
+              help="Path to training_weights.db (output)")
+@click.option("--from-active", is_flag=True,
+              help="Seed from the currently active DB profiles instead of the code defaults")
+def bootstrap_aesthetic_weights(training_db: Path, from_active: bool) -> None:
+    """Seed the aesthetic_weights table from the hardcoded score_fusion defaults.
+
+    This is the one-time bootstrap that moves the per-genre weight profiles out of
+    code and into the (tunable, versioned) DB. Re-running creates a new version.
+    """
+    from .score_fusion import bootstrap_weight_profiles
+    from .training_weights_db import (
+        open_training_db, ensure_schema, next_aesthetic_weights_version,
+        upsert_aesthetic_weights, get_active_aesthetic_weights,
+    )
+
+    conn = open_training_db(training_db)
+    ensure_schema(conn)
+    if from_active:
+        profiles = get_active_aesthetic_weights(conn)
+        if not profiles:
+            click.echo("ERROR: no active aesthetic weights to seed from", err=True)
+            raise SystemExit(1)
+    else:
+        profiles = bootstrap_weight_profiles()
+
+    version = next_aesthetic_weights_version(conn)
+    n = 0
+    for axis, by_label in profiles.items():
+        for label, weights in by_label.items():
+            upsert_aesthetic_weights(conn, version, axis, label, weights)
+            n += 1
+    conn.close()
+    click.echo(f"OK: wrote {n} aesthetic weight profiles (version {version}) -> {training_db}")
 
 
 @training.command("collect-corrections")

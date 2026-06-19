@@ -15,6 +15,7 @@ local DEFS = {
   { name = "step_score",   type = "bool",    default = true, label = "Score" },
   { name = "step_name",    type = "bool",    default = true, label = "Name" },
   { name = "corpus_path",      type = "string",  default = "", label = "Corpus JSONL path" },
+  { name = "models_path",      type = "string",  default = "", label = "Models dir (blank = auto-detect from package)" },
   { name = "last_run_ingest",  type = "string",  default = "", label = "" },
   { name = "last_run_import",  type = "string",  default = "", label = "" },
   { name = "last_run_dedup",   type = "string",  default = "", label = "" },

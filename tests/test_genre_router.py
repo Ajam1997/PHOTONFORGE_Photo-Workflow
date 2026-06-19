@@ -51,14 +51,14 @@ def _make_context(
 
 def test_genres_list_complete() -> None:
     """All built-in labels should be defined across both axes."""
-    assert len(SUBJECTS) == 13
+    assert len(SUBJECTS) == 15
     assert len(PHOTO_TYPES) == 11
-    # 13 + 11, fully orthogonal (no shared labels) = 24 unique
-    assert len(ALL_LABELS) == 24
+    # 15 + 11, fully orthogonal (no shared labels) = 26 unique
+    assert len(ALL_LABELS) == 26
     assert GENRES is ALL_LABELS
     for s in ("people", "pet", "wildlife", "plant", "landscape",
               "seascape", "sky", "cityscape", "building", "vehicle",
-              "food", "object", "abstract"):
+              "food", "object", "abstract", "monument", "waterfall"):
         assert s in SUBJECTS
     for t in ("portrait", "candid", "scenic", "street", "macro",
               "architecture", "action", "aerial", "long-exposure",

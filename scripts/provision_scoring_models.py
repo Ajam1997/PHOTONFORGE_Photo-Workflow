@@ -219,7 +219,7 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
     """Generate two-axis prototype embeddings using MobileCLIP-S2 text encoder.
 
     Uses a 7-template prompt ensemble for both subject and photo type classes.
-    Output shape: (24, 512) — first 13 rows = subjects, next 11 rows = types.
+    Output shape: (26, 512) — first 15 rows = subjects, next 11 rows = types.
     Each prototype is the L2-normalized mean of all template embeddings for that class.
     """
     out_file = models_dir / "genre_prototypes.npy"
@@ -270,6 +270,8 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
         "food": "food or meal",
         "object": "object or product",
         "abstract": "abstract pattern",
+        "monument": "monument statue or memorial",
+        "waterfall": "waterfall cascading water",
     }
 
     # Photo type fill text
@@ -291,7 +293,7 @@ def _generate_genre_prototypes(model: object, models_dir: Path, force: bool) -> 
     subjects_ordered = [
         "people", "pet", "wildlife", "plant", "landscape",
         "seascape", "sky", "cityscape", "building", "vehicle",
-        "food", "object", "abstract"
+        "food", "object", "abstract", "monument", "waterfall"
     ]
     types_ordered = [
         "portrait", "candid", "scenic", "street", "macro",

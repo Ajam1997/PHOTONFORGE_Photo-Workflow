@@ -226,6 +226,44 @@ def clear_photon_tags(library_db_path: Path, filename: str) -> None:
         logger.error("Failed to clear photon tags for %s: %s", filename, e)
 
 
+def purge_orphan_photon_tags(library_db_path: Path) -> int:
+    """Delete *deprecated* photon|* tag definitions left empty by re-scores.
+
+    clear_photon_tags removes image<->tag associations on re-score but leaves the
+    tag definition in data.tags behind. Across taxonomy changes (renamed/removed
+    genres) these accumulate as empty tags in Darktable's tag list. This deletes
+    only photon|* tags whose name is NOT part of the *current* taxonomy AND that
+    tag no image — so deprecated names (e.g. old subject 'glacier', old type
+    'landscape') are removed, while valid-but-currently-unused tags (e.g.
+    'photon|subject|building') are preserved. Returns the number purged.
+
+    DT must be closed (direct SQLite write), same as the keyword writer.
+    """
+    from .genre_router import SUBJECTS, PHOTO_TYPES
+
+    valid = {f"photon|subject|{s}" for s in SUBJECTS}
+    valid |= {f"photon|type|{t}" for t in PHOTO_TYPES}
+    valid.add("photon|needs_review")
+
+    data_db_path = _get_data_db_path(library_db_path)
+    try:
+        conn = sqlite3.connect(str(library_db_path))
+        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
+        orphans = conn.execute(
+            "SELECT id, name FROM data.tags WHERE name LIKE 'photon|%' "
+            "AND id NOT IN (SELECT DISTINCT tagid FROM main.tagged_images)"
+        ).fetchall()
+        stale = [tid for tid, name in orphans if name not in valid]
+        for tid in stale:
+            conn.execute("DELETE FROM data.tags WHERE id=?", (tid,))
+        conn.commit()
+        conn.close()
+        return len(stale)
+    except Exception as e:
+        logger.error("Failed to purge orphan photon tags: %s", e)
+        return 0
+
+
 def write_darktable_keywords(
     library_db_path: Path,
     filename: str,

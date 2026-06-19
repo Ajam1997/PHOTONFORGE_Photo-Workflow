@@ -14,7 +14,35 @@ from photo_workflow.training_weights_db import (
     upsert_prototype,
     get_active_prototypes,
     rollback_to_version,
+    next_aesthetic_weights_version,
+    upsert_aesthetic_weights,
+    get_active_aesthetic_weights,
 )
+
+
+def test_aesthetic_weights_roundtrip(training_db):
+    """Stored profiles come back grouped by axis, latest version active."""
+    v = next_aesthetic_weights_version(training_db)
+    assert v == 1
+    upsert_aesthetic_weights(training_db, v, "subject", "wildlife",
+                             {"subject_sharpness": 0.6, "exposure_overall": 0.4})
+    upsert_aesthetic_weights(training_db, v, "type", "candid", {"subject_sharpness": 1.0})
+    got = get_active_aesthetic_weights(training_db)
+    assert got["subject"]["wildlife"] == {"subject_sharpness": 0.6, "exposure_overall": 0.4}
+    assert got["type"]["candid"] == {"subject_sharpness": 1.0}
+
+
+def test_aesthetic_weights_upsert_deactivates_prior(training_db):
+    """A second upsert for the same (axis,label) replaces the active row."""
+    upsert_aesthetic_weights(training_db, 1, "type", "candid", {"a": 1.0})
+    v2 = next_aesthetic_weights_version(training_db)
+    upsert_aesthetic_weights(training_db, v2, "type", "candid", {"b": 1.0})
+    got = get_active_aesthetic_weights(training_db)
+    assert got["type"]["candid"] == {"b": 1.0}
+
+
+def test_aesthetic_weights_empty_when_unpopulated(training_db):
+    assert get_active_aesthetic_weights(training_db) == {}
 
 
 @pytest.fixture

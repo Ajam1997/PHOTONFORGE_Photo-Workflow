@@ -142,6 +142,55 @@ class ModelSessions:
                 self._sessions["genre_prototypes"] = None
         return self._sessions["genre_prototypes"]
 
+    @property
+    def genre_adapter(self) -> dict | None:
+        """Learned linear classifier heads {axis: head} from the training DB.
+
+        Returns None when no adapter is stored (callers fall back to prototypes).
+        """
+        if "genre_adapter" not in self._sessions:
+            adapter = None
+            if self._training_db_path and self._training_db_path.exists():
+                try:
+                    from .training_weights_db import open_training_db, get_active_linear_adapter
+
+                    conn = open_training_db(self._training_db_path)
+                    active = get_active_linear_adapter(conn)
+                    conn.close()
+                    if active.get("subject") and active.get("type"):
+                        adapter = active
+                        logger.info("Loaded learned genre adapter from training DB")
+                except Exception as e:
+                    logger.warning("Failed to load genre adapter: %s", e)
+            self._sessions["genre_adapter"] = adapter
+        return self._sessions["genre_adapter"]
+
+    @property
+    def aesthetic_weights(self) -> dict | None:
+        """Per-genre aesthetic weight profiles from the training DB.
+
+        Returns {'subject': {label: {key: w}}, 'type': {...}}, or None when none
+        are stored (score fusion then falls back to its hardcoded defaults).
+        """
+        if "aesthetic_weights" not in self._sessions:
+            profiles = None
+            if self._training_db_path and self._training_db_path.exists():
+                try:
+                    from .training_weights_db import (
+                        open_training_db, get_active_aesthetic_weights,
+                    )
+
+                    conn = open_training_db(self._training_db_path)
+                    active = get_active_aesthetic_weights(conn)
+                    conn.close()
+                    if active.get("subject") and active.get("type"):
+                        profiles = active
+                        logger.info("Loaded aesthetic weight profiles from training DB")
+                except Exception as e:
+                    logger.warning("Failed to load aesthetic weights: %s", e)
+            self._sessions["aesthetic_weights"] = profiles
+        return self._sessions["aesthetic_weights"]
+
 
 def _extract_exif(path: Path) -> dict:
     """Extract relevant EXIF fields from an image file."""

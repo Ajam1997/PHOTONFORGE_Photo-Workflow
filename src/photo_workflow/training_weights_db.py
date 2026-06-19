@@ -68,6 +68,39 @@ def ensure_schema(conn: sqlite3.Connection) -> None:
         n_examples INTEGER DEFAULT 0,
         promoted INTEGER DEFAULT 0
     );
+
+    -- Learned linear genre classifier (one row per axis: 'subject' / 'type').
+    -- logits = clip_embedding @ weight.T + bias  ->  softmax over `classes`.
+    CREATE TABLE IF NOT EXISTS genre_adapter_linear (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        version INTEGER NOT NULL,
+        axis TEXT NOT NULL,
+        classes TEXT NOT NULL,
+        weight BLOB NOT NULL,
+        bias BLOB NOT NULL,
+        dim INTEGER NOT NULL,
+        n_samples INTEGER,
+        cv_accuracy REAL,
+        created_at TEXT DEFAULT (datetime('now')),
+        is_active INTEGER DEFAULT 1,
+        UNIQUE(version, axis)
+    );
+
+    -- Per-genre aesthetic scoring weights. One row per (axis, label); `weights`
+    -- is a JSON map {sub_score_key: weight} the score fuser applies to combine
+    -- sub-scores into the master score. axis is 'subject' or 'type'; the fuser
+    -- blends the two axes' active profiles. Tunable / learnable; falls back to
+    -- the hardcoded score_fusion defaults when absent.
+    CREATE TABLE IF NOT EXISTS aesthetic_weights (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        version INTEGER NOT NULL,
+        axis TEXT NOT NULL,
+        label TEXT NOT NULL,
+        weights TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        is_active INTEGER DEFAULT 1,
+        UNIQUE(version, axis, label)
+    );
     """
     )
     conn.commit()
@@ -152,6 +185,124 @@ def get_active_prototypes(conn: sqlite3.Connection) -> dict[str, dict]:
             "alpha": row["alpha"],
         }
     return result
+
+
+def upsert_linear_adapter(
+    conn: sqlite3.Connection,
+    version: int,
+    axis: str,
+    classes: list[str],
+    weight: np.ndarray,
+    bias: np.ndarray,
+    n_samples: int,
+    cv_accuracy: float,
+) -> None:
+    """Store a learned linear classifier head for one axis ('subject'/'type')."""
+    import json
+
+    conn.execute("UPDATE genre_adapter_linear SET is_active=0 WHERE axis=? AND is_active=1", (axis,))
+    conn.execute(
+        """
+        INSERT INTO genre_adapter_linear
+            (version, axis, classes, weight, bias, dim, n_samples, cv_accuracy, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """,
+        (
+            version, axis, json.dumps(list(classes)),
+            np.asarray(weight, dtype=np.float32).tobytes(),
+            np.asarray(bias, dtype=np.float32).tobytes(),
+            int(weight.shape[1]), int(n_samples), float(cv_accuracy),
+        ),
+    )
+    conn.commit()
+
+
+def get_active_linear_adapter(conn: sqlite3.Connection) -> dict[str, dict]:
+    """Retrieve the active linear adapter heads keyed by axis.
+
+    Returns {axis: {"classes": list[str], "weight": (n,dim) f32, "bias": (n,) f32,
+                    "version": int}} — empty dict if none stored.
+    """
+    import json
+
+    try:
+        rows = conn.execute(
+            "SELECT axis, classes, weight, bias, dim, version "
+            "FROM genre_adapter_linear WHERE is_active=1"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict] = {}
+    for row in rows:
+        dim = row["dim"]
+        w = np.frombuffer(row["weight"], dtype=np.float32).reshape(-1, dim)
+        b = np.frombuffer(row["bias"], dtype=np.float32)
+        out[row["axis"]] = {
+            "classes": json.loads(row["classes"]),
+            "weight": w,
+            "bias": b,
+            "version": row["version"],
+        }
+    return out
+
+
+def next_aesthetic_weights_version(conn: sqlite3.Connection) -> int:
+    """Next version number for the aesthetic_weights table (highest + 1, or 1)."""
+    try:
+        row = conn.execute("SELECT MAX(version) AS v FROM aesthetic_weights").fetchone()
+    except sqlite3.OperationalError:
+        return 1
+    if row and row["v"] is not None:
+        return row["v"] + 1
+    return 1
+
+
+def upsert_aesthetic_weights(
+    conn: sqlite3.Connection,
+    version: int,
+    axis: str,
+    label: str,
+    weights: dict[str, float],
+) -> None:
+    """Insert a per-genre aesthetic weight profile, deactivating the prior active one.
+
+    Args:
+        axis: 'subject' or 'type'.
+        label: genre label (e.g. 'portrait', 'landscape').
+        weights: {sub_score_key: weight}.
+    """
+    import json
+
+    conn.execute(
+        "UPDATE aesthetic_weights SET is_active=0 WHERE axis=? AND label=? AND is_active=1",
+        (axis, label),
+    )
+    conn.execute(
+        "INSERT INTO aesthetic_weights (version, axis, label, weights, is_active) "
+        "VALUES (?, ?, ?, ?, 1)",
+        (version, axis, label, json.dumps({k: float(v) for k, v in weights.items()})),
+    )
+    conn.commit()
+
+
+def get_active_aesthetic_weights(conn: sqlite3.Connection) -> dict[str, dict[str, dict[str, float]]]:
+    """Retrieve active aesthetic weight profiles, grouped by axis.
+
+    Returns {'subject': {label: {key: weight}}, 'type': {label: {key: weight}}}.
+    Empty dict if the table is absent or unpopulated.
+    """
+    import json
+
+    try:
+        rows = conn.execute(
+            "SELECT axis, label, weights FROM aesthetic_weights WHERE is_active=1"
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    out: dict[str, dict[str, dict[str, float]]] = {}
+    for row in rows:
+        out.setdefault(row["axis"], {})[row["label"]] = json.loads(row["weights"])
+    return out
 
 
 def rollback_to_version(conn: sqlite3.Connection, version: int) -> None:
