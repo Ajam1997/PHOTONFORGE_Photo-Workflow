@@ -381,6 +381,24 @@ def stars_to_color_label(stars: int, hard_reject: bool = False) -> int:
     return _DT_NONE
 
 
+def absolute_star(master: float, hard_reject: bool = False) -> int:
+    """Star rating from absolute master thresholds, recalibrated for the min-gate.
+
+    Streams per image (no shoot-wide pass needed). Thresholds are tuned to the
+    compressed master range the min-gate + AVA-domain-shifted aesthetic produce
+    (typically ~0.25–0.65). Below the floor / hard-reject -> 1 star.
+    """
+    if hard_reject or master < _RATING_ABS_FLOOR:
+        return 1
+    if master < 0.40:
+        return 2
+    if master < 0.50:
+        return 3
+    if master < 0.60:
+        return 4
+    return 5
+
+
 def hybrid_star(master: float, hard_reject: bool, kept_sorted: list[float]) -> int:
     """Star rating from the absolute floor + percentile within the shoot.
 

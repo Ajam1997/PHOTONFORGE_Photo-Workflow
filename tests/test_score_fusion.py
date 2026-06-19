@@ -157,6 +157,18 @@ def test_hybrid_star_floor_and_percentile() -> None:
     assert stars_to_color_label(5, hard_reject=True) == -1
 
 
+def test_absolute_star_streaming_mapping() -> None:
+    """absolute_star maps the compressed min-gate range to a full 1-5 spread,
+    floors below the reject threshold, and is monotonic."""
+    from photo_workflow.score_fusion import absolute_star
+    assert absolute_star(0.10) == 1            # below floor
+    assert absolute_star(0.55, hard_reject=True) == 1  # hard reject overrides
+    assert absolute_star(0.65) == 5            # top of the range
+    seq = [absolute_star(m) for m in (0.25, 0.40, 0.50, 0.60, 0.70)]
+    assert seq == sorted(seq)                  # monotonic non-decreasing
+    assert len(set(seq)) >= 4                  # spreads across multiple bins
+
+
 def test_degeneracy_detector_flags_constant_model() -> None:
     """_aesthetic_session_is_degenerate catches a model that ignores its input."""
     from photo_workflow.subject_context import _aesthetic_session_is_degenerate
