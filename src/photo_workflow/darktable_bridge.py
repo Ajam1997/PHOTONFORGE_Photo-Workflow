@@ -226,6 +226,34 @@ def clear_photon_tags(library_db_path: Path, filename: str) -> None:
         logger.error("Failed to clear photon tags for %s: %s", filename, e)
 
 
+def purge_orphan_photon_tags(library_db_path: Path) -> int:
+    """Delete photon|* tag *definitions* that no longer tag any image.
+
+    clear_photon_tags removes image<->tag associations on re-score but leaves the
+    tag definition in data.tags behind. Across taxonomy changes (renamed/removed
+    genres) these accumulate as empty "deprecated" tags in Darktable's tag list.
+    This garbage-collects every photon|* tag with zero associations; any tag still
+    needed is recreated on the next write. Returns the number of tags purged.
+
+    DT must be closed (direct SQLite write), same as the keyword writer.
+    """
+    data_db_path = _get_data_db_path(library_db_path)
+    try:
+        conn = sqlite3.connect(str(library_db_path))
+        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
+        cur = conn.execute(
+            "DELETE FROM data.tags WHERE name LIKE 'photon|%' "
+            "AND id NOT IN (SELECT DISTINCT tagid FROM main.tagged_images)"
+        )
+        purged = cur.rowcount or 0
+        conn.commit()
+        conn.close()
+        return purged
+    except Exception as e:
+        logger.error("Failed to purge orphan photon tags: %s", e)
+        return 0
+
+
 def write_darktable_keywords(
     library_db_path: Path,
     filename: str,

@@ -767,7 +767,7 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
     """
     import sqlite3 as _sqlite3
 
-    from .darktable_bridge import clear_photon_tags, write_darktable_keywords
+    from .darktable_bridge import clear_photon_tags, write_darktable_keywords, purge_orphan_photon_tags
     from .photondb import sanitize_table_name
 
     table = sanitize_table_name(folder)
@@ -831,7 +831,11 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
     if json_progress:
         click.echo(json.dumps({"step": "_progress", "done": done, "total": total}))
     else:
-        click.echo(f"Synced tags for {done}/{total} photos in '{folder}'.")
+        # Garbage-collect deprecated/renamed photon tag definitions left empty by
+        # re-scores (clear_photon_tags only drops associations, not the tags).
+        purged = purge_orphan_photon_tags(dt_library)
+        click.echo(f"Synced tags for {done}/{total} photos in '{folder}'."
+                   + (f" Purged {purged} orphaned photon tags." if purged else ""))
 
 
 @cli.command()
