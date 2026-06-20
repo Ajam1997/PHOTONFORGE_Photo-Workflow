@@ -19,9 +19,22 @@
  * Only the success/fail status colors are hard-coded hex (semantic).
  * ===========================================================================*/
 
-/* --- Accent ---------------------------------------------------------------
- * Uncomment to force the design's dark-maroon accent regardless of theme:
- * @define-color bauhaus_fill #7d2733;
+/* --- Accent (GLOBAL) ------------------------------------------------------
+ * Recolor darktable's accent to the hand-off's dark maroon. Because the panel
+ * rules below draw from @bauhaus_fill, this single line turns the tabs, Run
+ * button, progress bar and active states maroon to match the mock.
+ *
+ * SCOPE: @bauhaus_fill is darktable's app-wide accent, so this also tints
+ * sliders, selection highlights, etc. across the whole UI. That is the
+ * "look like the hand-off" behavior. To keep the maroon to the PhotonForge
+ * panel ONLY, comment this line out and uncomment the #pf-scoped block below.
+ *
+ * Alternate shades from the mock: #5a1a22  #9b2c3a  #6e2438  amber #d8a24a */
+@define-color bauhaus_fill #7d2733;
+
+/* Panel-only maroon (use INSTEAD of the global @define-color above):
+ * #pf_run, #pf_tab_active { background-color: #7d2733; color: #f6e7ea; }
+ * #pf_progress_bar, #pf_state_running, #pf_entry_required { color: #7d2733; }
  */
 
 /* --- Title bar ------------------------------------------------------------*/
@@ -94,7 +107,7 @@
 #pf_progress_time { color: @grey_60; font-size: 10px; }
 
 /* --- Cartridge strip ------------------------------------------------------*/
-#pf_cartridge { background-color: @grey_10; border-radius: 5px; }
+#pf_cartridge { background-color: #121212; border-radius: 5px; }
 #pf_cartridge_btn { border-radius: 4px; }
 #pf_cartridge_btn:disabled { color: @grey_30; }
 
@@ -102,7 +115,7 @@
 /* min-height reserves a stable box; the panel caps visible lines in Lua so the
  * log never grows past this. Full history lives in the on-disk session log. */
 #pf_log {
-  background-color: @grey_10;
+  background-color: #121212;
   font-size: 10px;
   min-height: 150px;
 }
