@@ -1,0 +1,6 @@
+# Generated spike data — regenerable, large, or machine-specific.
+ava_cache/
+cache/
+track_b_smoke/
+track_b_results/previews/
+track_b_results/*.jpg

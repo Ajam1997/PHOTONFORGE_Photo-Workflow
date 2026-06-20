@@ -1,0 +1,506 @@
+[
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "DSC03141.ARW",
+    "latency_s": 31.1,
+    "caption": "The image depicts a harbor scene with a focus on several boats docked and moored. The background of the image shows a large, multi-story building with a distinctive architectural style. The building is"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "DSC03141.ARW",
+    "latency_s": 27.47,
+    "caption": "A collection of boats docked by a building with a pattern of multicolored tiles."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "DSC03141.ARW",
+    "latency_s": 28.25,
+    "caption": "A large, dark-tiled building stands along a harbor, its windows reflecting the sky and the boats docked below."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0000001.ARW",
+    "latency_s": 10.34,
+    "caption": "The image depicts a view from an airplane, specifically from the wing of the aircraft. The airplane is positioned in a manner that suggests it is flying at a high altitude, as indicated by the vast,"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0000001.ARW",
+    "latency_s": 7.52,
+    "caption": "An aerial view of a desert landscape seen from an airplane wing."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0000001.ARW",
+    "latency_s": 8.3,
+    "caption": "A vast, flat landscape with a grid pattern of smaller rectangles, likely representing farm fields, seen from an airplane window."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0000096.ARW",
+    "latency_s": 9.29,
+    "caption": "The image depicts a white, short-sleeved t-shirt with a graphic design prominently displayed on the front. The design features a black cat-like creature standing on its hind legs in front"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0000096.ARW",
+    "latency_s": 9.53,
+    "caption": "A white, short sleeve, half-sleeve t-shirt displays an image of a catzilla logo over a cityscape, featuring a black cat on a crescent moon, all in red"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0000096.ARW",
+    "latency_s": 9.88,
+    "caption": "A white, short sleeve, t-shirt with the word \"CATZILLA\" written across the top in bold black letters. Inside the circle of the word is a drawing of a catz"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0000116.ARW",
+    "latency_s": 9.49,
+    "caption": "The image depicts the front entrance of a building, which appears to be a coffee shop. The building has a light-colored exterior with vertical stripes, typical of commercial establishments. The facade is divided into"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0000116.ARW",
+    "latency_s": 7.99,
+    "caption": "A coffee shop called Ood's Raked Workshop has a sign on the door."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0000116.ARW",
+    "latency_s": 9.14,
+    "caption": "A building with a sign that says \"OODIN'S RAVEN WORKSHOP\" in a fancy font."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0000147.ARW",
+    "latency_s": 9.08,
+    "caption": "The image depicts a scene on a sidewalk, likely in an urban or suburban area. The foreground features a person seated on the ground, seemingly in a state of exhaustion or contemplation. The individual is wearing"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0000147.ARW",
+    "latency_s": 7.53,
+    "caption": "A cat is sprawled on the pavement with a bag on its back."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0000147.ARW",
+    "latency_s": 6.97,
+    "caption": "A cat is sleeping on the ground."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0000159.ARW",
+    "latency_s": 8.89,
+    "caption": "The image depicts a street scene in what appears to be a small town or village. The primary focus is on the street, which is paved and has a black asphalt surface. The street is lined with"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0000159.ARW",
+    "latency_s": 8.2,
+    "caption": "A street scene in a European town with a few cars parked along the curb and buildings on both sides of the street."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0000159.ARW",
+    "latency_s": 7.2,
+    "caption": "A cityscape/street photo."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0000283.ARW",
+    "latency_s": 9.21,
+    "caption": "The image depicts a coastal scene with a calm body of water stretching horizontally across the frame. The water appears to be relatively clear, with a few small ripples visible on its surface. The horizon is dominated"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0000283.ARW",
+    "latency_s": 8.15,
+    "caption": "In this image we can see water, buildings, trees, poles and in the background we can see the sky."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0000283.ARW",
+    "latency_s": 7.89,
+    "caption": "The ocean stretches out to the horizon, reflecting the clear blue sky above."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0001394.ARW",
+    "latency_s": 9.46,
+    "caption": "The image depicts a bird flying over a body of water. The bird is positioned in the center of the image and appears to be a seagull, given its size and the shape of its wings."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0001394.ARW",
+    "latency_s": 7.65,
+    "caption": "A grey and white seagull flying over rough ocean waves."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0001394.ARW",
+    "latency_s": 7.46,
+    "caption": "Seagull in rough sea."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0002938.ARW",
+    "latency_s": 9.93,
+    "caption": "The image depicts a dramatic and expansive landscape dominated by a river flowing through a rugged terrain. The river is the central focus of the image, and it appears to be a significant feature due to the volume"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0002938.ARW",
+    "latency_s": 7.47,
+    "caption": "A rushing river with huge cliffs in the background."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0002938.ARW",
+    "latency_s": 9.2,
+    "caption": "A cascading waterfall, surrounded by rocky cliffs, creates a breathtaking natural scene. The water cascades down the side of the cliff, forming a white mist that adds to the dramatic effect. The cliffs"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0006070.ARW",
+    "latency_s": 7.46,
+    "caption": "A dark grey sky with a single bird flying in the upper left corner."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0006070.ARW",
+    "latency_s": 7.01,
+    "caption": "Dark, cloudy sky."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0006070.ARW",
+    "latency_s": 7.12,
+    "caption": "A vehicle/action photo."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001ICE0006679.ARW",
+    "latency_s": 9.32,
+    "caption": "The image depicts a close-up view of a rectangular white surface, likely a table or a countertop. The surface is smooth and clean, with a uniform color and no visible imperfections. The edges"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001ICE0006679.ARW",
+    "latency_s": 7.42,
+    "caption": "A white rectangular board sits on a dark surface."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001ICE0006679.ARW",
+    "latency_s": 6.91,
+    "caption": "A structure."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare",
+    "file": "P001MIS0000230.ARW",
+    "latency_s": 9.3,
+    "caption": "The image depicts a prominent and striking sculpture situated on a paved plaza or walkway. The sculpture is a large, detailed depiction of a bald eagle, perched atop a pedestal. The eagle is"
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction",
+    "file": "P001MIS0000230.ARW",
+    "latency_s": 7.46,
+    "caption": "In Honor of all who served."
+  },
+  {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded",
+    "file": "P001MIS0000230.ARW",
+    "latency_s": 7.46,
+    "caption": "In honor of all who served."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "DSC03141.ARW",
+    "latency_s": 7.56,
+    "caption": "The image depicts a large, modern building with a distinctive architectural design. The structure features a series of interconnected, angular sections that create a dynamic, almost fractal-like appearance. The building's facade is"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "DSC03141.ARW",
+    "latency_s": 7.22,
+    "caption": "A modern building with colorful tiles on its facade sits in front of a body of water."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "DSC03141.ARW",
+    "latency_s": 6.39,
+    "caption": "A bustling harbor scene unfolds as boats gently bob in the water, their masts standing tall against the backdrop of a striking modern building."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0000001.ARW",
+    "latency_s": 6.88,
+    "caption": "This photograph, taken from the window of an airplane, captures a detailed aerial view of a vast, flat landscape. The image prominently features the airplane's wing, which is visible in the upper left"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0000001.ARW",
+    "latency_s": 5.41,
+    "caption": "Aerial view from an airplane wing showing farmland below."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0000001.ARW",
+    "latency_s": 7.36,
+    "caption": "As I gaze through the airplane window, I'm struck by the stark contrast between the man-made structure and the vast, barren landscape below. The aircraft's wing and engine blades create a sharp sil"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0000096.ARW",
+    "latency_s": 7.12,
+    "caption": "The image depicts a store window display featuring two white t-shirts hanging on wooden hangers. The t-shirt on the left is labeled \"Cat Zilla\" and showcases a black cat with a"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0000096.ARW",
+    "latency_s": 5.83,
+    "caption": "Two Catzilla t-shirts hanging on a rack."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0000096.ARW",
+    "latency_s": 7.68,
+    "caption": "A white t-shirt featuring Catzilla is displayed on a wooden hanger, with the cat's face prominently visible. The shirt is positioned in the foreground, while a window in the background allows"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0000116.ARW",
+    "latency_s": 6.94,
+    "caption": "The image depicts the front of a small, two-story building with a distinctive yellowish-orange hue. The building features a mix of architectural elements, including a staircase leading up to the entrance and"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0000116.ARW",
+    "latency_s": 5.79,
+    "caption": "A woman walks up the stairs to the entrance of a building with a sign that says \"Odins Ravened Workshop\"."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0000116.ARW",
+    "latency_s": 6.89,
+    "caption": "A woman strolls past a charming yellow building, its welcoming facade adorned with a black sign that reads \"Odins Ravened Workshop\" and \"Hrafnagalour Geins"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0000147.ARW",
+    "latency_s": 6.87,
+    "caption": "In this outdoor photograph, a black and white dog is lying on a gray concrete sidewalk, seemingly asleep. The dog's head is turned to the left, and its body is oriented towards the right."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0000147.ARW",
+    "latency_s": 9.38,
+    "caption": "A man pets a black and white dog on the sidewalk."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0000147.ARW",
+    "latency_s": 11.01,
+    "caption": "A contented cat lies on the cool concrete, basking in the warm sunlight, while a person in a cozy sweater and boots stands nearby, their arm extended to gently pet the feline."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0000159.ARW",
+    "latency_s": 9.76,
+    "caption": "The image depicts a serene, small town street scene on a clear, sunny day. The sky is a vibrant blue, adorned with a few wispy white clouds. The street is flank"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0000159.ARW",
+    "latency_s": 8.36,
+    "caption": "A quiet street with parked cars and a row of buildings on either side."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0000159.ARW",
+    "latency_s": 10.97,
+    "caption": "A quiet city street unfolds before us, with buildings lining both sides of the road. The sun casts long shadows, creating a moody atmosphere as cars wait patiently for the traffic light to"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0000283.ARW",
+    "latency_s": 10.46,
+    "caption": "This photograph, taken from the interior of a car, captures a serene coastal scene. The bottom portion of the image features a gray dashboard, with a small, indistinct white object visible in"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0000283.ARW",
+    "latency_s": 9.66,
+    "caption": "A serene coastal landscape unfolds before us, with the calm waters stretching out to meet the horizon. The sky is a clear blue, dotted with a few wispy clouds, creating a peaceful"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0000283.ARW",
+    "latency_s": 10.83,
+    "caption": "A serene seascape unfolds before us, with the vast expanse of water stretching out to meet the horizon. The sky above is a canvas of soft blues, punctuated by wisps"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0001394.ARW",
+    "latency_s": 9.95,
+    "caption": "In this captivating image, two seagulls are captured in mid-flight over a vast, dark gray ocean. The seagulls, with their white bodies and gray wings, are positioned in"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0001394.ARW",
+    "latency_s": 8.56,
+    "caption": "A seagull glides effortlessly over choppy waters, embodying the freedom and resilience of the sea."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0001394.ARW",
+    "latency_s": 18.03,
+    "caption": "A seagull soars effortlessly over choppy waters, its wings outstretched as it glides through the dark, turbulent surface."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0002938.ARW",
+    "latency_s": 10.0,
+    "caption": "A breathtaking landscape unfolds in this image, capturing the raw beauty of nature. The scene is dominated by a majestic waterfall cascading down a steep cliff, its powerful flow creating a fro"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0002938.ARW",
+    "latency_s": 8.64,
+    "caption": "A river with rapids winds through a canyon with a waterfall."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0002938.ARW",
+    "latency_s": 10.5,
+    "caption": "A majestic waterfall cascades down a rocky cliff, creating a misty spray that fills the air. The scene is framed by rugged cliffs and a turbulent river below, with a dark, mood"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0006070.ARW",
+    "latency_s": 10.76,
+    "caption": "The image depicts a dark, overcast sky with a predominantly gray and cloudy appearance. The sky is mostly gray, with a few patches of lighter gray clouds scattered throughout. In the center of the"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0006070.ARW",
+    "latency_s": 8.66,
+    "caption": "A plane flying through a dark, cloudy sky."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0006070.ARW",
+    "latency_s": 9.21,
+    "caption": "A solitary plane soars through a brooding sky, its silhouette stark against the dark expanse."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001ICE0006679.ARW",
+    "latency_s": 9.5,
+    "caption": "The image depicts a dimly lit room with a predominantly dark ambiance, suggesting it might be taken at night. The walls are white, and the ceiling is also white, creating a stark contrast with"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001ICE0006679.ARW",
+    "latency_s": 8.48,
+    "caption": "A white board leaning against a white wall in a dark room."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001ICE0006679.ARW",
+    "latency_s": 8.2,
+    "caption": "A stark white wall stands against a dark background, its clean lines and geometric precision evoking a sense of modern minimalism."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare",
+    "file": "P001MIS0000230.ARW",
+    "latency_s": 10.24,
+    "caption": "The image depicts a somber scene of a memorial situated by a body of water, possibly a lake or river. The memorial consists of two prominent statues, each mounted on a black pedestal. The"
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction",
+    "file": "P001MIS0000230.ARW",
+    "latency_s": 8.64,
+    "caption": "Two eagle statues on a memorial in honor of all service men and women."
+  },
+  {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded",
+    "file": "P001MIS0000230.ARW",
+    "latency_s": 8.97,
+    "caption": "A somber monument stands solemnly by the water's edge, its dark silhouette contrasting against the moody sky."
+  }
+]
