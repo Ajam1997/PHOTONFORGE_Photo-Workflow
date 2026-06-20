@@ -1,0 +1,290 @@
+{
+  "0": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "1": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "2": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "3": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "4": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "5": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "6": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "7": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "8": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "9": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "10": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "11": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "12": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "13": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "14": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "15": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "16": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "17": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "18": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "19": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "20": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "21": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "22": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "23": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "24": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "25": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "26": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "27": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "28": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "29": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "30": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "31": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "32": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "33": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "34": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "35": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "36": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "37": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "38": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "39": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "40": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "41": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "42": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "43": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "44": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "45": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "46": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "47": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "48": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "49": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "50": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "51": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "52": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "53": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "54": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "55": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "56": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "57": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "instruction"
+  },
+  "58": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "59": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "60": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "61": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "62": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "63": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "grounded"
+  },
+  "64": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "bare"
+  },
+  "65": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "66": {
+    "model": "HuggingFaceTB/SmolVLM-500M-Instruct",
+    "tier": "bare"
+  },
+  "67": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "68": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "69": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "instruction"
+  },
+  "70": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  },
+  "71": {
+    "model": "LiquidAI/LFM2-VL-450M",
+    "tier": "grounded"
+  }
+}
