@@ -99,7 +99,11 @@
 #pf_cartridge_btn:disabled { color: @grey_30; }
 
 /* --- Activity log / command preview --------------------------------------*/
+/* min-height reserves a stable box; the panel caps visible lines in Lua so the
+ * log never grows past this. Full history lives in the on-disk session log. */
 #pf_log {
   background-color: @grey_10;
   font-size: 10px;
+  min-height: 150px;
 }
+#pf_log_open { font-size: 10px; }
