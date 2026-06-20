@@ -129,7 +129,7 @@ function M.build()
       placeholder = placeholder,
     }
     entries[config_key] = entry
-    if config_key == "sd_path" or config_key == "dest_path" then
+    if config_key == "dest_path" then
       set_name(entry, "pf_entry_required")
     end
 
@@ -157,7 +157,7 @@ function M.build()
 
   local config_editor = dt.new_widget("box") {
     orientation = "vertical",
-    make_path_row("SD card path:", "sd_path", "required\u{2026}"),
+    make_path_row("SD card path:", "sd_path", "ingest only\u{2026}"),
     make_path_row("Destination:",  "dest_path", "required\u{2026}"),
     make_path_row("Corpus JSONL (training only):", "corpus_path", "optional\u{2026}"),
     tz_box,
@@ -168,8 +168,10 @@ function M.build()
 
   local config_toggle  -- forward ref for closures below
 
+  -- Destination is the only hard requirement (DB + photos live there). SD card
+  -- path is needed by the ingest step only, so it does not gate Run.
   local function is_configured()
-    return config.read("sd_path") ~= "" and config.read("dest_path") ~= ""
+    return config.read("dest_path") ~= ""
   end
 
   local function refresh_config_summary()
@@ -297,6 +299,7 @@ function M.build()
 
   -- == Shared state helpers ================================================
   local run_btn, stop_btn  -- forward refs
+  local cartridge_btns = {}  -- disabled mid-run
 
   local function update_state_label()
     local dev = config.read("dev_mode") and " \u{00B7} DEV" or ""
@@ -312,13 +315,11 @@ function M.build()
     end
   end
 
-  -- Maroon "required" border on the two mandatory path entries — cleared once a
+  -- Maroon "required" border on the mandatory Destination entry — cleared once a
   -- value is present. Reads live entry text (updates on save / action, not keystroke).
   local function refresh_required_marks()
-    for _, k in ipairs({ "sd_path", "dest_path" }) do
-      local e = entries[k]
-      if e then set_name(e, e.text == "" and "pf_entry_required" or "pf_entry_set") end
-    end
+    local e = entries["dest_path"]
+    if e then set_name(e, e.text == "" and "pf_entry_required" or "pf_entry_set") end
   end
 
   local function refresh_run_enabled()
@@ -335,6 +336,7 @@ function M.build()
     running_box.visible = on
     if on then run_start = os.time() end
     if stop_btn then stop_btn.sensitive = on end
+    for _, b in ipairs(cartridge_btns) do b.sensitive = not on end
     refresh_run_enabled()
   end
 
@@ -455,6 +457,11 @@ function M.build()
           append_log("[WARN] No steps enabled.")
           return
         end
+        if step_checks["ingest"].value and config.read("sd_path") == "" then
+          append_log("[WARN] Ingest is enabled but no SD card path is set. "
+                  .. "Set the SD card path or uncheck Ingest.")
+          return
+        end
         append_log("[RUN] Starting " .. #enabled .. " steps: " .. table.concat(enabled, ", "))
         set_running(true)
         dt.control.dispatch(function()
@@ -561,6 +568,64 @@ function M.build()
     end,
   }
   set_name(correction_loop_btn, "pf_run")
+
+  -- == Cartridge strip (shared chrome) =====================================
+  -- Provision / Archive / Restore launch external (often elevated) commands in
+  -- their own window. Identity/Cartridge ID + Backup repo are set via the
+  -- plugin's Lua preferences (darktable Preferences -> Lua options).
+  local provision_btn = dt.new_widget("button") {
+    label = "\u{1F4BE} Provision",
+    tooltip = "Provision the destination drive as a PHOTON cartridge (sets the "
+           .. "volume label; needs admin/root). Set the Cartridge ID in the "
+           .. "plugin's Lua options first.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        runner.launch_provision(append_log)
+      end)
+      if not ok then append_log("[ERROR] provision: " .. tostring(err)) end
+    end,
+  }
+  set_name(provision_btn, "pf_cartridge_btn")
+
+  local archive_btn = dt.new_widget("button") {
+    label = "\u{2601} Archive",
+    tooltip = "Back up the whole cartridge (DB + photos) to the configured restic "
+           .. "repo. Set 'Backup repo' in the plugin's Lua options first.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        runner.launch_archive(append_log)
+      end)
+      if not ok then append_log("[ERROR] archive: " .. tostring(err)) end
+    end,
+  }
+  set_name(archive_btn, "pf_cartridge_btn")
+
+  local restore_btn = dt.new_widget("button") {
+    label = "\u{1F504} Restore",
+    tooltip = "Restore an archived cartridge (DB + photos) from the backup repo "
+           .. "onto the destination drive. Set 'Backup repo' and Cartridge ID first.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        runner.launch_restore(append_log)
+      end)
+      if not ok then append_log("[ERROR] restore: " .. tostring(err)) end
+    end,
+  }
+  set_name(restore_btn, "pf_cartridge_btn")
+
+  cartridge_btns = { provision_btn, archive_btn, restore_btn }
+
+  local cartridge_strip = dt.new_widget("box") {
+    orientation = "vertical",
+    dt.new_widget("section_label") { label = "CARTRIDGE" },
+    dt.new_widget("box") {
+      orientation = "horizontal", provision_btn, archive_btn, restore_btn,
+    },
+  }
+  set_name(cartridge_strip, "pf_cartridge")
 
   -- == Developer block (optional) ==========================================
   local dev_section = dt.new_widget("section_label") { label = "DEVELOPER" }
@@ -678,6 +743,7 @@ function M.build()
   local root = dt.new_widget("box") {
     orientation = "vertical",
     title_bar,
+    cartridge_strip,
     config_section,
     tab_switch,
     tab_stack,
