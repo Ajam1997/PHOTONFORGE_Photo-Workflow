@@ -19,7 +19,8 @@ local runner = require "photonforge/runner"
 
 local M = {}
 
-local LOG_MAX_LINES = 200
+local LOG_MAX_LINES = 200      -- history kept in memory (and on disk in full)
+local LOG_VISIBLE_LINES = 12   -- lines rendered in the fixed-height panel view
 local PROGRESS_CELLS = 14
 local EM_DASH = "\u{2014}"
 local CHECK = "\u{2713}"
@@ -285,16 +286,43 @@ function M.build()
   local run_start = 0
 
   -- == Activity log ========================================================
-  local log_section = dt.new_widget("section_label") { label = "ACTIVITY LOG" }
-  set_name(log_section, "pf_section")
-  local log_lines = {}
+  -- The darktable lua text_view is a bare GtkTextView (no scrolled window) and
+  -- exposes no height/scroll attribute, so it would grow without bound and push
+  -- the whole panel. We therefore show only the most recent LOG_VISIBLE_LINES
+  -- (fixed height) and persist the full session log to a file for scrollback.
+  local log_file = get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_activity.log"
+  -- Start each session with a fresh file.
+  do local f = io.open(log_file, "w") if f then f:close() end end
+
   local log_view = dt.new_widget("text_view") { editable = false, text = "" }
   set_name(log_view, "pf_log")
 
+  local open_log_btn = dt.new_widget("button") {
+    label = "\u{1F5D7} Open full log",
+    tooltip = "Open the complete session log in your system text editor "
+           .. "(the in-panel view shows only the most recent lines)",
+    clicked_callback = function() open_in_os(log_file) end,
+  }
+  set_name(open_log_btn, "pf_log_open")
+
+  local log_header = dt.new_widget("box") {
+    orientation = "horizontal",
+    dt.new_widget("section_label") { label = "ACTIVITY LOG" },
+    open_log_btn,
+  }
+
+  local log_lines = {}
   local function append_log(msg)
     table.insert(log_lines, msg)
     if #log_lines > LOG_MAX_LINES then table.remove(log_lines, 1) end
-    log_view.text = table.concat(log_lines, "\n")
+    -- Append to the on-disk full log (survives the in-panel tail trimming).
+    local f = io.open(log_file, "a")
+    if f then f:write(msg, "\n") f:close() end
+    -- Render only the most recent lines so the widget stays a fixed height.
+    local first = math.max(1, #log_lines - LOG_VISIBLE_LINES + 1)
+    local tail = {}
+    for i = first, #log_lines do tail[#tail + 1] = log_lines[i] end
+    log_view.text = table.concat(tail, "\n")
   end
 
   -- == Shared state helpers ================================================
@@ -748,7 +776,7 @@ function M.build()
     tab_switch,
     tab_stack,
     dev_box,
-    log_section,
+    log_header,
     log_view,
   }
 
