@@ -226,6 +226,47 @@ aesthetic signal** (0.208 — segmentation pretraining never saw quality cues). 
 - Env note: these VLM image processors require `torchvision`; the decode must
   slice newly-generated tokens (format-agnostic) to avoid role-token echo.
 
+## Track B — blind judging + captioner decision (2026-06-19)
+
+Single judge, 72 captions (12 frames × {bare, instruction, grounded} × 2 models).
+
+| model | mean | halluc | | tier | mean | halluc |
+|---|---|---|---|---|---|---|
+| LFM2-VL-450M | 3.58 | 8% | | grounded | 3.75 | 4% |
+| SmolVLM-500M | 3.53 | 3% | | bare | 3.50 | 12% |
+| | | | | instruction | 3.42 | 0% |
+
+Interaction (model × tier): **LFM2 + grounded = 4.08** (best cell) but LFM2 bare
+is weak (3.08, 17%); SmolVLM is strong bare (3.92) and grounding *hurts* it (3.42).
+
+**Decision: LFM2-VL-450M with grounded prompting**, contingent on cleaning the
+genre labels that feed grounding (LFM2's 8% halluc traces to trusting wrong
+grounding facts, e.g. a `people/portrait`-mislabelled architecture frame).
+SmolVLM-500M is the robust fallback (strong unprompted, lowest halluc). Grounding
+as a strategy is validated: best tier overall, halves hallucination vs bare.
+
+### Does the swap speed up naming? (the real question — UNRESOLVED)
+
+**The captioner swap is NOT a speed win, and was never the speed lever:**
+- LFM2-VL-450M (~0.45B) is ~2× Florence-2-base (~0.23B). More params ⇒ likely
+  *slower* per caption at equal precision — though LFM2's efficiency-tuned
+  backbone may offset. Either way it's a quality/grounding/maintenance choice,
+  not a latency one. (Florence-2 also bit-rots on transformers 5.12.)
+- The Track B ~9 s/caption is **PyTorch FP32 on the dev box** — NOT predictive of
+  the production path (INT8 ONNX) on the Yoga. We have measured neither model as
+  INT8 ONNX on target, so the swap's true speed delta is **unknown**.
+- Florence-2's naming latency was already fixed by the KV-cache merge — the
+  "naming is slow" problem this project started with is gone.
+
+**The actual R2 naming speedups are architectural, independent of the captioner:**
+1. **Structured filenames from the SceneRecord** — the *filename* path needs no
+   VLM at all (genre + regions + EXIF → template), ~0 model cost for most images.
+2. **Caption only keepers** — amortize the VLM over the starred subset.
+
+**To answer the swap's speed question:** export LFM2-VL-450M to INT8 ONNX and
+benchmark it vs Florence-2 on the i7-7500U. Until then, pick the captioner on
+*quality* (LFM2+grounded) and bank the naming speedups from (1) and (2).
+
 ## Pinned decision thresholds (set before seeing results)
 
 - **Genre:** within ~3% accuracy of MobileCLIP-S2 on the 175-label corpus.
