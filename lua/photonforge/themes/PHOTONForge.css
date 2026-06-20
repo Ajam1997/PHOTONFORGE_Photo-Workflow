@@ -1,0 +1,79 @@
+/* ===========================================================================
+ * PHOTONForge — darktable theme
+ *
+ * Makes the WHOLE darktable UI match the PhotonForge plugin: darktable's stock
+ * dark palette (whose grey ramp is exactly the hand-off's surfaces) + the
+ * hand-off's dark-maroon accent, plus the plugin panel polish.
+ *
+ * INSTALL
+ *   scripts/deploy_lua.ps1 copies this to <darktable config>/themes/PHOTONForge.css.
+ *   Then: Preferences -> General -> theme = "PHOTONForge", and restart darktable.
+ *   (Manual: drop this file in %LOCALAPPDATA%\darktable\themes\ on Windows or
+ *    ~/.config/darktable/themes/ on Linux.)
+ *
+ * HOW IT WORKS
+ *   Built on darktable's stock theme via @import; only the accent + selection
+ *   colors are overridden, so everything else tracks upstream. @define-color
+ *   redefinitions after the import win over the base values.
+ *
+ * If you prefer to keep your current theme and only style the plugin panel, use
+ * lua/photonforge/photonforge.css in Preferences -> user.css instead of this.
+ * ===========================================================================*/
+@import "darktable.css";
+
+/* ---- Dark-maroon accent across the whole UI ----------------------------- */
+@define-color bauhaus_fill      #7d2733;  /* sliders, comboboxes, graphs, plugin accents */
+@define-color selected_bg_color #7d2733;  /* selected thumbnails / list rows / highlights */
+/* Optional extra tint — active module-header labels in maroon (uncomment):
+ * @define-color plugin_label_color #b14a57; */
+/* Alternate accent shades from the mock: #5a1a22  #9b2c3a  #6e2438  amber #d8a24a */
+
+/* ===========================================================================
+ * PhotonForge panel polish — targets the plugin's named widgets (#pf_*).
+ * Mirrors lua/photonforge/photonforge.css (minus the accent @define-color,
+ * which is global above). Keep the two in sync.
+ * ===========================================================================*/
+
+/* --- Title bar --- */
+#pf_title { font-weight: bold; letter-spacing: 1px; }
+#pf_state_idle    { color: #6f9f5f; font-size: 10px; }
+#pf_state_running { color: @bauhaus_fill; font-size: 10px; font-weight: bold; }
+#pf_state_setup   { color: @grey_50; font-size: 10px; }
+
+/* --- Section labels / collapse toggle --- */
+#pf_section { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; color: @grey_60; }
+#pf_config_summary { color: @grey_60; font-size: 11px; }
+
+/* --- Tabs --- */
+#pf_tab_active { background-color: @bauhaus_fill; color: @grey_05; font-weight: bold; border-radius: 5px 5px 0 0; }
+#pf_tab_idle   { background-color: @grey_15; color: @grey_60; border-radius: 5px 5px 0 0; }
+
+/* --- Step rows --- */
+#pf_step_ok   { color: #6f9f5f; }
+#pf_step_fail { color: #c05a4f; }
+#pf_once { color: @grey_50; font-size: 9px; letter-spacing: 1px; }
+
+/* --- Primary / secondary actions --- */
+#pf_run { background-color: @bauhaus_fill; color: @grey_05; font-weight: bold; border-radius: 5px; min-height: 32px; }
+#pf_run:disabled { background-color: @grey_15; color: @grey_40; }
+#pf_stop { color: @grey_60; border: 1px solid @grey_25; border-radius: 5px; }
+#pf_stop:hover    { color: #c05a4f; border-color: #c05a4f; }
+#pf_stop:disabled { color: @grey_30; border-color: @grey_20; }
+#pf_browse { border-radius: 4px; }
+
+/* --- Required (unset) path entries --- */
+#pf_entry_required { border: 1px solid @bauhaus_fill; }
+
+/* --- Running-state block --- */
+#pf_progress_step { font-weight: bold; }
+#pf_progress_bar  { color: @bauhaus_fill; font-size: 12px; }
+#pf_progress_time { color: @grey_60; font-size: 10px; }
+
+/* --- Cartridge strip --- */
+#pf_cartridge { background-color: #121212; border-radius: 5px; }
+#pf_cartridge_btn { border-radius: 4px; }
+#pf_cartridge_btn:disabled { color: @grey_30; }
+
+/* --- Activity log --- */
+#pf_log { background-color: #121212; font-size: 10px; min-height: 150px; }
+#pf_log_open { font-size: 10px; }
