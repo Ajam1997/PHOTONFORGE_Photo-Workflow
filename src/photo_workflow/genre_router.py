@@ -2,7 +2,7 @@
 
 Classifies each image along two orthogonal axes:
   Subject (what): 16 classes describing primary image content
-  Photo Type (how): 12 classes describing photographic approach/technique
+  Photo Type (how): 11 classes describing photographic approach/technique
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ PHOTO_TYPES = [
     "architecture",
     "action",
     "aerial",
-    "long-exposure",
+    "motion-blur",
     "still-life",
     "documentary",
 ]
@@ -122,7 +122,7 @@ _SUBJECT_EXIF_PRIORS = {
         "focal_length": (3.2, 0.7), "aperture": (2.0, 0.4),
         "shutter": (-3.0, 2.0), "iso": (4.8, 0.6),
     },
-    # waterfall ~ landscape/seascape, often long-exposure (slow shutter)
+    # waterfall ~ landscape/seascape, often motion-blur (slow shutter)
     "waterfall": {
         "focal_length": (3.2, 0.8), "aperture": (2.2, 0.4),
         "shutter": (-3.5, 2.5), "iso": (4.6, 0.7),
@@ -162,7 +162,7 @@ _TYPE_EXIF_PRIORS = {
         "focal_length": (3.2, 0.6), "aperture": (1.0, 0.5),
         "shutter": (-6.5, 0.8), "iso": (5.5, 0.8),
     },
-    "long-exposure": {
+    "motion-blur": {
         "focal_length": (3.5, 0.8), "aperture": (2.3, 0.4),
         "shutter": (1.5, 2.0), "iso": (4.0, 0.6),
     },
@@ -313,7 +313,7 @@ _TYPE_CONTEXT_PRIORS = {
         "subject_area_ratio": (0.1, 0.1),
         "primary_class": {},
     },
-    "long-exposure": {
+    "motion-blur": {
         "face_count": (0.0, 0.5),
         "subject_area_ratio": (0.15, 0.15),
         "primary_class": {},
@@ -361,7 +361,7 @@ _TYPE_SHARPNESS_PRIORS = {
     "architecture": (1.0, 0.5),
     "action": (1.5, 1.0),
     "aerial": (1.0, 0.5),
-    "long-exposure": (0.8, 0.5),
+    "motion-blur": (0.8, 0.5),
     "still-life": (2.0, 0.8),
     "documentary": (1.5, 0.8),
 }
@@ -651,45 +651,45 @@ def _fuse_axis(
 
 
 # ---------------------------------------------------------------------------
-# EXIF long-exposure gate
+# EXIF motion-blur gate
 # ---------------------------------------------------------------------------
 # Folding all EXIF/YOLO/face aux features into the learned CLIP head was measured
 # to be net-negative: on the 271-image corpus it dropped subject CV accuracy
 # 0.882->0.768 and type 0.786->0.694, degrading nearly every class (the all-zero
 # aux block on EXIF-less web images becomes a spurious source-of-image leak).
-# The ONE genuine aux signal is the shutter speed for the long-exposure TYPE,
+# The ONE genuine aux signal is the shutter speed for the motion-blur TYPE,
 # which is near-deterministic. We apply just that, as a narrow high-precision
 # post-classification gate. Measured on the corpus: shutter >= 0.5s predicts
-# long-exposure with precision 0.94 / recall 0.83 (a single false positive, a
+# motion-blur with precision 0.94 / recall 0.83 (a single false positive, a
 # tripod macro). See .claude/phase2_measure.py for the full ablation.
-_LONG_EXPOSURE_SHUTTER_S = 0.5   # exposure time (s) at/above which the gate fires
-_LONG_EXPOSURE_GATE_CONF = 0.80  # confidence assigned to long-exposure when it fires
-                                 # (conservative vs the measured 0.94 precision)
+_MOTION_BLUR_SHUTTER_S = 0.5    # exposure time (s) at/above which the gate fires
+_MOTION_BLUR_GATE_CONF = 0.80   # confidence assigned to motion-blur when it fires
+                                # (conservative vs the measured 0.94 precision)
 
 
-def _apply_long_exposure_gate(
+def _apply_motion_blur_gate(
     type_dist: dict[str, float],
     exif: dict | None,
 ) -> dict[str, float]:
-    """Reassign the type distribution toward long-exposure on a slow shutter.
+    """Reassign the type distribution toward motion-blur on a slow shutter.
 
-    Fires only when EXIF carries an exposure time >= ``_LONG_EXPOSURE_SHUTTER_S``.
-    Raises long-exposure to ``_LONG_EXPOSURE_GATE_CONF`` (never lowers it) and
+    Fires only when EXIF carries an exposure time >= ``_MOTION_BLUR_SHUTTER_S``.
+    Raises motion-blur to ``_MOTION_BLUR_GATE_CONF`` (never lowers it) and
     rescales the remaining mass across the other types, preserving their relative
     order. A no-op when EXIF is absent or the shutter is fast.
     """
     shutter = (exif or {}).get("shutter")
-    if not shutter or shutter < _LONG_EXPOSURE_SHUTTER_S:
+    if not shutter or shutter < _MOTION_BLUR_SHUTTER_S:
         return type_dist
-    current = type_dist.get("long-exposure", 0.0)
-    if current >= _LONG_EXPOSURE_GATE_CONF:
+    current = type_dist.get("motion-blur", 0.0)
+    if current >= _MOTION_BLUR_GATE_CONF:
         return type_dist
-    remaining = 1.0 - _LONG_EXPOSURE_GATE_CONF
-    others_total = sum(v for k, v in type_dist.items() if k != "long-exposure")
+    remaining = 1.0 - _MOTION_BLUR_GATE_CONF
+    others_total = sum(v for k, v in type_dist.items() if k != "motion-blur")
     out = {}
     for k, v in type_dist.items():
-        if k == "long-exposure":
-            out[k] = _LONG_EXPOSURE_GATE_CONF
+        if k == "motion-blur":
+            out[k] = _MOTION_BLUR_GATE_CONF
         elif others_total > 0:
             out[k] = v / others_total * remaining
         else:
@@ -771,8 +771,8 @@ def route_genre(
         type_dist = _fuse_axis([type_clip, type_exif, type_yolo, type_ctx, type_sharp], PHOTO_TYPES,
                                weights=_FUSION_WEIGHTS)
 
-    # --- EXIF long-exposure gate (high-precision aux signal) -----------------
-    type_dist = _apply_long_exposure_gate(type_dist, ctx.exif)
+    # --- EXIF motion-blur gate (high-precision aux signal) -----------------
+    type_dist = _apply_motion_blur_gate(type_dist, ctx.exif)
 
     # --- Pick winners --------------------------------------------------------
     subject = max(subj_dist, key=subj_dist.__getitem__)
