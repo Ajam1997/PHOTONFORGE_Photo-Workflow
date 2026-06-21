@@ -61,7 +61,7 @@ def test_genres_list_complete() -> None:
               "food", "object", "abstract", "monument", "waterfall"):
         assert s in SUBJECTS
     for t in ("portrait", "candid", "scenic", "street", "macro",
-              "architecture", "action", "aerial", "long-exposure",
+              "architecture", "action", "aerial", "motion-blur",
               "still-life", "documentary"):
         assert t in PHOTO_TYPES
 

@@ -173,7 +173,7 @@ TYPE_WEIGHTS: dict[str, dict[str, float]] = {
         "negative_space": 0.12, "exposure_overall": 0.10,
         "color_contrast": 0.10,
     },
-    "long-exposure": {
+    "motion-blur": {
         "motion_tolerance": 0.20, "composition_rot": 0.18,
         "dynamic_range": 0.15, "aesthetic_clip": 0.12,
         "balance": 0.10, "negative_space": 0.10,

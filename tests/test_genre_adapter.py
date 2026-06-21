@@ -77,20 +77,20 @@ def test_route_genre_falls_back_without_clip() -> None:
     assert res.subject in SUBJECTS and res.photo_type in PHOTO_TYPES
 
 
-def test_long_exposure_gate_fires_on_slow_shutter() -> None:
-    # CLIP head says scenic; a 2s exposure should gate the TYPE to long-exposure.
+def test_motion_blur_gate_fires_on_slow_shutter() -> None:
+    # CLIP head says scenic; a 2s exposure should gate the TYPE to motion-blur.
     e = np.zeros(512, dtype=np.float32); e[0] = 1.0
     adapter = {"subject": _head(["landscape", "waterfall"]),
                "type": _head(["scenic", "documentary"])}
     ctx = _ctx(e); ctx.exif = {"shutter": 2.0}
     res = route_genre(ctx, genre_prototypes=None, adapter=adapter)
-    assert res.photo_type == "long-exposure"
+    assert res.photo_type == "motion-blur"
     assert res.type_confidence >= 0.8
     # subject axis is untouched by the type gate
     assert res.subject == "landscape"
 
 
-def test_long_exposure_gate_silent_on_fast_shutter() -> None:
+def test_motion_blur_gate_silent_on_fast_shutter() -> None:
     e = np.zeros(512, dtype=np.float32); e[0] = 1.0
     adapter = {"subject": _head(["landscape", "waterfall"]),
                "type": _head(["scenic", "documentary"])}
@@ -99,12 +99,12 @@ def test_long_exposure_gate_silent_on_fast_shutter() -> None:
     assert res.photo_type == "scenic"
 
 
-def test_long_exposure_gate_via_poe_path() -> None:
+def test_motion_blur_gate_via_poe_path() -> None:
     # No adapter -> PoE fallback; the gate still applies from EXIF alone.
     e = np.zeros(512, dtype=np.float32); e[0] = 1.0
     ctx = _ctx(e); ctx.exif = {"shutter": 3.0}
     res = route_genre(ctx, genre_prototypes=None, adapter=None)
-    assert res.photo_type == "long-exposure"
+    assert res.photo_type == "motion-blur"
 
 
 def test_numpy_adapter_trains_without_sklearn() -> None:
