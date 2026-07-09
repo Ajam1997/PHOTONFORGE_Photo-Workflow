@@ -95,3 +95,72 @@ def test_status_reports(photo_dir: Path, db_path: Path):
     result = runner.invoke(cli, ["status", "--db", str(db_path), "--folder", "ICELAND"])
     assert result.exit_code == 0
     assert "Total photos:" in result.output
+
+
+def test_score_passes_faces_into_fusion(photo_dir: Path, db_path: Path, monkeypatch):
+    """Regression: fuse_scores must receive faces/image_gray from the context —
+    omitting them silently disabled the eyes-closed gate and face weights."""
+    import photo_workflow.score_fusion as sf
+
+    calls: list[dict] = []
+    real_fuse = sf.fuse_scores
+
+    def spy(*args, **kwargs):
+        calls.append(kwargs)
+        return real_fuse(*args, **kwargs)
+
+    monkeypatch.setattr(sf, "fuse_scores", spy)
+
+    runner = CliRunner()
+    runner.invoke(cli, ["scan", "--source", str(photo_dir), "--db", str(db_path)])
+    result = runner.invoke(cli, [
+        "score", "--db", str(db_path), "--folder", "ICELAND",
+        "--source-dir", str(photo_dir),
+    ])
+    assert result.exit_code == 0, result.output
+    assert calls, "genre-aware fusion was never reached"
+    for kw in calls:
+        assert "faces" in kw, "faces not passed to fuse_scores"
+        assert kw.get("image_gray") is not None, "image_gray not passed to fuse_scores"
+
+
+def test_score_skip_genre_preserves_genres(photo_dir: Path, db_path: Path):
+    """Regression: --skip-genre crashed on sqlite3.Row.get() and silently fell
+    back to legacy scoring, which never updates the master score."""
+    import json as _json
+
+    runner = CliRunner()
+    runner.invoke(cli, ["scan", "--source", str(photo_dir), "--db", str(db_path)])
+    r1 = runner.invoke(cli, [
+        "score", "--db", str(db_path), "--folder", "ICELAND",
+        "--source-dir", str(photo_dir),
+    ])
+    assert r1.exit_code == 0, r1.output
+
+    conn = sqlite3.connect(str(db_path))
+    conn.execute(
+        "UPDATE photos SET primary_genre='wildlife', "
+        "genres='{\"subject\": \"wildlife\", \"photo_type\": \"scenic\"}', "
+        "master_score=-1.0 WHERE folder='ICELAND'"
+    )
+    conn.commit()
+    conn.close()
+
+    r2 = runner.invoke(cli, [
+        "score", "--db", str(db_path), "--folder", "ICELAND",
+        "--source-dir", str(photo_dir), "--force", "--skip-genre",
+    ])
+    assert r2.exit_code == 0, r2.output
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute(
+        "SELECT * FROM photos WHERE folder='ICELAND' AND is_duplicate=0"
+    ).fetchall()
+    conn.close()
+    assert rows
+    for r in rows:
+        # Legacy fallback never touches master_score; the sentinel surviving
+        # means the genre-aware path crashed.
+        assert r["master_score"] != -1.0, "skip-genre fell back to legacy scoring"
+        assert _json.loads(r["genres"])["subject"] == "wildlife"

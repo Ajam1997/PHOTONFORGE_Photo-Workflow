@@ -166,6 +166,8 @@ class AnalysisPipeline:
                     exposure_result,
                     genre_result,
                     aesthetic_score,
+                    faces=ctx.faces,
+                    image_gray=ctx.image_gray,
                     weight_profiles=model_sessions.aesthetic_weights,
                 )
 
@@ -528,7 +530,8 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     except (json.JSONDecodeError, TypeError):
                         db_genre_data = {}
                     genre_result = GenreResult(
-                        subject=db_genre_data.get("subject", row.get("primary_genre") or "general"),
+                        # sqlite3.Row has no .get(); plain indexing is safe (SELECT *)
+                        subject=db_genre_data.get("subject", row["primary_genre"] or "general"),
                         subject_confidence=db_genre_data.get("subject_confidence", 1.0),
                         photo_type=db_genre_data.get("photo_type", "general"),
                         type_confidence=db_genre_data.get("type_confidence", 0.5),
@@ -561,6 +564,8 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     exposure_result,
                     genre_result,
                     aesthetic_score,
+                    faces=ctx.faces,
+                    image_gray=ctx.image_gray,
                     weight_profiles=model_sessions.aesthetic_weights,
                 )
 

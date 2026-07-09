@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 from pathlib import Path
 
@@ -120,31 +121,41 @@ def ingest_volume(
     total = len(timed)
     copied: list[Path] = []
     for i, (ts, src) in enumerate(timed, 1):
-        new_name = format_photo_name(cart_id, trip_code, seq, src.suffix)
-        dest = output_dir / new_name
-
-        if dest.exists():
+        # Find a free destination name, retrying THIS source with the next
+        # sequence on collision (a collision must never skip the photo).
+        while True:
+            new_name = format_photo_name(cart_id, trip_code, seq, src.suffix)
+            dest = output_dir / new_name
+            if not dest.exists():
+                break
             seq += 1
-            continue
 
         if dry_run:
             copied.append(dest)
             seq += 1
             continue
 
+        # Copy first, record second: a crash between the two re-ingests the
+        # file on the next run (harmless duplicate) instead of the DB claiming
+        # a photo that was never copied (permanent loss once the SD is wiped).
+        temp = dest.with_suffix(dest.suffix + ".tmp")
+        shutil.copy2(src, temp)
+        with open(temp, "rb+") as f:
+            os.fsync(f.fileno())
+        temp.rename(dest)
+        copied.append(dest)
+
         exif_ts = ts if ts != "9999" else None
         try:
             insert_photo(conn, table, new_name, src.name, exif_ts)
             update_stages(conn, table, new_name, "scan")
         except Exception as e:
-            logger.warning("Could not write DB record for %s: %s", new_name, e)
-            seq += 1
-            continue
-
-        temp = dest.with_suffix(dest.suffix + ".tmp")
-        shutil.copy2(src, temp)
-        temp.rename(dest)
-        copied.append(dest)
+            logger.error(
+                "%s copied but DB record failed (%s); it will be re-ingested "
+                "under a new name on the next run",
+                new_name,
+                e,
+            )
         seq += 1
 
         if progress_fn is not None:
