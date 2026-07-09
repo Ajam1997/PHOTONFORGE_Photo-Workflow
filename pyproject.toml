@@ -8,7 +8,8 @@ version = "0.1.0"
 description = "Autonomous Localized Mobile Photography Workflow"
 requires-python = ">=3.11"
 dependencies = [
-    "opencv-python-headless>=4.9",
+    # <5: cv2 5.x changes HoughLinesP output handling (composition.py); unpinned installs broke 13 tests
+    "opencv-python-headless>=4.9,<5",
     "numpy>=1.26",
     "Pillow>=10.3",
     "imagehash>=4.3",
@@ -24,6 +25,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0",
+    "responses>=0.25",
     "pytest-cov>=5.0",
     "memory-profiler>=0.61",
     "ruff>=0.4",

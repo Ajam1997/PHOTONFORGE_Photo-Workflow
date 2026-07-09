@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import responses as resp_mock
 
-from scripts.seed_github import build_epic_title, build_label_definitions, seed_labels
+from scripts.legacy.seed_github import build_epic_title, build_label_definitions, seed_labels
 
 
 def test_build_label_definitions_count():

@@ -1,0 +1,25 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install package with dev + docs extras
+        run: pip install -e ".[dev,docs]"
+      - name: Run test suite
+        run: python -m pytest -m "not slow"
+      # Informational until the 60 pre-existing lint findings are burned down
+      - name: Ruff lint (non-blocking)
+        run: ruff check src/ tests/
+        continue-on-error: true
