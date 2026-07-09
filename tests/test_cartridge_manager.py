@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("tkinter", reason="cartridge_manager is a Tk app; skip on headless builds")
+
 from tools.cartridge_manager import db_ops, file_ops, sampler, training_io
 from tools.cartridge_manager.labeler import LabelStore
 
