@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "darktable": {
+      "command": "F:/Files/50-59-software-and-dev/51-code-and-repos/PHOTONForge/photo-workflow/.venv/Scripts/python.exe",
+      "args": [
+        "-m",
+        "darktable_mcp"
+      ]
+    }
+  }
+}
