@@ -21,6 +21,7 @@ _SUPPORTED_EXTS = {
 # Thresholds for blur classification
 _SHARP_THRESHOLD = 0.25  # Normalized score above this = "sharp"
 _RATIO_BOKEH_THRESHOLD = 3.0  # subject/background ratio above this = bokeh
+_MOTION_ANISOTROPY_THRESHOLD = 2.5  # gradient-direction imbalance => motion, not defocus
 
 
 def _tenengrad(gray: np.ndarray) -> float:
@@ -63,47 +64,98 @@ def _laplacian_variance(gray: np.ndarray) -> float:
     return float(lap.var())
 
 
-def _compute_region_sharpness(gray: np.ndarray, mask: np.ndarray) -> float:
-    """Compute geometric mean of Tenengrad and SML for a masked region.
+def _focus_maps(gray: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Per-pixel Tenengrad and modified-Laplacian maps (+ raw gradients)."""
+    gx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    gy = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    ten_map = gx * gx + gy * gy
+    img = gray.astype(np.float64)
+    lxx = cv2.Sobel(img, cv2.CV_64F, 2, 0, ksize=3)
+    lyy = cv2.Sobel(img, cv2.CV_64F, 0, 2, ksize=3)
+    ml_map = np.abs(lxx) + np.abs(lyy)
+    return ten_map, ml_map, gx, gy
 
-    Normalizes by mean luminance to make scores comparable across exposures.
-    Returns normalized score in approximately [0, 1] range.
+
+def _gradient_anisotropy(gx: np.ndarray, gy: np.ndarray, region: np.ndarray) -> float:
+    """Ratio of the stronger to the weaker gradient direction in a region.
+
+    Motion blur suppresses gradients along the motion direction, so a
+    directionally smeared region scores high; defocus is isotropic (~1).
     """
-    # Extract region pixels
+    if not region.any():
+        return 1.0
+    ex = float((gx[region] ** 2).mean())
+    ey = float((gy[region] ** 2).mean())
+    lo = min(ex, ey)
+    if lo <= 0.0:
+        return 1.0
+    return max(ex, ey) / lo
+
+
+def _region_score_from_maps(
+    ten_map: np.ndarray, ml_map: np.ndarray, gray: np.ndarray, mask: np.ndarray
+) -> float:
+    """Geometric mean of Tenengrad and SML averaged over the masked pixels.
+
+    Averaging over the region's own pixels (not the whole frame) keeps the
+    score independent of the region's area — the old whole-frame mean over a
+    zeroed copy made a tack-sharp subject at 5% of frame score ~5% of its
+    true value and get misclassified as misfocused/motion blur. The mask is
+    eroded by the Sobel kernel radius so genuine subject/background
+    transition edges don't inflate the region's score.
+    """
     if mask.sum() == 0:
         return 0.0
 
-    # Apply mask
-    region = gray.copy()
-    region[mask == 0] = 0
+    eroded = cv2.erode(mask.astype(np.uint8), np.ones((3, 3), np.uint8))
+    region = eroded > 0
+    if not region.any():
+        region = mask > 0
 
-    # Compute focus measures on the masked region
-    ten = _tenengrad(region)
-    sml_val = _sml(region)
-
-    if ten <= 0 or sml_val <= 0:
-        return 0.0
-
-    # Geometric mean
-    raw = float(np.sqrt(ten * sml_val))
+    ten = float(ten_map[region].mean())
+    sml_val = float(ml_map[region].mean())
+    if ten <= 0.0 and sml_val <= 0.0:
+        # 3x3 Sobel's transverse smoothing cancels period-2 checkerboards
+        # entirely; the raw Laplacian (no smoothing) still sees them.
+        lap = np.abs(cv2.Laplacian(gray, cv2.CV_64F))
+        raw = float(lap[region].mean())
+        if raw <= 0.0:
+            return 0.0
+    elif ten <= 0.0 or sml_val <= 0.0:
+        raw = max(ten, sml_val)
+    else:
+        raw = float(np.sqrt(ten * sml_val))
 
     # Normalize by mean luminance of the region to handle exposure differences
-    mean_luma = float(gray[mask > 0].mean()) if mask.sum() > 0 else 128.0
+    mean_luma = float(gray[mask > 0].mean())
     luma_factor = max(mean_luma, 1.0) / 128.0
 
-    # Normalize to approximate [0, 1] range
     # Empirical normalization constant (tuned for typical photos)
     normalized = raw / (500.0 * luma_factor)
     return min(normalized, 1.0)
 
 
-def _classify_blur(subject_sharp: bool, bg_sharp: bool, ratio: float) -> str:
+def _compute_region_sharpness(gray: np.ndarray, mask: np.ndarray) -> float:
+    """Region sharpness in ~[0, 1]; see _region_score_from_maps."""
+    ten_map, ml_map, _, _ = _focus_maps(gray)
+    return _region_score_from_maps(ten_map, ml_map, gray, mask)
+
+
+def _classify_blur(
+    subject_sharp: bool,
+    bg_sharp: bool,
+    ratio: float,
+    subject_anisotropy: float = 1.0,
+) -> str:
     """Classify blur type based on region sharpness analysis.
 
     Args:
         subject_sharp: Whether subject region exceeds sharpness threshold.
         bg_sharp: Whether background region exceeds sharpness threshold.
         ratio: subject_sharpness / background_sharpness.
+        subject_anisotropy: Directional gradient imbalance of the subject
+            region; high values mean directionally smeared (moved) rather
+            than uniformly defocused.
 
     Returns:
         One of: "sharp", "bokeh", "motion_subject", "motion_global", "misfocused"
@@ -111,10 +163,13 @@ def _classify_blur(subject_sharp: bool, bg_sharp: bool, ratio: float) -> str:
     if subject_sharp and bg_sharp:
         return "sharp"
     if subject_sharp and not bg_sharp:
-        if ratio > _RATIO_BOKEH_THRESHOLD:
-            return "bokeh"
-        return "bokeh"  # Even moderate contrast with sharp subject = intentional DOF
+        return "bokeh"  # Sharp subject over soft background = intentional DOF
     if not subject_sharp and bg_sharp:
+        # A directional smear means the subject moved during exposure; an
+        # isotropic softness means focus missed. (This branch previously
+        # always returned "misfocused", leaving motion_subject unreachable.)
+        if subject_anisotropy >= _MOTION_ANISOTROPY_THRESHOLD:
+            return "motion_subject"
         return "misfocused"
     # Neither sharp
     return "motion_global"
@@ -133,9 +188,10 @@ def score_sharpness_detailed(ctx: SubjectContext) -> SharpnessScores:
     mask = ctx.subject_mask
     inv_mask = 1 - mask
 
-    # Compute per-region sharpness
-    subject_score = _compute_region_sharpness(gray, mask)
-    background_score = _compute_region_sharpness(gray, inv_mask)
+    # Compute the gradient maps once; all three regions read from them.
+    ten_map, ml_map, gx, gy = _focus_maps(gray)
+    subject_score = _region_score_from_maps(ten_map, ml_map, gray, mask)
+    background_score = _region_score_from_maps(ten_map, ml_map, gray, inv_mask)
 
     # Eye region sharpness
     eye_score = subject_score  # Default: same as subject
@@ -161,7 +217,7 @@ def score_sharpness_detailed(ctx: SubjectContext) -> SharpnessScores:
             x_max = min(gray.shape[1], x_max)
             if y_max > y_min and x_max > x_min:
                 eye_mask[y_min:y_max, x_min:x_max] = 1
-                eye_score = _compute_region_sharpness(gray, eye_mask)
+                eye_score = _region_score_from_maps(ten_map, ml_map, gray, eye_mask)
     elif ctx.detections:
         # For animals: use upper third of primary detection bbox as eye region
         for det in ctx.detections:
@@ -175,7 +231,7 @@ def score_sharpness_detailed(ctx: SubjectContext) -> SharpnessScores:
                 x_max = min(gray.shape[1], x + w)
                 if y_max > y_min and x_max > x_min:
                     eye_mask[y_min:y_max, x_min:x_max] = 1
-                    eye_score = _compute_region_sharpness(gray, eye_mask)
+                    eye_score = _region_score_from_maps(ten_map, ml_map, gray, eye_mask)
                 break
 
     # Sharpness contrast ratio
@@ -184,7 +240,8 @@ def score_sharpness_detailed(ctx: SubjectContext) -> SharpnessScores:
     # Blur classification
     subject_sharp = subject_score >= _SHARP_THRESHOLD
     bg_sharp = background_score >= _SHARP_THRESHOLD
-    blur_type = _classify_blur(subject_sharp, bg_sharp, sharpness_contrast)
+    anisotropy = _gradient_anisotropy(gx, gy, mask > 0)
+    blur_type = _classify_blur(subject_sharp, bg_sharp, sharpness_contrast, anisotropy)
 
     # Overall score (weighted combination favoring subject and eye)
     overall = 0.5 * subject_score + 0.35 * eye_score + 0.15 * min(sharpness_contrast / 5.0, 1.0)

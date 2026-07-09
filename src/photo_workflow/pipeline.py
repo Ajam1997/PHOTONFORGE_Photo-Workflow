@@ -581,6 +581,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                     "subject_confidence": round(fusion.subject_confidence, 4),
                     "photo_type": fusion.photo_type,
                     "type_confidence": round(fusion.type_confidence, 4),
+                    "hard_reject": fusion.hard_reject,
                 }
                 update_genre_scores(
                     conn, table, row["filename"],
@@ -672,12 +673,21 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     # (so the applicator does minimal extra work). Floored/rejected frames already
     # got their correct 1 star live, so they are not re-rated.
     if json_progress and rated:
-        all_masters = [
-            r[0] for r in conn.execute(
-                "SELECT master_score FROM photos WHERE folder=? AND master_score IS NOT NULL",
-                (table,),
-            )
-        ]
+        # Hard-rejected frames must not deflate the keepers' percentiles;
+        # hard_reject rides in the genres JSON (rows from before it was
+        # recorded count as keepers, matching the old behavior).
+        all_masters = []
+        for r in conn.execute(
+            "SELECT master_score, genres FROM photos "
+            "WHERE folder=? AND master_score IS NOT NULL AND is_duplicate=0",
+            (table,),
+        ):
+            try:
+                if json.loads(r[1] or "{}").get("hard_reject"):
+                    continue
+            except (json.JSONDecodeError, TypeError):
+                pass
+            all_masters.append(r[0])
         kept_sorted = sorted(m for m in all_masters if m >= _RATING_ABS_FLOOR)
         for item in rated:
             stars = hybrid_star(item["master"], False, kept_sorted)
