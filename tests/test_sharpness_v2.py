@@ -139,3 +139,56 @@ def test_backward_compat_score_sharpness(sharp_image) -> None:
     result = score_sharpness(sharp_image)
     assert isinstance(result, float)
     assert 0.0 <= result <= 1.0
+
+
+def test_region_sharpness_independent_of_mask_area():
+    """Regression: the region mean was taken over the whole frame after zeroing
+    non-mask pixels, so a sharp subject at 2% of frame scored ~2% of its value."""
+    import numpy as np
+    from photo_workflow.sharpness import _compute_region_sharpness
+
+    rng = np.random.default_rng(42)
+    base = np.tile(np.linspace(60, 190, 256, dtype=np.float64), (256, 1))
+    gray = np.clip(base + rng.normal(0, 6, (256, 256)), 0, 255).astype(np.uint8)
+
+    full = np.ones((256, 256), dtype=np.uint8)
+    small = np.zeros_like(full)
+    small[100:140, 100:140] = 1  # ~2.4% of the frame, same texture
+
+    s_full = _compute_region_sharpness(gray, full)
+    s_small = _compute_region_sharpness(gray, small)
+    assert 0.05 < s_full < 1.0, f"fixture texture out of range: {s_full}"
+    assert s_small > 0.5 * s_full, (
+        f"small-mask score {s_small:.4f} diluted vs full-frame {s_full:.4f}"
+    )
+
+
+def test_classify_blur_motion_subject_reachable():
+    """Regression: both ratio branches returned 'bokeh' and the soft-subject
+    branch always returned 'misfocused', leaving motion_subject unreachable."""
+    from photo_workflow.sharpness import _classify_blur
+
+    assert _classify_blur(True, True, 1.0) == "sharp"
+    assert _classify_blur(True, False, 5.0) == "bokeh"
+    assert _classify_blur(False, False, 1.0) == "motion_global"
+    assert _classify_blur(False, True, 0.5, subject_anisotropy=4.0) == "motion_subject"
+    assert _classify_blur(False, True, 0.5, subject_anisotropy=1.1) == "misfocused"
+
+
+def test_gradient_anisotropy_detects_directional_smear():
+    import cv2
+    import numpy as np
+    from photo_workflow.sharpness import _gradient_anisotropy
+
+    rng = np.random.default_rng(7)
+    gray = (rng.random((128, 128)) * 255).astype(np.uint8)
+    smeared = cv2.blur(gray, (15, 1))  # horizontal motion smear
+
+    def aniso(img):
+        gx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
+        gy = cv2.Sobel(img, cv2.CV_64F, 0, 1, ksize=3)
+        region = np.ones(img.shape, dtype=bool)
+        return _gradient_anisotropy(gx, gy, region)
+
+    assert aniso(gray) < 1.5
+    assert aniso(smeared) > 2.5

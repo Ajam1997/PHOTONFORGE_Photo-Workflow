@@ -10,7 +10,6 @@ import cv2
 import numpy as np
 
 from .scoring_types import FaceDetection, ObjectDetection, SubjectContext
-from .sharpness import _tenengrad
 
 logger = logging.getLogger(__name__)
 
@@ -388,6 +387,9 @@ def _run_yolo(image_rgb: np.ndarray, session: Any, original_shape: tuple) -> lis
     # COCO class names (subset relevant to genre detection)
     coco_names = _COCO_NAMES
 
+    boxes: list[list[int]] = []
+    scores: list[float] = []
+    class_ids: list[int] = []
     for row in raw:
         cx, cy, bw, bh = row[:4]
         class_scores = row[4:]
@@ -398,15 +400,30 @@ def _run_yolo(image_rgb: np.ndarray, session: Any, original_shape: tuple) -> lis
 
         x = int((cx - bw / 2) * scale_x)
         y = int((cy - bh / 2) * scale_y)
-        det_w = int(bw * scale_x)
-        det_h = int(bh * scale_y)
+        boxes.append([x, y, int(bw * scale_x), int(bh * scale_y)])
+        scores.append(conf)
+        class_ids.append(class_id)
 
+    if not boxes:
+        return detections
+
+    # NMS: without it every anchor above threshold survives, so one person
+    # yields tens of boxes and person_count-based genre routing misfires.
+    # Boxes are offset per class so different classes never suppress each other.
+    offset = 100000
+    shifted = [
+        [b[0] + class_ids[i] * offset, b[1] + class_ids[i] * offset, b[2], b[3]]
+        for i, b in enumerate(boxes)
+    ]
+    keep = cv2.dnn.NMSBoxes(shifted, scores, score_threshold=0.3, nms_threshold=0.45)
+    for i in np.asarray(keep).flatten():
+        class_id = class_ids[i]
         name = coco_names[class_id] if class_id < len(coco_names) else f"class_{class_id}"
         detections.append(ObjectDetection(
             class_id=class_id,
             class_name=name,
-            bbox=(x, y, det_w, det_h),
-            confidence=conf,
+            bbox=tuple(boxes[i]),
+            confidence=scores[i],
         ))
 
     return detections
@@ -501,12 +518,17 @@ def build_subject_context(path: Path, model_sessions: ModelSessions) -> SubjectC
         largest = max(detections, key=lambda d: d.bbox[2] * d.bbox[3])
         primary_subject_bbox = largest.bbox
 
-    # Compute sharpness contrast (subject Tenengrad / background Tenengrad)
+    # Compute sharpness contrast (subject Tenengrad / background Tenengrad).
+    # Gradients must come from the 2-D image; boolean indexing first would
+    # flatten the masked pixels into a 1xN strip whose "gradient" is noise.
     sharpness_contrast = 1.0
     if subject_mask.sum() > 0:
         inv_mask = 1 - subject_mask
-        subject_ten = _tenengrad(image_gray[subject_mask > 0])
-        bg_ten = _tenengrad(image_gray[inv_mask > 0])
+        gx = cv2.Sobel(image_gray, cv2.CV_64F, 1, 0, ksize=3)
+        gy = cv2.Sobel(image_gray, cv2.CV_64F, 0, 1, ksize=3)
+        ten_map = gx * gx + gy * gy
+        subject_ten = float(ten_map[subject_mask > 0].mean())
+        bg_ten = float(ten_map[inv_mask > 0].mean()) if (inv_mask > 0).any() else 0.0
         if bg_ten > 0:
             sharpness_contrast = subject_ten / bg_ten
         else:

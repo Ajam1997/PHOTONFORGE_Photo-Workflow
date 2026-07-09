@@ -142,3 +142,45 @@ def test_model_sessions_training_db_fallback(tmp_path: Path) -> None:
 
     assert protos is not None
     assert np.allclose(protos, hardcoded_protos)
+
+
+class _FakeYoloSession:
+    def __init__(self, raw):
+        self._raw = raw
+
+    def get_inputs(self):
+        class _Inp:
+            name = "images"
+
+        return [_Inp()]
+
+    def run(self, _outputs, _feeds):
+        return [self._raw]
+
+
+def test_run_yolo_nms_collapses_overlapping_anchors():
+    """Regression: without NMS every anchor above threshold survived, so one
+    person produced tens of boxes and person_count-based routing misfired."""
+    import numpy as np
+    from photo_workflow.subject_context import _run_yolo
+
+    def anchor(cx, cy, w, h, cls, conf):
+        r = np.zeros(84, dtype=np.float32)
+        r[:4] = [cx, cy, w, h]
+        r[4 + cls] = conf
+        return r
+
+    raw = np.stack([
+        anchor(320, 320, 100, 200, 0, 0.90),   # person
+        anchor(322, 318, 102, 198, 0, 0.85),   # same person
+        anchor(318, 321, 98, 202, 0, 0.80),    # same person
+        anchor(100, 100, 50, 50, 16, 0.70),    # dog elsewhere
+    ])[None, ...]  # (1, 4, 84)
+
+    img = np.zeros((640, 640, 3), dtype=np.uint8)
+    dets = _run_yolo(img, _FakeYoloSession(raw), (640, 640, 3))
+
+    persons = [d for d in dets if d.class_name == "person"]
+    assert len(persons) == 1, f"expected 1 person after NMS, got {len(persons)}"
+    assert len(dets) == 2
+    assert {d.class_name for d in dets} == {"person", "dog"}
