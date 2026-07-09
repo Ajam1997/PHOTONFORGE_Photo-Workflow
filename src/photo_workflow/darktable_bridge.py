@@ -17,6 +17,11 @@ logger = logging.getLogger(__name__)
 
 _PHOTON_NS = "https://photonforge.local/xmp/1.0/"
 
+# Hierarchical tag prefixes — the cross-language protocol with the Lua plugin
+# (lua/photonforge/tag_manager.lua keeps matching copies).
+PHOTON_SUBJECT_PREFIX = "photon|subject|"
+PHOTON_TYPE_PREFIX = "photon|type|"
+
 XMP_TEMPLATE = """\
 <?xpacket begin='﻿' id='W5M0MpCehiHzreSzNTczkc9d'?>
 <x:xmpmeta xmlns:x='adobe:ns:meta/' x:xmptk='PHOTONForge'>
@@ -57,65 +62,6 @@ XMP_TEMPLATE = """\
 </x:xmpmeta>
 <?xpacket end='w'?>
 """
-
-# Darktable color label integers: 0=red, 1=yellow, 2=green, 3=blue, 4=purple, -1=none
-_DT_YELLOW = 1
-_DT_GREEN  = 2
-_DT_BLUE   = 3
-_DT_PURPLE = 4
-_DT_NONE   = -1
-
-_THRESH_SHARPNESS   = 0.3
-_THRESH_EXPOSURE    = 0.5
-_THRESH_COMPOSITION = 0.2
-_THRESH_GREEN_MEAN  = 0.5
-
-
-def compute_color_label(
-    sharpness: float,
-    composition: float | None = None,
-    exposure: float | None = None,
-    master_score: float | None = None,
-    hard_reject: bool = False,
-) -> int:
-    """Return the Darktable color label int for a set of scores.
-
-    Supports both legacy 3-score mode and new master_score mode.
-
-    Priority (legacy): yellow > blue > purple > green > none. Returns -1 if no label applies.
-    Priority (new): hard_reject -> none, master_score -> colors by threshold.
-    """
-    if master_score is not None:
-        if hard_reject:
-            return _DT_NONE
-        if master_score < 0.3:
-            return _DT_YELLOW
-        if master_score < 0.5:
-            return _DT_NONE
-        if master_score < 0.75:
-            return _DT_GREEN
-        return _DT_BLUE
-
-    if composition is None or exposure is None:
-        if sharpness < 0.3:
-            return _DT_YELLOW
-        if sharpness < 0.5:
-            return _DT_NONE
-        if sharpness < 0.75:
-            return _DT_GREEN
-        return _DT_BLUE
-
-    if sharpness < _THRESH_SHARPNESS:
-        return _DT_YELLOW
-    if exposure < _THRESH_EXPOSURE:
-        return _DT_BLUE
-    if composition < _THRESH_COMPOSITION:
-        return _DT_PURPLE
-    mean = (sharpness + composition + exposure) / 3.0
-    if mean >= _THRESH_GREEN_MEAN:
-        return _DT_GREEN
-    return _DT_NONE
-
 
 def xmp_sidecar_path(photo_path: Path) -> Path:
     """Sidecar path in Darktable's convention: IMG_0001.ARW -> IMG_0001.ARW.xmp.
@@ -279,8 +225,8 @@ def purge_orphan_photon_tags(library_db_path: Path) -> int:
     """
     from .genre_router import SUBJECTS, PHOTO_TYPES
 
-    valid = {f"photon|subject|{s}" for s in SUBJECTS}
-    valid |= {f"photon|type|{t}" for t in PHOTO_TYPES}
+    valid = {PHOTON_SUBJECT_PREFIX + s for s in SUBJECTS}
+    valid |= {PHOTON_TYPE_PREFIX + t for t in PHOTO_TYPES}
     valid.add("photon|needs_review")
 
     try:

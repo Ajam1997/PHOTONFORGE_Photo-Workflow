@@ -11,17 +11,7 @@ logger = logging.getLogger(__name__)
 SESSION_GAP_MINUTES = 30  # New session if gap between shots exceeds this
 
 
-def read_exif_datetime(path: Path) -> datetime | None:
-    try:
-        import exifread
-        with open(path, "rb") as f:
-            tags = exifread.process_file(f, stop_tag="EXIF DateTimeOriginal", details=False)
-        raw = tags.get("EXIF DateTimeOriginal") or tags.get("Image DateTime")
-        if raw:
-            return datetime.strptime(str(raw), "%Y:%m:%d %H:%M:%S")
-    except Exception:
-        pass
-    return None
+from .raw_loader import read_exif_datetime  # noqa: F401  (re-exported: public API)
 
 
 def cluster_sessions(

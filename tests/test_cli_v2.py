@@ -5,21 +5,17 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-import numpy as np
 import pytest
 from click.testing import CliRunner
-from PIL import Image
 
 from photo_workflow.pipeline import cli
 
 
+from conftest import make_jpg
+
+
 def _make_jpg(path: Path, dt_str: str = "2026:05:10 14:32:01") -> None:
-    arr = np.full((64, 64, 3), 128, dtype=np.uint8)
-    img = Image.fromarray(arr)
-    exif = img.getexif()
-    exif[0x9003] = dt_str
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(path, "JPEG", quality=95, exif=exif.tobytes())
+    make_jpg(path, dt_str, size=64, quality=95)
 
 
 @pytest.fixture()

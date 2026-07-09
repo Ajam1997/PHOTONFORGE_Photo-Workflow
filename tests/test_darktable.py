@@ -9,7 +9,6 @@ import pytest
 
 from photo_workflow.darktable_bridge import (
     xmp_sidecar_path,
-    compute_color_label,
     sync_to_darktable,
     validate_xmp,
     _write_xmp,
@@ -152,77 +151,6 @@ def test_sync_to_darktable_no_db_param() -> None:
     sig = inspect.signature(sync_to_darktable)
     assert "db_path" not in sig.parameters
 
-
-def test_sync_to_darktable_skips_duplicates(tmp_path: Path) -> None:
-    keeper = _make_record(tmp_path, name="keeper")
-    dup = _make_record(tmp_path, name="dup", duplicate=True)
-    count = sync_to_darktable([keeper, dup])
-    assert count == 1
-    assert xmp_sidecar_path(keeper.path).exists()
-    assert not xmp_sidecar_path(dup.path).exists()
-
-
-# ---------------------------------------------------------------------------
-# compute_color_label tests
-# ---------------------------------------------------------------------------
-
-def test_compute_color_label_green_mean_above_half() -> None:
-    assert compute_color_label(0.7, 0.6, 0.7) == 2
-
-
-def test_compute_color_label_yellow_low_sharpness() -> None:
-    assert compute_color_label(0.2, 0.6, 0.7) == 1
-
-
-def test_compute_color_label_blue_low_exposure() -> None:
-    assert compute_color_label(0.7, 0.6, 0.4) == 3
-
-
-def test_compute_color_label_purple_low_composition() -> None:
-    assert compute_color_label(0.7, 0.1, 0.7) == 4
-
-
-def test_compute_color_label_no_label_below_mean() -> None:
-    label = compute_color_label(0.4, 0.4, 0.6)
-    assert label == -1
-
-
-def test_compute_color_label_yellow_takes_priority_over_blue() -> None:
-    # sharpness < 0.3 AND exposure < 0.5 → yellow wins
-    assert compute_color_label(0.2, 0.6, 0.3) == 1
-
-
-# ---------------------------------------------------------------------------
-# compute_color_label master_score mode tests
-# ---------------------------------------------------------------------------
-
-def test_compute_color_label_master_score_yellow() -> None:
-    assert compute_color_label(0.0, master_score=0.2) == 1  # < 0.3
-
-
-def test_compute_color_label_master_score_none_average() -> None:
-    assert compute_color_label(0.0, master_score=0.4) == -1  # 0.3-0.5
-
-
-def test_compute_color_label_master_score_green() -> None:
-    assert compute_color_label(0.0, master_score=0.6) == 2  # 0.5-0.75
-
-
-def test_compute_color_label_master_score_blue_excellent() -> None:
-    assert compute_color_label(0.0, master_score=0.8) == 3  # > 0.75
-
-
-def test_compute_color_label_hard_reject_returns_none() -> None:
-    assert compute_color_label(0.0, master_score=0.9, hard_reject=True) == -1
-
-
-def test_compute_color_label_sharpness_only_fallback() -> None:
-    assert compute_color_label(0.8) == 3  # > 0.75 → blue
-
-
-# ---------------------------------------------------------------------------
-# Multi-genre XMP tests
-# ---------------------------------------------------------------------------
 
 def test_xmp_contains_multi_genre_bag(tmp_path: Path) -> None:
     """XMP should contain multi-genre rdf:Bag with entries for each genre."""

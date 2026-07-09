@@ -52,7 +52,6 @@ PHOTO_TYPES = [
 ALL_LABELS = list(dict.fromkeys(SUBJECTS + PHOTO_TYPES))
 
 # Backward compatibility alias
-GENRES = ALL_LABELS
 
 # Animal COCO class IDs: bird=14, cat=15, dog=16, horse=17, sheep=18, cow=19,
 # elephant=20, bear=21, zebra=22, giraffe=23

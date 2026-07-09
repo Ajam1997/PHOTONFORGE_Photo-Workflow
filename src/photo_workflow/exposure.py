@@ -186,20 +186,8 @@ def score_exposure(path: Path) -> float:
         logger.warning("Could not load image for exposure: %s", path)
         return 0.0
 
-    h, w = img.shape[:2]
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    ctx = SubjectContext(
-        image_bgr=img,
-        image_gray=gray,
-        thumbnail_rgb=np.zeros((100, 100, 3), dtype=np.uint8),
-        subject_mask=np.ones((h, w), dtype=np.uint8),
-        subject_area_ratio=1.0,
-        faces=[],
-        detections=[],
-        primary_subject_bbox=None,
-        clip_embedding=np.zeros(512, dtype=np.float32),
-        exif={},
-    )
+    ctx = SubjectContext.degraded(img, gray)
 
     scores = score_exposure_detailed(ctx)
     return scores.overall

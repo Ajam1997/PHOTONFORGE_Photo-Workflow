@@ -82,6 +82,69 @@ def emit(
         click.echo(f"  {step} {file} [{status}]  {extras}")
 
 
+@dataclass
+class ScoredImage:
+    """Everything genre-aware scoring produces for one image."""
+
+    ctx: "object"
+    sharpness: "object"
+    composition: "object"
+    exposure: "object"
+    fusion: "object"
+
+
+def score_one(path: Path, model_sessions, genre_result=None) -> ScoredImage:
+    """Run the genre-aware scoring chain for a single image.
+
+    The one implementation shared by AnalysisPipeline.run and the staged
+    `score` command (previously two byte-similar copies with drifting
+    fallback behavior). Pass genre_result to reuse a known genre
+    (--skip-genre); otherwise the router runs.
+    """
+    from .composition import score_composition_detailed
+    from .exposure import score_exposure_detailed
+    from .genre_router import route_genre
+    from .score_fusion import fuse_scores
+    from .sharpness import score_sharpness_detailed
+    from .subject_context import _run_clip_aesthetic, build_subject_context
+
+    ctx = build_subject_context(path, model_sessions)
+    if genre_result is None:
+        genre_result = route_genre(
+            ctx,
+            genre_prototypes=model_sessions.genre_prototypes,
+            adapter=model_sessions.genre_adapter,
+        )
+
+    sharpness_result = score_sharpness_detailed(ctx)
+    composition_result = score_composition_detailed(ctx)
+    exposure_result = score_exposure_detailed(ctx)
+
+    # Aesthetic score from the CLIP-embedding aesthetic head. None =>
+    # unavailable, so fusion renormalizes the profile instead of scoring
+    # a constant that would silently distort every master score.
+    aesthetic_score: float | None = None
+    _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
+    if model_sessions.aesthetic_head is not None and _clip_ok:
+        try:
+            aesthetic_score = _run_clip_aesthetic(ctx.clip_embedding, model_sessions.aesthetic_head)
+        except Exception as e:
+            logger.warning("Aesthetic scoring failed: %s", e)
+            aesthetic_score = None
+
+    fusion = fuse_scores(
+        sharpness_result,
+        composition_result,
+        exposure_result,
+        genre_result,
+        aesthetic_score,
+        faces=ctx.faces,
+        image_gray=ctx.image_gray,
+        weight_profiles=model_sessions.aesthetic_weights,
+    )
+    return ScoredImage(ctx, sharpness_result, composition_result, exposure_result, fusion)
+
+
 class AnalysisPipeline:
     """Orchestrates ingest → group → dedup → score → name → catalog."""
 
@@ -105,12 +168,7 @@ class AnalysisPipeline:
         from .exposure import score_exposure
         from .naming import generate_name
         from .darktable_bridge import sync_to_darktable
-        from .subject_context import ModelSessions, build_subject_context, _run_clip_aesthetic
-        from .sharpness import score_sharpness_detailed
-        from .composition import score_composition_detailed
-        from .exposure import score_exposure_detailed
-        from .genre_router import route_genre
-        from .score_fusion import fuse_scores
+        from .subject_context import ModelSessions
 
         t0 = time.perf_counter()
 
@@ -135,46 +193,13 @@ class AnalysisPipeline:
                 continue
 
             try:
-                # Build subject context (runs all models once)
-                ctx = build_subject_context(record.path, model_sessions)
-
-                # Route genre using CLIP + EXIF + YOLO
-                genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes,
-                                          adapter=model_sessions.genre_adapter)
-
-                # Score with detailed sub-scores
-                sharpness_result = score_sharpness_detailed(ctx)
-                composition_result = score_composition_detailed(ctx)
-                exposure_result = score_exposure_detailed(ctx)
-
-                # Aesthetic score from the CLIP-embedding aesthetic head. None =>
-                # unavailable, so fusion renormalizes the profile instead of scoring
-                # a constant that would silently distort every master score.
-                aesthetic_score: float | None = None
-                _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
-                if model_sessions.aesthetic_head is not None and _clip_ok:
-                    try:
-                        aesthetic_score = _run_clip_aesthetic(ctx.clip_embedding, model_sessions.aesthetic_head)
-                    except Exception as e:
-                        logger.warning("Aesthetic scoring failed: %s", e)
-                        aesthetic_score = None
-
-                # Fuse all scores using genre weighting
-                fusion = fuse_scores(
-                    sharpness_result,
-                    composition_result,
-                    exposure_result,
-                    genre_result,
-                    aesthetic_score,
-                    faces=ctx.faces,
-                    image_gray=ctx.image_gray,
-                    weight_profiles=model_sessions.aesthetic_weights,
-                )
+                scored = score_one(record.path, model_sessions)
+                ctx, fusion = scored.ctx, scored.fusion
 
                 # Populate old-style scores for backward compatibility
-                record.sharpness_score = sharpness_result.overall
-                record.composition_score = composition_result.overall
-                record.exposure_score = exposure_result.overall
+                record.sharpness_score = scored.sharpness.overall
+                record.composition_score = scored.composition.overall
+                record.exposure_score = scored.exposure.overall
 
                 # Populate genre fields
                 record.genre = fusion.subject
@@ -224,12 +249,8 @@ class AnalysisPipeline:
 
 # --- Staged CLI -----------------------------------------------------------
 
-# Supported image extensions for scanning (union of RAW + common formats)
-PHOTO_EXTS = {
-    ".jpg", ".jpeg", ".png", ".tiff", ".tif",
-    ".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf",
-    ".rw2", ".orf", ".pef", ".srw", ".3fr", ".mef",
-}
+# Supported image extensions for scanning — canonical set in raw_loader.
+from .raw_loader import IMAGE_EXTENSIONS as PHOTO_EXTS
 
 
 @click.group()
@@ -458,14 +479,11 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     """Score photos for sharpness, composition, exposure, and genre."""
     import sqlite3
 
-    from .subject_context import ModelSessions, build_subject_context, _run_clip_aesthetic
-    from .sharpness import score_sharpness, score_sharpness_detailed
-    from .composition import score_composition, score_composition_detailed
-    from .exposure import score_exposure, score_exposure_detailed
-    from .genre_router import route_genre
+    from .subject_context import ModelSessions
+    from .sharpness import score_sharpness
+    from .composition import score_composition
+    from .exposure import score_exposure
     from .scoring_types import GenreResult
-    from .score_fusion import fuse_scores
-    from .darktable_bridge import compute_color_label
     from .score_fusion import absolute_star, hybrid_star, stars_to_color_label, _RATING_ABS_FLOOR
     from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_genre_scores, update_stages, clear_stage
 
@@ -521,7 +539,6 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
         try:
             # Try genre-aware scoring first
             try:
-                ctx = build_subject_context(p, model_sessions)
                 if skip_genre:
                     # Preserve existing genres from DB; only recalculate ratings
                     db_genres_json = row["genres"] or "{}"
@@ -540,38 +557,14 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
                         needs_review=bool(row["needs_review"]),
                     )
                 else:
-                    genre_result = route_genre(ctx, genre_prototypes=model_sessions.genre_prototypes,
-                                          adapter=model_sessions.genre_adapter)
-                sharpness_result = score_sharpness_detailed(ctx)
-                composition_result = score_composition_detailed(ctx)
-                exposure_result = score_exposure_detailed(ctx)
+                    genre_result = None  # score_one routes the genre
 
-                # Aesthetic score from the CLIP-embedding aesthetic head.
-                # None => unavailable (fusion renormalizes).
-                aesthetic_score: float | None = None
-                _clip_ok = ctx.clip_embedding is not None and not np.allclose(ctx.clip_embedding, 0.0)
-                if model_sessions.aesthetic_head is not None and _clip_ok:
-                    try:
-                        aesthetic_score = _run_clip_aesthetic(ctx.clip_embedding, model_sessions.aesthetic_head)
-                    except Exception as e:
-                        logger.warning("Aesthetic scoring failed: %s", e)
-                        aesthetic_score = None
+                scored = score_one(p, model_sessions, genre_result=genre_result)
+                ctx, fusion = scored.ctx, scored.fusion
 
-                # Fuse scores
-                fusion = fuse_scores(
-                    sharpness_result,
-                    composition_result,
-                    exposure_result,
-                    genre_result,
-                    aesthetic_score,
-                    faces=ctx.faces,
-                    image_gray=ctx.image_gray,
-                    weight_profiles=model_sessions.aesthetic_weights,
-                )
-
-                sharp = sharpness_result.overall
-                comp = composition_result.overall
-                expo = exposure_result.overall
+                sharp = scored.sharpness.overall
+                comp = scored.composition.overall
+                expo = scored.exposure.overall
                 master = fusion.master_score
 
                 update_scores(conn, table, row["filename"], sharp, comp, expo, auto_commit=False)
@@ -991,7 +984,9 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
     """
     import sqlite3 as _sqlite3
 
-    from .darktable_bridge import clear_photon_tags, write_darktable_keywords, purge_orphan_photon_tags
+    from .darktable_bridge import (PHOTON_SUBJECT_PREFIX, PHOTON_TYPE_PREFIX,
+                                   clear_photon_tags, purge_orphan_photon_tags,
+                                   write_darktable_keywords)
     from .photondb import sanitize_table_name
 
     table = sanitize_table_name(folder)
@@ -1038,9 +1033,9 @@ def sync_tags(photon_db: Path, folder: str, dt_library: Path,
                 # CLI mode: write directly to SQLite (DT must be closed)
                 keywords = []
                 if subject:
-                    keywords.append("photon|subject|" + subject)
+                    keywords.append(PHOTON_SUBJECT_PREFIX + subject)
                 if photo_type:
-                    keywords.append("photon|type|" + photo_type)
+                    keywords.append(PHOTON_TYPE_PREFIX + photo_type)
                 if keywords:
                     clear_photon_tags(dt_library, filename)
                     write_darktable_keywords(dt_library, filename, keywords)
@@ -1266,33 +1261,11 @@ def recalibrate(
     # pure-numpy LR when scikit-learn is absent (the runtime venv behind the DT
     # Recalibrate button), or sklearn in the dev environment.
     try:
-        import json as _json
-        import sqlite3 as _sql
 
         from .genre_adapter import train_linear_adapter
         from .training_weights_db import upsert_linear_adapter
 
-        adapter_labels: dict[str, tuple[str, str]] = {}
-        for line in open(corpus, encoding="utf-8"):
-            line = line.strip()
-            if line:
-                r = _json.loads(line)
-                if r.get("subject") and r.get("photo_type"):  # adapter needs both axes
-                    adapter_labels[r["filename"]] = (r["subject"], r["photo_type"])
-        pc = _sql.connect(str(photon_db))
-        emb: dict[str, np.ndarray] = {}
-        for q in (
-            "SELECT filename, clip_embedding FROM photos WHERE clip_embedding IS NOT NULL",
-            "SELECT filename, clip_embedding FROM embeddings WHERE clip_embedding IS NOT NULL",
-        ):
-            try:
-                cur = pc.execute(q)
-            except _sql.OperationalError:
-                continue
-            for fn, blob in cur:
-                if fn in adapter_labels and fn not in emb:
-                    emb[fn] = np.frombuffer(blob, dtype=np.float32)
-        pc.close()
+        adapter_labels, emb = _load_labeled_embeddings(corpus, photon_db)
         names = [fn for fn in adapter_labels if fn in emb]
         if len(names) >= 10:
             X = np.vstack([emb[fn] for fn in names])
@@ -1316,24 +1289,15 @@ def recalibrate(
     conn.close()
 
 
-@training.command("train-adapter")
-@click.option("--corpus", default=_DEFAULT_CORPUS, type=click.Path(path_type=Path),
-              help="Path to genre_labels.jsonl")
-@click.option("--photon-db", "photon_db", required=True,
-              type=click.Path(exists=True, path_type=Path),
-              help="Path to photonforge.db (to load CLIP embeddings)")
-@click.option("--training-db", "training_db", required=True, type=click.Path(path_type=Path),
-              help="Path to training_weights.db (output)")
-@click.option("--cv-folds", default=5, type=int, help="Cross-validation folds for the accuracy report")
-def train_adapter(corpus: Path, photon_db: Path, training_db: Path, cv_folds: int) -> None:
-    """Train the learned linear genre classifier (subject + type) on the corpus."""
+def _load_labeled_embeddings(corpus: Path, photon_db: Path) -> tuple[dict, dict]:
+    """Corpus labels (filename -> (subject, type)) + their CLIP embeddings.
+
+    Shared by `training recalibrate` and `training train-adapter`, which
+    previously kept condensed copies of the same JSONL parse and two-table
+    embedding read.
+    """
     import json as _json
     import sqlite3 as _sql
-
-    from .genre_adapter import train_linear_adapter
-    from .training_weights_db import (
-        open_training_db, ensure_schema, next_version, upsert_linear_adapter,
-    )
 
     labels: dict[str, tuple[str, str]] = {}
     for line in open(corpus, encoding="utf-8"):
@@ -1359,6 +1323,27 @@ def train_adapter(corpus: Path, photon_db: Path, training_db: Path, cv_folds: in
             if fn in labels and fn not in emb:
                 emb[fn] = np.frombuffer(blob, dtype=np.float32)
     pc.close()
+    return labels, emb
+
+
+@training.command("train-adapter")
+@click.option("--corpus", default=_DEFAULT_CORPUS, type=click.Path(path_type=Path),
+              help="Path to genre_labels.jsonl")
+@click.option("--photon-db", "photon_db", required=True,
+              type=click.Path(exists=True, path_type=Path),
+              help="Path to photonforge.db (to load CLIP embeddings)")
+@click.option("--training-db", "training_db", required=True, type=click.Path(path_type=Path),
+              help="Path to training_weights.db (output)")
+@click.option("--cv-folds", default=5, type=int, help="Cross-validation folds for the accuracy report")
+def train_adapter(corpus: Path, photon_db: Path, training_db: Path, cv_folds: int) -> None:
+    """Train the learned linear genre classifier (subject + type) on the corpus."""
+
+    from .genre_adapter import train_linear_adapter
+    from .training_weights_db import (
+        open_training_db, ensure_schema, next_version, upsert_linear_adapter,
+    )
+
+    labels, emb = _load_labeled_embeddings(corpus, photon_db)
 
     names = [fn for fn in labels if fn in emb]
     if not names:
@@ -1467,8 +1452,8 @@ def collect_corrections(
     from .genre_router import SUBJECTS, PHOTO_TYPES
     from .photondb import sanitize_table_name
 
-    _SUBJECT_PREFIX = "photon|subject|"
-    _TYPE_PREFIX = "photon|type|"
+    from .darktable_bridge import PHOTON_SUBJECT_PREFIX as _SUBJECT_PREFIX
+    from .darktable_bridge import PHOTON_TYPE_PREFIX as _TYPE_PREFIX
 
     subjects_set = set(SUBJECTS)
     types_set = set(PHOTO_TYPES)

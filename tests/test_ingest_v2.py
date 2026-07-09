@@ -5,21 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import patch
 
-import numpy as np
 import pytest
-from PIL import Image
 
 from photo_workflow.ingest import ingest_volume
 
 
-def _make_jpg(path: Path, dt_str: str = "2026:05:10 14:32:01") -> None:
-    """Create a tiny JPEG with EXIF DateTimeOriginal."""
-    arr = np.full((8, 8, 3), 128, dtype=np.uint8)
-    img = Image.fromarray(arr)
-    exif = img.getexif()
-    exif[0x9003] = dt_str  # DateTimeOriginal
-    path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(path, "JPEG", exif=exif.tobytes())
+from conftest import make_jpg as _make_jpg
 
 
 @pytest.fixture()

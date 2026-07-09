@@ -7,26 +7,18 @@ import os
 import shutil
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from .raw_loader import IMAGE_EXTENSIONS as SUPPORTED_EXTENSIONS
+from .raw_loader import JPG_EXTENSIONS, RAW_EXTENSIONS
 
-RAW_EXTENSIONS = {".arw", ".cr2", ".cr3", ".nef", ".dng", ".raw", ".orf", ".rw2"}
-JPG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tiff", ".tif"}
-SUPPORTED_EXTENSIONS = RAW_EXTENSIONS | JPG_EXTENSIONS
+logger = logging.getLogger(__name__)
 
 
 def _read_exif_timestamp(path: Path) -> str | None:
-    """Read EXIF DateTimeOriginal via exifread. Returns sortable ISO string or None."""
-    try:
-        import exifread
+    """EXIF DateTimeOriginal as a sortable string, via the shared reader."""
+    from .raw_loader import read_exif_datetime
 
-        with open(path, "rb") as f:
-            tags = exifread.process_file(f, stop_tag="EXIF DateTimeOriginal", details=False)
-        raw = tags.get("EXIF DateTimeOriginal") or tags.get("Image DateTime")
-        if raw:
-            return str(raw).replace(":", "-", 2)
-        return None
-    except Exception:
-        return None
+    dt = read_exif_datetime(path)
+    return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else None
 
 
 def get_volume_label(source_dir: Path) -> str:
