@@ -43,26 +43,44 @@ def _get_label_windows(drive_path: Path) -> str:
     return ""
 
 
+def _find_mount_point(path: Path) -> Path:
+    """Walk up from path to the filesystem it is mounted on."""
+    import os
+
+    p = path.resolve()
+    while not os.path.ismount(p) and p != p.parent:
+        p = p.parent
+    return p
+
+
 def _get_label_linux(drive_path: Path) -> str:
+    import json
     import subprocess
 
-    mount_point = str(drive_path)
+    # drive_path is usually a folder *inside* the cartridge; compare against
+    # its mount point. Both columns must be requested explicitly — the old
+    # "-no LABEL" call emitted only the label key, so the mountpoint match
+    # never hit and every cartridge fell back to ID 000.
+    mount_point = str(_find_mount_point(drive_path))
     try:
         result = subprocess.run(
-            ["lsblk", "-no", "LABEL", "-J"],
+            ["lsblk", "-J", "-o", "LABEL,MOUNTPOINT"],
             capture_output=True,
             text=True,
             check=True,
         )
-        import json
-
         data = json.loads(result.stdout)
-        for dev in data.get("blockdevices", []):
-            if dev.get("mountpoint") == mount_point and dev.get("label"):
-                return dev["label"]
-            for child in dev.get("children", []):
-                if child.get("mountpoint") == mount_point and child.get("label"):
-                    return child["label"]
+
+        def _walk(devices: list) -> str:
+            for dev in devices:
+                if dev.get("mountpoint") == mount_point and dev.get("label"):
+                    return dev["label"]
+                found = _walk(dev.get("children") or [])
+                if found:
+                    return found
+            return ""
+
+        return _walk(data.get("blockdevices", []))
     except Exception as e:
         logger.warning("Could not read volume label: %s", e)
     return ""

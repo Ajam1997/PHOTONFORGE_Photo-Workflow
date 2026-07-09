@@ -49,7 +49,9 @@ def analyze_device(device: str) -> DeviceAnalysis:
 
     children = dev_info.get("children", [])
     has_partitions = bool(children)
-    partition_device = f"{device}1" if has_partitions else None
+    # Use the kernel's own name for the first partition (handles nvme0n1p1,
+    # mmcblk0p1, sdb1 alike) instead of guessing "{device}1".
+    partition_device = f"/dev/{children[0]['name']}" if has_partitions else None
 
     existing_label = None
     if has_partitions:
@@ -67,6 +69,11 @@ def analyze_device(device: str) -> DeviceAnalysis:
         existing_label=existing_label,
         partition_device=partition_device,
     )
+
+
+def _partition_node(device: str) -> str:
+    """First-partition node: /dev/sdb -> /dev/sdb1, /dev/nvme0n1 -> /dev/nvme0n1p1."""
+    return f"{device}p1" if device[-1].isdigit() else f"{device}1"
 
 
 def next_available_cartridge_id(label_prefix: str = "PHOTON") -> str:
@@ -147,7 +154,13 @@ def provision_cartridge(
                 except (OSError, ValueError):
                     pass
 
-        subprocess.run(["sudo", "-n", "wipefs", "-a", device], check=False)
+        # Wipe the whole device (erasing the partition table) ONLY when we are
+        # about to create a new one. When reusing an existing partition, wipe
+        # just that partition's filesystem signature — wiping the device here
+        # used to erase the GPT and then format through a stale kernel node,
+        # bricking the cartridge on replug.
+        if not analysis.has_partitions or force_repartition:
+            subprocess.run(["sudo", "-n", "wipefs", "-a", device], check=False)
         if analysis.partition_device and Path(analysis.partition_device).exists():
             subprocess.run(["sudo", "-n", "wipefs", "-a", analysis.partition_device], check=False)
         wiped = True
@@ -163,8 +176,14 @@ def provision_cartridge(
                  "mklabel", "gpt", "mkpart", "primary", "ext4", "0%", "100%"],
                 check=True,
             )
-            partition_device = f"{device}1"
+            partition_device = _partition_node(device)
             created_partition = True
+            # The new partition node may not exist yet; wait for udev.
+            subprocess.run(["sudo", "-n", "udevadm", "settle"], check=False)
+            for _ in range(20):
+                if Path(partition_device).exists():
+                    break
+                time.sleep(0.25)
     else:
         _emit("partitioning", 2, 5)
 

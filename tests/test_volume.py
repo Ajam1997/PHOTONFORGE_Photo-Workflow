@@ -72,3 +72,26 @@ def test_get_next_sequence_ignores_other_prefixes(tmp_path: Path):
     (tmp_path / "P003ICE0000003.ARW").touch()
     (tmp_path / "P004WED0000010.ARW").touch()
     assert get_next_sequence(tmp_path, "003", "ICE") == 4
+
+
+def test_get_label_linux_matches_mountpoint_in_children(tmp_path):
+    """Regression: lsblk was invoked with only the LABEL column, so the
+    mountpoint comparison never matched and every cartridge became 000."""
+    import json
+    from unittest.mock import Mock, patch
+
+    from photo_workflow.volume import _find_mount_point, _get_label_linux
+
+    mp = str(_find_mount_point(tmp_path))
+    payload = json.dumps({
+        "blockdevices": [
+            {"label": None, "mountpoint": None, "children": [
+                {"label": "PHOTONFORGE-003", "mountpoint": mp},
+            ]},
+        ]
+    })
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = Mock(stdout=payload, returncode=0)
+        assert _get_label_linux(tmp_path) == "PHOTONFORGE-003"
+        cmd = " ".join(mock_run.call_args.args[0])
+        assert "LABEL" in cmd and "MOUNTPOINT" in cmd

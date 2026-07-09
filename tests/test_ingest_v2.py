@@ -82,3 +82,44 @@ def test_ingest_dry_run(mock_label, sd_dir: Path, dest_dir: Path):
     assert len(copied) == 3
     actual_files = list(dest_dir.iterdir())
     assert len(actual_files) == 0
+
+
+@patch("photo_workflow.ingest.get_volume_label", return_value="PHOTONFORGE-003")
+def test_ingest_crash_during_copy_does_not_lose_photo(mock_label, tmp_path: Path):
+    """A crash mid-copy must not leave the DB claiming the photo was ingested."""
+    sd = tmp_path / "SD"
+    sd.mkdir()
+    _make_jpg(sd / "DSC09999.jpg", "2026:05:10 15:00:00")
+    dest = tmp_path / "ICELAND"
+    dest.mkdir()
+
+    with patch("photo_workflow.ingest.shutil.copy2", side_effect=OSError("card yanked")):
+        with pytest.raises(OSError):
+            ingest_volume(sd, dest)
+
+    from photo_workflow.ingest import _get_already_ingested
+
+    assert not any(orig == "DSC09999.jpg" for orig, _ in _get_already_ingested(dest))
+
+    # Resume run must still ingest the photo
+    copied = ingest_volume(sd, dest)
+    assert [p.name for p in copied] == ["P003ICE0000001.jpg"]
+    assert copied[0].exists()
+
+
+@patch("photo_workflow.ingest.get_volume_label", return_value="PHOTONFORGE-003")
+def test_ingest_name_collision_retries_same_source(mock_label, tmp_path: Path):
+    """A pre-existing file at the computed name must not skip the source photo."""
+    sd = tmp_path / "SD"
+    sd.mkdir()
+    _make_jpg(sd / "DSC00001.jpg", "2026:05:10 15:00:00")
+    dest = tmp_path / "ICELAND"
+    dest.mkdir()
+    (dest / "P003ICE0000001.jpg").write_bytes(b"leftover")
+
+    with patch("photo_workflow.volume.get_next_sequence", return_value=1):
+        copied = ingest_volume(sd, dest)
+
+    assert [p.name for p in copied] == ["P003ICE0000002.jpg"]
+    assert copied[0].exists()
+    assert (dest / "P003ICE0000001.jpg").read_bytes() == b"leftover"
