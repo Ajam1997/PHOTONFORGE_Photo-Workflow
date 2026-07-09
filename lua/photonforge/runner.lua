@@ -23,6 +23,15 @@ local function get_drive_root(path)
     if drive then return drive end
     local unc = path:match("^(\\\\[^\\]+\\[^\\]+\\)")
     if unc then return unc end
+    return path
+  end
+  -- Cartridge root = parent of the destination folder, matching the Python
+  -- side (photondb puts photonforge.db at dest's parent). The old version
+  -- returned "/" for every Linux path, pointing every command at the
+  -- filesystem root.
+  local parent = path:match("^(.-)/+[^/]+/*$")
+  if parent and parent ~= "" then
+    return parent .. "/"
   end
   return "/"
 end
@@ -277,9 +286,24 @@ end
 -- run_step polling loop — they fire-and-forget into a terminal.
 -- ---------------------------------------------------------------------------
 
+-- photo-cartridge currently implements only `init`; the provision/archive/
+-- restore subcommands these buttons invoke do not exist yet. Flip to true
+-- once they are implemented — until then the buttons refuse loudly instead
+-- of opening a terminal that dies with "No such command" (or worse, running
+-- an elevated command against a mis-resolved drive root).
+local CARTRIDGE_CMDS_IMPLEMENTED = false
+
+local function cartridge_cmd_unavailable(name, log_fn)
+  if CARTRIDGE_CMDS_IMPLEMENTED then return false end
+  log_fn(string.format("[%s] photo-cartridge %s is not implemented yet.", name, name))
+  dt.print("PHOTONForge: cartridge " .. name .. " is not available yet")
+  return true
+end
+
 -- Launch the Cartridge Manager as a SEPARATE, ELEVATED executable. Provisioning
 -- sets the volume label (admin/root). The destination drive root is the cartridge.
 function M.launch_provision(log_fn)
+  if cartridge_cmd_unavailable("provision", log_fn) then return end
   local dest = config.read("dest_path")
   local drive = get_drive_root(dest)
   local id = config.read("cartridge_id")
@@ -325,6 +349,7 @@ end
 
 -- Archive the whole cartridge (DB + photos) to the configured restic repo.
 function M.launch_archive(log_fn)
+  if cartridge_cmd_unavailable("archive", log_fn) then return end
   local flags = backup_flags()
   if not flags then
     log_fn("[archive] Set 'Backup repo' in PHOTONForge preferences first.")
@@ -340,6 +365,7 @@ end
 
 -- Restore an archived cartridge onto the destination drive (DB + photos).
 function M.launch_restore(log_fn)
+  if cartridge_cmd_unavailable("restore", log_fn) then return end
   local flags = backup_flags()
   if not flags then
     log_fn("[restore] Set 'Backup repo' in PHOTONForge preferences first.")

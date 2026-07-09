@@ -1,7 +1,32 @@
 local M = {}
 
+-- Sentinel for JSON null: distinguishes "parsed null" from "parse error"
+-- (both used to return nil, which silently shifted array elements and made
+-- errors ambiguous). Objects drop null-valued keys; arrays keep the sentinel
+-- so element positions survive.
+M.null = setmetatable({}, { __tostring = function() return "null" end })
+
 local function skip_ws(s, i)
   return s:match("^%s*()", i)
+end
+
+local function utf8_encode(cp)
+  if cp < 0x80 then
+    return string.char(cp)
+  elseif cp < 0x800 then
+    return string.char(0xC0 + math.floor(cp / 0x40), 0x80 + cp % 0x40)
+  elseif cp < 0x10000 then
+    return string.char(
+      0xE0 + math.floor(cp / 0x1000),
+      0x80 + math.floor(cp / 0x40) % 0x40,
+      0x80 + cp % 0x40)
+  else
+    return string.char(
+      0xF0 + math.floor(cp / 0x40000),
+      0x80 + math.floor(cp / 0x1000) % 0x40,
+      0x80 + math.floor(cp / 0x40) % 0x40,
+      0x80 + cp % 0x40)
+  end
 end
 
 local function parse_string(s, i)
@@ -21,6 +46,26 @@ local function parse_string(s, i)
       elseif esc == "\\" then parts[#parts+1] = "\\"
       elseif esc == '"' then parts[#parts+1] = '"'
       elseif esc == "/" then parts[#parts+1] = "/"
+      elseif esc == "u" then
+        -- Python's json.dumps escapes ALL non-ASCII as \uXXXX by default,
+        -- so without this every accented filename/caption was garbled and
+        -- the applicator's filename lookup silently missed.
+        local hex = s:sub(j + 1, j + 4)
+        if hex:match("^%x%x%x%x$") then
+          local cp = tonumber(hex, 16)
+          j = j + 4
+          if cp >= 0xD800 and cp <= 0xDBFF and s:sub(j + 1, j + 2) == "\\u" then
+            local hex2 = s:sub(j + 3, j + 6)
+            local lo = hex2:match("^%x%x%x%x$") and tonumber(hex2, 16)
+            if lo and lo >= 0xDC00 and lo <= 0xDFFF then
+              cp = 0x10000 + (cp - 0xD800) * 0x400 + (lo - 0xDC00)
+              j = j + 6
+            end
+          end
+          parts[#parts+1] = utf8_encode(cp)
+        else
+          parts[#parts+1] = esc
+        end
       else parts[#parts+1] = esc end
     else
       parts[#parts+1] = string.char(c)
@@ -53,7 +98,8 @@ local function parse_object(s, i)
     i = skip_ws(s, i + 1)
     local val
     val, i = parse_value(s, i)
-    obj[key] = val
+    if val == nil then return nil, i end
+    if val ~= M.null then obj[key] = val end
     i = skip_ws(s, i)
     local c = s:byte(i)
     if c == 125 then return obj, i + 1 end
@@ -70,7 +116,8 @@ local function parse_array(s, i)
   while true do
     local val
     val, i = parse_value(s, i)
-    arr[#arr+1] = val
+    if val == nil then return nil, i end
+    arr[#arr+1] = val  -- M.null kept so element positions survive
     i = skip_ws(s, i)
     local c = s:byte(i)
     if c == 93 then return arr, i + 1 end
@@ -87,7 +134,7 @@ parse_value = function(s, i)
   if c == 91 then return parse_array(s, i) end
   if c == 116 and s:sub(i, i+3) == "true" then return true, i + 4 end
   if c == 102 and s:sub(i, i+4) == "false" then return false, i + 5 end
-  if c == 110 and s:sub(i, i+3) == "null" then return nil, i + 4 end
+  if c == 110 and s:sub(i, i+3) == "null" then return M.null, i + 4 end
   return parse_number(s, i)
 end
 

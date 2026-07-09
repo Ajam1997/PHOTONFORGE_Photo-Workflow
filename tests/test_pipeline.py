@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from photo_workflow.darktable_bridge import validate_xmp
+from photo_workflow.darktable_bridge import validate_xmp, xmp_sidecar_path
 from photo_workflow.pipeline import AnalysisPipeline, PipelineConfig, PipelineSummary
 from conftest import make_darktable_db
 
@@ -185,12 +185,12 @@ def test_integration_xmp_sidecars(integration_sd_images: Path, tmp_path: Path) -
 
     assert summary.xmp_written == len(non_dupes)
     for rec in non_dupes:
-        xmp = rec.path.with_suffix(".xmp")
+        xmp = xmp_sidecar_path(rec.path)
         assert xmp.exists(), f"XMP missing for {rec.path.name}"
         assert validate_xmp(xmp) is True
 
     for rec in dupes:
-        assert not rec.path.with_suffix(".xmp").exists()
+        assert not xmp_sidecar_path(rec.path).exists()
 
 
 @pytest.mark.integration
@@ -202,7 +202,7 @@ def test_integration_darktable_db(integration_sd_images: Path, tmp_path: Path) -
     assert summary.xmp_written == len(non_dupes)
 
     for rec in non_dupes:
-        xmp = rec.path.with_suffix(".xmp")
+        xmp = xmp_sidecar_path(rec.path)
         assert xmp.exists(), f"XMP missing for {rec.path.name}"
         assert validate_xmp(xmp) is True
 
@@ -226,7 +226,7 @@ def test_integration_idempotent_rerun(integration_sd_images: Path, tmp_path: Pat
 
     # XMP files should still exist (overwritten cleanly)
     for rec in non_dupes:
-        xmp = rec.path.with_suffix(".xmp")
+        xmp = xmp_sidecar_path(rec.path)
         assert xmp.exists(), f"XMP missing after rerun for {rec.path.name}"
 
 

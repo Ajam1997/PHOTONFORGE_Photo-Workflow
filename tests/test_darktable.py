@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from photo_workflow.darktable_bridge import (
+    xmp_sidecar_path,
     compute_color_label,
     sync_to_darktable,
     validate_xmp,
@@ -61,7 +62,7 @@ def _make_record(tmp_path: Path, name: str = "test", duplicate: bool = False) ->
 def test_xmp_written_for_non_duplicate(tmp_path: Path) -> None:
     rec = _make_record(tmp_path)
     _write_xmp(rec)
-    xmp_path = rec.path.with_suffix(".xmp")
+    xmp_path = xmp_sidecar_path(rec.path)
     assert xmp_path.exists()
     content = xmp_path.read_text()
     assert "0.85" in content
@@ -71,7 +72,7 @@ def test_xmp_written_for_non_duplicate(tmp_path: Path) -> None:
 def test_xmp_contains_genre_fields(tmp_path: Path) -> None:
     rec = _make_record(tmp_path)
     _write_xmp(rec)
-    content = rec.path.with_suffix(".xmp").read_text()
+    content = xmp_sidecar_path(rec.path).read_text()
     assert "<photon:Genre>wildlife</photon:Genre>" in content
     assert "<photon:GenreConfidence>0.87</photon:GenreConfidence>" in content
     assert "<photon:MasterScore>0.72</photon:MasterScore>" in content
@@ -80,7 +81,7 @@ def test_xmp_contains_genre_fields(tmp_path: Path) -> None:
 def test_xmp_contains_all_sub_scores(tmp_path: Path) -> None:
     rec = _make_record(tmp_path)
     _write_xmp(rec)
-    content = rec.path.with_suffix(".xmp").read_text()
+    content = xmp_sidecar_path(rec.path).read_text()
     assert "<photon:EyeSharpness>0.85</photon:EyeSharpness>" in content
     assert "<photon:SubjectSharpness>0.78</photon:SubjectSharpness>" in content
     assert "<photon:SubjectIsolation>0.64</photon:SubjectIsolation>" in content
@@ -101,7 +102,7 @@ def test_xmp_defaults_when_no_sub_scores(tmp_path: Path) -> None:
     img.touch()
     rec = PhotoRecord(path=img, semantic_name="test")
     _write_xmp(rec)
-    content = img.with_suffix(".xmp").read_text()
+    content = xmp_sidecar_path(img).read_text()
     assert "<photon:Genre></photon:Genre>" in content
     assert "<photon:MasterScore>0.0</photon:MasterScore>" in content
     assert "<photon:EyeSharpness>0.0</photon:EyeSharpness>" in content
@@ -112,7 +113,7 @@ def test_xmp_defaults_when_no_sub_scores(tmp_path: Path) -> None:
 def test_xmp_not_written_for_duplicate(tmp_path: Path) -> None:
     rec = _make_record(tmp_path, duplicate=True)
     count = sync_to_darktable([rec])
-    xmp_path = rec.path.with_suffix(".xmp")
+    xmp_path = xmp_sidecar_path(rec.path)
     assert not xmp_path.exists()
     assert count == 0
 
@@ -120,7 +121,7 @@ def test_xmp_not_written_for_duplicate(tmp_path: Path) -> None:
 def test_validate_xmp_passes_for_valid_sidecar(tmp_path: Path) -> None:
     rec = _make_record(tmp_path)
     _write_xmp(rec)
-    assert validate_xmp(rec.path.with_suffix(".xmp")) is True
+    assert validate_xmp(xmp_sidecar_path(rec.path)) is True
 
 
 def test_validate_xmp_fails_for_malformed(tmp_path: Path) -> None:
@@ -143,7 +144,7 @@ def test_sync_to_darktable_xmp_only(tmp_path: Path) -> None:
         metadata={"original_filename": "DSC001.ARW"},
     )
     count = sync_to_darktable([record])
-    assert (tmp_path / "00001.xmp").exists()
+    assert (tmp_path / "00001.ARW.xmp").exists()
     assert count == 1
 
 
@@ -157,8 +158,8 @@ def test_sync_to_darktable_skips_duplicates(tmp_path: Path) -> None:
     dup = _make_record(tmp_path, name="dup", duplicate=True)
     count = sync_to_darktable([keeper, dup])
     assert count == 1
-    assert keeper.path.with_suffix(".xmp").exists()
-    assert not dup.path.with_suffix(".xmp").exists()
+    assert xmp_sidecar_path(keeper.path).exists()
+    assert not xmp_sidecar_path(dup.path).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +230,7 @@ def test_xmp_contains_multi_genre_bag(tmp_path: Path) -> None:
     rec.genres = [("wildlife", 0.87), ("landscape", 0.05)]
     rec.needs_review = False
     _write_xmp(rec)
-    content = rec.path.with_suffix(".xmp").read_text()
+    content = xmp_sidecar_path(rec.path).read_text()
     assert "<rdf:Bag>" in content
     assert "<rdf:li>wildlife</rdf:li>" in content
     assert "<rdf:li>landscape</rdf:li>" in content
@@ -242,7 +243,7 @@ def test_xmp_contains_needs_review_flag(tmp_path: Path) -> None:
     rec.genres = [("general", 1.0)]
     rec.needs_review = True
     _write_xmp(rec)
-    content = rec.path.with_suffix(".xmp").read_text()
+    content = xmp_sidecar_path(rec.path).read_text()
     assert "<photon:NeedsReview>true</photon:NeedsReview>" in content
 
 
@@ -383,3 +384,39 @@ def test_keywords_round_trip(tmp_path: Path) -> None:
     write_darktable_keywords(lib, "photo.jpg", original)
     retrieved = read_darktable_keywords(lib, "photo.jpg")
     assert set(retrieved) == set(original)
+
+
+def test_xmp_escapes_xml_special_chars(tmp_path: Path) -> None:
+    """Regression: captions with &/</> produced malformed XMP."""
+    img = tmp_path / "00002.ARW"
+    img.write_bytes(b"fake")
+    record = PhotoRecord(
+        path=img, session_id="s1",
+        sharpness_score=0.7, composition_score=0.6, exposure_score=0.7,
+        semantic_name="fish & chips <on> a \"plate\"",
+        metadata={"original_filename": "DSC002.ARW"},
+    )
+    _write_xmp(record)
+    xmp = xmp_sidecar_path(img)
+    assert xmp.name == "00002.ARW.xmp"  # darktable convention, no RAW+JPEG collision
+    assert validate_xmp(xmp) is True
+    assert "fish &amp; chips" in xmp.read_text()
+
+
+def test_write_keywords_refuses_when_darktable_lockfile_present(tmp_path: Path) -> None:
+    """Regression: direct library.db writes raced a running Darktable."""
+    lib, data = _make_dt5_dbs(tmp_path)
+    conn = sqlite3.connect(str(lib))
+    conn.execute("INSERT INTO images (filename) VALUES ('IMG_0001.ARW')")
+    conn.commit()
+    conn.close()
+
+    lock = lib.with_name(lib.name + ".lock")
+    lock.write_text("12345")
+    write_darktable_keywords(lib, "IMG_0001.ARW", ["photon|subject|people"])
+
+    # Nothing written while Darktable holds its lock
+    assert read_darktable_keywords(lib, "IMG_0001.ARW") == []
+    lock.unlink()
+    write_darktable_keywords(lib, "IMG_0001.ARW", ["photon|subject|people"])
+    assert read_darktable_keywords(lib, "IMG_0001.ARW") == ["photon|subject|people"]

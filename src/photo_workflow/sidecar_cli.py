@@ -103,9 +103,15 @@ def ingest(
 
             proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             for line in proc.stdout:  # type: ignore[union-attr]
-                line = line.rstrip()
+                line = line.rstrip("\r\n")
                 if line and not line.startswith("cd"):
-                    fname = line[10:].strip() if len(line) > 10 else line
+                    # Itemize field width differs across rsync versions (9 in
+                    # 2.x, 11 in 3.x); split on the first space instead of a
+                    # fixed offset — the old line[10:] left a stray "+ " prefix
+                    # on rsync 3.x, producing nonexistent paths downstream.
+                    _, _, fname = line.partition(" ")
+                    if not fname:
+                        continue
                     dest = output_path / fname
                     if dest.suffix.lower() in RAW_EXTS:
                         copied_paths.append(dest)
@@ -166,7 +172,9 @@ def ingest(
         xmp_written = 0
         db_upserted = 0
         if not skip_darktable:
-            xmp_written, db_upserted = sync_to_darktable(records, db_path=Path(db))
+            # sync_to_darktable(records) -> int; the old db_path= kwarg call
+            # raised TypeError on every non-skip run (masked by test mocks).
+            xmp_written = sync_to_darktable(records)
             emit({"type": "stage_done", "stage": "darktable", "xmp_written": xmp_written, "db_upserted": db_upserted})
 
         elapsed = time.monotonic() - start
