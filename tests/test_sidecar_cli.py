@@ -69,7 +69,7 @@ def test_ingest_emits_progress_and_done_events(tmp_path: Path) -> None:
          patch("photo_workflow.sidecar_cli.score_composition", return_value=0.7), \
          patch("photo_workflow.sidecar_cli.score_exposure", return_value=0.9), \
          patch("photo_workflow.sidecar_cli.generate_name", return_value="slug"), \
-         patch("photo_workflow.sidecar_cli.sync_to_darktable", return_value=(2, 2)):
+         patch("photo_workflow.sidecar_cli.sync_to_darktable", return_value=2):
         result = runner.invoke(cli, [
             "ingest",
             "--source", str(tmp_path),
@@ -170,7 +170,7 @@ def test_ingest_full_pipeline_emits_sd_ejected_and_all_stage_dones(tmp_path: Pat
          patch("photo_workflow.sidecar_cli.score_composition", return_value=0.7), \
          patch("photo_workflow.sidecar_cli.score_exposure", return_value=0.9), \
          patch("photo_workflow.sidecar_cli.generate_name", return_value="golden-sunset"), \
-         patch("photo_workflow.sidecar_cli.sync_to_darktable", return_value=(2, 2)):
+         patch("photo_workflow.sidecar_cli.sync_to_darktable", return_value=2):
         result = runner.invoke(cli, [
             "ingest",
             "--source", str(tmp_path),

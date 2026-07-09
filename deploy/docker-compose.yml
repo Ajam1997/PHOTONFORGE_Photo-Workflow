@@ -22,7 +22,10 @@ services:
       DARKTABLE_DB: /darktable/library.db
       PYTHONUNBUFFERED: "1"
 
+    # ENTRYPOINT is the click group; the flags belong to the `run` subcommand
+    # (without it the container exited with a usage error and did nothing).
     command:
+      - "run"
       - "--source=/media/source"
       - "--output=/output"
       - "--db=/darktable/library.db"

@@ -117,8 +117,23 @@ def compute_color_label(
     return _DT_NONE
 
 
+def xmp_sidecar_path(photo_path: Path) -> Path:
+    """Sidecar path in Darktable's convention: IMG_0001.ARW -> IMG_0001.ARW.xmp.
+
+    Replacing the extension instead (IMG_0001.xmp) made RAW+JPEG pairs clobber
+    each other's sidecar, and Darktable never associated the file anyway.
+    """
+    return photo_path.with_name(photo_path.name + ".xmp")
+
+
+def _xml_escape(value: object) -> str:
+    from xml.sax.saxutils import escape
+
+    return escape(str(value), {'"': "&quot;"})
+
+
 def _write_xmp(record: "PhotoRecord") -> None:
-    xmp_path = record.path.with_suffix(".xmp")
+    xmp_path = xmp_sidecar_path(record.path)
     original_filename = record.metadata.get("original_filename", record.path.name)
     ss = record.sub_scores
 
@@ -126,11 +141,11 @@ def _write_xmp(record: "PhotoRecord") -> None:
     genres_bag = ""
     if hasattr(record, "genres") and record.genres:
         genres_bag = "\n        ".join(
-            f'<rdf:li>{g}</rdf:li>' for g, _ in record.genres
+            f'<rdf:li>{_xml_escape(g)}</rdf:li>' for g, _ in record.genres
         )
     else:
         # Fallback to primary genre
-        genres_bag = f'<rdf:li>{record.genre}</rdf:li>'
+        genres_bag = f'<rdf:li>{_xml_escape(record.genre)}</rdf:li>'
 
     needs_review = "true" if getattr(record, "needs_review", False) else "false"
 
@@ -138,11 +153,11 @@ def _write_xmp(record: "PhotoRecord") -> None:
         sharpness=record.sharpness_score,
         composition=record.composition_score,
         exposure=record.exposure_score,
-        semantic_name=record.semantic_name,
-        original_filename=original_filename,
-        session_id=record.session_id,
+        semantic_name=_xml_escape(record.semantic_name),
+        original_filename=_xml_escape(original_filename),
+        session_id=_xml_escape(record.session_id),
         is_duplicate=str(record.is_duplicate).lower(),
-        genre=record.genre,
+        genre=_xml_escape(record.genre),
         genre_confidence=record.genre_confidence,
         master_score=record.master_score,
         genres_bag=genres_bag,
@@ -150,14 +165,14 @@ def _write_xmp(record: "PhotoRecord") -> None:
         eye_sharpness=ss.get("eye_sharpness", 0.0),
         subject_sharpness=ss.get("subject_sharpness", 0.0),
         subject_isolation=ss.get("subject_isolation", 0.0),
-        blur_type=ss.get("blur_type", ""),
+        blur_type=_xml_escape(ss.get("blur_type", "")),
         composition_rot=ss.get("composition_rot", 0.0),
         symmetry=ss.get("symmetry", 0.0),
         leading_lines=ss.get("leading_lines", 0.0),
         negative_space=ss.get("negative_space", 0.0),
         zone_entropy=ss.get("zone_entropy", 0.0),
         dynamic_range=ss.get("dynamic_range", 0.0),
-        exposure_style=ss.get("exposure_style", ""),
+        exposure_style=_xml_escape(ss.get("exposure_style", "")),
         face_exposure=ss.get("face_exposure", 0.0),
         aesthetic_score=ss.get("aesthetic_clip", 0.0),
     )
@@ -201,27 +216,50 @@ def _get_data_db_path(library_db_path: Path) -> Path:
     return library_db_path.parent / "data.db"
 
 
+def _open_dt(library_db_path: Path, check_lock: bool = True) -> sqlite3.Connection:
+    """Open library.db with data.db attached and sane lock behavior.
+
+    Writers must not race a running Darktable: its own lockfile is checked
+    first, and busy_timeout makes residual lock contention wait instead of
+    failing instantly (failures here were silently swallowed as lost tags).
+    """
+    if check_lock:
+        lock = library_db_path.with_name(library_db_path.name + ".lock")
+        if lock.exists():
+            raise RuntimeError(
+                f"Darktable appears to be running ({lock} exists); "
+                "close it before syncing tags"
+            )
+    conn = sqlite3.connect(str(library_db_path), timeout=5.0)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute(
+        "ATTACH DATABASE ? AS data", (str(_get_data_db_path(library_db_path)),)
+    )
+    return conn
+
+
 def clear_photon_tags(library_db_path: Path, filename: str) -> None:
     """Remove all photon|* tagged_images entries for a given image.
 
     Called before writing new tags so re-scoring never accumulates stale
     photon|primary|* or photon|secondary|* entries on an image.
     """
-    data_db_path = _get_data_db_path(library_db_path)
     try:
-        conn = sqlite3.connect(str(library_db_path))
-        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
-        image_row = conn.execute(
-            "SELECT id FROM images WHERE filename=?", (filename,)
-        ).fetchone()
-        if image_row:
-            conn.execute(
-                "DELETE FROM tagged_images WHERE imgid=? AND tagid IN "
-                "(SELECT id FROM data.tags WHERE name LIKE 'photon|%')",
-                (image_row[0],),
-            )
-            conn.commit()
-        conn.close()
+        conn = _open_dt(library_db_path)
+        try:
+            image_row = conn.execute(
+                "SELECT id FROM images WHERE filename=?", (filename,)
+            ).fetchone()
+            if image_row:
+                conn.execute(
+                    "DELETE FROM tagged_images WHERE imgid=? AND tagid IN "
+                    "(SELECT id FROM data.tags WHERE name LIKE 'photon|%')",
+                    (image_row[0],),
+                )
+                conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("Failed to clear photon tags for %s: %s", filename, e)
 
@@ -245,10 +283,8 @@ def purge_orphan_photon_tags(library_db_path: Path) -> int:
     valid |= {f"photon|type|{t}" for t in PHOTO_TYPES}
     valid.add("photon|needs_review")
 
-    data_db_path = _get_data_db_path(library_db_path)
     try:
-        conn = sqlite3.connect(str(library_db_path))
-        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
+        conn = _open_dt(library_db_path)
         orphans = conn.execute(
             "SELECT id, name FROM data.tags WHERE name LIKE 'photon|%' "
             "AND id NOT IN (SELECT DISTINCT tagid FROM main.tagged_images)"
@@ -284,61 +320,43 @@ def write_darktable_keywords(
         filename: Image filename (basename only, not full path)
         keywords: List of keyword strings to apply (e.g., ["wildlife", "portrait"])
     """
-    data_db_path = _get_data_db_path(library_db_path)
     try:
-        conn = sqlite3.connect(str(library_db_path))
-        conn.row_factory = sqlite3.Row
-
-        # Attach data.db so we can read/write tags in the same connection
-        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
-
-        # Find the image
-        image_row = conn.execute(
-            "SELECT id FROM images WHERE filename=?",
-            (filename,)
-        ).fetchone()
-
-        if not image_row:
-            logger.warning("Image not found in Darktable library: %s", filename)
-            conn.close()
-            return
-
-        image_id = image_row["id"]
-
-        for keyword in keywords:
-            # Get or create tag in data.db
-            tag_row = conn.execute(
-                "SELECT id FROM data.tags WHERE name=?",
-                (keyword,)
+        conn = _open_dt(library_db_path)
+        try:
+            image_row = conn.execute(
+                "SELECT id FROM images WHERE filename=?",
+                (filename,)
             ).fetchone()
 
-            if tag_row:
-                tag_id = tag_row["id"]
-            else:
-                conn.execute(
-                    "INSERT INTO data.tags (name, synonyms, flags) VALUES (?, '', 0)",
-                    (keyword,)
-                )
-                conn.commit()
-                tag_id = conn.execute(
+            if not image_row:
+                logger.warning("Image not found in Darktable library: %s", filename)
+                return
+
+            image_id = image_row["id"]
+
+            # All keywords in one transaction (per-keyword commits meant a
+            # kill mid-loop left the image partially tagged).
+            for keyword in keywords:
+                tag_row = conn.execute(
                     "SELECT id FROM data.tags WHERE name=?",
                     (keyword,)
-                ).fetchone()["id"]
+                ).fetchone()
+                if tag_row:
+                    tag_id = tag_row["id"]
+                else:
+                    tag_id = conn.execute(
+                        "INSERT INTO data.tags (name, synonyms, flags) VALUES (?, '', 0)",
+                        (keyword,)
+                    ).lastrowid
 
-            # Check if already tagged
-            existing = conn.execute(
-                "SELECT imgid FROM tagged_images WHERE imgid=? AND tagid=?",
-                (image_id, tag_id)
-            ).fetchone()
-
-            if not existing:
                 conn.execute(
-                    "INSERT INTO tagged_images (imgid, tagid, position) VALUES (?, ?, 0)",
+                    "INSERT OR IGNORE INTO tagged_images (imgid, tagid, position) "
+                    "VALUES (?, ?, 0)",
                     (image_id, tag_id)
                 )
-                conn.commit()
-
-        conn.close()
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as e:
         logger.error("Failed to write Darktable keywords for %s: %s", filename, e)
 
@@ -358,12 +376,11 @@ def read_darktable_keywords(
     Returns:
         List of keyword strings currently tagged on the image.
     """
-    data_db_path = _get_data_db_path(library_db_path)
     keywords: list[str] = []
     try:
-        conn = sqlite3.connect(str(library_db_path))
-        conn.row_factory = sqlite3.Row
-        conn.execute("ATTACH DATABASE ? AS data", (str(data_db_path),))
+        # Reading concurrently with a running Darktable is safe; skip the
+        # lockfile check writers use.
+        conn = _open_dt(library_db_path, check_lock=False)
 
         image_row = conn.execute(
             "SELECT id FROM images WHERE filename=?",
