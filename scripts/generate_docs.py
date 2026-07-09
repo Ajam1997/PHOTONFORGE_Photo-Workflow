@@ -27,9 +27,23 @@ def _get_label(issue: dict, prefix: str) -> str:
     return ""
 
 
+# Real GitHub issue bodies use CRLF line endings; every regex below assumes
+# LF. Without this, the (?=\n\n|\Z) terminator never matches mid-body and a
+# lazy capture swallows everything to end-of-body (the living-user-needs
+# duplication bug).
+def _normalize(body: str) -> str:
+    return re.sub(r"\r\n?", "\n", body or "")
+
+
+# Placeholder bullets humans leave in evidence lists must not count as evidence.
+_STAGE_TITLE_RE = re.compile(r"^Stage\s+(\d+)\b")
+_PLACEHOLDER_RE = re.compile(r"^\(?\s*none(\s+yet)?\s*\)?$|^n/?a$", re.IGNORECASE)
+
+
 def _body_field(body: str, field: str) -> str:
     """Extract field value from issue body like '**Field:** value' -> 'value'"""
-    m = re.search(rf"\*\*{re.escape(field)}:\*\*\s*(.+?)(?=\n\n|\Z)", body, re.DOTALL)
+    body = _normalize(body)
+    m = re.search(rf"\*\*{re.escape(field)}:\*\*\s*(.+?)(?=\n\n|\n\*\*|\Z)", body, re.DOTALL)
     return m.group(1).strip() if m else ""
 
 
@@ -43,6 +57,7 @@ def _body_list_field(body: str, field: str) -> list[str]:
     Returns ["pytest: tests/test_sharpness.py::test_x", "pytest: tests/test_sharpness.py::test_y"].
     Blank line or next `**Field:**` heading ends the section.
     """
+    body = _normalize(body)
     pattern = rf"\*\*{re.escape(field)}:\*\*\s*\n((?:[ \t]*-\s*.+\n?)+)"
     m = re.search(pattern, body)
     if not m:
@@ -51,8 +66,24 @@ def _body_list_field(body: str, field: str) -> list[str]:
     for line in m.group(1).splitlines():
         stripped = line.strip()
         if stripped.startswith("- "):
-            items.append(stripped[2:].strip())
+            item = stripped[2:].strip()
+            if item and not _PLACEHOLDER_RE.match(item):
+                items.append(item)
     return items
+
+
+def _issue_stage(issue: dict) -> str:
+    """Stage number from the issue body (**Stage:** N) or its milestone title.
+
+    The old `stage: N` labels were retired in the Epics->Milestones migration;
+    reading them yielded "?" for every issue.
+    """
+    stage = _body_field(issue.get("body") or "", "Stage")
+    if stage:
+        return stage.split()[0]
+    ms = issue.get("milestone") or {}
+    m = _STAGE_TITLE_RE.match(ms.get("title", "") or "")
+    return m.group(1) if m else "?"
 
 
 def render_user_needs_section(
@@ -71,7 +102,7 @@ def render_user_needs_section(
         un_id = _extract_id(issue["title"])
         title = issue["title"].split("] ", 1)[1] if "] " in issue["title"] else issue["title"]
         status = _get_label(issue, "status: ").upper() or "DEFINED"
-        stage = _get_label(issue, "stage: ") or "?"
+        stage = _issue_stage(issue)
         acceptance = _body_field(issue["body"], "Acceptance")
         kpm = _body_field(issue["body"], "KPM") or "NONE"
         url = issue["html_url"]
@@ -126,7 +157,41 @@ def render_nfr_table(issues: list[dict]) -> str:
     return "\n".join(rows)
 
 
-def render_kpm_table(issues: list[dict]) -> str:
+_KPM_COMMENT_RE = re.compile(
+    r"`(?P<measured>[^`]+)`(?:\s*[-—]\s*\*\*(?P<status>\w+)\*\*)?"
+)
+
+
+def _latest_kpm_update(client, issue_number: int) -> tuple[str, str] | None:
+    """(measurement, status) from the newest `## KPM Update` comment, if any.
+
+    Measurements are posted as comments by github_comment.py update-kpm
+    (body line: **KPM-1.2** - `1.8s on i7-7500U` - **passing**). Nothing ever
+    writes the Last Measured/Status body fields, so without this fallback the
+    dashboard rendered every KPM "untested" forever.
+    """
+    if client is None:
+        return None
+    try:
+        r = client._session.get(
+            f"{client.REST_BASE}/repos/{client.owner}/{client.repo}"
+            f"/issues/{issue_number}/comments",
+            params={"per_page": 100, "sort": "created", "direction": "desc"},
+        )
+        r.raise_for_status()
+        for comment in r.json():
+            body = comment.get("body") or ""
+            if "KPM Update" not in body:
+                continue
+            m = _KPM_COMMENT_RE.search(body)
+            if m:
+                return m.group("measured"), (m.group("status") or "measured")
+    except Exception:
+        return None
+    return None
+
+
+def render_kpm_table(issues: list[dict], client=None) -> str:
     """Render KPM table with metric, target, owner, verified by, last measured, status."""
     rows = ["| KPM | Metric | Target | Owner | Verified By | Last Measured | Status |",
             "|:---|:---|:---|:---|:---|:---|:---|"]
@@ -136,8 +201,15 @@ def render_kpm_table(issues: list[dict]) -> str:
         target = _body_field(issue["body"], "Target")
         owner = _body_field(issue["body"], "Owner")
         verified_by = _body_field(issue["body"], "Verified By")
-        last = _body_field(issue["body"], "Last Measured") or "untested"
-        status = _body_field(issue["body"], "Status") or "untested"
+        last = _body_field(issue["body"], "Last Measured")
+        status = _body_field(issue["body"], "Status")
+        if not last or not status:
+            latest = _latest_kpm_update(client, issue.get("number"))
+            if latest:
+                last = last or latest[0]
+                status = status or latest[1]
+        last = last or "untested"
+        status = status or "untested"
         url = issue["html_url"]
         rows.append(f"| [{kpm_id}]({url}) | {metric} | {target} | {owner} | {verified_by} | {last} | {status} |")
     return "\n".join(rows)
@@ -206,18 +278,30 @@ def render_vv_matrix(
     return "\n".join(rows)
 
 
-_STAGE_TITLE_RE = re.compile(r"^Stage\s+(\d+)\b")
 
 
-def render_roadmap_section(milestones: list[dict]) -> str:
-    """Render roadmap table from GitHub Milestones (post Increment 3 migration).
+_COMPLETE_STATUSES = {"verified", "validated"}
 
-    Each milestone titled like "Stage N — Title" becomes one row.
-    Status is derived from milestone state + open/closed counts:
-      - "Done"        — milestone state == "closed"
-      - "In Progress" — milestone state == "open", any issues closed
-      - "Not Started" — milestone state == "open", zero issues closed
+
+def render_roadmap_section(milestones: list[dict], req_issues: list[dict]) -> str:
+    """Render roadmap table from GitHub Milestones + requirement status labels.
+
+    Each milestone titled like "Stage N — Title" becomes one row. Progress is
+    the count of the milestone's requirement issues carrying a
+    `status: verified` / `status: validated` label — the signal the pipeline
+    actually writes (pr_rollup). Issue open/closed state is NOT used: nothing
+    in the pipeline closes requirement issues, so counting closures rendered
+    shipped stages as "Not Started".
     """
+    per_ms: dict[str, tuple[int, int]] = {}
+    for issue in req_issues:
+        ms_title = (issue.get("milestone") or {}).get("title")
+        if not ms_title:
+            continue
+        done, total = per_ms.get(ms_title, (0, 0))
+        status = _get_label(issue, "status: ").lower()
+        per_ms[ms_title] = (done + (1 if status in _COMPLETE_STATUSES else 0), total + 1)
+
     lines = ["| Stage | Title | Status | Progress |", "|:---|:---|:---|:---|"]
     stage_entries: list[tuple[int, str]] = []
     for ms in milestones:
@@ -227,16 +311,14 @@ def render_roadmap_section(milestones: list[dict]) -> str:
         stage_num = int(m.group(1))
         title = ms["title"]
         url = ms["html_url"]
-        open_count = ms.get("open_issues", 0)
-        closed_count = ms.get("closed_issues", 0)
-        total = open_count + closed_count
-        if ms.get("state") == "closed":
+        done, total = per_ms.get(title, (0, 0))
+        if ms.get("state") == "closed" or (total and done == total):
             status = "Done"
-        elif closed_count > 0:
+        elif done > 0:
             status = "In Progress"
         else:
             status = "Not Started"
-        progress = f"{closed_count}/{total}" if total else "—"
+        progress = f"{done}/{total}" if total else "—"
         stage_entries.append(
             (stage_num, f"| {stage_num} | [{title}]({url}) | {status} | {progress} |")
         )
@@ -282,7 +364,7 @@ def main() -> None:
     text = arch_path.read_text(encoding="utf-8")
     text = inject_auto_section(text, "fr_table", render_fr_table(fr_issues))
     text = inject_auto_section(text, "nfr_table", render_nfr_table(nfr_issues))
-    text = inject_auto_section(text, "kpm_table", render_kpm_table(kpm_issues))
+    text = inject_auto_section(text, "kpm_table", render_kpm_table(kpm_issues, client))
     text = inject_auto_section(
         text, "vv_matrix",
         render_vv_matrix(un_issues, fr_issues, nfr_issues, kpm_issues),
@@ -294,7 +376,10 @@ def main() -> None:
     roadmap_path = DOCS / "roadmap.md"
     if roadmap_path.exists():
         text = roadmap_path.read_text(encoding="utf-8")
-        text = inject_auto_section(text, "roadmap", render_roadmap_section(milestones))
+        text = inject_auto_section(
+            text, "roadmap",
+            render_roadmap_section(milestones, un_issues + fr_issues + nfr_issues),
+        )
         roadmap_path.write_text(text, encoding="utf-8")
         print(f"Updated {roadmap_path}")
 
@@ -302,7 +387,7 @@ def main() -> None:
     kpm_page_path = DOCS / "kpm-dashboard.md"
     if kpm_page_path.exists():
         text = kpm_page_path.read_text(encoding="utf-8")
-        text = inject_auto_section(text, "kpm_table", render_kpm_table(kpm_issues))
+        text = inject_auto_section(text, "kpm_table", render_kpm_table(kpm_issues, client))
         kpm_page_path.write_text(text, encoding="utf-8")
         print(f"Updated {kpm_page_path}")
 
