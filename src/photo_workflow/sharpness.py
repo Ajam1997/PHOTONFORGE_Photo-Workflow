@@ -9,14 +9,10 @@ import click
 import cv2
 import numpy as np
 
+from .raw_loader import IMAGE_EXTENSIONS as _SUPPORTED_EXTS
 from .scoring_types import SharpnessScores, SubjectContext
 
 logger = logging.getLogger(__name__)
-
-_SUPPORTED_EXTS = {
-    ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".raw",
-    ".cr2", ".cr3", ".nef", ".arw", ".dng",
-}
 
 # Thresholds for blur classification
 _SHARP_THRESHOLD = 0.25  # Normalized score above this = "sharp"
@@ -307,13 +303,7 @@ def score_sharpness(path: Path) -> float:
 
 @click.command("sharpness")
 @click.argument("path", type=click.Path(exists=True, path_type=Path))
-@click.option(
-    "--threshold",
-    default=BLUR_THRESHOLD,
-    show_default=True,
-    help="Blur threshold for normalization (variance units).",
-)
-def main(path: Path, threshold: float) -> None:
+def main(path: Path) -> None:
     """Score sharpness for PATH (file or directory of images)."""
     targets = sorted(path.iterdir()) if path.is_dir() else [path]
     for p in targets:

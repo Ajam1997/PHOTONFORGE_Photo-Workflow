@@ -58,3 +58,22 @@ def make_darktable_db(path: Path) -> None:
                 UNIQUE(imgid, tagid)
             );
         """)
+
+
+def make_jpg(
+    path,
+    dt_str: str = "2026:05:10 14:32:01",
+    *,
+    size: int = 8,
+    quality: int = 75,
+) -> None:
+    """Create a tiny JPEG with EXIF DateTimeOriginal (shared test helper)."""
+    import numpy as np
+    from PIL import Image
+
+    arr = np.full((size, size, 3), 128, dtype=np.uint8)
+    img = Image.fromarray(arr)
+    exif = img.getexif()
+    exif[0x9003] = dt_str  # DateTimeOriginal
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path, "JPEG", quality=quality, exif=exif.tobytes())

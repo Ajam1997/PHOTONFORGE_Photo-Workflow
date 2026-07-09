@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-RAW_EXTENSIONS = {".arw", ".cr2", ".cr3", ".nef", ".dng", ".raw", ".orf", ".rw2"}
+# Single source of truth for supported extensions. Before consolidation,
+# several modules kept their own disagreeing sets — e.g. pipeline scanning
+# accepted .raf while is_raw() here didn't, so every Fuji RAF fell through
+# to cv2.imread and errored in scoring.
+RAW_EXTENSIONS = {
+    ".arw", ".cr2", ".cr3", ".nef", ".dng", ".raw", ".orf", ".rw2",
+    ".raf", ".pef", ".srw", ".3fr", ".mef",
+}
+JPG_EXTENSIONS = {".jpg", ".jpeg", ".png", ".tiff", ".tif"}
+IMAGE_EXTENSIONS = RAW_EXTENSIONS | JPG_EXTENSIONS
 
 
 def is_raw(path: Path) -> bool:
@@ -70,3 +79,24 @@ def load_thumbnail(path: Path):
         except Exception:
             pass
     return load_pil(path)
+
+
+def read_exif_datetime(path: Path):
+    """Read EXIF DateTimeOriginal (falling back to Image DateTime) as datetime.
+
+    The one implementation — grouping and ingest previously kept their own
+    byte-identical copies differing only in return type.
+    """
+    from datetime import datetime
+
+    try:
+        import exifread
+
+        with open(path, "rb") as f:
+            tags = exifread.process_file(f, stop_tag="EXIF DateTimeOriginal", details=False)
+        raw = tags.get("EXIF DateTimeOriginal") or tags.get("Image DateTime")
+        if raw:
+            return datetime.strptime(str(raw), "%Y:%m:%d %H:%M:%S")
+    except Exception:
+        pass
+    return None

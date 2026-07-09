@@ -33,15 +33,6 @@ def _db_path_from_dest(dest: Path) -> Path:
     return dest.parent / "photonforge.db"
 
 
-# Analysis columns in insertion order (excludes the `folder`/`filename` key).
-_PHOTO_COLUMNS = (
-    "original_name", "exif_timestamp", "session_id", "is_duplicate",
-    "sharpness", "composition", "exposure", "semantic_name", "stages", "error",
-    "genre_confidence", "master_score", "sub_scores", "dhash", "genres",
-    "primary_genre", "needs_review", "clip_embedding",
-)
-
-
 def open_db(dest_path: Path) -> sqlite3.Connection:
     """Open or create photonforge.db at the drive root of dest_path."""
     db_file = _db_path_from_dest(dest_path)
@@ -189,20 +180,6 @@ def update_semantic(
     conn.execute(
         "UPDATE photos SET semantic_name=? WHERE folder=? AND filename=?",
         (semantic_name, folder, filename),
-    )
-    if auto_commit:
-        conn.commit()
-
-
-def mark_duplicate(
-    conn: sqlite3.Connection, table: str, filename: str,
-    *, auto_commit: bool = True,
-) -> None:
-    """Set is_duplicate=1."""
-    folder = sanitize_table_name(table)
-    conn.execute(
-        "UPDATE photos SET is_duplicate=1 WHERE folder=? AND filename=?",
-        (folder, filename),
     )
     if auto_commit:
         conn.commit()

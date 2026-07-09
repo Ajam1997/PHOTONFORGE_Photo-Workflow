@@ -54,8 +54,7 @@ _SUBJECT_KEYS = ["1", "2", "3", "4", "5", "6"]
 # Type keys: q, w, e, r, t, y, u, i
 _TYPE_KEYS = ["q", "w", "e", "r", "t", "y", "u", "i"]
 
-RAW_EXTS = {".arw", ".cr2", ".cr3", ".nef", ".dng", ".raf", ".rw2", ".orf",
-            ".pef", ".srw", ".3fr", ".mef"}
+from photo_workflow.raw_loader import RAW_EXTENSIONS as RAW_EXTS
 
 _SLUG_RE = re.compile(r"[^a-z0-9-]+")
 

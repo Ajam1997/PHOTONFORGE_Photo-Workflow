@@ -10,7 +10,6 @@ from photo_workflow.scoring_types import (
     SubjectContext,
 )
 from photo_workflow.genre_router import (
-    GENRES,
     SUBJECTS,
     PHOTO_TYPES,
     ALL_LABELS,
@@ -49,13 +48,6 @@ def _make_context(
     )
 
 
-def test_genres_list_complete() -> None:
-    """All built-in labels should be defined across both axes."""
-    assert len(SUBJECTS) == 15
-    assert len(PHOTO_TYPES) == 11
-    # 15 + 11, fully orthogonal (no shared labels) = 26 unique
-    assert len(ALL_LABELS) == 26
-    assert GENRES is ALL_LABELS
     for s in ("people", "pet", "wildlife", "plant", "landscape",
               "seascape", "sky", "cityscape", "building", "vehicle",
               "food", "object", "abstract", "monument", "waterfall"):

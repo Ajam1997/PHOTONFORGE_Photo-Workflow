@@ -14,7 +14,6 @@ from photo_workflow.photondb import (
     get_pending,
     update_scores,
     update_semantic,
-    mark_duplicate,
     sanitize_table_name,
     update_genre_scores,
 )
@@ -187,17 +186,6 @@ def test_update_semantic(tmp_path: Path):
     assert row[0] == "golden-sunset-beach"
     conn.close()
 
-
-def test_mark_duplicate(tmp_path: Path):
-    conn = open_db(tmp_path)
-    ensure_table(conn, "T")
-    insert_photo(conn, "T", "a.jpg", "a.jpg", None)
-    mark_duplicate(conn, "T", "a.jpg")
-    row = conn.execute(
-        "SELECT is_duplicate FROM photos WHERE folder='T' AND filename='a.jpg'"
-    ).fetchone()
-    assert row[0] == 1
-    conn.close()
 
 
 def test_update_genre_scores_with_multi_genre(tmp_path: Path):

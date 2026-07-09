@@ -59,6 +59,26 @@ class SubjectContext:
     # constructors keep working; populated by build_subject_context.
     image_rgb: np.ndarray | None = None
 
+    @classmethod
+    def degraded(cls, image_bgr: np.ndarray, image_gray: np.ndarray) -> "SubjectContext":
+        """Model-free context: full-frame mask, no faces/detections/embedding.
+
+        Used by the legacy path-based scorers when no models are loaded.
+        """
+        h, w = image_gray.shape[:2]
+        return cls(
+            image_bgr=image_bgr,
+            image_gray=image_gray,
+            thumbnail_rgb=np.zeros((100, 100, 3), dtype=np.uint8),
+            subject_mask=np.ones((h, w), dtype=np.uint8),
+            subject_area_ratio=1.0,
+            faces=[],
+            detections=[],
+            primary_subject_bbox=None,
+            clip_embedding=np.zeros(512, dtype=np.float32),
+            exif={},
+        )
+
 
 @dataclass
 class SharpnessScores:
