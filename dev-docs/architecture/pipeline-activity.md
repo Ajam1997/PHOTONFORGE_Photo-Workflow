@@ -72,7 +72,7 @@ flowchart TB
 - `subj` (`build_subject_context`) feeds both `genre` and (dashed lines)
   the three sub-score modules — face/object context informs the
   scoring rubrics. This is the "subject-aware scoring" architecture
-  documented in `architecture/subject-enabled-subscores.md`.
+  documented in `Archive/architecture/subject-enabled-subscores.md`.
 - `fuse_scores` is the only point where heterogeneous score types meet.
   It is the SysML **synchronization bar** of this activity diagram.
 

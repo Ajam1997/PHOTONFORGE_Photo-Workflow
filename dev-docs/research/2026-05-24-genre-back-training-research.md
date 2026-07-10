@@ -9,7 +9,7 @@
 > plugin actions. Correction collection happens by syncing user edits from
 > Darktable tags back into `training_weights.db.genre_corrections`. See the
 > implementation design at
-> `dev-docs/superpowers/specs/2026-05-25-multi-genre-and-back-training-design.md`.
+> `dev-docs/Archive/superpowers/specs/2026-05-25-multi-genre-and-back-training-design.md`.
 
 ---
 

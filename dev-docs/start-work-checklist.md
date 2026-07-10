@@ -33,21 +33,16 @@ If you can't decide, default:
 
 - **Design / interfaces / budgets / architecture** → @systems_lead
 - **src/ implementation, software tests** → @software_lead
-- **Embedded code, RTOS, peripheral drivers, HAL** → @firmware_lead
-- **Schematics, PCB layout, SPICE, EMC pre-compliance** → @electrical_lead
-- **CAD, FEA, drawings, tolerance analysis** → @mechanical_lead
-- **DFM/DFA reviews, EVT/PVT plans, supplier qualification, AVL** → @manufacturing_lead
-- **FCC/CE/UL roadmap, DoC, test-house engagement, BOM compliance** → @regulatory_lead
+- **Host integration (deploy/, scripts/, cartridge, udisks2/polkit)** → @software_lead
 - **Per-commit verification** → @verification (or skip — `pr_rollup.py` handles labels)
 - **Per-milestone E2E pass** → @validation
 - **Cross-cutting / architecture review** → @systemmaster (operator-invoked only)
 
-Which leads are active on *your* project depends on `config/disciplines.yml`.
-Run `init_project.py --activate-profile A|B|C` to seed a starter set.
+PHOTONForge is Profile A (software only) — see `config/disciplines.yml`.
 
 ## 5. Will the next person resuming this session find a breadcrumb?
 
-Per METHODOLOGY.md §5:
+Breadcrumb rules (HB-8):
 
 - Every `github_comment.py` call already requires `--next-action "..."` —
   the CLI fails fast if you forget.
@@ -88,4 +83,3 @@ missing a breadcrumb — fix the artifact before continuing.
 - [CLAUDE.md](../CLAUDE.md) → Agent Roster (skill pairings per agent)
 - [doc-source-of-truth.md](architecture/doc-source-of-truth.md)
 - [vv-matrix.md](architecture/vv-matrix.md)
-- [METHODOLOGY.md](../METHODOLOGY.md)

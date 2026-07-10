@@ -351,7 +351,7 @@ These features from the old Tauri plan are no longer needed -- Darktable handles
 - **Image editing:** Darkroom view
 - **Metadata display:** Image information panel
 
-Full design spec: `dev-docs/superpowers/specs/2026-05-13-darktable-lua-plugin-design.md`
+Full design spec: `dev-docs/Archive/superpowers/specs/2026-05-13-darktable-lua-plugin-design.md`
 
 ---
 

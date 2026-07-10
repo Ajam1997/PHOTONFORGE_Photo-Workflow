@@ -18,7 +18,7 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 > **Roster migrated 2026-05-29** to the systems-first-template naming:
 > `@architect`→`@systems_lead`, `@engineer`→`@software_lead`, and the
 > former `@devops` scope folded into `@software_lead` (Profile A has a
-> single implementation discipline). See `dev-docs/migration-plan.md`.
+> single implementation discipline). See `dev-docs/Archive/migration-plan.md`.
 
 Start every session with `dev-docs/start-work-checklist.md` (≈60s).
 The full pairing rationale lives in
@@ -93,7 +93,7 @@ docs/      -- placeholder for future end-user documentation (currently empty)
 3. Inference + Bridge (@software_lead): Florence-2-base-ft naming + Darktable SQLite/XMP ✓
 4. Host Integration (@software_lead): udisks2 polling + polkit rules, SSD cartridge scripts, Dockerfile ✓
 5. Integration (@software_lead + @systems_lead): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
-6. Scoring System (as-built, complete): two-axis 15-Subject × 11-Photo-Type scoring inside `score_fusion.py` — subject/type weight profiles in SQLite (`aesthetic_weights` table), weight renormalization for not-applicable signals, hard-reject gates, master score with per-shoot percentile star rating. The originally planned five-module split (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) was superseded — see the banner on `dev-docs/architecture/scoring-module-contracts.md`. ✓
+6. Scoring System (as-built, complete): two-axis 15-Subject × 11-Photo-Type scoring inside `score_fusion.py` — subject/type weight profiles in SQLite (`aesthetic_weights` table), weight renormalization for not-applicable signals, hard-reject gates, master score with per-shoot percentile star rating. The originally planned five-module split (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) was superseded — see the banner on `dev-docs/Archive/architecture/scoring-module-contracts.md`. ✓
 
 Full spec: dev-docs/Archive/photo-workflow-architecture-v4.docx
 

@@ -211,7 +211,7 @@ it. Hand-edits are the only way it changes.
 
 ## Worked example
 
-See [`EXAMPLE-3d-printer-architecture-contracts.md`](EXAMPLE-3d-printer-architecture-contracts.md)
+See [`EXAMPLE-3d-printer-architecture-contracts.md`](../Archive/architecture/EXAMPLE-3d-printer-architecture-contracts.md)
 for a fully-filled example based on a hypothetical desktop FDM 3D
 printer. The example covers all required sections + cross-cutting
 concerns (thermal runaway protection, power rail map) + cross-discipline
