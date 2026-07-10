@@ -17,6 +17,17 @@ local function shell_quote(s)
   return "'" .. s:gsub("'", "'\\''") .. "'"
 end
 
+-- Resolve the photo-workflow CLI invocation. Darktable launches as a GUI, so the
+-- PATH its spawned subprocess sees does NOT include a project venv's Scripts/bin
+-- dir -- the bare name then fails with "not recognized"/"command not found". When
+-- cli_path is set (dev/Windows), use the full exe path; otherwise fall back to the
+-- bare name (Linux/container installs where photo-workflow is on PATH).
+local function cli()
+  local p = config.read("cli_path")
+  if p ~= "" then return shell_quote(p) end
+  return "photo-workflow"
+end
+
 local function get_drive_root(path)
   if IS_WINDOWS then
     local drive = path:match("^(%a:\\)")
@@ -62,7 +73,7 @@ local function build_cmd(step)
 
   local db = get_db_path(dest)
   local folder = get_folder_name(dest)
-  local base = "photo-workflow " .. step .. " --json-progress"
+  local base = cli() .. " " .. step .. " --json-progress"
 
   local mode_flag = ""
   if run_mode == "force" or run_mode == "fresh" then
@@ -154,7 +165,7 @@ local function build_cmd(step)
     -- Output is plain text (no --json-progress); runner logs it as-is.
     local drive = get_drive_root(dest)
     local training_db = drive .. "training_weights.db"
-    local cmd = "photo-workflow training recalibrate"
+    local cmd = cli() .. " training recalibrate"
               .. " --photon-db " .. shell_quote(db)
               .. " --training-db " .. shell_quote(training_db)
     local models = config.read("models_path")
@@ -173,7 +184,7 @@ local function build_cmd(step)
     -- just the corrected images; falls back to --force if no manifest.
     local tmp = get_temp_dir()
     local manifest = tmp .. (IS_WINDOWS and "\\" or "/") .. "photonforge_corrected_files.txt"
-    local cmd = "photo-workflow score --json-progress"
+    local cmd = cli() .. " score --json-progress"
               .. " --db "         .. shell_quote(db)
               .. " --folder "     .. shell_quote(folder)
               .. " --source-dir " .. shell_quote(dest)
@@ -205,7 +216,7 @@ local function build_cmd(step)
     else
       dt_lib = dt_lib .. "/library.db"
     end
-    local cmd = "photo-workflow training collect-corrections --json-progress"
+    local cmd = cli() .. " training collect-corrections --json-progress"
               .. " --photon-db " .. shell_quote(db)
               .. " --folder "    .. shell_quote(folder)
               .. " --darktable-library " .. shell_quote(dt_lib)
@@ -222,6 +233,21 @@ end
 
 local function get_log_path(step)
   return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".log"
+end
+
+-- The child writes its exit code here (before deleting the sentinel) so run_step
+-- can tell success from failure. Without this every step reports as succeeded --
+-- even "command not found" -- because the polling loop only watches output.
+local function get_result_path(step)
+  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".exit"
+end
+
+local function read_exit_code(step)
+  local fh = io.open(get_result_path(step), "r")
+  if not fh then return nil end
+  local c = fh:read("*a")
+  fh:close()
+  return tonumber((c or ""):match("(-?%d+)"))
 end
 
 local function get_sentinel_path()
@@ -405,11 +431,14 @@ function M.run_step(step, log_fn, job, progress_fn)
 
   local cmd = build_cmd(step)
   local log_path = get_log_path(step)
+  local result_path = get_result_path(step)
   local sentinel = get_sentinel_path()
   log_fn(string.format("[%s] Running: %s", os.date("%H:%M:%S"), cmd))
 
   local f = io.open(log_path, "w")
   if f then f:close() end
+  -- Drop any exit code from a previous run of this step before launching.
+  os.remove(result_path)
 
   local sf = io.open(sentinel, "w")
   if sf then sf:write("running\n") sf:close() end
@@ -422,6 +451,10 @@ function M.run_step(step, log_fn, job, progress_fn)
     if bat then
       bat:write('@echo off\r\n')
       bat:write(cmd .. ' > "' .. log_path .. '" 2>&1\r\n')
+      -- Persist the exit code, then drop the sentinel. Redirect-first form
+      -- (`>"file" echo`) avoids cmd's single-digit-before-`>` handle-redirect
+      -- gotcha (e.g. `echo 1>file` would redirect stdout, not write "1").
+      bat:write('>"' .. result_path .. '" echo %errorlevel%\r\n')
       bat:write('del "' .. sentinel .. '" 2>nul\r\n')
       bat:close()
     end
@@ -435,7 +468,9 @@ function M.run_step(step, log_fn, job, progress_fn)
     local p = io.popen('wscript "' .. vbs_path .. '"', "r")
     if p then p:read("*a") p:close() end
   else
-    os.execute("(" .. cmd .. " > " .. shell_quote(log_path) .. " 2>&1; rm -f " .. shell_quote(sentinel) .. ") &")
+    os.execute("(" .. cmd .. " > " .. shell_quote(log_path) .. " 2>&1"
+      .. "; echo $? > " .. shell_quote(result_path)
+      .. "; rm -f " .. shell_quote(sentinel) .. ") &")
   end
 
   local dest = config.read("dest_path")
@@ -545,8 +580,19 @@ function M.run_step(step, log_fn, job, progress_fn)
     end
   end
 
+  -- Success is the child's exit code, not "the loop ended". A missing/unparseable
+  -- code means the process died abnormally (e.g. wscript/subshell never launched,
+  -- or the loop timed out on a hang) -- treat that as failure so it surfaces as
+  -- an error rather than a misleading green check.
+  local exit_code = read_exit_code(step)
+  local ok = (exit_code == 0)
+  if not ok then
+    log_fn(string.format("[%s] Step '%s' failed (exit %s) -- see %s",
+      os.date("%H:%M:%S"), step, tostring(exit_code), log_path))
+  end
+
   log_fn(string.format("[%s] Step finished (%d items)", os.date("%H:%M:%S"), done))
-  return true
+  return ok
 end
 
 function M.run_all(step_list, log_fn, status_fn, progress_fn)

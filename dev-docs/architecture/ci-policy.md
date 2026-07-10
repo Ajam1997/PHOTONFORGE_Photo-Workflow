@@ -62,3 +62,7 @@ group serializes back-to-back merges.
 3. A **"Docs impact"** line in the description — updated files or an explicit
    "none" (rule 3 of
    [doc-maintenance-protocol.md](doc-maintenance-protocol.md)).
+
+How work is split across PRs (minor-bug roundup vs. independent major-bug /
+enhancement PRs) is covered separately in
+[pr-conventions.md](pr-conventions.md).

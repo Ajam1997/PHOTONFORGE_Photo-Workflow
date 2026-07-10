@@ -67,6 +67,16 @@ its launcher's `--configdir` points — pass that to `-DarktableDir`.
 > Darktable's log was `g_rename() ... Improper link` (EXDEV cross-device
 > rename), a signature of AppData virtualization.
 
+**CLI path:** Darktable launches as a GUI, so its subprocess `PATH` does not
+include `.venv\Scripts` — the plugin's `photo-workflow` calls would fail with
+"not recognized". `deploy_lua.ps1` therefore writes the resolved
+`.venv\Scripts\photo-workflow.exe` into the `lua/photonforge/cli_path`
+preference (in `darktablerc`). **Close Darktable before deploying**, or it
+overwrites `darktablerc` on exit and drops the setting. To point at a
+different interpreter, set *photo-workflow CLI path* under Darktable →
+Preferences → Lua options. Leave it blank on Linux/container installs where
+`photo-workflow` is on `PATH`.
+
 ## 4. MCP server (`.mcp.json`)
 
 The recovered `.mcp.json` registers a `darktable` MCP server run as
