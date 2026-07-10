@@ -68,6 +68,7 @@ stack rationale (most of it — EE/ME — is N/A for this project).
 - Shell scripts: set -euo pipefail, ShellCheck clean
 - Every module gets unit tests in tests/
 - PRs that change code must update the affected docs — see the docs-impact matrix in `dev-docs/architecture/doc-maintenance-protocol.md` (banner convention, AUTO-section rules, and the "Docs impact" PR-description line live there too)
+- PR scoping: small low-risk bugfixes land in the rolling **minor-bug roundup** PR; a bug that trips any complexity trigger gets its own PR; enhancements always get their own PR. Full policy: `dev-docs/architecture/pr-conventions.md`
 
 ## Project Layout
 src/photo_workflow/  (22 modules)
