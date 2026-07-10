@@ -15,10 +15,12 @@ Modes:
                              BASE_REF. This is the PR-check mode; it never
                              blames a PR for pre-existing rot.
 
-Dated-history directories (Archive/, SystemReviews/, drift-reports/, plus
-the not-yet-archived migration/ and superpowers/) legitimately reference
-deleted code and are exempt from the full scan; --pr-mode checks them too
-because a PR deleting a file should still know what cites it.
+Dated-history directories (Archive/, SystemReviews/, drift-reports/,
+superpowers/ plans) legitimately reference deleted code and are exempt
+from BOTH modes: they are frozen records, so "you deleted a file they
+cite" is non-actionable by design (first proven by the Phase-4 archive
+PR itself, where the gate flagged archived migration notes for citing
+the old paths of files the same PR archived).
 
 Suppression: a line containing ``doc-ref: ignore`` is skipped (for
 deliberately hypothetical examples).
@@ -70,14 +72,14 @@ IGNORE_MARKER = "doc-ref: ignore"
 _PLACEHOLDER_CHARS = set("<>{}*$")
 
 
-def _doc_files(include_exempt: bool = False) -> list[Path]:
+def _doc_files() -> list[Path]:
     files: list[Path] = []
     for pattern in DOC_GLOBS:
         files.extend(REPO.glob(pattern))
     out = []
     for f in sorted(set(files)):
         rel = f.relative_to(REPO).as_posix()
-        if not include_exempt and any(rel.startswith(d) for d in EXEMPT_DIRS):
+        if any(rel.startswith(d) for d in EXEMPT_DIRS):
             continue
         out.append(f)
     return out
@@ -137,7 +139,7 @@ def pr_scan(base_ref: str) -> list[str]:
     if not deleted:
         return []
     problems: list[str] = []
-    for doc in _doc_files(include_exempt=True):
+    for doc in _doc_files():
         rel = doc.relative_to(REPO).as_posix()
         for lineno, kind, target in _iter_refs(doc):
             if target in deleted:
