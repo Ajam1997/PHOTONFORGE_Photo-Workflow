@@ -44,25 +44,34 @@
 # Phases 8 (render chain) and 9 (cleanup) DONE — migration complete 2026-05-29.
 
 # ============================================================================
-# Stage -> UN map (template Profile A 5-stage flow)
+# Stage -> UN map — 1:1 with the live GitHub Milestones (decision D2,
+# docs overhaul 2026-07-10). Titles MUST match milestone titles exactly;
+# pr_rollup matches milestones by the leading "Stage N" and warns on
+# title drift. UN membership mirrors each issue's **Stage:** body field.
 # ============================================================================
 
 stages:
   1:
-    title: "Stage 1 — Scaffold & Foundation"
+    title: "Stage 1 — Project Scaffold & Agent Roster"
     user_needs: [UN-001, UN-002, UN-003]
   2:
-    title: "Stage 2 — Core Engine"
-    user_needs: [UN-010, UN-011, UN-012, UN-013, UN-014, UN-020, UN-021, UN-022]
+    title: "Stage 2 — Core Analysis Engine"
+    user_needs: [UN-010, UN-011, UN-012, UN-013, UN-014]
   3:
-    title: "Stage 3 — Integration"
-    user_needs: [UN-030, UN-031, UN-032, UN-040, UN-041]
+    title: "Stage 3 — Inference & Darktable Bridge"
+    user_needs: [UN-020, UN-021, UN-022]
   4:
-    title: "Stage 4 — V&V"
-    user_needs: [UN-050, UN-051, UN-052, UN-053, UN-054]
+    title: "Stage 4 — Host Integration"
+    user_needs: [UN-030, UN-031, UN-032]
   5:
-    title: "Stage 5 — Release"
-    user_needs: []
+    title: "Stage 5 — Staged Pipeline CLI"
+    user_needs: [UN-050, UN-051, UN-052, UN-053, UN-054]
+  6:
+    title: "Stage 6 — SD Staging & Safe Removal"
+    user_needs: [UN-040]
+  7:
+    title: "Stage 7 — GUI & Full Integration"
+    user_needs: [UN-041]
 
 # ============================================================================
 # User needs (21)

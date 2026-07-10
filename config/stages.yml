@@ -1,121 +1,41 @@
 # config/stages.yml — Phase model
 #
 # This project's lifecycle stages. Each entry maps 1:1 to a GitHub
-# Milestone (created by you on the Milestones tab).
+# Milestone (created on the Milestones tab).
 #
-# `pr_rollup.py` closes the milestone when all its `user_needs`
-# transition to status: verified.
+# Reconciled 2026-07-10 (docs overhaul, decision D2): the unedited
+# template preset here contradicted requirements/requirement-map.yml
+# AND the live milestones (three competing registries). This file now
+# mirrors the canonical map in requirements/requirement-map.yml, which
+# in turn mirrors the live milestones and each UN issue's **Stage:**
+# body field. If stages change, update requirement-map.yml first and
+# keep this file in sync.
 #
 # Schema:
 #   stages:
 #     <stage-number>:
 #       title: <full milestone title, "Stage N — <name>">
 #       user_needs: [<list of UN-IDs to be completed in this stage>]
-#       exit_criteria: <one-line summary, optional>
-#
-# Three example presets below. UNCOMMENT the one that fits your
-# lifecycle; delete or comment-out the others.
 
-# ============================================================================
-# PRESET A — Software project (fast iteration, no hardware gates)
-# ============================================================================
 stages:
   1:
-    title: "Stage 1 — Scaffold & Foundation"
-    user_needs: [UN-001, UN-002]
-    exit_criteria: project structure in place, all agents discoverable
-
+    title: "Stage 1 — Project Scaffold & Agent Roster"
+    user_needs: [UN-001, UN-002, UN-003]
   2:
-    title: "Stage 2 — Core Engine"
-    user_needs: []
-    exit_criteria: primary functionality demonstrable on fixtures
-
+    title: "Stage 2 — Core Analysis Engine"
+    user_needs: [UN-010, UN-011, UN-012, UN-013, UN-014]
   3:
-    title: "Stage 3 — Integration"
-    user_needs: []
-    exit_criteria: end-to-end pipeline runs on real inputs
-
+    title: "Stage 3 — Inference & Darktable Bridge"
+    user_needs: [UN-020, UN-021, UN-022]
   4:
-    title: "Stage 4 — V&V"
-    user_needs: []
-    exit_criteria: all KPMs measured, all user needs validated
-
+    title: "Stage 4 — Host Integration"
+    user_needs: [UN-030, UN-031, UN-032]
   5:
-    title: "Stage 5 — Release"
-    user_needs: []
-    exit_criteria: production deploy + monitoring in place
-
-# ============================================================================
-# PRESET B — Hardware product (gated by physical builds)
-# (Uncomment to use; delete Preset A above)
-# ============================================================================
-# stages:
-#   1:
-#     title: "Stage 1 — Concept"
-#     user_needs: []
-#     exit_criteria: concept selection, top-level UNs defined, budgets locked
-#
-#   2:
-#     title: "Stage 2 — Preliminary Design (PDR)"
-#     user_needs: []
-#     exit_criteria: PDR passed, FRs decomposed, interfaces defined
-#
-#   3:
-#     title: "Stage 3 — Critical Design (CDR)"
-#     user_needs: []
-#     exit_criteria: CDR passed, all NFRs satisfied in simulation/analysis
-#
-#   4:
-#     title: "Stage 4 — Engineering Build (EB)"
-#     user_needs: []
-#     exit_criteria: first physical build available for bench testing
-#
-#   5:
-#     title: "Stage 5 — Design Verification Test (DVT)"
-#     user_needs: []
-#     exit_criteria: all DVT procedures pass on EB units
-#
-#   6:
-#     title: "Stage 6 — Engineering Verification Test (EVT)"
-#     user_needs: []
-#     exit_criteria: EVT build qualified, ECOs frozen
-#
-#   7:
-#     title: "Stage 7 — Production Verification Test (PVT)"
-#     user_needs: []
-#     exit_criteria: PVT lot qualifies, AQL met, mass production approved
-#
-#   8:
-#     title: "Stage 8 — Production"
-#     user_needs: []
-#     exit_criteria: shipping to customers
-
-# ============================================================================
-# PRESET C — Research / experimental project
-# (Uncomment to use; delete the others)
-# ============================================================================
-# stages:
-#   1:
-#     title: "Stage 1 — Literature & State of the Art"
-#     user_needs: []
-#     exit_criteria: research questions framed, gap analysis written
-#
-#   2:
-#     title: "Stage 2 — Hypothesis & Method"
-#     user_needs: []
-#     exit_criteria: experimental method defined, success criteria locked
-#
-#   3:
-#     title: "Stage 3 — Prototype"
-#     user_needs: []
-#     exit_criteria: prototype operational on representative input
-#
-#   4:
-#     title: "Stage 4 — Evaluation"
-#     user_needs: []
-#     exit_criteria: results collected against success criteria
-#
-#   5:
-#     title: "Stage 5 — Writeup & Handoff"
-#     user_needs: []
-#     exit_criteria: findings documented, decision made on path forward
+    title: "Stage 5 — Staged Pipeline CLI"
+    user_needs: [UN-050, UN-051, UN-052, UN-053, UN-054]
+  6:
+    title: "Stage 6 — SD Staging & Safe Removal"
+    user_needs: [UN-040]
+  7:
+    title: "Stage 7 — GUI & Full Integration"
+    user_needs: [UN-041]
