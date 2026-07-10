@@ -49,7 +49,7 @@ Your output is design + plans. These skills are the natural pairings:
   acceptance condition.
 - `superpowers:writing-plans` â€” your engineer briefs are plans. The skill
   systematizes the pattern already used in
-  `dev-docs/architecture/stage-6-engineer-brief.md` (owner, reviewer,
+  `dev-docs/Archive/architecture/stage-6-engineer-brief.md` (owner, reviewer,
   source-of-truth link, scope in/out, acceptance, **open questions on
   resume**). Apply that template to every multi-step feature.
 - `superpowers:subagent-driven-development` â€” when reviewing a plan you

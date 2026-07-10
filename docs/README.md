@@ -21,5 +21,5 @@ and merge to `main`; the wiki updates automatically via
 - `CLAUDE.md` — top-level project map
 - `dev-docs/start-work-checklist.md` — session start procedure
 - `dev-docs/architecture/doc-source-of-truth.md` — where things live
-- `dev-docs/architecture/hb-3-wiki-refactor-brief.md` — the brief that
+- `dev-docs/Archive/architecture/hb-3-wiki-refactor-brief.md` — the brief that
   established this split

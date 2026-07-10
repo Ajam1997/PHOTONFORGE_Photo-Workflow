@@ -10,7 +10,7 @@
 > `aesthetic_weighter` → `fusion`) was **superseded** — the behavior
 > shipped inside the single module `src/photo_workflow/score_fusion.py`.
 > The historical design lives in
-> [scoring-module-contracts.md](../../dev-docs/architecture/scoring-module-contracts.md)
+> [scoring-module-contracts.md](../../dev-docs/Archive/architecture/scoring-module-contracts.md)
 > (banner-marked, do not implement from it).
 
 ## What crosses

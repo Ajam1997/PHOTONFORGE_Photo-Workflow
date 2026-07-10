@@ -105,7 +105,7 @@ carry a real contract worth an ICD. Phase 6 files each as an
 ## See also
 
 - [architecture-contracts-format.md](architecture-contracts-format.md) — the spec this doc follows
-- [scoring-module-contracts.md](scoring-module-contracts.md) — the original Stage-6 five-module design (**superseded**; kept for history)
+- [scoring-module-contracts.md](../Archive/architecture/scoring-module-contracts.md) — the original Stage-6 five-module design (**superseded**; kept for history)
 - [system-state-machine.md](system-state-machine.md) — pipeline stage state machine
 - [pipeline-activity.md](pipeline-activity.md) — stage activity flow
 - `requirements/requirement-map.yml` — the UN/FR/NFR/KPM decomposition these modules satisfy

@@ -17,7 +17,7 @@ system shipped as-built inside `score_fusion.py` — two-axis 15×11
 subject/type weighting, hard-reject gates, percentile star rating).
 Migrated to the
 [systems-first-template](https://github.com/Ajam1997/systems-first-template)
-structure on 2026-05-29 — see `dev-docs/migration-plan.md`.
+structure on 2026-05-29 — see `dev-docs/Archive/migration-plan.md`.
 
 ## How it works
 
