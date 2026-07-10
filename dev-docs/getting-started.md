@@ -18,10 +18,9 @@ never applied to this project.
 
 - **Windows dev box:** follow [`dev-machine-setup.md`](dev-machine-setup.md)
   (venv, models, Darktable Lua plugin deploy, `.mcp.json` note).
-- **Linux / Yoga 910 target:** provisioning guide pending (UN-003, docs
-  overhaul Phase 5). Until then: `python3.11 -m venv .venv`,
-  `pip install -e ".[dev,docs]"`, `bash scripts/provision_models.sh`,
-  `python scripts/provision_scoring_models.py`.
+- **Linux / Yoga 910 target:** follow
+  [`docs/install-yoga-linux.md`](../docs/install-yoga-linux.md) (venv,
+  model provisioning, polkit rule, Darktable plugin, cartridge layout).
 
 ## 3. Verify the environment
 
@@ -48,6 +47,7 @@ python -m scripts.check_doc_references   # docs-to-code reference integrity
   sections are regenerated — never hand-edit them
   (see [`architecture/doc-source-of-truth.md`](architecture/doc-source-of-truth.md)).
 - PRs that change code must update affected docs — docs-impact matrix in
-  the [docs overhaul plan §3.3](superpowers/plans/2026-07-09-docs-overhaul-plan.md).
+  [`architecture/doc-maintenance-protocol.md`](architecture/doc-maintenance-protocol.md);
+  CI gates are described in [`architecture/ci-policy.md`](architecture/ci-policy.md).
 - Agents post evidence via `scripts/github_comment.py`; every comment ends
   with a `**Next action:**` line.

@@ -67,7 +67,7 @@ stack rationale (most of it — EE/ME — is N/A for this project).
 - ruff for linting, pytest for testing
 - Shell scripts: set -euo pipefail, ShellCheck clean
 - Every module gets unit tests in tests/
-- PRs that change code must update the affected docs — see the docs-impact matrix in `dev-docs/superpowers/plans/2026-07-09-docs-overhaul-plan.md` §3.3 (to be promoted to a standalone doc-maintenance protocol in Phase 5)
+- PRs that change code must update the affected docs — see the docs-impact matrix in `dev-docs/architecture/doc-maintenance-protocol.md` (banner convention, AUTO-section rules, and the "Docs impact" PR-description line live there too)
 
 ## Project Layout
 src/photo_workflow/  (22 modules)
