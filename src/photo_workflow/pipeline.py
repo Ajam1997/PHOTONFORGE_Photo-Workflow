@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -1088,16 +1087,6 @@ def _get_temp_dir() -> Path:
     return Path(tempfile.gettempdir())
 
 
-def _write_sentinel(temp_dir: Path | None = None) -> None:
-    """Write PID file and sentinel for Lua plugin process detection."""
-    if temp_dir is None:
-        temp_dir = _get_temp_dir()
-    pid_file = temp_dir / "photonforge.pid"
-    sentinel = temp_dir / "photonforge.running"
-    pid_file.write_text(str(os.getpid()))
-    sentinel.write_text("")
-
-
 # --- Training subcommand group -----------------------------------------------
 
 @cli.group()
@@ -1650,25 +1639,11 @@ def collect_corrections(
         }))
 
 
-def _cleanup_sentinel(temp_dir: Path | None = None) -> None:
-    """Remove sentinel file on clean exit. PID file is left for kill reference."""
-    if temp_dir is None:
-        temp_dir = _get_temp_dir()
-    sentinel = temp_dir / "photonforge.running"
-    try:
-        sentinel.unlink()
-    except FileNotFoundError:
-        pass
-
-
 def main() -> None:
-    import atexit
     import sys
     # Force line-buffered stdout so Lua poller sees output in real time
     if not sys.stdout.line_buffering:
         sys.stdout.reconfigure(line_buffering=True)
-    _write_sentinel()
-    atexit.register(_cleanup_sentinel)
     cli()
 
 
