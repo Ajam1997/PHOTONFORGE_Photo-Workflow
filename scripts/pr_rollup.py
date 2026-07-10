@@ -101,19 +101,33 @@ def get_req_issue_num(issue_map: dict, req_id: str) -> int | None:
     return None
 
 
-def build_stage_to_milestone(client: GitHubClient) -> dict[int, int]:
+def build_stage_to_milestone(client: GitHubClient, req_map: dict | None = None) -> dict[int, int]:
     """Map stage number → milestone number by parsing milestone titles.
 
     Titles must start with "Stage N" (e.g. "Stage 4 — Host Integration").
     Stages without a matching milestone are absent from the map; the
     Epic-closure fallback handles those.
+
+    When req_map is given, warns if a milestone title differs from the
+    canonical title in requirement-map.yml stages — the guard for the
+    three-registries drift that previously closed the wrong milestone
+    (decision D2, docs overhaul 2026-07-10).
     """
     result: dict[int, int] = {}
     pattern = re.compile(r"^Stage\s+(\d+)\b")
+    yaml_titles = {}
+    if req_map:
+        yaml_titles = {int(k): v.get("title", "") for k, v in req_map.get("stages", {}).items()}
     for ms in client.list_milestones(state="all"):
         m = pattern.match(ms.get("title", ""))
-        if m:
-            result[int(m.group(1))] = ms["number"]
+        if not m:
+            continue
+        num = int(m.group(1))
+        result[num] = ms["number"]
+        expected = yaml_titles.get(num)
+        if expected and expected != ms.get("title", ""):
+            print(f"WARNING: milestone title drift for Stage {num}: "
+                  f"requirement-map.yml says {expected!r}, GitHub says {ms.get('title')!r}")
     return result
 
 
@@ -123,7 +137,7 @@ def rollup(pr_body: str, dry_run: bool = False) -> None:
     num_to_req_id = build_num_to_req_id(issue_map)
 
     client = GitHubClient()
-    stage_to_milestone_num = build_stage_to_milestone(client)
+    stage_to_milestone_num = build_stage_to_milestone(client, req_map)
 
     # Fetch all issues once to avoid repeated list API calls
     all_issues_list = client.list_issues(state="all")

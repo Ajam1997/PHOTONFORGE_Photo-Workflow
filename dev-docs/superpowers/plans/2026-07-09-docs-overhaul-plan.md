@@ -1,6 +1,10 @@
 # Documentation Overhaul Plan — 2026-07-09
 
-**Status: DRAFT — awaiting operator review. No implementation until approved.**
+**Status: IMPLEMENTED (2026-07-10).** Approved with D1–D4 on the recommended
+options and D5 staged (diff-aware check now blocking, full scan informational).
+Phases 1–6 landed as PRs #120–#127; reference-integrity backlog 50 → 0.
+Open follow-ups: ADR-006 (per-Type weights vs SceneRecord) and the
+hardware-pending re-measurement (SystemReviews/2026-07-10-…-procedure.md).
 
 **Scope:** every documentation surface in the repo (README, CLAUDE.md, dev-docs/,
 requirements/, docs/, prompts/, config/, .claude/agents + agent-memory, deploy
