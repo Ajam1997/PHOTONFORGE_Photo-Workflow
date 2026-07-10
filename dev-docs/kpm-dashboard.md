@@ -5,9 +5,9 @@
 <!-- AUTO:kpm_table -->
 | KPM | Metric | Target | Owner | Verified By | Last Measured | Status |
 |:---|:---|:---|:---|:---|:---|:---|
-| [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | Ingest Latency | >= 80% USB 3.0 bandwidth | @software_lead | @verification | untested | measured |
+| [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | Ingest Latency | >= 80% USB 3.0 bandwidth | @software_lead | @verification | XFAIL-HARDWARE — SD and SSD mounts required; Yoga 910 SSH timeout on 2026-05-24 | measured |
 | [KPM-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74) | Session Grouping Precision | >= 90% F1 score on session boundary detection against labeled fixture corpus | @software_lead | @verification | untested | untested |
-| [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @software_lead | @verification | untested | measured |
+| [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | Inference Speed | <= 2.5s per image (Florence-2 INT8) | @software_lead | @verification | XFAIL-HARDWARE — Yoga 910 SSH timeout on 2026-05-24; prior engineer report ~1525ms (within 2.5s target) | measured |
 | [KPM-1.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/68) | Analyzer Peak RSS | <= 1.5 GB peak RSS during full scoring pipeline | @software_lead | @verification | untested | untested |
 | [KPM-1.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/65) | Data Integrity | Zero SQLite corruption over 50 eject cycles | @software_lead | @validation | untested | untested |
 | [KPM-1.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/69) | End-to-End Pipeline Throughput | >= 10 photos/min on i7-7500U (full ingest → score → name pipeline) | @software_lead | @verification | untested | untested |
