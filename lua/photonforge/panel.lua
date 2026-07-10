@@ -351,11 +351,14 @@ function M.build()
   end
 
   local function refresh_run_enabled()
-    local ok = is_configured()
     refresh_required_marks()
+    -- Darktable entry widgets have no keystroke callback, so the destination the
+    -- user just typed is not yet observable here. We therefore do NOT gate the
+    -- button on it (that deadlocks: the click handler is what persists the path).
+    -- Only running-state disables the button; an empty destination is caught at
+    -- click time in the run_btn handler, mirroring the SD-path/ingest check.
     if run_btn then
-      run_btn.sensitive = ok and not running_box.visible
-      run_btn.label = ok and "\u{25B6} Run PHOTONForge" or "\u{25B6} Run \u{2014} set paths first"
+      run_btn.sensitive = not running_box.visible
     end
     update_state_label()
   end
@@ -472,6 +475,11 @@ function M.build()
     clicked_callback = function()
       local ok, err = pcall(function()
         save_entries()
+        if config.read("dest_path") == "" then
+          append_log("[WARN] No Destination path set. "
+                  .. "Set a Destination (DB + photos live there), then Run.")
+          return
+        end
         local enabled = {}
         for _, step in ipairs(steps) do
           if step_checks[step].value then
