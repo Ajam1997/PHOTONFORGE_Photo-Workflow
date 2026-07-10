@@ -161,7 +161,7 @@ covered, ⚠ partial, ✗ unverified.
 | [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | FR | `pytest: tests/test_genre_trainer.py` | `e2e: Stage 2 milestone — UN-020 demonstrated end-to-end` | ✓ |
 | [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | FR | `pytest: tests/test_genre_router.py` | `e2e: Stage 2 milestone — UN-020 demonstrated end-to-end` | ✓ |
 | [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | FR | `pytest: tests/test_darktable.py` | `e2e: Stage 2 milestone — UN-021 demonstrated end-to-end` | ✓ |
-| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | FR | `pytest: tests/test_cartridge.py` | `e2e: Stage 3 milestone — UN-031 demonstrated end-to-end` | ✓ |
+| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | FR | `pytest: tests/test_cartridge_manager.py` | `e2e: Stage 3 milestone — UN-031 demonstrated end-to-end` | ✓ |
 | [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59) | NFR | — | — | ✗ |
 | [NFR-2.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/88) | NFR | — | — | ✗ |
 | [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | NFR | — | — | ✗ |
