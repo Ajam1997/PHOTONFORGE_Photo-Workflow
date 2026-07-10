@@ -1,0 +1,29 @@
+name: docs-integrity
+
+# Reference-integrity checks (docs overhaul plan, Phase 2 / decision D5):
+# both steps are INFORMATIONAL (continue-on-error) until the Phase 3/4
+# content backlog is cleared. Flip the diff-aware step to blocking then —
+# it only flags references broken by the PR's own deletions, so it never
+# blames a PR for pre-existing rot.
+
+on:
+  pull_request:
+
+jobs:
+  doc-references:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: References broken by this PR (diff-aware)
+        continue-on-error: true
+        run: python -m scripts.check_doc_references --pr-mode "origin/${{ github.base_ref }}"
+
+      - name: Full-repo reference scan (informational)
+        continue-on-error: true
+        run: python -m scripts.check_doc_references

@@ -123,26 +123,42 @@ def main() -> None:
 
     stale = find_stale_frs(fr_issues + nfr_issues, SRC)
 
+    # Reference integrity (docs -> repo files). Informational in the report
+    # until the Phase 3/4 content backlog is cleared; does not affect the
+    # exit code yet (see docs overhaul plan, decision D5 staging).
+    from scripts.check_doc_references import full_scan
+
+    broken_refs = full_scan()
+
     DRIFT_DIR.mkdir(parents=True, exist_ok=True)
 
-    if stale:
+    if stale or broken_refs:
         report_path = DRIFT_DIR / f"{today}.md"
         report = render_drift_report(stale, today)
+        if broken_refs:
+            report += (
+                "\n\n## Broken documentation references\n\n"
+                f"{len(broken_refs)} repo paths/links cited in docs do not exist "
+                "(`scripts/check_doc_references.py`):\n\n"
+                + "\n".join(f"- `{r}`" for r in broken_refs)
+                + "\n"
+            )
         report_path.write_text(report, encoding="utf-8")
         print(f"Wrote drift report: {report_path}")
 
-        drift_issue_body = (
-            f"## Drift Detected â€” {today}\n\n"
-            f"{len(stale)} FR/NFR items are unverified with no source reference and no activity in 90+ days.\n\n"
-            f"See `dev-docs/drift-reports/{today}.md` for details.\n\n"
-            + "\n".join(f"- [{s['id']}]({s['url']}): {s['title']}" for s in stale)
-        )
-        client.create_issue(
-            f"[drift] Stale requirements detected â€” {today}",
-            drift_issue_body,
-            ["type: drift-report"],
-        )
-        print("Opened drift Issue on GitHub")
+        if stale:
+            drift_issue_body = (
+                f"## Drift Detected â€” {today}\n\n"
+                f"{len(stale)} FR/NFR items are unverified with no source reference and no activity in 90+ days.\n\n"
+                f"See `dev-docs/drift-reports/{today}.md` for details.\n\n"
+                + "\n".join(f"- [{s['id']}]({s['url']}): {s['title']}" for s in stale)
+            )
+            client.create_issue(
+                f"[drift] Stale requirements detected â€” {today}",
+                drift_issue_body,
+                ["type: drift-report"],
+            )
+            print("Opened drift Issue on GitHub")
 
     update_drift_index(DRIFT_DIR)
     print(f"Updated drift index: {DRIFT_DIR / 'index.md'}")

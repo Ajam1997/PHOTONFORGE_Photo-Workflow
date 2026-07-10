@@ -201,8 +201,12 @@ def render_kpm_table(issues: list[dict], client=None) -> str:
         target = _body_field(issue["body"], "Target")
         owner = _body_field(issue["body"], "Owner")
         verified_by = _body_field(issue["body"], "Verified By")
-        last = _body_field(issue["body"], "Last Measured")
-        status = _body_field(issue["body"], "Status")
+        def _kpm_field(name: str) -> str:
+            v = _body_field(issue["body"], name)
+            return "" if _PLACEHOLDER_RE.match(v) or v.lower() == "untested" else v
+
+        last = _kpm_field("Last Measured")
+        status = _kpm_field("Status")
         if not last or not status:
             latest = _latest_kpm_update(client, issue.get("number"))
             if latest:
