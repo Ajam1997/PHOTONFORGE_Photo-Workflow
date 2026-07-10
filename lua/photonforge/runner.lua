@@ -235,8 +235,8 @@ local function get_log_path(step)
   return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".log"
 end
 
--- The child writes its exit code here (before deleting the sentinel) so run_step
--- can tell success from failure. Without this every step reports as succeeded --
+-- The child writes its exit code here once it finishes, so run_step can tell
+-- success from failure. Without this every step reports as succeeded --
 -- even "command not found" -- because the polling loop only watches output.
 local function get_result_path(step)
   return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".exit"
@@ -277,11 +277,13 @@ local PROC_STEPS = {
 local function pid_alive(pid)
   if not pid then return false end
   if IS_WINDOWS then
-    local p = io.popen('tasklist /NH /FI "PID eq ' .. pid .. '" 2>NUL', "r")
+    -- Filter on both PID and image name: the tracked process is always cmd.exe,
+    -- so a reused PID now owned by some other process won't match this query.
+    local p = io.popen('tasklist /NH /FI "PID eq ' .. pid .. '" /FI "IMAGENAME eq cmd.exe" 2>NUL', "r")
     if not p then return false end
     local out = p:read("*a") or ""
     p:close()
-    -- Alive: the row contains the PID. Not alive: "INFO: No tasks are running...".
+    -- A matching row contains the PID; an empty/no-match result does not.
     return out:find(pid, 1, true) ~= nil
   else
     local res = os.execute("kill -0 " .. pid .. " 2>/dev/null")
@@ -585,6 +587,7 @@ function M.run_step(step, log_fn, job, progress_fn)
 
   if M.abort then
     M.kill()
+    os.remove(get_pid_path(step))
     log_fn("[STOPPED] Run aborted by user.")
     return false
   end
@@ -632,6 +635,7 @@ function M.run_step(step, log_fn, job, progress_fn)
   end
 
   log_fn(string.format("[%s] Step finished (%d items)", os.date("%H:%M:%S"), done))
+  os.remove(get_pid_path(step))
   return ok
 end
 
