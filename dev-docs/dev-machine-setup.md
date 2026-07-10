@@ -42,6 +42,31 @@ Note: the plugin lives in Darktable's **config** directory
 portable install at `F:\...\54-creative\Darktable` keeps its config where
 its launcher's `--configdir` points — pass that to `-DarktableDir`.
 
+> **⚠ Deploy this yourself, not through an AI agent.** Claude Code's tools
+> on this machine run behind a **copy-on-write filesystem overlay** for
+> `%LOCALAPPDATA%` (and other user-profile paths). When an agent runs
+> `deploy_lua.ps1`, the files land in the overlay at the *same path string*
+> `C:\Users\Alexa\AppData\Local\darktable` but a **different backing store**
+> than your real Darktable reads — so the agent sees the plugin load in its
+> own test launches while your Start-Menu launch shows nothing. `dangerously`
+> disabling the sandbox does **not** escape it for AppData paths.
+>
+> Symptom: PHOTONForge is missing from the lighttable left panel even though
+> every check "passes". Confirm the *real* state from your own session with a
+> scheduled-task probe (Task Scheduler runs under your interactive token,
+> outside the overlay):
+>
+> ```powershell
+> schtasks /Create /TN pf_probe /SC ONCE /ST 23:59 /F /TR "cmd /c (type %LOCALAPPDATA%\darktable\luarc & dir %LOCALAPPDATA%\darktable\lua\photonforge) > %USERPROFILE%\pf_realview.txt 2>&1"
+> schtasks /Run /TN pf_probe; Start-Sleep 3; type %USERPROFILE%\pf_realview.txt
+> schtasks /Delete /TN pf_probe /F
+> ```
+>
+> Fix: run `deploy_lua.ps1` in a **normal PowerShell window** (or, if an agent
+> must do it, via a scheduled task). Diagnosed 2026-07-10 — the tell-tale in
+> Darktable's log was `g_rename() ... Improper link` (EXDEV cross-device
+> rename), a signature of AppData virtualization.
+
 **CLI path:** Darktable launches as a GUI, so its subprocess `PATH` does not
 include `.venv\Scripts` — the plugin's `photo-workflow` calls would fail with
 "not recognized". `deploy_lua.ps1` therefore writes the resolved

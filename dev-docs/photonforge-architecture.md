@@ -99,6 +99,7 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 | [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | Database Portability | Darktable library.db + user config on external SSD, not host filesystem. | DEFINED |
 | [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60) | Interactive UI Prompts | zenity dialogs if SD inserted without SSD connected. | DEFINED |
 | [NFR-2.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62) | Eject Notification | User-visible notification (zenity/desktop) when the SD card is safe to remove after photos transfer to the SSD. Distinct from NFR-2.4 (SD-inserted-without-SSD dialog). | DEFINED |
+| [No automated backup of the catalog DB (durability gap)](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/131) | No automated backup of the catalog DB (durability gap) |  | DEFINED |
 <!-- /AUTO:nfr_table -->
 
 ### 3.3 Key Performance Measures
@@ -167,6 +168,7 @@ covered, ⚠ partial, ✗ unverified.
 | [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | NFR | — | — | ✗ |
 | [NFR-2.4](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/60) | NFR | — | — | ✗ |
 | [NFR-2.5](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/62) | NFR | — | — | ✗ |
+| [No automated backup of the catalog DB (durability gap)](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/131) | NFR | — | — | ✗ |
 | [KPM-1.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/64) | KPM | — | — | ✗ |
 | [KPM-1.10](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/74) | KPM | — | — | ✗ |
 | [KPM-1.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/63) | KPM | — | — | ✗ |
@@ -178,7 +180,7 @@ covered, ⚠ partial, ✗ unverified.
 | [KPM-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/72) | KPM | — | — | ✗ |
 | [KPM-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/73) | KPM | — | — | ✗ |
 
-_Coverage: **21 / 48** requirements fully verified+validated. Per `dev-docs/architecture/vv-matrix.md`._
+_Coverage: **21 / 49** requirements fully verified+validated. Per `dev-docs/architecture/vv-matrix.md`._
 <!-- /AUTO:vv_matrix -->
 
 ### 3.5 Behavior & Structure Models
