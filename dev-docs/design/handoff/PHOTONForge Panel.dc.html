@@ -416,14 +416,14 @@
             </div>
           </div>
 
-          <!-- disabled run -->
-          <div style="display:flex; align-items:center; justify-content:center; gap:7px; padding:11px 0; background:#222; border:1px solid #2e2e2e; border-radius:5px; font-size:13px; font-weight:600; color:#555;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="#555" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
-            Run — set paths first
+          <!-- run (always clickable; empty destination is caught at click time) -->
+          <div style="display:flex; align-items:center; justify-content:center; gap:7px; padding:11px 0; background:var(--pf-accent,#7d2733); border:1px solid var(--pf-accent,#7d2733); border-radius:5px; font-size:13px; font-weight:600; color:var(--pf-on-accent,#f6e7ea);">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="var(--pf-on-accent,#f6e7ea)" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+            Run PHOTONForge
           </div>
         </div>
       </div>
-      <div style="margin-top:10px; font-size:10.5px; line-height:1.5; color:#777; padding:0 2px;">Empty entries get a <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">#pf_entry_required</code> border; Run is <code style="font-family:ui-monospace,Consolas,monospace; color:#bbb;">sensitive=false</code> until the two required paths resolve.</div>
+      <div style="margin-top:10px; font-size:10.5px; line-height:1.5; color:#777; padding:0 2px;">The empty Destination gets a <code style="color:var(--pf-accent,#7d2733); font-family:ui-monospace,Consolas,monospace;">#pf_entry_required</code> border. Run stays clickable (Darktable entry widgets have no keystroke callback, so a typed-but-unsaved path can't gate it); an empty Destination is caught at click time and logged as a warning. Only Destination is required — SD path gates the ingest step alone.</div>
     </div>
 
     <!-- FRAME 5: DEVELOPER MODE -->
