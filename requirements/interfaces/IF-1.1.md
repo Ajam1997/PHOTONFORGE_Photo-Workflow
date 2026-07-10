@@ -13,7 +13,7 @@
 
 1. **Command invocation** — Lua spawns the CLI as a subprocess.
 2. **Progress stream** — Python emits machine-readable progress on stdout.
-3. **Stop signal** — Lua terminates a running pipeline via a PID sentinel.
+3. **Stop signal** — Lua tracks each launched step's own process PID and sends a scoped kill (no shared sentinel).
 4. **Result store** — Python writes results; Lua reads them back.
 
 ## Contract
@@ -48,12 +48,25 @@ backward-compatible; renaming/removing `stage`/`item`/`status` is not.
 
 ### 3. Stop signal (A → B)
 
-Python writes a **PID sentinel file** at run start (location from
-`_get_temp_dir()`). To stop, Lua reads the PID and terminates the
-process tree (`taskkill /F /T` on Windows, `kill -9` / `pkill -f
-'photo-workflow'` on POSIX), then removes the sentinel. Contract: the
-sentinel path + format (PID as text) and the `photo-workflow`
-command-line signature that `pkill -f` matches.
+Lua launches each step **detached** and captures the process-tree PID
+itself — no PID sentinel from Python is read. On Windows,
+`Start-Process -FilePath 'cmd.exe' ... -PassThru` returns the launched
+process's PID, written to `photonforge_<step>.pid`; on Linux, the step
+runs under `setsid sh <script>.sh`, and `$!` (the group leader's PID,
+since `setsid` starts a new session/process group) is written to the
+same per-step pidfile. Liveness is checked by PID (`tasklist /FI "PID
+eq <pid>" /FI "IMAGENAME eq cmd.exe"` on Windows — filtered to the
+tracked `cmd.exe` image so a reused PID belonging to some other
+process isn't mistaken for ours; `kill -0` on Linux). To stop, Lua
+iterates its tracked steps and sends a **scoped kill** to only the
+live, tracked PIDs — never a wildcard: `taskkill /F /T /PID <pid>` on
+Windows, `kill -TERM -<pgid>` on Linux (negative PID targets the whole
+process group; the PID equals the group ID because the step was
+started under `setsid`). The pidfile is removed once the step
+completes (or is force-cleared at the start of its next run). Contract:
+the per-step pidfile path/format (`photonforge_<step>.pid`, PID as
+plain text) and the process-group semantics (`setsid` on Linux,
+`cmd.exe` as the tracked Windows image name).
 
 ### 4. Result store (B → A)
 
@@ -85,5 +98,5 @@ IF-3.2).
   drift between the Python `emit()` keys and the Lua `json` consumer
   produces a frozen progress bar with no error (historically Issues
   #20, #21 — sentinel/progress bugs).
-- The stop path is OS-specific by necessity; keep the three platform
-  branches in sync.
+- The stop path is OS-specific by necessity; keep the Windows and
+  Linux branches (`pid_alive`, `M.kill`) in sync.

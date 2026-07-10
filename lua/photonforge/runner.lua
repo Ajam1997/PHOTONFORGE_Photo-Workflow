@@ -235,8 +235,8 @@ local function get_log_path(step)
   return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".log"
 end
 
--- The child writes its exit code here (before deleting the sentinel) so run_step
--- can tell success from failure. Without this every step reports as succeeded --
+-- The child writes its exit code here once it finishes, so run_step can tell
+-- success from failure. Without this every step reports as succeeded --
 -- even "command not found" -- because the polling loop only watches output.
 local function get_result_path(step)
   return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".exit"
@@ -250,47 +250,70 @@ local function read_exit_code(step)
   return tonumber((c or ""):match("(-?%d+)"))
 end
 
-local function get_sentinel_path()
-  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge.running"
+local function get_pid_path(step)
+  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".pid"
 end
 
-local function get_pid_path()
-  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge.pid"
-end
-
-local function read_pid_file()
-  local fh = io.open(get_pid_path(), "r")
+local function read_pid(step)
+  local fh = io.open(get_pid_path(step), "r")
   if not fh then return nil end
-  local pid = fh:read("*l")
+  local data = fh:read("*a")
   fh:close()
-  if pid then pid = pid:match("^%s*(%d+)%s*$") end
-  return pid
+  return data and data:match("%d+") or nil
 end
 
-local function is_process_alive()
-  local fh = io.open(get_sentinel_path(), "r")
-  if not fh then return false end
-  fh:close()
-  return true
+-- Steps that launch a background CLI process. Used by the run guard and scoped
+-- kill to find a still-running step from ANY run (including a prior Darktable
+-- session whose pid file survived).
+local PROC_STEPS = {
+  "dedup", "score", "name", "ingest",
+  "sync-tags", "suggest-training-set", "refresh-review",
+  "recalibrate", "rescore", "collect-corrections",
+}
+
+-- True iff the given PID is a live process. Called only at run start (guard) and
+-- on Stop (kill) -- never inside the poll loop -- so its io.popen/os.execute is
+-- infrequent.
+local function pid_alive(pid)
+  if not pid then return false end
+  if IS_WINDOWS then
+    -- Filter on both PID and image name: the tracked process is always cmd.exe,
+    -- so a reused PID now owned by some other process won't match this query.
+    local p = io.popen('tasklist /NH /FI "PID eq ' .. pid .. '" /FI "IMAGENAME eq cmd.exe" 2>NUL', "r")
+    if not p then return false end
+    local out = p:read("*a") or ""
+    p:close()
+    -- A matching row contains the PID; an empty/no-match result does not.
+    return out:find(pid, 1, true) ~= nil
+  else
+    local res = os.execute("kill -0 " .. pid .. " 2>/dev/null")
+    return res == true or res == 0
+  end
 end
 
+-- Kill only PIDs this plugin launched and that are still alive. No wildcard --
+-- a Stop or new run can never touch an unrelated (or prior-run) process.
 function M.kill()
   M.abort = true
-  local pid = read_pid_file()
-  if IS_WINDOWS then
-    if pid then
-      os.execute('taskkill /F /T /PID ' .. pid .. ' >nul 2>&1')
-    else
-      os.execute('wmic process where "CommandLine like \'%%photo-workflow%%\'" call terminate >nul 2>&1')
-    end
-  else
-    if pid then
-      os.execute("kill -9 " .. pid .. " 2>/dev/null")
-    else
-      os.execute("pkill -f 'photo-workflow' 2>/dev/null")
+  for _, step in ipairs(PROC_STEPS) do
+    local pid = read_pid(step)
+    if pid and pid_alive(pid) then
+      if IS_WINDOWS then
+        os.execute('taskkill /F /T /PID ' .. pid .. ' >nul 2>&1')
+      else
+        os.execute("kill -TERM -" .. pid .. " 2>/dev/null")  -- negative = group
+      end
     end
   end
-  os.remove(get_sentinel_path())
+end
+
+-- True if any launched step process is still running (from this or a prior
+-- Darktable session). Backstop against overlapping runs.
+function M.is_busy()
+  for _, step in ipairs(PROC_STEPS) do
+    if pid_alive(read_pid(step)) then return true end
+  end
+  return false
 end
 
 -- Resolve the shell command for a step without running it. Used by the
@@ -432,45 +455,65 @@ function M.run_step(step, log_fn, job, progress_fn)
   local cmd = build_cmd(step)
   local log_path = get_log_path(step)
   local result_path = get_result_path(step)
-  local sentinel = get_sentinel_path()
+  local pid_path = get_pid_path(step)
   log_fn(string.format("[%s] Running: %s", os.date("%H:%M:%S"), cmd))
 
-  local f = io.open(log_path, "w")
-  if f then f:close() end
-  -- Drop any exit code from a previous run of this step before launching.
+  -- Fresh log; drop any exit code / pid from a previous run of this step.
+  local f = io.open(log_path, "w"); if f then f:close() end
   os.remove(result_path)
-
-  local sf = io.open(sentinel, "w")
-  if sf then sf:write("running\n") sf:close() end
+  os.remove(pid_path)
 
   if IS_WINDOWS then
-    local bat_path = get_temp_dir() .. "\\photonforge_" .. step .. ".bat"
-    local vbs_path = get_temp_dir() .. "\\photonforge_" .. step .. ".vbs"
+    local base     = get_temp_dir() .. "\\photonforge_" .. step
+    local bat_path = base .. ".bat"
+    local ps_path  = base .. ".launch.ps1"
+    local vbs_path = base .. ".vbs"
 
     local bat = io.open(bat_path, "w")
     if bat then
       bat:write('@echo off\r\n')
       bat:write(cmd .. ' > "' .. log_path .. '" 2>&1\r\n')
-      -- Persist the exit code, then drop the sentinel. Redirect-first form
-      -- (`>"file" echo`) avoids cmd's single-digit-before-`>` handle-redirect
-      -- gotcha (e.g. `echo 1>file` would redirect stdout, not write "1").
+      -- Redirect-first form avoids cmd's single-digit-before-`>` handle gotcha
+      -- (`echo 1>file` would redirect stdout instead of writing "1").
       bat:write('>"' .. result_path .. '" echo %errorlevel%\r\n')
-      bat:write('del "' .. sentinel .. '" 2>nul\r\n')
       bat:close()
     end
 
+    -- Launch the .bat via Start-Process -PassThru so we capture the PID of the
+    -- cmd process tree; taskkill /T on it later takes the photo-workflow child.
+    local ps = io.open(ps_path, "w")
+    if ps then
+      ps:write("$ErrorActionPreference='SilentlyContinue'\r\n")
+      ps:write("$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','\"" ..
+        bat_path .. "\"' -WindowStyle Hidden -PassThru\r\n")
+      ps:write("Set-Content -LiteralPath '" .. pid_path .. "' -Value $p.Id\r\n")
+      ps:close()
+    end
+
+    -- wscript Run(...,0,False): PowerShell runs hidden and async (no flash).
     local vbs = io.open(vbs_path, "w")
     if vbs then
-      vbs:write('CreateObject("Wscript.Shell").Run """' .. bat_path .. '""", 0, False\r\n')
+      vbs:write('CreateObject("Wscript.Shell").Run '
+        .. '"powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""'
+        .. ps_path .. '""", 0, False\r\n')
       vbs:close()
     end
 
     local p = io.popen('wscript "' .. vbs_path .. '"', "r")
     if p then p:read("*a") p:close() end
   else
-    os.execute("(" .. cmd .. " > " .. shell_quote(log_path) .. " 2>&1"
-      .. "; echo $? > " .. shell_quote(result_path)
-      .. "; rm -f " .. shell_quote(sentinel) .. ") &")
+    -- Write the step to a .sh so quoting stays sane, run it in its own process
+    -- group (setsid) so kill can take the whole tree; $! is the group leader.
+    local sh_path = get_temp_dir() .. "/photonforge_" .. step .. ".sh"
+    local sh = io.open(sh_path, "w")
+    if sh then
+      sh:write("#!/bin/sh\n")
+      sh:write(cmd .. " > " .. shell_quote(log_path) .. " 2>&1\n")
+      sh:write("echo $? > " .. shell_quote(result_path) .. "\n")
+      sh:close()
+    end
+    os.execute("setsid sh " .. shell_quote(sh_path)
+      .. " & echo $! > " .. shell_quote(pid_path))
   end
 
   local dest = config.read("dest_path")
@@ -500,12 +543,11 @@ function M.run_step(step, log_fn, job, progress_fn)
     fh:close()
 
     if new_data == nil or new_data == "" then
-      if startup_grace > 0 then
-        startup_grace = startup_grace - 1
-      elseif not is_process_alive() then
-        break
-      end
-
+      -- Completion is signalled by the per-step .exit file, written by the child
+      -- right before it ends. It is per-step, so no other run can delete it --
+      -- this is what fixes the false "exit nil" abandonment.
+      if read_exit_code(step) ~= nil then break end
+      if startup_grace > 0 then startup_grace = startup_grace - 1 end
       idle_count = idle_count + 1
       if idle_count > MAX_IDLE then break end
       goto continue
@@ -545,6 +587,7 @@ function M.run_step(step, log_fn, job, progress_fn)
 
   if M.abort then
     M.kill()
+    os.remove(get_pid_path(step))
     log_fn("[STOPPED] Run aborted by user.")
     return false
   end
@@ -592,6 +635,7 @@ function M.run_step(step, log_fn, job, progress_fn)
   end
 
   log_fn(string.format("[%s] Step finished (%d items)", os.date("%H:%M:%S"), done))
+  os.remove(get_pid_path(step))
   return ok
 end
 
