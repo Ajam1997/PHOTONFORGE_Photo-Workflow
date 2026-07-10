@@ -27,7 +27,7 @@ def parse_user_needs(path: Path) -> list[dict]:
             "title": title,
             "acceptance": acceptance,
             "kpm": kpm,
-            "stage": int(stage_str),
+            "stage": int(stage_str) if stage_str.isdigit() else None,
             "status": status.upper(),
         })
     return items

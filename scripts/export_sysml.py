@@ -103,7 +103,8 @@ def fetch_issue_bodies(ids: list[str]) -> dict[str, IssueInfo]:
 
 def _body_field(body: str, field_name: str) -> str:
     """Extract `**Field:** value` from an Issue body (same shape as generate_docs.py)."""
-    m = re.search(rf"\*\*{re.escape(field_name)}:\*\*\s*(.+?)(?=\n\n|\Z)",
+    body = re.sub(r"\r\n?", "\n", body or "")  # GitHub bodies are CRLF
+    m = re.search(rf"\*\*{re.escape(field_name)}:\*\*\s*(.+?)(?=\n\n|\n\*\*|\Z)",
                   body, re.DOTALL)
     return m.group(1).strip() if m else ""
 

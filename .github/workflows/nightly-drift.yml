@@ -25,9 +25,15 @@ jobs:
         run: pip install requests PyYAML
 
       - name: Run drift check
+        id: drift
         env:
           GITHUB_TOKEN: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
-        run: python -m scripts.check_drift || true
+        # Capture the exit code so the report still gets committed, then
+        # surface it: '|| true' used to swallow the red flag entirely.
+        run: |
+          set +e
+          python -m scripts.check_drift
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Commit drift reports
         run: |
@@ -36,6 +42,12 @@ jobs:
           git add dev-docs/drift-reports/index.md dev-docs/drift-reports/*.md || true
           git diff --staged --quiet || git commit -m "docs: add nightly drift report [skip ci]"
           git push || true
+
+      - name: Fail on drift findings
+        if: steps.drift.outputs.exit_code != '0'
+        run: |
+          echo "check_drift reported findings (exit ${{ steps.drift.outputs.exit_code }}) — see the committed report."
+          exit 1
 
       # MkDocs Pages publish removed (HB-3 Step 1, 2026-05-27).
       # Dev docs are now read from the GitHub Wiki; the dev-docs/ -> Pages render is
