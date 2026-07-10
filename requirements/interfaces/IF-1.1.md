@@ -27,9 +27,10 @@ photo-workflow <stage> [--json-progress] [stage-specific flags]
 ```
 
 Stages the plugin may invoke: `ingest`, `scan`, `dedup`, `score`,
-`name`, `sync-tags`, `training collect-corrections`. The command name
-and stage names are the contract — renaming a CLI stage breaks the
-plugin.
+`name`, `sync-tags`, `suggest-training-set`, `refresh-review`,
+rescore (`score --only-files --skip-genre`), `training recalibrate`,
+`training collect-corrections`. The command name and stage names are
+the contract — renaming a CLI stage breaks the plugin.
 
 ### 2. Progress stream (B → A)
 
@@ -61,7 +62,7 @@ Python writes results to two stores the plugin reads:
   `photon|type|*` hierarchical tags) — see IF-3.2.
 - **Darktable `library.db`** rows via the sync-tags stage.
 
-The Lua `applicator.lua` + `tags.lua` apply these into Darktable's tag
+The Lua `applicator.lua` + `tag_manager.lua` apply these into Darktable's tag
 UI. The XMP namespace + tag hierarchy is the contract (detailed in
 IF-3.2).
 
@@ -72,7 +73,7 @@ IF-3.2).
 ## Verified By (Side B — Python)
 
 - pytest: tests/test_pid_sentinel.py
-- pytest: tests/test_progress.py
+- pytest: tests/test_cli_v2.py
 
 ## Validated By
 

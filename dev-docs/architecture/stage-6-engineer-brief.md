@@ -1,5 +1,11 @@
 # Stage 6 — Step 1 Engineer Brief: New Scoring Dataclasses
 
+> **SUPERSEDED (2026-07-10).** This design was not built as specified;
+> the behavior shipped inside `src/photo_workflow/score_fusion.py`
+> (two-axis 15×11 weights, renormalization, hard gates, percentile
+> stars) without the new dataclasses or the six-step migration. Kept
+> for history; do not implement from this document.
+
 **Owner:** @software_lead
 **Reviewer on completion:** @verification
 **Source of truth for interfaces:** [scoring-module-contracts.md](./scoring-module-contracts.md)
@@ -88,11 +94,11 @@ ticked. After verification signs off, @software_lead can open Step 2
 
 ## Pointers
 
-- New type shapes: `docs/architecture/scoring-module-contracts.md` §§1–5.
+- New type shapes: `dev-docs/architecture/scoring-module-contracts.md` §§1–5.
 - Existing types to leave alone: `src/photo_workflow/scoring_types.py`.
 - Migration checklist (the canonical 6 steps): bottom of the contracts
   doc.
-- Bootstrap priors (Step 4, not now): `docs/research/scoring-redesign.md`
+- Bootstrap priors (Step 4, not now): `dev-docs/research/scoring-redesign.md`
   §5.
 
 ---

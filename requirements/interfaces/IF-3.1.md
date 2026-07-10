@@ -7,36 +7,40 @@
 
 ## What crosses
 
-A `GenreResult` per photo: the two-axis classification (16 Subjects ×
-12 Photo Types) plus per-axis distributions and confidences. Subject
-drives region routing in scoring; Photo-Type drives aesthetic
-weighting; both seed Florence-2 naming priors.
+A `GenreResult` per photo: the two-axis classification (15 Subjects ×
+11 Photo Types — canonical lists in `genre_router.SUBJECTS` /
+`genre_router.PHOTO_TYPES`) plus per-axis distributions and
+confidences. Subject and Photo-Type each select a weight profile in
+`score_fusion.py`; both seed Florence-2 naming priors.
 
 ## Contract
 
 ```python
 @dataclass
 class GenreResult:
-    subject: str                              # argmax — backward-compat scalar
-    photo_type: str                           # argmax — backward-compat scalar
+    subject: str                          # argmax on the Subject axis
     subject_confidence: float
-    photo_type_confidence: float
-    top_subjects: list[tuple[str, float]]     # multi-label (FR-1.7.2)
-    top_photo_types: list[tuple[str, float]]  # multi-label (FR-1.7.2)
+    photo_type: str                       # argmax on the Photo-Type axis
+    type_confidence: float
     subject_distribution: dict[str, float]
-    photo_type_distribution: dict[str, float]
+    type_distribution: dict[str, float]
+    needs_review: bool                    # low-confidence flag for the review queue
 ```
 
+(Defined in `src/photo_workflow/scoring_types.py`; legacy `genres` /
+`primary_genre` compatibility properties are derived from these
+fields.)
+
 Invariants:
-- **Subject → `region_router`** (IF-2.1): selects which sub-score
-  regions run (e.g. eye-sharpness for `person`/`pet`).
-- **Photo-Type → `aesthetic_weighter`** (IF-2.1): selects/blends the
-  per-Type weight vector from the `aesthetic_weights` SQLite table.
-- Scalar `subject` / `photo_type` (argmax) are preserved for
-  backward compatibility even after multi-label (FR-1.7.2) lands —
-  they equal `top_subjects[0]` / `top_photo_types[0]`.
-- Confidence floor for routing is 0.45; multi-label selection floor
-  is 0.15. Below floor → unclassified on that axis.
+- **Subject + Photo-Type → `fuse_scores()`** (IF-2.1): each axis
+  selects a weight profile from the `aesthetic_weights` SQLite table
+  (fallback: hardcoded defaults); the two profiles are blended, and
+  not-applicable signals (e.g. eye-sharpness without `people`/`pet`
+  faces) are dropped with the remaining weights renormalized.
+- Scalar `subject` / `photo_type` are the per-axis argmax over
+  `subject_distribution` / `type_distribution`.
+- Low-confidence classifications set `needs_review` so the Darktable
+  review queue (refresh-review) surfaces them for correction.
 
 ## Verified By (Side A — Classifier)
 

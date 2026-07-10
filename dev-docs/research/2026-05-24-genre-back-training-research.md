@@ -9,7 +9,7 @@
 > plugin actions. Correction collection happens by syncing user edits from
 > Darktable tags back into `training_weights.db.genre_corrections`. See the
 > implementation design at
-> `docs/superpowers/specs/2026-05-25-multi-genre-and-back-training-design.md`.
+> `dev-docs/superpowers/specs/2026-05-25-multi-genre-and-back-training-design.md`.
 
 ---
 
@@ -145,7 +145,7 @@ def fused_genre_prediction(
 
 **Inference overhead:** ~0.3 ms per image (ONNX logistic regression). Negligible against the 1.5s budget.
 
-**Drift monitoring:** After each calibration, compute F1 on 10% held-out corrections. Log F1 per genre to `docs/ValidationReports/genre_calibration_log.md`. Alert user if any genre F1 drops below 0.5 after a recalibration (indicates conflicting corrections or domain shift).
+**Drift monitoring:** After each calibration, compute F1 on 10% held-out corrections. Log F1 per genre (the originally proposed `ValidationReports/genre_calibration_log.md` path was never created; post evidence to the relevant Issue per the write-back protocol). Alert user if any genre F1 drops below 0.5 after a recalibration (indicates conflicting corrections or domain shift).
 
 **ONNX export:**
 

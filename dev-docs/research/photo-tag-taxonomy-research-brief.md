@@ -1,5 +1,11 @@
 # Photo Subject & Photo Type Tag Taxonomy Research Brief
 
+> **Historical (taxonomy superseded).** Counts here (16×12, T-10 Long
+> Exposure, 192 pairings) predate the shipped 15×11 taxonomy
+> (`motion-blur` replaced `long-exposure`); see
+> [photonforge-labeling-quick-reference.md](photonforge-labeling-quick-reference.md)
+> (canonical).
+
 **Date:** 2026-05-26
 **Author:** @architect
 **Status:** Final

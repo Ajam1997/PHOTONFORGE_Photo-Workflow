@@ -199,3 +199,29 @@ To be clear about scope: the technical and geometric signals are working —
 all show healthy spread (std 0.16–0.49). Within-genre **technical** ranking is
 therefore meaningful today; what's missing is the **aesthetic** half and the
 technical **veto**.
+
+---
+
+## Addendum (2026-07-10): resolution status
+
+All findings in this audit have since been addressed. Recorded here so
+readers do not re-chase fixed bugs; the body above is unchanged history.
+
+| Finding | Status | Fixed by |
+|---|---|---|
+| P1 — dead `aesthetic_clip` (constant 0.5) | **Fixed** — CLIP aesthetic head trained and wired; the NIMA placeholder was removed | PR #102 |
+| P2 — dead `symmetry` | **Fixed** (earlier symmetry rework) | pre-#111 |
+| P3 — `color_contrast` alias of `subject_isolation` | **Fixed** — real colorfulness signal | consolidation series |
+| P4 — dead/sentinel proxy weights | **Fixed** — not-applicable signals are dropped and remaining weights renormalized (no constant fill) | scoring fixes |
+| P5 — weighted sum, no technical veto | **Fixed** — hard-reject gates in `score_fusion.py` floor technically unusable photos | scoring fixes |
+| P6 — score compression / star miscalibration | **Fixed** — per-shoot percentile star rating; hard-rejects excluded from the percentile pool | #115 |
+
+Related completions: `motion_subject` (gradient-anisotropy motion
+classification) and faces wired into `fuse_scores` landed via PRs #114/#115.
+The cross-cutting **model self-check** recommendation is **partially**
+implemented: the aesthetic head is self-checked; the other model loads are not.
+
+**Next action:** re-run this audit's scoring methodology measurement on the
+Yoga corpus post-fix and compare against the June baseline (needs hardware).
+
+via: @systems_lead

@@ -1,8 +1,7 @@
 # config/stages.yml — Phase model
 #
 # This project's lifecycle stages. Each entry maps 1:1 to a GitHub
-# Milestone (created automatically by scripts/sync_milestones.py
-# during Pass 1 setup, or by you on the Milestones tab).
+# Milestone (created by you on the Milestones tab).
 #
 # `pr_rollup.py` closes the milestone when all its `user_needs`
 # transition to status: verified.

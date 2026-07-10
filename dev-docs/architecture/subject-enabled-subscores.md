@@ -1,6 +1,13 @@
 # Subject → enabled_subscores Table
 
-**Status:** draft — input for Step 2 (region_router implementation)
+> **SUPERSEDED (2026-07-10).** This design was not built as specified;
+> `region_router` / `RegionSpec` never existed. The behavior shipped
+> inside `src/photo_workflow/score_fusion.py`, where not-applicable
+> signals are dropped and the remaining weights renormalized
+> (two-axis 15×11 weights, hard gates, percentile stars). Kept for
+> history; do not implement from this document.
+
+**Status:** superseded (was: draft — input for Step 2, region_router implementation)
 **Date:** 2026-05-26
 **Companion to:** [scoring-module-contracts.md](scoring-module-contracts.md)
 

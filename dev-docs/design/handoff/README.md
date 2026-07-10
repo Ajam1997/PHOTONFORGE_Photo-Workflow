@@ -271,5 +271,5 @@ are in the HTML (feather-style strokes).
 - Target implementation files in the real repo:
   - `lua/photonforge/panel.lua` — the panel to rebuild.
   - `lua/photonforge/config.lua` — existing config read/write.
-  - a bundled `photonforge.css` (or merged into `~/.config/darktable/user.css`)
+  - a bundled `photonforge.css` (or merged into `~/.config/darktable/user.css`) <!-- doc-ref: ignore -->
     for the `name`-targeted theme rules above.

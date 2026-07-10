@@ -349,3 +349,49 @@ converge.
 12. If the spike lands, green-light the Architecture B standalone app (PySide6
     culling UI, own catalog, dt-cli render service) and retire the library.db
     write path.
+
+---
+
+## Addendum (2026-07-10): resolution status of §1 bugs
+
+The confirmed bugs above were burned down by PRs #111–#118 immediately after
+this review. Recorded here so readers do not re-chase fixed bugs; the body
+above is unchanged history.
+
+| §1 # | Bug (short) | Status |
+|---|---|---|
+| 1 | Ingest records before copy durable | **Fixed** — copy-then-record (#114) |
+| 2 | Provisioning wipefs / nvme suffix / no settle | **Fixed** — wipefs guard, `p1` suffix, `udevadm settle` (#114) |
+| 3 | Ingest name collision drops source file | **Fixed** — collision retry (#114) |
+| 4 | Cartridge Manager mutates production DB | **Mooted** — Tk cartridge manager deleted (#117) |
+| 5 | Faces never reach fusion | **Fixed** — both call sites pass `faces`/`image_gray` (#114) |
+| 6 | `--skip-genre` sqlite3.Row crash | **Fixed** (#114) |
+| 7 | Mask-area sharpness dilution | **Fixed** (#115) |
+| 8 | 1-D `sharpness_contrast` Sobel | **Fixed** — 2-D computation (#115) |
+| 9 | YOLO without NMS | **Fixed** — NMS added (#115) |
+| 10 | `"general"` scores with people/portrait weights | **Open** — fallback still substitutes `SUBJECTS[0]`/`PHOTO_TYPES[0]` (`score_fusion.py:328-330`) |
+| 11 | `_classify_blur` never returns `motion_subject` | **Fixed** — gradient-anisotropy motion classification (#115) |
+| 12 | Hard-rejects in percentile pool | **Fixed** — excluded (#115) |
+| 13 | `get_drive_root` returns `/` on Linux | **Fixed** — Linux drive root in runner.lua (#116) |
+| 14 | Linux volume labels never detected | **Fixed** — `lsblk` with `LABEL,MOUNTPOINT` columns (#114) |
+| 15 | Dead Provision/Archive/Restore buttons | **Fixed** — cartridge buttons guarded (#116) |
+| 16 | `sidecar_cli` sync signature crash | **Fixed** in #116, then **mooted** — module deleted |
+| 17 | Compose passes run-flags to the click group | **Fixed** — `run` subcommand (#116) |
+| 18 | `json.lua` `\uXXXX` / null truncation | **Fixed** — `\uXXXX` decode + `M.null` (#116) |
+| 19 | rsync itemize off-by-N | **Mooted** — `sidecar_cli.py` deleted |
+| 20 | XMP escaping + sidecar naming | **Fixed** — `IMG_0001.ARW.xmp` convention + XML escaping (#116) |
+| 21 | Three incompatible Darktable schemas | **Partially mooted** — `db_ops.py` deleted (#117); the `photo-cartridge init` toy schema remains to reconcile |
+| 22 | library.db lock discipline | **Fixed** — lockfile guard + single transaction (#116) |
+| 23 | `training_io.py` wrong schema | **Mooted** — cartridge-manager tooling deleted (#117) |
+| 24 | `rollback_to_version` loses prototypes | **Open** — `training_weights_db.py:280-297` unchanged |
+| 25 | Smaller confirmed batch | **Partial** — file_ops/app.py items mooted by #117; pkill scope, shared-temp sentinels, `remote_test.sh` JSON, `extract_cartridge_id` truncation, photondb read-modify-write remain open |
+
+§4 consolidation items landed in #118 (extension-set unification fixing
+`.RAF`, shared `score_one()` for both scoring paths, EXIF-reader/label-mapping
+unification, dead-code deletion). §5 documentation findings are being executed
+as the 2026-07-09 docs overhaul plan (Phases 1–3 landed as of this addendum).
+
+**Next action:** open FR issues for the remaining items (§1 #10, #24, #25
+residuals, #21 toy schema) or fold them into the next scoring/host PR.
+
+via: @systems_lead

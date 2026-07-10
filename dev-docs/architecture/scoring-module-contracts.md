@@ -1,6 +1,12 @@
 # Scoring System Module Contracts
 
-**Status:** approved — interfaces locked; implementation pending
+> **SUPERSEDED (2026-07-10).** This design was not built as specified;
+> the behavior shipped inside `src/photo_workflow/score_fusion.py`
+> (two-axis 15×11 subject/type weights, weight renormalization, hard
+> gates, percentile stars). Kept for history; do not implement from
+> this document. See IF-2.1 for the as-built contract.
+
+**Status:** superseded (was: approved — interfaces locked; implementation pending)
 **Date:** 2026-05-26
 **Supersedes:** the monolithic `score_fusion.py` design
 

@@ -126,8 +126,8 @@ class ExposureScores:
 class GenreResult:
     """Two-axis genre classification: Subject (what) x Photo Type (how).
 
-    Subject axis: people, cat, wildlife, vehicle, signage, general
-    Photo Type axis: landscape, portrait, street, event, macro, architecture, waterfall, general
+    Canonical label lists live in genre_router.SUBJECTS (15) and
+    genre_router.PHOTO_TYPES (11).
     """
 
     subject: str

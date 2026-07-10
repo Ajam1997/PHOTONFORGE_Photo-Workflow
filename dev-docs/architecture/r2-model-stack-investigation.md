@@ -3,8 +3,9 @@
 **Status:** investigation — spikes not yet run
 **Date:** 2026-06-19
 **Owner:** @systems_lead (design) / @software_lead (spikes)
-**Related:** [scoring-module-contracts.md](scoring-module-contracts.md),
-Phase-0 region decomposition (`dev-docs/SystemReviews/2026-06-19-phase0-region-decomposition.md`),
+**Related:** [scoring-module-contracts.md](scoring-module-contracts.md) (superseded design),
+Phase-0 region decomposition (planned SystemReview was never filed — see
+[2026-06-19-scoring-methodology-audit.md](../SystemReviews/2026-06-19-scoring-methodology-audit.md)),
 [[project-scoring-audit]]
 
 ## Motivation

@@ -95,7 +95,8 @@ handle), `sensitive` (enable/grey-out), `visible` (show/hide), `tooltip`,
 ## 3. The styling envelope (GTK3 CSS)
 
 Styling is done in a `.css` theme file (bundled with the plugin or merged into
-`~/.config/darktable/user.css`). You target widgets by their `name` attribute.
+`~/.config/darktable/user.css` on the user's machine). <!-- doc-ref: ignore -->
+You target widgets by their `name` attribute.
 GTK3's CSS engine supports a **subset** of web CSS.
 
 ### Supported
