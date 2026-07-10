@@ -24,6 +24,6 @@ jobs:
 
       - name: Roll up Issue status
         env:
-          GITHUB_TOKEN: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: python -m scripts.pr_rollup
