@@ -535,12 +535,11 @@ function M.run_step(step, log_fn, job, progress_fn)
     fh:close()
 
     if new_data == nil or new_data == "" then
-      if startup_grace > 0 then
-        startup_grace = startup_grace - 1
-      elseif not is_process_alive() then
-        break
-      end
-
+      -- Completion is signalled by the per-step .exit file, written by the child
+      -- right before it ends. It is per-step, so no other run can delete it --
+      -- this is what fixes the false "exit nil" abandonment.
+      if read_exit_code(step) ~= nil then break end
+      if startup_grace > 0 then startup_grace = startup_grace - 1 end
       idle_count = idle_count + 1
       if idle_count > MAX_IDLE then break end
       goto continue
