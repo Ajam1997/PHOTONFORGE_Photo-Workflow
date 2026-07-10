@@ -476,8 +476,8 @@ function M.run_step(step, log_fn, job, progress_fn)
     local ps = io.open(ps_path, "w")
     if ps then
       ps:write("$ErrorActionPreference='SilentlyContinue'\r\n")
-      ps:write("$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','"
-        .. bat_path .. "' -WindowStyle Hidden -PassThru\r\n")
+      ps:write("$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','\"" ..
+        bat_path .. "\"' -WindowStyle Hidden -PassThru\r\n")
       ps:write("Set-Content -LiteralPath '" .. pid_path .. "' -Value $p.Id\r\n")
       ps:close()
     end
