@@ -289,23 +289,29 @@ local function pid_alive(pid)
   end
 end
 
+-- Kill only PIDs this plugin launched and that are still alive. No wildcard --
+-- a Stop or new run can never touch an unrelated (or prior-run) process.
 function M.kill()
   M.abort = true
-  local pid = read_pid_file()
-  if IS_WINDOWS then
-    if pid then
-      os.execute('taskkill /F /T /PID ' .. pid .. ' >nul 2>&1')
-    else
-      os.execute('wmic process where "CommandLine like \'%%photo-workflow%%\'" call terminate >nul 2>&1')
-    end
-  else
-    if pid then
-      os.execute("kill -9 " .. pid .. " 2>/dev/null")
-    else
-      os.execute("pkill -f 'photo-workflow' 2>/dev/null")
+  for _, step in ipairs(PROC_STEPS) do
+    local pid = read_pid(step)
+    if pid and pid_alive(pid) then
+      if IS_WINDOWS then
+        os.execute('taskkill /F /T /PID ' .. pid .. ' >nul 2>&1')
+      else
+        os.execute("kill -TERM -" .. pid .. " 2>/dev/null")  -- negative = group
+      end
     end
   end
-  os.remove(get_sentinel_path())
+end
+
+-- True if any launched step process is still running (from this or a prior
+-- Darktable session). Backstop against overlapping runs.
+function M.is_busy()
+  for _, step in ipairs(PROC_STEPS) do
+    if pid_alive(read_pid(step)) then return true end
+  end
+  return false
 end
 
 -- Resolve the shell command for a step without running it. Used by the
