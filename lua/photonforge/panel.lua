@@ -601,6 +601,11 @@ function M.build()
     clicked_callback = function()
       local ok, err = pcall(function()
         save_entries()
+        if runner.is_busy() then
+          append_log("[BUSY] A PHOTONForge run is already in progress. "
+                  .. "Wait for it to finish, or press Stop.")
+          return
+        end
         append_log("[LOOP] Starting full correction loop...")
         set_running(true)
         dt.control.dispatch(function()
