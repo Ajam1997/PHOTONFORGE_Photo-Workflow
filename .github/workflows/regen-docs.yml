@@ -17,7 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
+          # Falls back to the workflow token when the PAT secret is absent/expired
+          # (every run had been failing at checkout with a prompt error).
+          token: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN || github.token }}
 
       - uses: actions/setup-python@v5
         with:
@@ -28,7 +30,7 @@ jobs:
 
       - name: Regenerate docs from GitHub Issues
         env:
-          GITHUB_TOKEN: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PHOTONFORGE_GITHUB_TOKEN || github.token }}
         run: python -m scripts.generate_docs
 
       # Fail here instead of committing corrupted output to the repo + wiki.
