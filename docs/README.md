@@ -1,10 +1,14 @@
-# User Documentation (placeholder)
+# User Documentation
 
-This directory is reserved for **end-user documentation** — installation
-guides, photo workflow how-tos, troubleshooting — that will be written when
-the project is ready to be used by people other than the operator.
+This directory holds **end-user documentation** — installation guides, photo
+workflow how-tos, troubleshooting.
 
-It is intentionally empty for now.
+## Guides
+
+- [`install-yoga-linux.md`](install-yoga-linux.md) — Linux/Yoga 910 install &
+  provisioning guide (UN-003): OS packages, venv, model provisioning, polkit
+  rule, Darktable Lua plugin, cartridge layout, SD ingest flow, verification
+  checklist. (Windows dev-box counterpart: `dev-docs/dev-machine-setup.md`.)
 
 ## Where developer documentation lives
 

@@ -12,6 +12,11 @@
 > The historical design lives in
 > [scoring-module-contracts.md](../../dev-docs/Archive/architecture/scoring-module-contracts.md)
 > (banner-marked, do not implement from it).
+>
+> **Narrative reference:** the full as-built description — SubjectContext,
+> routing, sub-scores, weights, gates, stars, Darktable flow — is
+> [dev-docs/architecture/scoring-architecture.md](../../dev-docs/architecture/scoring-architecture.md).
+> This ICD registers the boundary; that doc explains it.
 
 ## What crosses
 
