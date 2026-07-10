@@ -447,45 +447,65 @@ function M.run_step(step, log_fn, job, progress_fn)
   local cmd = build_cmd(step)
   local log_path = get_log_path(step)
   local result_path = get_result_path(step)
-  local sentinel = get_sentinel_path()
+  local pid_path = get_pid_path(step)
   log_fn(string.format("[%s] Running: %s", os.date("%H:%M:%S"), cmd))
 
-  local f = io.open(log_path, "w")
-  if f then f:close() end
-  -- Drop any exit code from a previous run of this step before launching.
+  -- Fresh log; drop any exit code / pid from a previous run of this step.
+  local f = io.open(log_path, "w"); if f then f:close() end
   os.remove(result_path)
-
-  local sf = io.open(sentinel, "w")
-  if sf then sf:write("running\n") sf:close() end
+  os.remove(pid_path)
 
   if IS_WINDOWS then
-    local bat_path = get_temp_dir() .. "\\photonforge_" .. step .. ".bat"
-    local vbs_path = get_temp_dir() .. "\\photonforge_" .. step .. ".vbs"
+    local base     = get_temp_dir() .. "\\photonforge_" .. step
+    local bat_path = base .. ".bat"
+    local ps_path  = base .. ".launch.ps1"
+    local vbs_path = base .. ".vbs"
 
     local bat = io.open(bat_path, "w")
     if bat then
       bat:write('@echo off\r\n')
       bat:write(cmd .. ' > "' .. log_path .. '" 2>&1\r\n')
-      -- Persist the exit code, then drop the sentinel. Redirect-first form
-      -- (`>"file" echo`) avoids cmd's single-digit-before-`>` handle-redirect
-      -- gotcha (e.g. `echo 1>file` would redirect stdout, not write "1").
+      -- Redirect-first form avoids cmd's single-digit-before-`>` handle gotcha
+      -- (`echo 1>file` would redirect stdout instead of writing "1").
       bat:write('>"' .. result_path .. '" echo %errorlevel%\r\n')
-      bat:write('del "' .. sentinel .. '" 2>nul\r\n')
       bat:close()
     end
 
+    -- Launch the .bat via Start-Process -PassThru so we capture the PID of the
+    -- cmd process tree; taskkill /T on it later takes the photo-workflow child.
+    local ps = io.open(ps_path, "w")
+    if ps then
+      ps:write("$ErrorActionPreference='SilentlyContinue'\r\n")
+      ps:write("$p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','"
+        .. bat_path .. "' -WindowStyle Hidden -PassThru\r\n")
+      ps:write("Set-Content -LiteralPath '" .. pid_path .. "' -Value $p.Id\r\n")
+      ps:close()
+    end
+
+    -- wscript Run(...,0,False): PowerShell runs hidden and async (no flash).
     local vbs = io.open(vbs_path, "w")
     if vbs then
-      vbs:write('CreateObject("Wscript.Shell").Run """' .. bat_path .. '""", 0, False\r\n')
+      vbs:write('CreateObject("Wscript.Shell").Run '
+        .. '"powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""'
+        .. ps_path .. '""", 0, False\r\n')
       vbs:close()
     end
 
     local p = io.popen('wscript "' .. vbs_path .. '"', "r")
     if p then p:read("*a") p:close() end
   else
-    os.execute("(" .. cmd .. " > " .. shell_quote(log_path) .. " 2>&1"
-      .. "; echo $? > " .. shell_quote(result_path)
-      .. "; rm -f " .. shell_quote(sentinel) .. ") &")
+    -- Write the step to a .sh so quoting stays sane, run it in its own process
+    -- group (setsid) so kill can take the whole tree; $! is the group leader.
+    local sh_path = get_temp_dir() .. "/photonforge_" .. step .. ".sh"
+    local sh = io.open(sh_path, "w")
+    if sh then
+      sh:write("#!/bin/sh\n")
+      sh:write(cmd .. " > " .. shell_quote(log_path) .. " 2>&1\n")
+      sh:write("echo $? > " .. shell_quote(result_path) .. "\n")
+      sh:close()
+    end
+    os.execute("setsid sh " .. shell_quote(sh_path)
+      .. " & echo $! > " .. shell_quote(pid_path))
   end
 
   local dest = config.read("dest_path")
