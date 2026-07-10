@@ -146,7 +146,7 @@ and the destination. The IF Issue body should start with:
 ```markdown
 **From:** <Module A> (owner: @<discipline>_lead)
 **To:** <Module B> (owner: @<discipline>_lead)
-**Spec:** requirements/interfaces/IF-X.Y.md
+**Spec:** requirements/interfaces/IF-<X>.<Y>.md
 ```
 
 If you write an IF Issue and can't find the modules in the

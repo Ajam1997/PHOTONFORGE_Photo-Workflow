@@ -1,17 +1,17 @@
 ---
 name: Feedback: Validation Approach
-description: Black-box testing patterns confirmed to work for PHOTONForge GUI and pipeline validation
+description: Black-box testing patterns confirmed to work for PHOTONForge pipeline and Darktable Lua plugin validation
 type: feedback
 ---
 
-For GUI (Tauri/Svelte) black-box validation, use these observable output layers in order:
-1. HTTP 200 from Vite dev server on localhost:1420 -- confirms scaffold loads.
-2. Vite-compiled JS fetched via `curl http://localhost:1420/src/ComponentName.svelte` -- confirms component wiring, state variables, tab labels, and CSS in compiled output without reading src/.
-3. `npm test -- --run` (vitest) -- observable test pass/fail counts.
-4. `cargo test` in src-tauri/ -- Rust backend unit test pass/fail counts.
-5. `ps aux | grep photonforge-gui` -- confirms binary process is alive.
-6. Port conflict resolution: use `fuser -k 1420/tcp` before restarting dev server to clear stale Vite instances.
+The GUI is the Darktable Lua plugin (`lua/photonforge/`) — validate it black-box through its observable outputs, in order:
 
-Why: The system prompt requires black-box only (no src/ reads). Fetching Vite-compiled output via curl gives compiled artifact evidence without violating scope. Confirmed to surface StatusBar, BottomNav, CSS custom properties, and Rust mount logic.
+1. `photo-workflow <stage> --json-progress` run directly — one JSON object per line on stdout confirms the CLI side of IF-1.1 (stage names, `stage`/`item`/`status` keys).
+2. XMP sidecars next to each image — `IMG_0001.ARW` → `IMG_0001.ARW.xmp`, containing `photon:*` fields (`SemanticName`, scores) and `photon|subject|*` / `photon|type|*` tags.
+3. Darktable `library.db` — ratings, tags, and description rows written by sync-tags (sqlite3 queries; never write to it).
+4. `pytest -m "not slow"` — observable pass/fail counts for the Python side.
+5. Panel behavior on the Yoga 910 — plugin loads via `luarc`, buttons launch subprocesses, progress bar advances, Stop kills via PID sentinel (requires Darktable session; prompt-and-wait).
 
-How to apply: Apply this layer sequence for any future GUI stage validation before escalating to src/ read requests (which are out of scope).
+Why: The system prompt requires black-box only (no src/ reads). CLI stdout, sidecar files, and library.db rows are compiled-artifact evidence without violating scope. The old Vite/cargo layer sequence is obsolete — the Tauri GUI was retired.
+
+How to apply: Apply this layer sequence for plugin/pipeline validation before escalating to src/ read requests (which are out of scope).

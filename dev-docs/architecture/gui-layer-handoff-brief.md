@@ -1,5 +1,11 @@
 # PHOTONForge GUI Layer — Handoff Brief
 
+> **SUPERSEDED (2026-07-10).** This GUI design was never implemented.
+> The operator UI that shipped is the Darktable Lua plugin
+> (`lua/photonforge/` — panel in the lighttable view; `runner.lua`
+> invokes the `photo-workflow` CLI, see IF-1.1). Kept for history; do
+> not implement from this document.
+
 **Date:** 2026-05-27
 **Branch:** `feature/gui-layer` (from `main` @ `ab88401`)
 **Author:** @systems_lead session — brainstorming + architecture design

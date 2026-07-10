@@ -6,8 +6,9 @@ Running notes on open bugs and known performance gaps. These are not specs — t
 
 ## Open Naming Bugs
 
-**Status:** Open
-**Source:** Test batch run — see `docs/ValidationReports/PhotoWorkFlowTestOutput` (deleted; check git history if needed)
+**Status:** Bug 1 open; Bug 2 resolved as expected behavior (see below)
+**Source:** Test batch run — see the historical ValidationReports test-output
+capture (that `docs/` directory no longer exists; check git history if needed)
 
 Two separate bugs observed during a real photo batch test:
 
@@ -22,7 +23,13 @@ instead of a genuine semantic caption. This is distinct from the earlier fix (wh
 
 ### Bug 2 — File not renamed on disk
 
-The semantic name is written to the XMP sidecar but the actual file is not renamed. Expected behaviour:
+> **Resolved (2026-07-10): this is expected behavior per the current design.**
+> The semantic name is written to the Darktable description field and the XMP
+> `photon:SemanticName` field; files are deliberately **not renamed** on disk
+> (see IF-3.2). The "expected behaviour" below is the superseded original
+> expectation, kept for history.
+
+The semantic name is written to the XMP sidecar but the actual file is not renamed. Originally expected behaviour:
 - Original filename stored in XMP (e.g. `DSC04937.ARW`)
 - New semantic filename stored in XMP (e.g. `cat-sitting-on-windowsill.ARW`)
 - File renamed on disk to the semantic name

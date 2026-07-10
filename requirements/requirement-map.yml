@@ -41,7 +41,7 @@
 #   software_lead. Swept across .claude/agents/, CLAUDE.md, and 11 Issue
 #   bodies (#31,63,64,65,68-74).
 #
-# Still open: Phase 8 (run render chain), Phase 9 (cleanup).
+# Phases 8 (render chain) and 9 (cleanup) DONE — migration complete 2026-05-29.
 
 # ============================================================================
 # Stage -> UN map (template Profile A 5-stage flow)

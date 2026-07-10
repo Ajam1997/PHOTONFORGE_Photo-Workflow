@@ -1,5 +1,12 @@
 # A Framework for Genre-Aware Photo Quality Scoring and Automated Culling
 
+> **Research record.** The NIMA/MUSIQ, depth-model, and
+> `min(technical, aesthetic)` fusion proposals in this document were
+> **not shipped as designed** — the scoring that shipped lives in
+> `src/photo_workflow/score_fusion.py` (two-axis weight blending,
+> renormalization, hard-reject gates, percentile stars). The §5 weight
+> tables remain the bootstrap source for the `aesthetic_weights` table.
+
 ## Executive Summary
 
 This document specifies a comprehensive, genre-aware photo scoring engine designed to cull mixed-genre photography to the top 30–40 % of images. The framework combines (a) classical computer-vision metrics for low-level technical quality, (b) deep no-reference image quality / aesthetic models (NIMA, MUSIQ, learned composition attributes), and (c) a CLIP-based zero-shot genre router that switches in genre-specific weight profiles. The target deployment is a CPU-only laptop class machine (dual-core i7-7500U, 8 GB RAM), so every component is selected for ONNX/INT8 viability and an inference budget under ~2 s per image.

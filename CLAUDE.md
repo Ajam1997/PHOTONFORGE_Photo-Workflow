@@ -10,7 +10,7 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 | Agent | Scope | Superpowers pairing |
 |---|---|---|
 | @systems_lead (opus, read-only) | requirements tree, architecture, interfaces (ICDs), CLAUDE.md maintenance | recommend: `brainstorming`, `writing-plans`, `subagent-driven-development` |
-| @software_lead (haiku) | src/, tests/, models/ + host integration (deploy/, scripts/, udev) — the single implementation discipline (Profile A; absorbs the former @devops scope) | recommend: `test-driven-development`, `subagent-driven-development`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees` |
+| @software_lead (haiku) | src/, tests/, models/ + host integration (deploy/, scripts/, udisks2 polling, polkit, SSD cartridge scripts) — the single implementation discipline (Profile A; absorbs the former @devops scope) | recommend: `test-driven-development`, `subagent-driven-development`, `systematic-debugging`, `verification-before-completion`, `using-git-worktrees` |
 | @verification (inherit) | commit-level test enforcement, KPM benchmarks | **mandate**: `verification-before-completion` |
 | @validation (inherit) | milestone E2E validation, user need compliance | **mandate**: `verification-before-completion` |
 | @systemmaster (operator-only) | deep cross-cutting reviews | n/a |
@@ -20,9 +20,9 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 > former `@devops` scope folded into `@software_lead` (Profile A has a
 > single implementation discipline). See `dev-docs/migration-plan.md`.
 
-Start every session with `dev-docs/start-work-checklist.md` (â‰ˆ60s).
+Start every session with `dev-docs/start-work-checklist.md` (≈60s).
 The full pairing rationale lives in
-`dev-docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` Â§6.4.
+`dev-docs/SystemReviews/2026-05-26-architecture-and-docs-migration-review.md` §6.4.
 
 ## Architecture Decisions
 - Composition over inheritance. AnalysisPipeline delegates to module functions.
@@ -30,11 +30,11 @@ The full pairing rationale lives in
 - onnxruntime CPU provider only. No GPU paths.
 
 ## Constraints
-- NFR-2.1: 100% offline at runtime. No network calls during pipeline execution. Initial machine provisioning (OS, packages, model downloads, quantization) may use the internet â€” see scripts/provision_models.sh.
+- NFR-2.1: 100% offline at runtime. No network calls during pipeline execution. Initial machine provisioning (OS, packages, model downloads, quantization) may use the internet — see scripts/provision_models.sh.
 - NFR-2.2: Total RSS <= 1.5 GB; CPU affinity capped at 80%.
 - NFR-2.3: library.db + user config live on external SSD, not host.
 - NFR-2.4: zenity dialog when SD inserted without SSD connected.
-- Target CPU: i7-8550U with AVX2. All benchmarks run against this profile.
+- Target CPU: i7-7500U with AVX2. All benchmarks run against this profile.
 
 ## FR Thresholds
 - FR-1.3: dHash Hamming distance <= 2 for near-duplicate detection.
@@ -67,26 +67,33 @@ stack rationale (most of it — EE/ME — is N/A for this project).
 - ruff for linting, pytest for testing
 - Shell scripts: set -euo pipefail, ShellCheck clean
 - Every module gets unit tests in tests/
+- PRs that change code must update the affected docs — see the docs-impact matrix in `dev-docs/superpowers/plans/2026-07-09-docs-overhaul-plan.md` §3.3 (to be promoted to a standalone doc-maintenance protocol in Phase 5)
 
 ## Project Layout
-src/photo_workflow/
+src/photo_workflow/  (22 modules)
   pipeline.py, ingest.py, grouping.py, dedup.py,
   sharpness.py, composition.py, exposure.py,
-  naming.py, darktable_bridge.py, cartridge.py
-scripts/   -- safe_eject.sh, manage_ssd.sh, install_udev.sh
-deploy/    -- Dockerfile, docker-compose.yml, udev/
+  score_fusion.py, scoring_types.py, subject_context.py,
+  genre_router.py, genre_adapter.py, genre_trainer.py,
+  active_learning.py, training_weights_db.py,
+  naming.py, raw_loader.py, darktable_bridge.py,
+  photondb.py, cartridge.py, volume.py, provision.py
+lua/photonforge/ -- Darktable Lua plugin (panel, runner, tag_manager, applicator, json, config)
+scripts/   -- safe_eject.sh, manage_ssd.sh, install_polkit.sh, remote_test.sh, doc automation
+deploy/    -- Dockerfile, docker-compose.yml
 tests/     -- fixtures/, test_*.py
 models/    -- florence2_int8/ (vendored, not downloaded)
 dev-docs/  -- developer documentation (markdown source for the GitHub Wiki)
 docs/      -- placeholder for future end-user documentation (currently empty)
+.github/workflows/ -- CI: tests.yml (pytest -m "not slow" + ruff), docs-integrity.yml, regen-docs, nightly-drift, wiki-publish
 
 ## Build Sequence
 1. Scaffold (@systems_lead): pyproject.toml, directory structure, empty modules ✓
 2. Core Engine (@software_lead): grouping, dedup, sharpness, composition, exposure + tests ✓
 3. Inference + Bridge (@software_lead): Florence-2-base-ft naming + Darktable SQLite/XMP ✓
-4. Host Integration (@software_lead): udev rules, SSD cartridge scripts, Dockerfile ✓
+4. Host Integration (@software_lead): udisks2 polling + polkit rules, SSD cartridge scripts, Dockerfile ✓
 5. Integration (@software_lead + @systems_lead): wire pipeline.py — PipelineSummary telemetry, --model-dir CLI flag, SD→SSD staging path; 10 integration tests covering grouping→dedup→scoring→naming→Darktable flow with 6 synthetic fixture images ✓
-6. Scoring System Modularization (@software_lead, in progress): replace the monolithic `score_fusion.py` with a five-module pipeline (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) driven by the 16-Subject × 12-Photo-Type taxonomy. Subject is the region router; Type is the aesthetic weighter; master score is `min(technical, aesthetic)` with a swappable fusion strategy. Per-Type weights live in SQLite (`aesthetic_weights` table) bootstrapped from `dev-docs/research/scoring-redesign.md §5`. Interfaces are locked in `dev-docs/architecture/scoring-module-contracts.md`; execute the 6-step migration checklist at the bottom of that doc, one independently revertable step per PR. Backward compatibility for `pipeline.py` / `darktable_bridge.py` / XMP writer is preserved via `FusionResult`'s existing flat fields and `SubScoreBundle.as_flat_dict()`. Step 1 brief: `dev-docs/architecture/stage-6-engineer-brief.md`.
+6. Scoring System (as-built, complete): two-axis 15-Subject × 11-Photo-Type scoring inside `score_fusion.py` — subject/type weight profiles in SQLite (`aesthetic_weights` table), weight renormalization for not-applicable signals, hard-reject gates, master score with per-shoot percentile star rating. The originally planned five-module split (`region_router` → `sub_scores/*` → `technical_gate` + `aesthetic_weighter` → `fusion`) was superseded — see the banner on `dev-docs/architecture/scoring-module-contracts.md`. ✓
 
 Full spec: dev-docs/Archive/photo-workflow-architecture-v4.docx
 
@@ -95,7 +102,7 @@ Full spec: dev-docs/Archive/photo-workflow-architecture-v4.docx
 **Canonical source of truth: GitHub Issues.** `dev-docs/` is a render target via
 `scripts/generate_docs.py`; the wiki is a one-way export. Agents post evidence
 as Issue comments. Agents do **not** edit `dev-docs/living-user-needs.md` or any
-other AUTO-managed file by hand, and they do **not** move status labels â€” that
+other AUTO-managed file by hand, and they do **not** move status labels — that
 is `pr_rollup.py`'s job on PR merge. See `dev-docs/architecture/doc-source-of-truth.md`.
 
 Agents write results via `scripts/github_comment.py`. **Never call the GitHub
@@ -103,7 +110,7 @@ API directly.** All commands read GITHUB_TOKEN from environment. Requirement
 IDs (FR-X.Y, UN-XXX, KPM-X.Y) are resolved live via `gh issue list --search`;
 no local map file is required.
 
-Every comment **must** end with a `**Next action:** ...` line (HB-8 â€” enables
+Every comment **must** end with a `**Next action:** ...` line (HB-8 — enables
 SOP-B "resume mid-flight work"). Every agent comment carries a `via: @<agent>`
 footer so the writer's origin is legible to the next reader (HB-7).
 
@@ -119,7 +126,7 @@ python scripts/github_comment.py regress-fr FR-1.2 \
   --next-action "@software_lead revisit blur kernel threshold"
 # After benchmark:
 python scripts/github_comment.py update-kpm KPM-1.2 \
-  "1.8s on i7-7500U â€” 2026-05-23" passing \
+  "1.8s on i7-7500U — 2026-05-23" passing \
   --next-action "no action; KPM still inside budget"
 ```
 
@@ -131,7 +138,7 @@ python scripts/github_comment.py validate-un UN-010 \
   --next-action "stage 2 closes; ready to start stage 3"
 # On E2E failure:
 python scripts/github_comment.py validation-failure UN-010 \
-  "wrong clusters on burst shots â€” 4 grouped, expected 1" \
+  "wrong clusters on burst shots — 4 grouped, expected 1" \
   --next-action "@systems_lead to reassess FR-1.1 dHash threshold"
 ```
 

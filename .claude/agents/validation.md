@@ -133,11 +133,13 @@ For each UN-ID in scope, validate the observable acceptance condition.
 Verify photos copied to cartridge:
   ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'ls -1 /mnt/photon_ssd/001/photos/ | wc -l'
 
-Verify XMP sidecars exist alongside each photo:
-  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'for f in /mnt/photon_ssd/001/photos/*.JPG; do test -f "${f%.JPG}.xmp" || echo "MISSING XMP: $f"; done'
+Verify XMP sidecars exist alongside each photo (Darktable convention:
+`.xmp` appended to the FULL filename — `IMG_0001.ARW` → `IMG_0001.ARW.xmp`):
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'for f in /mnt/photon_ssd/001/photos/*.JPG; do test -f "$f.xmp" || echo "MISSING XMP: $f"; done'
 
-Verify semantic filenames (not raw DSC names):
-  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'ls /mnt/photon_ssd/001/photos/ | grep -c "^DSC" || echo "0 raw names remaining"'
+Verify semantic names written (to the XMP `photon:SemanticName` field /
+Darktable description — files are NOT renamed on disk):
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep -L "SemanticName" /mnt/photon_ssd/001/photos/*.xmp || echo "all sidecars carry SemanticName"'
 
 ### SQLite Checks
 Verify library.db populated:
@@ -176,21 +178,23 @@ This test requires human physical action. Use the prompt-and-wait pattern.
 
 Total cycles: 50 (can be split across sessions -- track cycle count in soak log)
 
-Soak log: ~/PHOTONFORGE_Photo-Workflow/dev-docs/ValidationReports/soak-test-log.md
+Soak log: ~/photonforge-soak-test-log.md (scratch log on the Yoga,
+outside the repo checkout — the canonical record is the KPM-1.4 Issue,
+see Step 5)
 
 Check current cycle count before starting:
-  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep "Cycle" ~/PHOTONFORGE_Photo-Workflow/dev-docs/ValidationReports/soak-test-log.md | tail -1'
+  ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'grep "Cycle" ~/photonforge-soak-test-log.md | tail -1'
 
 For each cycle:
 
   1. Output to operator: "SOAK TEST -- Cycle [N]/50. Please UNPLUG the SSD cartridge now."
   
-  2. Wait for udev unmount event in log:
+  2. Wait for the unmount to appear in the udisks2-polling log:
      ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'tail -f /var/log/photonforge.log | grep -m 1 "unmount\|removed\|PHOTON-001"'
   
   3. Output to operator: "SSD removed confirmed. Please REPLUG the SSD cartridge now."
   
-  4. Wait for udev mount event:
+  4. Wait for the mount to appear in the udisks2-polling log:
      ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'tail -f /var/log/photonforge.log | grep -m 1 "mounted\|PHOTON-001"'
   
   5. Run integrity check immediately after mount:
@@ -199,7 +203,7 @@ For each cycle:
      Fail: output is anything else -- record and halt soak test
   
   6. Append cycle result to soak log:
-     ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'echo "Cycle [N]: [PASS|FAIL] -- $(date)" >> ~/PHOTONFORGE_Photo-Workflow/dev-docs/ValidationReports/soak-test-log.md'
+     ssh -i ~/.ssh/photonforge_yoga alex@10.27.27.10 'echo "Cycle [N]: [PASS|FAIL] -- $(date)" >> ~/photonforge-soak-test-log.md'
 
 If a FAIL occurs at any cycle: halt, write failure details to soak log,
 escalate to @software_lead. Do not continue cycling.
@@ -238,7 +242,7 @@ PR-merge rollup combined with the milestone tag on the Epic Issue. Your job
 is to post the evidence; the label follows.
 
 KPM-1.4 soak progress: append cycle-by-cycle progress to the KPM-1.4 Issue
-via `update-kpm` (not to a `dev-docs/ValidationReports/soak-test-log.md` file â€”
+via `update-kpm` (not to a `dev-docs/ValidationReports/soak-test-log.md` file — <!-- doc-ref: ignore -->
 that path is removed under HB-1).
 
 ---
@@ -254,8 +258,9 @@ If you find yourself opening `dev-docs/living-user-needs.md` for a write, stop �
 that path is removed by HB-1.
 
 If the Living User Need Document does not yet exist, do not write the stub â€”
-instead, seed the UN Issues first (`scripts/seed_github.py`) and run
-`scripts/generate_docs.py`. The stub-on-demand path in Appendix A is retained
+instead, seed the UN Issues first (the historical `seed_github.py` seeder has
+been removed; create them with `gh issue create` using the UN body format) and
+run `scripts/generate_docs.py`. The stub-on-demand path in Appendix A is retained
 for documentation only and is *not* an instruction to execute.
 
 ---

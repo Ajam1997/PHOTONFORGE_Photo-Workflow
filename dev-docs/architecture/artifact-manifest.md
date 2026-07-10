@@ -192,7 +192,7 @@ Three reasons:
 1. **PR review.** Reviewing a manifest diff in the GitHub PR UI is
    trivial. Reviewing a STEP file diff is impossible.
 2. **Audit trail.** Every revision change is a commit. `git log
-   artifacts/mechanical/motor-mount.md` shows the artifact's
+   artifacts/mechanical/motor-mount.md` shows the artifact's <!-- hypothetical EE example; doc-ref: ignore -->
    project-level history.
 3. **Validation in CI.** Plain text + structured fields → cheap
    automated checks.
@@ -203,6 +203,6 @@ separate; track them together via the manifest.
 ## See also
 
 - `scripts/validate_artifacts.py` — the validator
-- `artifacts/mechanical/EXAMPLE-motor-mount.md` — worked example
+- `artifacts/mechanical/EXAMPLE-motor-mount.md` — worked example (template illustration; N/A for this Profile A project) <!-- doc-ref: ignore -->
 - `dev-docs/architecture/doc-source-of-truth.md` — overall write authority
 - `METHODOLOGY.md` "The artifact hierarchy" — where this fits

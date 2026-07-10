@@ -9,23 +9,24 @@ guard.
 ## Cartridge Lifecycle
 
 Tracks the physical SSD cartridge (PHOTON-001, etc.) from the
-host's perspective. Driven by udev events.
+host's perspective. Driven by udisks2 auto-mount + `/proc/mounts`
+polling events.
 
 ```mermaid
 stateDiagram-v2
     [*] --> idle: boot
-    idle --> detected: udev add (USB-C front)
-    detected --> identified: read ID_FS_LABEL\nmatches PHOTON-*
+    idle --> detected: device inserted\n(USB-C front)
+    detected --> identified: volume label\nmatches PHOTON-* (lsblk)
     detected --> idle: not a PHOTON cartridge
-    identified --> mounting: systemd-mount
-    mounting --> mounted: success
+    identified --> mounting: udisks2 auto-mount
+    mounting --> mounted: mount appears in /proc/mounts poll
     mounting --> failed_mount: filesystem error
     failed_mount --> idle: operator removes
     mounted --> in_use: pipeline starts
     in_use --> mounted: pipeline ends
     mounted --> flushing: safe_eject.sh\n(SQLite WAL flush)
-    flushing --> unmounted: systemd-umount
-    unmounted --> idle: udev remove
+    flushing --> unmounted: unmount
+    unmounted --> idle: mount gone from /proc/mounts
     in_use --> flushing: forced eject\n(operator pulled cartridge)
     note right of flushing
         Critical KPM-1.4 path:
@@ -43,7 +44,7 @@ state machine except for the `cartridge_ready` guard.
 ```mermaid
 stateDiagram-v2
     [*] --> idle_session
-    idle_session --> sd_inserted: udev add (SD reader)
+    idle_session --> sd_inserted: new mount in /proc/mounts\n(SD reader, udisks2 auto-mount)
     sd_inserted --> sd_check: read DCIM/
     sd_check --> ingesting: cartridge_ready &&\nphotos found
     sd_check --> empty_warning: cartridge_ready &&\nno photos

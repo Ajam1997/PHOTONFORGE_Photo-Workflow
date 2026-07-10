@@ -14,7 +14,7 @@ Revision 7.0 | May 23, 2026 | Development Platform: Claude Code (Multi-Agent)
 
 PhotonForge is an autonomous ingest-to-edit photography system that transforms a Lenovo Yoga 910-13IKB Glass (Star Wars Special Edition) into a purpose-built photography workstation. The system ingests from SD cards, analyzes and scores images, generates semantic filenames, and syncs results to Darktable -- all offline, all local.
 
-The system architecture spans three layers: (1) a Python analysis pipeline for image intelligence, (2) a host integration layer using udev, Docker, and shell scripts, and (3) a Darktable Lua script that renders a PHOTONForge control panel in the lighttable view. Development uses Claude Code with a five-agent roster: @systems_lead, @software_lead, @verification, @validation, and @systemmaster.
+The system architecture spans three layers: (1) a Python analysis pipeline for image intelligence, (2) a host integration layer using udisks2 polling, polkit, Docker, and shell scripts, and (3) a Darktable Lua script that renders a PHOTONForge control panel in the lighttable view. Development uses Claude Code with a five-agent roster: @systems_lead, @software_lead, @verification, @validation, and @systemmaster.
 
 ---
 
@@ -26,7 +26,7 @@ The system architecture spans three layers: (1) a Python analysis pipeline for i
 |:---|:---|:---|
 | CPU | Intel Core i7-7500U (2C/4T, 2.7 GHz base, 3.5 GHz turbo) | AVX2 supported. Dual-core limits parallel processing. All benchmarks target this CPU. |
 | RAM | 8 GB DDR4-2133 (soldered) | Not upgradeable. Container RSS limit: 1.5 GB (KPM-1.3). Host OS needs ~2-3 GB. |
-| USB-C Left (rear) | 1x USB 2.0 (charging + data) | Charging port. Not suitable for high-speed SSD. Excluded from udev SSD matching. |
+| USB-C Left (rear) | 1x USB 2.0 (charging + data) | Charging port. Not suitable for high-speed SSD. Excluded from SSD cartridge detection. |
 | USB-C Left (front) | 1x USB 3.1 Gen 1 (5 Gbps) | Primary SSD cartridge port. Single cartridge at a time. |
 | USB-A Right | 1x USB 3.0 Always On (5 Gbps) | SD card reader ingest path. |
 | Display | 13.9" FHD IPS (1920x1080) | No scaling required. Touch-enabled for tablet mode. |
@@ -51,18 +51,18 @@ The original specification targeted a Yoga 920 (i7-8550U, 16 GB, Thunderbolt 3).
 
 ### 2.3 USB Port Topology
 
-| Port | Location | Speed | Assignment | udev Strategy |
+| Port | Location | Speed | Assignment | Detection Strategy |
 |:---|:---|:---|:---|:---|
 | USB-C (rear) | Left side, rear | USB 2.0 | Power/charging | Excluded from SSD matching |
-| USB-C (front) | Left side, front | USB 3.1 Gen 1 (5 Gbps) | SSD cartridge | Match by ID_FS_LABEL=PHOTON-*. Mount to /mnt/photon_ssd/XXX |
-| USB-A | Right side | USB 3.0 (5 Gbps) | SD card reader | Match by vendor 05e3:0749. Trigger rsync ingest |
+| USB-C (front) | Left side, front | USB 3.1 Gen 1 (5 Gbps) | SSD cartridge | udisks2 auto-mount; identified by volume label PHOTON-* (lsblk) via mount polling |
+| USB-A | Right side | USB 3.0 (5 Gbps) | SD card reader | udisks2 auto-mount; detected via mount polling |
 
 ### 2.4 Linux-Specific Considerations
 
 - **Wi-Fi:** Lenovo 2x2 AC may require firmware updates on Ubuntu 24.04 LTS.
 - **Tablet Mode:** Watchband hinge with 360-degree rotation. Kernel modules for auto-rotation TBD.
 - **Display:** FHD at 13.9" -- no scaling needed.
-- **USB-C:** Only front left port is USB 3.1. udev rules use ENV{DEVTYPE}, systemd-mount for mounting, and wrapper scripts (no inline shell in RUN values).
+- **USB-C:** Only front left port is USB 3.1. Removable-media handling relies on udisks2 auto-mounting (authorized via `scripts/install_polkit.sh`) with `/proc/mounts` polling — no custom udev rules.
 
 ---
 
@@ -161,7 +161,7 @@ covered, ⚠ partial, ✗ unverified.
 | [FR-1.7.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/66) | FR | `pytest: tests/test_genre_trainer.py` | `e2e: Stage 2 milestone — UN-020 demonstrated end-to-end` | ✓ |
 | [FR-1.7.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/67) | FR | `pytest: tests/test_genre_router.py` | `e2e: Stage 2 milestone — UN-020 demonstrated end-to-end` | ✓ |
 | [FR-1.8](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/55) | FR | `pytest: tests/test_darktable.py` | `e2e: Stage 2 milestone — UN-021 demonstrated end-to-end` | ✓ |
-| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | FR | `pytest: tests/test_cartridge_manager.py` | `e2e: Stage 3 milestone — UN-031 demonstrated end-to-end` | ✓ |
+| [FR-1.9](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/57) | FR | `pytest: tests/test_cartridge.py` | `e2e: Stage 3 milestone — UN-031 demonstrated end-to-end` | ✓ |
 | [NFR-2.1](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/59) | NFR | — | — | ✗ |
 | [NFR-2.2](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/88) | NFR | — | — | ✗ |
 | [NFR-2.3](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/61) | NFR | — | — | ✗ |
@@ -217,7 +217,7 @@ The inference subsystem targets the i7-7500U's AVX2 instruction set with a 4-mod
 | Agent | Model | Tools | Scope | Memory | Color |
 |:---|:---|:---|:---|:---|:---|
 | @systems_lead | opus | Read, Grep, Glob, Write, Edit (read-only on src/) | CLAUDE.md, requirements tree, architecture, interface contracts (ICDs), dependency decisions | user | blue |
-| @software_lead | haiku | Read, Write, Edit, Bash, Grep, Glob | src/, tests/, models/ + host integration (deploy/, scripts/, udev) — the single implementation discipline (Profile A; absorbs the former @devops scope) | project | green |
+| @software_lead | haiku | Read, Write, Edit, Bash, Grep, Glob | src/, tests/, models/ + host integration (deploy/, scripts/, udisks2 polling, polkit) — the single implementation discipline (Profile A; absorbs the former @devops scope) | project | green |
 | @verification | inherit | Read, Write, Edit, Bash, Grep, Glob | tests/test_*.py, docs/VerificationReports/; commit-level test enforcement + KPM benchmarks | project | yellow |
 | @validation | inherit | Read, Write, Edit, Bash, Grep, Glob | tests/e2e/, docs/ValidationReports/, living-user-needs.md (by ID); milestone E2E validation | project | cyan |
 | @systemmaster | inherit | Read, Write, Edit, Bash, Grep, Glob | deep cross-cutting reviews (operator-invoked only) | n/a | magenta |
@@ -290,12 +290,13 @@ PhotonForge integrates directly into Darktable as a Lua plugin that renders a co
   panel.lua         -- sidebar widget tree and event handlers
   runner.lua        -- subprocess launch + stdout JSON parsing
   applicator.lua    -- JSON result → darktable.image API calls
+  tag_manager.lua   -- photon|subject|* / photon|type|* tag application
+  json.lua          -- minimal JSON decoder (\uXXXX escapes, M.null)
   config.lua        -- load/save settings via darktable.preferences
+  photonforge.css   -- panel styling
 ```
 
 One line added to `luarc`: `require "photonforge/main"`
-
-See `docs/mockups/PhotonForgePanel.jsx` for the interactive reference mockup.
 
 ### 6.4 Panel Layout
 
@@ -303,7 +304,7 @@ Left sidebar, collapsible section labelled **PHOTONForge**:
 
 - **Configuration fields:** SD card path, destination, model dir, manifest path, TZ offset
 - **Step toggles:** Ingest, Dedup, Score, Name, Sync -- each with checkbox and last-run status chip
-- **Run / Stop buttons:** Run executes enabled steps sequentially; Stop kills subprocess, manifest checkpoint preserves progress for resume
+- **Run / Stop buttons:** Run executes enabled steps sequentially; Stop kills subprocess, per-photo stage tracking in photondb preserves progress for resume
 - **Progress bar:** Updated via `_progress` JSON lines from Python subprocess
 - **Live log viewer:** Scrolling log of per-image results
 
@@ -336,7 +337,7 @@ Key line types:
 | LUA-1.2 | Pipeline feedback | Real-time progress via `--json-progress` subprocess stdout |
 | LUA-1.3 | Step toggles | Individual enable/disable per pipeline step with last-run status |
 | LUA-1.4 | Config persistence | All fields saved via `darktable.preferences.register()` under namespace `photonforge` |
-| LUA-1.5 | Stop / Resume | Kill subprocess on Stop; JSONL manifest checkpoint enables resume on next Run |
+| LUA-1.5 | Stop / Resume | Kill subprocess on Stop; the photondb `stages` column enables resume on next Run (`get_pending` on the missing stage) |
 | LUA-1.6 | Offline operation | No network calls. Plugin files bundled with Darktable config. |
 | LUA-1.7 | Error display | Per-image errors logged to live log viewer; step marked failed in status chip |
 
@@ -350,7 +351,7 @@ These features from the old Tauri plan are no longer needed -- Darktable handles
 - **Image editing:** Darkroom view
 - **Metadata display:** Image information panel
 
-Full design spec: `docs/superpowers/specs/2026-05-13-darktable-lua-plugin-design.md`
+Full design spec: `dev-docs/superpowers/specs/2026-05-13-darktable-lua-plugin-design.md`
 
 ---
 
@@ -358,61 +359,67 @@ Full design spec: `docs/superpowers/specs/2026-05-13-darktable-lua-plugin-design
 
 ```
 photo-workflow/
-  CLAUDE.md                      # Project spec + task sequencing
+  CLAUDE.md                      # Project spec + conventions
+  README.md                      # Entry point + structure map
   pyproject.toml                 # Package definition, dependencies
   .claude/agents/
-    architect.md                 # Read-only, opus (blue)
-    engineer.md                  # All tools, sonnet (green)
-    devops.md                    # All tools, sonnet (orange)
-    verification.md              # All tools, sonnet (yellow)
-    validation.md                # All tools, sonnet (cyan)
-  src/photo_workflow/
-    pipeline.py                  # AnalysisPipeline orchestrator + staged CLI (scan/dedup/score/name/sync/status)
-    manifest.py                  # JSONL manifest read/write/checkpoint for staged pipeline
-    progress.py                  # Terminal progress counter (throughput, ETA, RSS)
-    ingest.py                    # FR-1.1: rsync trigger
+    systems_lead.md              # Architecture + requirements (opus, read-only)
+    software_lead.md             # Implementation + host integration (haiku)
+    verification.md              # Commit-level tests + KPM benchmarks
+    validation.md                # Milestone E2E vs user needs
+    systemmaster.md              # Operator-invoked cross-cutting reviews
+  .github/workflows/             # CI: tests.yml, docs-integrity.yml,
+                                 #     regen-docs, nightly-drift, wiki-publish
+  src/photo_workflow/            # 22 modules
+    pipeline.py                  # AnalysisPipeline + staged CLI (ingest/scan/dedup/score/name/sync-tags/...)
+    ingest.py                    # FR-1.1: SD→SSD staging (copy-then-record)
     grouping.py                  # FR-1.2: spatio-temporal clustering
     dedup.py                     # FR-1.3: dHash dedup (Hamming <= 2)
-    sharpness.py                 # FR-1.4: Laplacian variance
+    sharpness.py                 # FR-1.4: Laplacian variance + blur classification
     composition.py               # FR-1.5: rule-of-thirds + saliency
     exposure.py                  # FR-1.6: 11-zone luminance entropy
+    score_fusion.py              # Two-axis 15×11 weighted fusion, hard gates, percentile stars
+    scoring_types.py             # Shared dataclasses (GenreResult, FusionResult, ...)
+    subject_context.py           # YOLO subject/face context for scoring
+    genre_router.py              # Subject/Photo-Type classification (SUBJECTS/PHOTO_TYPES)
+    genre_adapter.py, genre_trainer.py, active_learning.py, training_weights_db.py
+                                 # Back-training + weight/prototype storage
     naming.py                    # FR-1.7: Florence-2 INT8 4-model pipeline
+    raw_loader.py                # RAW/JPEG decode, extension sets, EXIF datetime
     darktable_bridge.py          # FR-1.8: SQLite + XMP sidecar sync
-    cartridge.py                 # FR-1.9: SSD volume management
+    photondb.py                  # PHOTON state DB (photos.stages column = resume state)
+    cartridge.py, volume.py, provision.py
+                                 # FR-1.9: SSD cartridge identity, mounts, provisioning
   scripts/
     safe_eject.sh                # FR-1.10: WAL flush + unmount
     manage_ssd.sh                # SSD detection + volume remap
-    install_udev.sh              # udev rule + wrapper script installer
+    install_polkit.sh            # polkit rule so udisks2 mounts work unprivileged
     provision_models.sh          # One-time ONNX download + config fetch
     remote_test.sh               # Automated test runner (JSON output)
-    on_ssd_add.sh                # udev wrapper: cartridge mount
-    on_ssd_remove.sh             # udev wrapper: cartridge remove log
-    on_sd_add.sh                 # udev wrapper: SD mount/symlink
-    on_sd_remove.sh              # udev wrapper: SD remove log
+    generate_docs.py, check_drift.py, check_doc_references.py, ...
+                                 # Docs/issues automation (see CLAUDE.md write-back protocol)
   deploy/
     Dockerfile                   # Container (Ubuntu 24.04)
     docker-compose.yml           # Service orchestration
-    udev/
-      99-photo-ssd.rules         # PHOTON-* label matching
-      99-photo-sd.rules          # SD reader vendor matching
+    Dockerfile.darktable, docker-compose.darktable.yml, entrypoint.sh
   tests/
     fixtures/                    # Test images, mock library.db
     test_*.py                    # Unit tests (@verification)
     e2e/                         # E2E tests (@validation)
-  models/florence2_int8/          # Vendored ONNX + configs (.gitignore'd)
-  docs/
-    living-user-needs.md         # UN-001 through UN-032
-    VerificationReports/         # Per-commit pass/fail (@verification)
-    ValidationReports/           # Per-milestone compliance (@validation)
-      soak-test-log.md           # KPM-1.4 persistent cycle tracker
+  models/florence2_int8/         # Vendored ONNX + configs (.gitignore'd)
+  requirements/                  # requirement-map.yml + interfaces/IF-*.md
+  config/                        # disciplines/stages/evidence-kinds config
+  dev-docs/                      # Developer docs (wiki source): architecture/, research/, SystemReviews/
+  docs/                          # Placeholder for end-user docs (currently empty)
   lua/photonforge/
     main.lua                     # Plugin entry point; registers panel
     panel.lua                    # Sidebar widget tree + event handlers
     runner.lua                   # Subprocess launch + JSON parsing
     applicator.lua               # JSON result → Darktable API calls
+    tag_manager.lua              # photon|subject|* / photon|type|* tags
+    json.lua                     # Minimal JSON decoder
     config.lua                   # Preferences persistence
-  docs/mockups/
-    PhotonForgePanel.jsx         # Interactive React reference mockup
+    photonforge.css              # Panel styling
 ```
 
 ---
@@ -435,7 +442,7 @@ photo-workflow/
 
 ## 9. Living User Need Document
 
-The Living User Need Document (docs/living-user-needs.md) is the sole input for @validation compliance checks. Requirements numbered UN-001 through UN-054. The @validation agent pulls only specific UN-IDs relevant to the current milestone via grep.
+The Living User Need Document (dev-docs/living-user-needs.md) is the sole input for @validation compliance checks. Requirements numbered UN-001 through UN-054. The @validation agent pulls only specific UN-IDs relevant to the current milestone via grep.
 
 ---
 

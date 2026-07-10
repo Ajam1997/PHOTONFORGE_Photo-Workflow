@@ -23,7 +23,6 @@ classDiagram
         ingest.py
         volume.py
         cartridge.py
-        manifest.py
     }
 
     class GroupingSubsystem {
@@ -58,8 +57,6 @@ classDiagram
 
     class HostSubsystem {
         provision.py
-        sidecar_cli.py
-        progress.py
     }
 
     AnalysisPipeline *-- IngestSubsystem : composes
@@ -68,7 +65,7 @@ classDiagram
     AnalysisPipeline *-- NamingSubsystem : composes
     AnalysisPipeline *-- PersistenceSubsystem : composes
     ScoringSubsystem ..> TrainingSubsystem : reads weights
-    AnalysisPipeline ..> HostSubsystem : reports progress
+    IngestSubsystem ..> HostSubsystem : provisions cartridges
 ```
 
 `*--` is composition (subsystems belong to AnalysisPipeline);
@@ -190,16 +187,12 @@ classDiagram
         +extract_cartridge_id()
         +get_volume_label()
     }
-    class manifest {
-        per-cartridge .photon-manifest.json
-    }
     class provision {
         +bootstrap_cartridge()
         formats fresh PHOTON-XXX
     }
 
     cartridge *-- volume
-    cartridge *-- manifest
     cartridge ..> provision : on first use
 ```
 
@@ -211,7 +204,7 @@ classDiagram
 | `GroupingSubsystem` | FR-1.2, FR-1.3 | KPM-1.6, KPM-1.10, tests/test_grouping.py, tests/test_dedup.py |
 | `ScoringSubsystem` | FR-1.4, FR-1.5, FR-1.6, FR-1.7.1, FR-1.7.2 | KPM-1.8, tests/test_sharpness.py, tests/test_composition.py, tests/test_exposure.py |
 | `NamingSubsystem` | FR-1.7 | KPM-1.2, KPM-1.7, tests/test_naming.py |
-| `PersistenceSubsystem` | FR-1.8, NFR-2.3 | tests/test_darktable_bridge.py |
+| `PersistenceSubsystem` | FR-1.8, NFR-2.3 | tests/test_darktable.py, tests/test_photondb.py |
 | `cartridge` subsystem | FR-1.9, FR-1.10, NFR-2.3 | KPM-1.4, tests/test_cartridge.py |
 
 The V&V matrix in `dev-docs/photonforge-architecture.md` §3.4 is the

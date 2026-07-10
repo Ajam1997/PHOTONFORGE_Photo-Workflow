@@ -1,7 +1,7 @@
 """Genre router — two-axis CLIP + EXIF + YOLO Bayesian fusion.
 
 Classifies each image along two orthogonal axes:
-  Subject (what): 16 classes describing primary image content
+  Subject (what): 15 classes describing primary image content
   Photo Type (how): 11 classes describing photographic approach/technique
 """
 

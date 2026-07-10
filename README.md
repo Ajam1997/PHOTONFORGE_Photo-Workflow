@@ -12,8 +12,10 @@ A Darktable Lua plugin drives the whole run from inside the editor.
 
 ## Status
 
-Built and largely functional (Stages 1–5 complete; Stage 6 scoring-
-system modularization in progress). Migrated to the
+Built and largely functional (Stages 1–6 complete; the Stage-6 scoring
+system shipped as-built inside `score_fusion.py` — two-axis 15×11
+subject/type weighting, hard-reject gates, percentile star rating).
+Migrated to the
 [systems-first-template](https://github.com/Ajam1997/systems-first-template)
 structure on 2026-05-29 — see `dev-docs/migration-plan.md`.
 
@@ -31,7 +33,7 @@ photo-workflow scan      --source /mnt/ssd/inbox --db library.db
 photo-workflow dedup     --db library.db --folder shoot --source-dir /mnt/ssd/inbox
 photo-workflow score     --db library.db --folder shoot --source-dir /mnt/ssd/inbox
 photo-workflow name      --db library.db --folder shoot --source-dir /mnt/ssd/inbox
-photo-workflow sync-tags --photon-db library.db --folder shoot --dt-library ~/.config/darktable/library.db
+photo-workflow sync-tags --photon-db library.db --folder shoot --dt-library ~/.config/darktable/library.db  # doc-ref: ignore
 ```
 
 …or drive it all from the Darktable Lua plugin panel.
@@ -48,7 +50,7 @@ photo-workflow sync-tags --photon-db library.db --folder shoot --dt-library ~/.c
 | `dev-docs/` | Developer docs (rendered to the GitHub Wiki). Architecture, contracts, system reviews. |
 | `scripts/` | Pipeline support + the systems-first-template automation (generate_docs, kpm_rollup, export_sysml, …) |
 | `tests/` | pytest suite (one `test_*.py` per module) + `fixtures/` |
-| `deploy/` | Dockerfile, docker-compose, udev rules for the Yoga 910 USB topology |
+| `deploy/` | Dockerfile + docker-compose for the Yoga 910 (SD/SSD hotplug via udisks2 polling + polkit) |
 
 ## Where to start
 
