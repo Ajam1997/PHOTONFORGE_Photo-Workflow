@@ -250,28 +250,43 @@ local function read_exit_code(step)
   return tonumber((c or ""):match("(-?%d+)"))
 end
 
-local function get_sentinel_path()
-  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge.running"
+local function get_pid_path(step)
+  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge_" .. step .. ".pid"
 end
 
-local function get_pid_path()
-  return get_temp_dir() .. (IS_WINDOWS and "\\" or "/") .. "photonforge.pid"
-end
-
-local function read_pid_file()
-  local fh = io.open(get_pid_path(), "r")
+local function read_pid(step)
+  local fh = io.open(get_pid_path(step), "r")
   if not fh then return nil end
-  local pid = fh:read("*l")
+  local data = fh:read("*a")
   fh:close()
-  if pid then pid = pid:match("^%s*(%d+)%s*$") end
-  return pid
+  return data and data:match("%d+") or nil
 end
 
-local function is_process_alive()
-  local fh = io.open(get_sentinel_path(), "r")
-  if not fh then return false end
-  fh:close()
-  return true
+-- Steps that launch a background CLI process. Used by the run guard and scoped
+-- kill to find a still-running step from ANY run (including a prior Darktable
+-- session whose pid file survived).
+local PROC_STEPS = {
+  "dedup", "score", "name", "ingest",
+  "sync-tags", "suggest-training-set", "refresh-review",
+  "recalibrate", "rescore", "collect-corrections",
+}
+
+-- True iff the given PID is a live process. Called only at run start (guard) and
+-- on Stop (kill) -- never inside the poll loop -- so its io.popen/os.execute is
+-- infrequent.
+local function pid_alive(pid)
+  if not pid then return false end
+  if IS_WINDOWS then
+    local p = io.popen('tasklist /NH /FI "PID eq ' .. pid .. '" 2>NUL', "r")
+    if not p then return false end
+    local out = p:read("*a") or ""
+    p:close()
+    -- Alive: the row contains the PID. Not alive: "INFO: No tasks are running...".
+    return out:find(pid, 1, true) ~= nil
+  else
+    local res = os.execute("kill -0 " .. pid .. " 2>/dev/null")
+    return res == true or res == 0
+  end
 end
 
 function M.kill()
