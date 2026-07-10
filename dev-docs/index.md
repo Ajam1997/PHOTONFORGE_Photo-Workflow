@@ -15,6 +15,7 @@ offline, all local.
 - [KPM Dashboard](kpm-dashboard.md)
 - [Training Loop Guide](training-loop-guide.md)
 - [ADR Index](architecture/adr/index.md)
+- [Data Security Posture](architecture/data-security-posture.md)
 - [Doc Maintenance Protocol](architecture/doc-maintenance-protocol.md)
 - [CI Policy](architecture/ci-policy.md)
 - [Source Repository](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow)
