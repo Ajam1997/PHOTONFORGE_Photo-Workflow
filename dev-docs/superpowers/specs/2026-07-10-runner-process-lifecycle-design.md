@@ -54,16 +54,26 @@ records the launched process-tree's **PID** to a per-step
 - **Linux:** `( cmd > log 2>&1; echo $? > exit ) & echo $! > pidfile` captures
   the background subshell PID.
 
-### 2. PID-based liveness
+### 2. Watch-loop completion via the per-step exit file; PID for kill/guard
 
-`is_process_alive(step)` becomes "is *this PID* still running":
-- **Windows:** `tasklist /FI "PID eq <pid>"` reports the image name if alive.
-- **Linux:** `kill -0 <pid>` succeeds iff alive.
+The watch loop's completion signal is the **per-step `.exit` file** — a plain
+file-existence check, no subprocess. It is written by the child's `.bat`/subshell
+exactly when the process finishes (with the integer exit code). Because it is
+**per-step** (`photonforge_<step>.exit`), no other step or run can delete it — the
+false-"dead" that the shared sentinel caused is gone. The loop breaks when the
+`.exit` file appears; the verdict is then always a real exit code, never `nil`
+for a live process. A slow step (score ≈ 25 min, name ≈ 13 min for this shoot)
+is followed to completion. A `MAX_IDLE` cap remains as the ultimate fallback for
+a process that never launches or hangs with no output.
 
-The watch loop terminates **only** when the PID is gone. At that point the
-`.exit` file is guaranteed to have been written, so the success/failure verdict
-is always based on a real exit code — never `nil` for a live process. A slow
-step (score ≈ 25 min, name ≈ 13 min for this shoot) is followed to completion.
+Deliberately **not** polling `tasklist` in the 500 ms loop: a per-poll subprocess
+would be constant overhead and risk console-window flashes (a known pain point
+in this plugin). PID liveness (`tasklist /FI "PID eq <pid>"` on Windows,
+`kill -0 <pid>` on Linux) is used only for the **scoped kill** and the
+**single-run guard** — occasional, not in the hot loop.
+
+The shared `photonforge.running` sentinel and `is_process_alive()` (file-existence
+form) are removed.
 
 ### 3. Scoped kill
 
