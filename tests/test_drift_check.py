@@ -54,3 +54,74 @@ def test_render_drift_report_contains_ids():
     report = render_drift_report(stale, "2026-05-23")
     assert "FR-1.1" in report
     assert "2026-05-23" in report
+
+
+# ---------------------------------------------------------------------------
+# Reference-integrity checker (scripts/check_doc_references.py)
+# ---------------------------------------------------------------------------
+
+
+def test_doc_references_detects_missing_and_existing(tmp_path, monkeypatch):
+    import scripts.check_doc_references as cdr
+
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "real.py").write_text("x = 1")
+    (tmp_path / "dev-docs").mkdir()
+    (tmp_path / "dev-docs" / "a.md").write_text(
+        "See src/real.py and the deleted src/ghost.py.\n"
+        "Hypothetical src/example_<name>.py is skipped.\n"
+        "This one is suppressed: src/also_ghost.py <!-- doc-ref: ignore -->\n"
+        "[link](missing-page.md)\n"
+    )
+    monkeypatch.setattr(cdr, "REPO", tmp_path)
+
+    problems = cdr.full_scan()
+    assert any("src/ghost.py" in p for p in problems)
+    assert any("missing-page.md" in p for p in problems)
+    assert not any("real.py" in p for p in problems)
+    assert not any("also_ghost" in p for p in problems)
+    assert not any("example_" in p for p in problems)
+
+
+def test_doc_references_exempts_dated_history(tmp_path, monkeypatch):
+    import scripts.check_doc_references as cdr
+
+    (tmp_path / "dev-docs" / "SystemReviews").mkdir(parents=True)
+    (tmp_path / "dev-docs" / "SystemReviews" / "old.md").write_text(
+        "Historical mention of src/deleted_module.py.\n"
+    )
+    monkeypatch.setattr(cdr, "REPO", tmp_path)
+    assert cdr.full_scan() == []
+
+
+def test_kpm_untested_body_placeholder_does_not_block_fallback():
+    """Rider from the live regen run: a literal 'untested' body value defeated
+    the comment fallback for that field."""
+    from scripts.generate_docs import render_kpm_table
+
+    class _Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return [{"body": "## KPM Update\n**KPM-1.1** - `450 MB/s` - **passing**"}]
+
+    class _Client:
+        REST_BASE = "https://api.github.test"
+        owner, repo = "o", "r"
+
+        class _S:
+            def get(self, *a, **k):
+                return _Resp()
+
+        _session = _S()
+
+    issue = {
+        "title": "[KPM-1.1] Ingest Latency",
+        "labels": [],
+        "body": "**Target:** x\n\n**Last Measured:** untested\n\n**Status:** untested",
+        "number": 30,
+        "html_url": "u",
+    }
+    md = render_kpm_table([issue], client=_Client())
+    assert "450 MB/s" in md and "passing" in md
