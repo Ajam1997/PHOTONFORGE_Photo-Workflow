@@ -7,6 +7,8 @@ All inference runs locally via INT8 ONNX on AVX2. Container OS: Debian Stable / 
 
 ## Agent Roster
 
+Agents ship via the PHOTONFORGE marketplace (systems-first-core + systems-first-software plugins); local .claude/agents/ copies were removed 2026-07.
+
 | Agent | Scope | Superpowers pairing |
 |---|---|---|
 | @systems_lead (opus, read-only) | requirements tree, architecture, interfaces (ICDs), CLAUDE.md maintenance | recommend: `brainstorming`, `writing-plans`, `subagent-driven-development` |
@@ -80,13 +82,13 @@ src/photo_workflow/  (22 modules)
   naming.py, raw_loader.py, darktable_bridge.py,
   photondb.py, cartridge.py, volume.py, provision.py
 lua/photonforge/ -- Darktable Lua plugin (panel, runner, tag_manager, applicator, json, config)
-scripts/   -- safe_eject.sh, manage_ssd.sh, install_polkit.sh, remote_test.sh, doc automation
+scripts/   -- safe_eject.sh, manage_ssd.sh, install_polkit.sh, remote_test.sh (doc machinery now in the systems-first package, sf-* CLIs)
 deploy/    -- Dockerfile, docker-compose.yml
 tests/     -- fixtures/, test_*.py
 models/    -- florence2_int8/ (vendored, not downloaded)
 dev-docs/  -- developer documentation (markdown source for the GitHub Wiki)
 docs/      -- placeholder for future end-user documentation (currently empty)
-.github/workflows/ -- CI: tests.yml (pytest -m "not slow" + ruff), docs-integrity.yml, regen-docs, nightly-drift, wiki-publish
+.github/workflows/ -- CI: tests.yml (pytest -m "not slow" + ruff), docs-integrity.yml, regen-docs, wiki-publish
 
 ## Build Sequence
 1. Scaffold (@systems_lead): pyproject.toml, directory structure, empty modules ✓
@@ -101,12 +103,12 @@ Full spec: dev-docs/Archive/photo-workflow-architecture-v4.docx
 ## Agent Write-back Protocol
 
 **Canonical source of truth: GitHub Issues.** `dev-docs/` is a render target via
-`scripts/generate_docs.py`; the wiki is a one-way export. Agents post evidence
+`sf-docs`; the wiki is a one-way export. Agents post evidence
 as Issue comments. Agents do **not** edit `dev-docs/living-user-needs.md` or any
 other AUTO-managed file by hand, and they do **not** move status labels — that
-is `pr_rollup.py`'s job on PR merge. See `dev-docs/architecture/doc-source-of-truth.md`.
+is `sf-pr-rollup`'s job on PR merge. See `dev-docs/architecture/doc-source-of-truth.md`.
 
-Agents write results via `scripts/github_comment.py`. **Never call the GitHub
+Agents write results via `sf-comment`. **Never call the GitHub
 API directly.** All commands read GITHUB_TOKEN from environment. Requirement
 IDs (FR-X.Y, UN-XXX, KPM-X.Y) are resolved live via `gh issue list --search`;
 no local map file is required.
@@ -118,15 +120,15 @@ footer so the writer's origin is legible to the next reader (HB-7).
 **@verification** (after every commit to main, posts measurements only):
 ```bash
 # On test pass:
-python scripts/github_comment.py verify-fr FR-1.2 \
+sf-comment verify-fr FR-1.2 \
   "pytest: 5/5 passed, 1.8s avg" \
   --next-action "merge ready; @software_lead to open PR"
 # On regression:
-python scripts/github_comment.py regress-fr FR-1.2 \
+sf-comment regress-fr FR-1.2 \
   "test_sharpness failed: expected 0.85 got 0.72" \
   --next-action "@software_lead revisit blur kernel threshold"
 # After benchmark:
-python scripts/github_comment.py update-kpm KPM-1.2 \
+sf-comment update-kpm KPM-1.2 \
   "1.8s on i7-7500U — 2026-05-23" passing \
   --next-action "no action; KPM still inside budget"
 ```
@@ -134,11 +136,11 @@ python scripts/github_comment.py update-kpm KPM-1.2 \
 **@validation** (on milestone merge or manual invocation, posts evidence only):
 ```bash
 # On E2E pass:
-python scripts/github_comment.py validate-un UN-010 \
+sf-comment validate-un UN-010 \
   "all 3 grouping scenarios passed" \
   --next-action "stage 2 closes; ready to start stage 3"
 # On E2E failure:
-python scripts/github_comment.py validation-failure UN-010 \
+sf-comment validation-failure UN-010 \
   "wrong clusters on burst shots — 4 grouped, expected 1" \
   --next-action "@systems_lead to reassess FR-1.1 dHash threshold"
 ```

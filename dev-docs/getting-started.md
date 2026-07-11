@@ -49,5 +49,5 @@ python -m scripts.check_doc_references   # docs-to-code reference integrity
 - PRs that change code must update affected docs — docs-impact matrix in
   [`architecture/doc-maintenance-protocol.md`](architecture/doc-maintenance-protocol.md);
   CI gates are described in [`architecture/ci-policy.md`](architecture/ci-policy.md).
-- Agents post evidence via `scripts/github_comment.py`; every comment ends
+- Agents post evidence via `sf-comment`; every comment ends
   with a `**Next action:**` line.

@@ -45,7 +45,7 @@ deleted code).
 
 ### 2. AUTO sections are never hand-edited
 
-`scripts/generate_docs.py` owns everything between
+`sf-docs` (from the `systems-first` package) owns everything between
 `<!-- AUTO:key -->` … `<!-- /AUTO:key -->` sentinels; hand edits there are
 overwritten on the next regen. Edit the GitHub Issue instead (Issues are the
 source of truth — [doc-source-of-truth.md](doc-source-of-truth.md)). Marker

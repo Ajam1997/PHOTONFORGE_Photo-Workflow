@@ -17,3 +17,5 @@ into any workflow** and **not maintained**. They read the deleted
 
 To revive any of these, migrate it off `github-issue-map.json` onto
 `requirements/requirement-map.yml` + live `gh` resolution first.
+
+Note: these scripts also `import scripts.github_client`, which no longer exists (moved to the systems-first package in the 2026-07 migration) — they are doubly non-runnable as-is.

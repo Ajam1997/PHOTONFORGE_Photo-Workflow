@@ -26,7 +26,7 @@ pure software, pure mechanical, mixed-discipline IoT device.
 When you change these files, run:
 
 ```bash
-python -m scripts.generate_docs    # re-render docs from current config + Issues
+sf-docs    # re-render docs from current config + Issues
 ```
 
 to refresh the AUTO sections of `dev-docs/` immediately.
