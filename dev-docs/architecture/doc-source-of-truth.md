@@ -25,15 +25,15 @@ one-way export of `dev-docs/` for the operator's offline memory aid.
 | Architecture contracts (module interfaces) | `dev-docs/architecture/<feature>-contracts.md` | n/a (hand-authored, no AUTO) | These are *design* docs, not status docs. Edit freely. |
 | Engineer briefs (per-feature plans) | `dev-docs/architecture/<feature>-engineer-brief.md` | n/a | Authored by @systems_lead, consumed by @software_lead. Must include an "Open questions if you stop mid-step" section (HB-8). |
 | Research / scratch notes | `dev-docs/research/*.md` | n/a | Free-form. Not in AUTO regen. |
-| Verification / validation measurements (KPM numbers, pass/fail) | GitHub Issue comment via `github_comment.py` ending in `**Next action:** ...` | n/a | Reports as Issue comments — not as `dev-docs/VerificationReports/*.md` files. See OQ-3 resolution. |
+| Verification / validation measurements (KPM numbers, pass/fail) | GitHub Issue comment via `sf-comment` ending in `**Next action:** ...` | n/a | Reports as Issue comments — not as `dev-docs/VerificationReports/*.md` files. See OQ-3 resolution. |
 | System reviews | `dev-docs/SystemReviews/<date>-<topic>.md` | n/a | Operator-invoked deep reviews. |
-| Operator's offline memory aid | GitHub Wiki | one-way exported from `dev-docs/` via `migrate_wiki.py` | Wiki is downstream of docs. Direct edits to the wiki survive only if front-matter-tagged `WIKI:LOCAL-ONLY` (post-HB-3). |
+| Operator's offline memory aid | GitHub Wiki | one-way exported from `dev-docs/` via `sf-wiki` | Wiki is downstream of docs. Direct edits to the wiki survive only if front-matter-tagged `WIKI:LOCAL-ONLY` (post-HB-3). |
 
 ---
 
 ## AUTO Sentinels — How Hand Edits Survive Regen
 
-`scripts/generate_docs.py` only replaces content between sentinels:
+`sf-docs` (from the `systems-first` package) only replaces content between sentinels:
 
 ```
 <!-- AUTO:key_name -->

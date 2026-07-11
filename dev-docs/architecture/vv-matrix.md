@@ -41,7 +41,7 @@ verification or validation source. The grammar is:
 | `E2E` | `tests/e2e/<file>` or a Stage marker | `E2E: Stage 2 milestone` |
 | `soak` | the soak log + cycle target | `soak: KPM-1.4 (50 cycles)` |
 | `manual` | a description | `manual: operator confirms zenity dialog appears` |
-| `script` | `scripts/<file> <args>` | `script: scripts/check_drift.py` |
+| `script` | `scripts/<file> <args>` | `script: scripts/soak_cycle.py` |
 | `inspection` | what's inspected | `inspection: PR diff shows no docs/ paths left` |
 
 Blank line ends the section. Other `**Field:**` headings end the
@@ -58,7 +58,7 @@ section. Order: `Verified By` always before `Validated By`.
 
 ## Rendering
 
-`scripts/generate_docs.py` walks all Issues with `type: fr`,
+`sf-docs` (from the `systems-first` package) walks all Issues with `type: fr`,
 `type: nfr`, `type: kpm`, `type: user-need`, parses these two
 sections, and renders a V&V matrix into
 `dev-docs/photonforge-architecture.md` between the

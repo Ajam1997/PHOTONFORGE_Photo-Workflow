@@ -34,7 +34,7 @@ on:
     branches: [main]
     paths:
       - "dev-docs/**"
-      - "scripts/migrate_wiki.py"
+      - ".github/workflows/wiki-publish.yml"
       - "dev-docs/_wiki-nav.yml"
   workflow_dispatch:
 
@@ -55,8 +55,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install PyYAML
+      - name: Install systems-first package
+        run: pip install "systems-first @ git+https://x-access-token:${{ secrets.PHOTONFORGE_READ_TOKEN }}@github.com/Ajam1997/PHOTONFORGE@v0.1.0#subdirectory=packages/systems-first"
 
       - name: Verify WIKI_PUSH_TOKEN is set
         env:
@@ -71,4 +71,4 @@ jobs:
       - name: Publish wiki
         env:
           WIKI_PUSH_TOKEN: ${{ secrets.WIKI_PUSH_TOKEN }}
-        run: python scripts/migrate_wiki.py --push
+        run: sf-wiki --push

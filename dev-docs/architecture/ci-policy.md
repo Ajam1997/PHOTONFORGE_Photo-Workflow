@@ -28,7 +28,9 @@ What each workflow in `.github/workflows/` gates, and why.
 
 ## regen-docs.yml — push to main, issue events, manual
 
-Regenerates the four AUTO docs from GitHub Issues (`scripts/generate_docs.py`),
+Regenerates the four AUTO docs from GitHub Issues (`sf-docs`, from the
+`systems-first` package — installed via
+`git+https://x-access-token:${{ secrets.PHOTONFORGE_READ_TOKEN }}@github.com/Ajam1997/PHOTONFORGE@v0.1.0#subdirectory=packages/systems-first`),
 then runs the **sanity gate** `scripts/validate_generated_docs.py` — CR
 characters, `(none yet)` placeholders rendered as evidence, leaked `**Field:**`
 markup, or an unparseable living-user-needs doc **fail the workflow instead of
@@ -36,17 +38,14 @@ committing garbage**. On pass it commits `dev-docs/` (all four generated
 files). Auth uses the **built-in `github.token`** — the old PAT secret went
 stale and an expired PAT defeats any `||` fallback.
 
-## nightly-drift.yml — 02:00 UTC + manual
-
-Runs `scripts/check_drift.py` (stale requirements, FR-ID/source drift, broken
-doc→file references), commits the dated report to `dev-docs/drift-reports/`,
-**then fails the job if the check reported findings** — the exit code is
-captured and surfaced, not swallowed (the historical `|| true` is banned).
-Red nightly = the report has actionable rows.
+`nightly-drift.yml` was removed 2026-07 — the drift-check machinery it ran
+migrated into the systems-first package and is not currently wired into this
+repo's CI; see
+`dev-docs/architecture/doc-source-of-truth.md`.
 
 ## wiki-publish.yml — after regen-docs, on dev-docs pushes, manual
 
-One-way export of `dev-docs/` to the GitHub Wiki (`scripts/migrate_wiki.py
+One-way export of `dev-docs/` to the GitHub Wiki (`sf-wiki
 --push`; sidebar from `dev-docs/_wiki-nav.yml`). **Requires the
 `WIKI_PUSH_TOKEN` secret to be a classic PAT with the `repo` scope** —
 fine-grained PATs and the built-in `GITHUB_TOKEN` cannot push to wiki repos

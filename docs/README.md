@@ -13,7 +13,7 @@ workflow how-tos, troubleshooting.
 ## Where developer documentation lives
 
 Developer documentation is in `dev-docs/` and is rendered to the
-**GitHub Wiki** by `scripts/migrate_wiki.py`. Read it there:
+**GitHub Wiki** by `sf-wiki` (from the `systems-first` package). Read it there:
 <https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/wiki>
 
 To author or edit dev docs, edit the markdown files under `dev-docs/`
