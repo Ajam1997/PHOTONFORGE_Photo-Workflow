@@ -17,4 +17,5 @@ conventions: [requirement-id-format]
 <Which single criterion flip would change the winner.>
 
 ## Recommendation
-<!-- review-critical: decision captured and locked via sf-review. -->
+<!-- review-critical: decision captured and locked via sf-review (ships in
+     v0.3; until then the human records the decision in the Status line). -->

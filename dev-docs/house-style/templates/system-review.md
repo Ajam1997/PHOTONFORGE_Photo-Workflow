@@ -20,4 +20,6 @@ conventions: [supersession-banner, requirement-id-format]
 ## Cross-cutting observations
 ## Resolved-by addenda
 <Appended later as findings are fixed: "Resolved-by PR #N (date)".>
-<!-- review-critical: operator decision captured and locked via sf-review. -->
+<!-- review-critical: operator decision captured and locked via sf-review
+     (ships in v0.3; until then the human records the decision in the
+     Status line). -->

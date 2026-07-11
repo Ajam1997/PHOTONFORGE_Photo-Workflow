@@ -1,4 +1,4 @@
-# House Style — <project name>
+# House Style — PHOTONForge photo-workflow
 
 The top-level documentation object. Every document an agent or human
 authors in this repo follows this index. (Seeded by systems-first-core;
@@ -38,6 +38,6 @@ freehand a new document shape.
 | supersession-banner | blocking | banner format + Archive/ move |
 | auto-sections | advisory | AUTO sentinels are sf-docs territory |
 | requirement-id-format | advisory | FR/NFR/IF/KPM/UN id syntax |
-| docs-impact-matrix | advisory | PR touches X ⇒ must touch Y (fill per project!) |
+| docs-impact-matrix | advisory | PR touches X ⇒ must touch Y (filled 2026-07-11; extend as interfaces stabilize) |
 | locked-decisions | blocking | recorded decisions never change |
 | template-format | blocking | templates carry frontmatter |

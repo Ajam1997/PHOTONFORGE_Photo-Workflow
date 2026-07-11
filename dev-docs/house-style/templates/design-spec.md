@@ -17,5 +17,6 @@ conventions: [supersession-banner, requirement-id-format]
 ## Risks
 | Risk | Mitigation |
 |---|---|
-<!-- review-critical: final approval happens via sf-review; the decided
-     version is locked HTML under dev-docs/decisions/. -->
+<!-- review-critical: final approval happens via sf-review (ships in v0.3;
+     until then the human records the decision in the Status line); the
+     decided version is locked HTML under dev-docs/decisions/. -->

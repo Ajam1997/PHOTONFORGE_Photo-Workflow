@@ -16,4 +16,5 @@ conventions: [requirement-id-format]
 
 ## Recommendation
 <approve / approve-with-conditions / rework, and why.>
-<!-- review-critical: decision captured and locked via sf-review. -->
+<!-- review-critical: decision captured and locked via sf-review (ships in
+     v0.3; until then the human records the decision in the Status line). -->
