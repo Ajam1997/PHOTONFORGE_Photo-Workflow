@@ -1,0 +1,11 @@
+id: locked-decisions
+title: Recorded decisions never change
+enforce: blocking
+applies_to: ["dev-docs/decisions/**"]
+prose: |
+  A published decision (dev-docs/decisions/*.html + index.yml entry) is
+  frozen: content-hashed, tamper-evident, CI-guarded. Reversals create a
+  NEW decision that supersedes the old (index gains superseded_by) —
+  never an edit.
+checks:
+  - type: locked_files

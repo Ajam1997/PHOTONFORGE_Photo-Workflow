@@ -1,6 +1,6 @@
 # Subject → enabled_subscores Table
 
-> **SUPERSEDED (2026-07-10).** This design was not built as specified;
+> **SUPERSEDED (2026-07-10, PR #125):** This design was not built as specified;
 > `region_router` / `RegionSpec` never existed. The behavior shipped
 > inside `src/photo_workflow/score_fusion.py`, where not-applicable
 > signals are dropped and the remaining weights renormalized

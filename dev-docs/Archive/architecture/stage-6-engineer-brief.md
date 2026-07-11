@@ -1,6 +1,6 @@
 # Stage 6 — Step 1 Engineer Brief: New Scoring Dataclasses
 
-> **SUPERSEDED (2026-07-10).** This design was not built as specified;
+> **SUPERSEDED (2026-07-10, PR #125):** This design was not built as specified;
 > the behavior shipped inside `src/photo_workflow/score_fusion.py`
 > (two-axis 15×11 weights, renormalization, hard gates, percentile
 > stars) without the new dataclasses or the six-step migration. Kept

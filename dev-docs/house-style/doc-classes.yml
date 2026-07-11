@@ -1,0 +1,21 @@
+classes:
+  review-critical:
+    medium: interactive-html
+    lifecycle: [draft, in-review, decided, superseded]
+  working:
+    medium: markdown
+    lifecycle: [living, superseded]
+  report:
+    medium: generated-html
+    lifecycle: [current]        # regenerated, never edited
+doc_types:
+  design-spec:      {class: review-critical, template: design-spec}
+  design-review:    {class: review-critical, template: design-review}
+  system-review:    {class: review-critical, template: system-review}
+  trade-study:      {class: review-critical, template: trade-study}
+  adr:              {class: working, template: adr}
+  interface-spec:   {class: working, template: interface-spec}
+  engineer-brief:   {class: working, template: engineer-brief}
+  impl-plan:        {class: working, template: impl-plan}
+  kpm-dashboard:    {class: report, generator: sf-report}
+  verification-run: {class: report, generator: sf-report}
