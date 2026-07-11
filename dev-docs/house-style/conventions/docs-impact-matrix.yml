@@ -19,6 +19,16 @@ prose: |
     non-obvious.
   - New module in src/ -> CLAUDE.md layout section,
     system-architecture-contracts.md module table.
+
+  Judgment rows (not machine-checkable):
+  - Changing genre_router.py taxonomy lists (SUBJECTS/PHOTO_TYPES) also
+    requires a data-migration script (pattern: scripts/migrate_long_exposure_to_motion_blur.py).
+  - Changing darktable_bridge.py XMP/tag format also requires a note in
+    lua/photonforge/tag_manager.lua.
+  - Changing the photondb schema also requires a migration note in
+    dev-docs/dev-machine-setup.md.
+  - Changing lua/photonforge/* also requires the deploy step (re-run
+    scripts/deploy_lua.ps1 on Windows / re-copy on Linux).
 checks:
   - type: paired_paths
     when: ["src/photo_workflow/genre_router.py"]
