@@ -85,7 +85,6 @@ IF-3.2).
 
 ## Verified By (Side B — Python)
 
-- pytest: tests/test_pid_sentinel.py
 - pytest: tests/test_cli_v2.py
 
 ## Validated By

@@ -12,7 +12,6 @@ from photo_workflow.scoring_types import (
 from photo_workflow.genre_router import (
     SUBJECTS,
     PHOTO_TYPES,
-    ALL_LABELS,
     route_genre,
     _compute_exif_prior_axis,
     _compute_yolo_evidence_subject,

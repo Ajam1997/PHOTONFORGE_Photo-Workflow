@@ -1,6 +1,5 @@
 # tests/test_provision.py
 import json
-import subprocess
 from unittest.mock import Mock, patch
 
 import pytest
@@ -9,7 +8,6 @@ from photo_workflow.provision import (
     analyze_device,
     DeviceAnalysis,
     next_available_cartridge_id,
-    ProvisionResult,
     provision_cartridge,
 )
 

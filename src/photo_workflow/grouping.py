@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from pathlib import Path
+
+from .raw_loader import read_exif_datetime  # noqa: F401  (re-exported: public API)
 
 logger = logging.getLogger(__name__)
 
 SESSION_GAP_MINUTES = 30  # New session if gap between shots exceeds this
-
-
-from .raw_loader import read_exif_datetime  # noqa: F401  (re-exported: public API)
 
 
 def cluster_sessions(

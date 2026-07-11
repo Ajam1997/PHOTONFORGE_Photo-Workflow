@@ -6,7 +6,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-import pytest
 
 from photo_workflow.exposure import score_exposure, NUM_ZONES
 
@@ -25,7 +24,6 @@ def test_missing_image_returns_zero() -> None:
 
 def test_flat_image_scores_low() -> None:
     """Solid-color image has near-zero entropy → low score."""
-    import cv2
     flat = np.full((100, 100, 3), 128, dtype=np.uint8)
 
     with patch("cv2.imread", return_value=flat):
@@ -36,7 +34,6 @@ def test_flat_image_scores_low() -> None:
 
 def test_well_exposed_image_scores_high() -> None:
     """Image with values spread across all zones → score near 1.0."""
-    import cv2
     # Create a gradient image covering full 0-255 luminance range
     gradient = np.tile(np.linspace(0, 255, 300, dtype=np.uint8), (100, 1))
     bgr = np.stack([gradient, gradient, gradient], axis=-1)
@@ -49,7 +46,6 @@ def test_well_exposed_image_scores_high() -> None:
 
 def test_score_is_normalized() -> None:
     """Score must always be in [0.0, 1.0]."""
-    import cv2
     random_img = np.random.randint(0, 256, (200, 200, 3), dtype=np.uint8)
 
     with patch("cv2.imread", return_value=random_img):

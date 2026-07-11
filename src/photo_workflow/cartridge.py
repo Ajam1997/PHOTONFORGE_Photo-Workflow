@@ -7,6 +7,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+import click
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,7 +48,6 @@ def detect_cartridges(label_prefix: str = "PHOTON") -> list[Cartridge]:
             mount = dev.get("mountpoint") or ""
             if label.startswith(label_prefix) and mount:
                 try:
-                    stat = Path(mount).stat()
                     import shutil
                     usage = shutil.disk_usage(mount)
                     cartridges.append(Cartridge(
@@ -70,9 +71,6 @@ def manage_cartridge(cartridge: Cartridge, pipeline_fn) -> None:
     """Run the pipeline against a detected cartridge's mount point."""
     logger.info("Processing cartridge: %s at %s", cartridge.label, cartridge.mount_point)
     pipeline_fn(cartridge.mount_point)
-
-
-import click
 
 
 @click.group()
