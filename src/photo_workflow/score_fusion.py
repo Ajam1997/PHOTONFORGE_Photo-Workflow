@@ -342,9 +342,11 @@ def _compute_master_score(
         if key not in sub_scores:
             continue
         if key in _TECHNICAL_KEYS:
-            tech_num += weight * sub_scores[key]; tech_den += weight
+            tech_num += weight * sub_scores[key]
+            tech_den += weight
         else:
-            aes_num += weight * sub_scores[key]; aes_den += weight
+            aes_num += weight * sub_scores[key]
+            aes_den += weight
 
     technical = tech_num / tech_den if tech_den > 0 else None
     aesthetic = aes_num / aes_den if aes_den > 0 else None

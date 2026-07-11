@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING
 import click
 import numpy as np
 
+# Canonical image-extension set lives in raw_loader (re-exported for the CLI).
+from .raw_loader import IMAGE_EXTENSIONS as PHOTO_EXTS
+
 # Absolute corpus paths resolved from the package location so they work
 # regardless of the working directory (e.g. when launched via Darktable .bat).
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -247,9 +250,6 @@ class AnalysisPipeline:
 
 
 # --- Staged CLI -----------------------------------------------------------
-
-# Supported image extensions for scanning — canonical set in raw_loader.
-from .raw_loader import IMAGE_EXTENSIONS as PHOTO_EXTS
 
 
 @click.group()

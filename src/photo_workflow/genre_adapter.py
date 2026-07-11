@@ -45,25 +45,30 @@ def _fit_softmax_numpy(
     Y = np.zeros((n, n_classes), dtype=np.float64)
     Y[np.arange(n), y_idx] = 1.0
     sw = (sample_weight / sample_weight.mean()).reshape(-1, 1)
-    mW = np.zeros_like(W); vW = np.zeros_like(W); mb = np.zeros_like(b); vb = np.zeros_like(b)
+    mW = np.zeros_like(W)
+    vW = np.zeros_like(W)
+    mb = np.zeros_like(b)
+    vb = np.zeros_like(b)
     b1, b2, eps = 0.9, 0.999, 1e-8
     for t in range(1, iters + 1):
         logits = X @ W.T + b
         logits -= logits.max(axis=1, keepdims=True)
-        P = np.exp(logits); P /= P.sum(axis=1, keepdims=True)
+        P = np.exp(logits)
+        P /= P.sum(axis=1, keepdims=True)
         G = (P - Y) * sw                       # weighted residual (n,k)
         gW = G.T @ X / n + l2 * W
         gb = G.sum(axis=0) / n
         for (p, g, m, v) in ((W, gW, mW, vW), (b, gb, mb, vb)):
-            m *= b1; m += (1 - b1) * g
-            v *= b2; v += (1 - b2) * (g * g)
+            m *= b1
+            m += (1 - b1) * g
+            v *= b2
+            v += (1 - b2) * (g * g)
             p -= lr * (m / (1 - b1 ** t)) / (np.sqrt(v / (1 - b2 ** t)) + eps)
     return W.astype(np.float32), b.astype(np.float32)
 
 
 def _train_axis_numpy(X: np.ndarray, y: np.ndarray, cv_folds: int) -> dict:
     """Fit one axis head + a stratified-CV accuracy estimate, in pure numpy."""
-    from collections import Counter
 
     classes = sorted(set(str(c) for c in y))
     cls_idx = {c: i for i, c in enumerate(classes)}
@@ -81,13 +86,15 @@ def _train_axis_numpy(X: np.ndarray, y: np.ndarray, cv_folds: int) -> dict:
     rng = np.random.RandomState(0)
     folds = [[] for _ in range(nsplit)]
     for c in range(k):
-        idx = np.where(yi == c)[0]; rng.shuffle(idx)
+        idx = np.where(yi == c)[0]
+        rng.shuffle(idx)
         for j, ix in enumerate(idx):
             folds[j % nsplit].append(ix)
     correct = 0
     try:
         for f in range(nsplit):
-            te = np.array(folds[f]); tr = np.array([i for g in folds if g is not folds[f] for i in g])
+            te = np.array(folds[f])
+            tr = np.array([i for g in folds if g is not folds[f] for i in g])
             W, b = fit(X[tr], yi[tr])
             pred = (X[te] @ W.T + b).argmax(axis=1)
             correct += int((pred == yi[te]).sum())
