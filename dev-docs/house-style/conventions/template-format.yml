@@ -1,0 +1,11 @@
+id: template-format
+title: Templates carry machine-readable frontmatter
+enforce: blocking
+applies_to: ["dev-docs/house-style/templates/*.md"]
+prose: |
+  Every template declares name, doc_type, output_path, and the convention
+  ids it binds. The template-writer skill enforces this shape when minting
+  new templates; this check enforces it forever after.
+checks:
+  - type: frontmatter_required
+    keys: [name, doc_type, output_path, conventions]

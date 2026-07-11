@@ -11,21 +11,9 @@ is that rule.
 
 ## Docs-impact matrix
 
-When a PR touches the left column, the **same PR** must update the right
-column:
-
-| When a PR touches… | The same PR must update… |
-|---|---|
-| Deletes/renames any file | Every doc the reference-integrity check flags (`scripts/check_doc_references.py` — the blocking PR gate enforces this) |
-| `src/photo_workflow/genre_router.py` taxonomy lists (`SUBJECTS`/`PHOTO_TYPES`) | [research/photonforge-labeling-quick-reference.md](../research/photonforge-labeling-quick-reference.md) (canonical taxonomy), `requirements/interfaces/IF-3.1.md`, the CLAUDE.md taxonomy line, and a data-migration script (pattern: `scripts/migrate_long_exposure_to_motion_blur.py`) |
-| `src/photo_workflow/score_fusion.py` weights / gates / fusion | [scoring-architecture.md](scoring-architecture.md) (as-built reference), `requirements/interfaces/IF-2.1.md` |
-| CLI commands/flags in `src/photo_workflow/pipeline.py` | `requirements/interfaces/IF-1.1.md` stage whitelist, `lua/photonforge/runner.lua` (the protocol pair) |
-| XMP/tag format in `src/photo_workflow/darktable_bridge.py` | `requirements/interfaces/IF-3.2.md` (namespace reference), `lua/photonforge/tag_manager.lua` note |
-| photondb schema (`src/photo_workflow/photondb.py`) | `requirements/interfaces/IF-4.1.md`, [dev-machine-setup.md](../dev-machine-setup.md) migration note |
-| `lua/photonforge/*` | deploy note ("re-run `scripts/deploy_lua.ps1`" / re-copy on Linux, [docs/install-yoga-linux.md](../../docs/install-yoga-linux.md)), `requirements/interfaces/IF-1.1.md` if stages changed |
-| Fixes a bug listed in a SystemReview | "Resolved-by" addendum line in that review (`dev-docs/SystemReviews/`) |
-| Retires/supersedes a design | Supersession banner + move to `dev-docs/Archive/` + an ADR ([adr/index.md](adr/index.md)) if the decision is non-obvious |
-| New module in `src/` | CLAUDE.md layout section, [system-architecture-contracts.md](system-architecture-contracts.md) module table |
+**Now data:** the matrix lives in
+[`dev-docs/house-style/conventions/docs-impact-matrix.yml`](../house-style/conventions/docs-impact-matrix.yml)
+and is checked by `sf-style` on every PR.
 
 ## The three rules
 
@@ -35,13 +23,19 @@ A superseded doc gets a top-of-file banner and moves to `dev-docs/Archive/`
 (same relative path). Exact format:
 
 ```markdown
-> **SUPERSEDED (YYYY-MM-DD, PR #N):** see <replacement doc or ADR>.
+> **SUPERSEDED (2026-01-01, PR #123):** see <replacement doc or ADR>.
 > Kept for history; do not implement from this document.
 ```
+
+(dates/PR number above are illustrative — use the real supersession date and PR.)
 
 History is preserved, never load-bearing. `Archive/` is exempt from the
 reference-integrity checks by design (frozen records legitimately cite
 deleted code).
+
+**Now enforced as data:** this is the `supersession-banner` convention in
+[`dev-docs/house-style/conventions/supersession-banner.yml`](../house-style/conventions/supersession-banner.yml)
+(blocking — checked by `sf-style` on every PR).
 
 ### 2. AUTO sections are never hand-edited
 

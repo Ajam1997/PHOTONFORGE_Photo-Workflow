@@ -1,0 +1,20 @@
+terms:
+  - {term: UN,   definition: "User Need — top-level requirement, owns FR/NFR/IF/KPM children"}
+  - {term: FR,   definition: "Functional Requirement"}
+  - {term: NFR,  definition: "Non-Functional Requirement"}
+  - {term: IF,   definition: "Interface Requirement (ICD-backed boundary)"}
+  - {term: KPM,  definition: "Key Performance Measure — measured, rolled up parent-ward", aliases: [budget]}
+  - {term: ICD,  definition: "Interface Control Document"}
+  - {term: ADR,  definition: "Architecture Decision Record"}
+  - {term: V&V,  definition: "Verification (per-commit, against requirements) and Validation (per-milestone, against user needs)"}
+  - {term: stage gate, definition: "Milestone closure condition: all UNs in the stage verified"}
+  - {term: House Style, definition: "This repo's documentation policy instance under dev-docs/house-style/"}
+  - {term: PHOTON cartridge, definition: "External SSD cartridge holding library.db and user config for the photo-workflow pipeline (NFR-2.3); not host-resident"}
+  - {term: dHash, definition: "Difference hash used for near-duplicate detection; FR-1.3 threshold is Hamming distance <= 2"}
+  - {term: IEA40K, definition: "Entropy threshold reference set used against the 11-zone luminance segmentation in FR-1.6"}
+  - {term: Florence-2, definition: "Florence-2-base-ft INT8 ONNX model run via onnxruntime AVX2 for image captioning/naming (FR-1.7)"}
+  - {term: Profile A, definition: "Software-only tool-stack profile for this project; no EE/ME/firmware tooling"}
+  - {term: HB-x, definition: "Harness behavior rule (e.g. HB-8: every agent comment ends with a Next action line)"}
+  - {term: SOP-B, definition: "Resume mid-flight work procedure"}
+  - {term: zenity, definition: "Linux dialog tool used to prompt the user (NFR-2.4: dialog when SD inserted without SSD connected)"}
+  - {term: safe-eject, definition: "scripts/safe_eject.sh procedure for cleanly unmounting the PHOTON cartridge without SQLite corruption (KPM-1.4)"}

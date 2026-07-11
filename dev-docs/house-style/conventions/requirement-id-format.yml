@@ -1,0 +1,14 @@
+id: requirement-id-format
+title: Requirement IDs are written exactly
+enforce: advisory
+applies_to: ["dev-docs/**/*.md"]
+prose: |
+  FR-x.y / NFR-x.y / IF-x.y / KPM-x.y (dotted pairs) and UN-XXX (three
+  digits). Malformed ids break live Issue resolution in sf-comment.
+checks:
+  - type: id_format
+    candidate_pattern: '\b(?:FR|NFR|IF|KPM)-[0-9][\w.]*'
+    pattern: '(?:FR|NFR|IF|KPM)-\d+\.\d+'
+  - type: id_format
+    candidate_pattern: '\bUN-[0-9]\w*'
+    pattern: 'UN-\d{3}'

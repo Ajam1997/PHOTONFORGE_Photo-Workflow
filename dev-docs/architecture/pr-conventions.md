@@ -7,6 +7,10 @@ How work is split across pull requests. The goal is reviewable, low-risk PRs:
 trivial fixes should not each spawn ceremony, and a genuinely risky change
 should not hide inside a pile of unrelated one-liners.
 
+Doc-side PR conventions (docs-impact matrix, supersession banner, glossary,
+templates) live in [`dev-docs/house-style/`](../house-style/house-style.md)
+and are enforced by `sf-style`.
+
 There are three PR classes.
 
 ## 1. Minor-bug roundup PR (rolling, shared)

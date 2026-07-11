@@ -1,0 +1,14 @@
+id: supersession-banner
+title: Superseded docs carry a banner and move to Archive/
+enforce: blocking
+applies_to: ["dev-docs/**/*.md"]
+prose: |
+  A superseded doc gets a top-of-file banner and moves to dev-docs/Archive/
+  at the same relative path. Exact banner:
+  > **SUPERSEDED (YYYY-MM-DD, PR #N):** see <replacement>.
+  History is preserved, never load-bearing. Archive/ is exempt from
+  reference checks by design.
+checks:
+  - type: regex_required_if
+    when_contains: "**SUPERSEDED"
+    pattern: '^> \*\*SUPERSEDED \(\d{4}-\d{2}-\d{2}, PR #\d+\):\*\*'

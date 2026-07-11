@@ -1,0 +1,42 @@
+id: docs-impact-matrix
+title: Code changes update their paired docs in the same PR
+enforce: advisory
+applies_to: ["**"]
+prose: |
+  The docs-impact matrix, as data. Each paired_paths check says "a PR
+  touching WHEN must also touch REQUIRE". photo-workflow's unambiguous
+  file-to-file pairings are encoded below as paired_paths checks (enforce
+  stays advisory initially — ratchet to blocking once clean).
+
+  The matrix's judgment rows don't reduce to a file pairing and stay prose,
+  copied from dev-docs/architecture/doc-maintenance-protocol.md:
+  - Deletes/renames any file -> every doc the reference-integrity check
+    flags (scripts/check_doc_references.py, the blocking PR gate).
+  - Fixes a bug listed in a SystemReview -> a "Resolved-by" addendum line
+    in that review (dev-docs/SystemReviews/).
+  - Retires/supersedes a design -> supersession banner + move to
+    dev-docs/Archive/ + an ADR (adr/index.md) if the decision is
+    non-obvious.
+  - New module in src/ -> CLAUDE.md layout section,
+    system-architecture-contracts.md module table.
+checks:
+  - type: paired_paths
+    when: ["src/photo_workflow/genre_router.py"]
+    require: ["dev-docs/research/photonforge-labeling-quick-reference.md",
+              "requirements/interfaces/IF-3.1.md", "CLAUDE.md"]
+  - type: paired_paths
+    when: ["src/photo_workflow/score_fusion.py"]
+    require: ["dev-docs/architecture/scoring-architecture.md",
+              "requirements/interfaces/IF-2.1.md"]
+  - type: paired_paths
+    when: ["src/photo_workflow/pipeline.py"]
+    require: ["requirements/interfaces/IF-1.1.md", "lua/photonforge/runner.lua"]
+  - type: paired_paths
+    when: ["src/photo_workflow/darktable_bridge.py"]
+    require: ["requirements/interfaces/IF-3.2.md"]
+  - type: paired_paths
+    when: ["src/photo_workflow/photondb.py"]
+    require: ["requirements/interfaces/IF-4.1.md"]
+  - type: paired_paths
+    when: ["lua/photonforge/**"]
+    require: ["requirements/interfaces/IF-1.1.md", "docs/install-yoga-linux.md"]

@@ -144,8 +144,8 @@ referenced from CLAUDE.md, containing a **docs-impact matrix**:
 | New module in `src/` | CLAUDE.md layout, system-architecture-contracts module table |
 
 Plus three rules: (1) **banner convention** — superseded docs get a
-top-of-file `> **SUPERSEDED (date, PR #N):** see <replacement>` and move to
-`Archive/`; (2) **AUTO sections are never hand-edited** (already policy —
+top-of-file supersession banner (see doc-maintenance-protocol.md for the
+exact format) and move to `Archive/`; (2) **AUTO sections are never hand-edited** (already policy —
 restate with the marker inventory); (3) **PR description carries a "Docs
 impact" line** — either the updated files or an explicit "none" (cheap to
 review, and gives the drift checker a human counterpart). CLAUDE.md gets a

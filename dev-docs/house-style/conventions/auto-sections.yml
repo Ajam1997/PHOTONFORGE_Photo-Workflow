@@ -1,0 +1,10 @@
+id: auto-sections
+title: AUTO sections are never hand-edited
+enforce: advisory
+applies_to: ["dev-docs/**/*.md"]
+prose: |
+  sf-docs owns everything between <!-- AUTO:key --> sentinels; hand edits
+  there are overwritten on the next regen. Edit the GitHub Issue (or
+  glossary.yml) instead. This rule is advisory because authorship isn't
+  visible to a text check — sf-docs regen is the real defense.
+checks: []
