@@ -5,7 +5,6 @@ from __future__ import annotations
 import inspect
 from pathlib import Path
 
-import pytest
 
 from photo_workflow.darktable_bridge import (
     xmp_sidecar_path,

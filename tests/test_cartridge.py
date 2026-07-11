@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-import pytest
 
 from photo_workflow.cartridge import detect_cartridges, manage_cartridge, Cartridge
 
@@ -38,9 +37,6 @@ def test_photon_labeled_device_detected(tmp_path: Path) -> None:
     """Devices with PHOTON prefix label and a valid mount point are returned."""
     devices = [{"name": "sdc", "label": "PHOTON-001", "mountpoint": str(tmp_path),
                 "size": "1T", "fsavail": "800G", "children": None}]
-
-    import shutil
-    usage = shutil.disk_usage(tmp_path)
 
     with patch("subprocess.run", return_value=_fake_lsblk(devices)):
         result = detect_cartridges()

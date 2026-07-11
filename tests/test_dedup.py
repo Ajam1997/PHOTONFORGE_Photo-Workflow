@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 
-from photo_workflow.dedup import deduplicate, DHASH_THRESHOLD
+from photo_workflow.dedup import deduplicate
 from photo_workflow.pipeline import PhotoRecord
 
 

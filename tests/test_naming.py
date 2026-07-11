@@ -13,7 +13,6 @@ from photo_workflow.naming import (
     _Sessions,
     _build_empty_past_kv,
     _physical_core_count,
-    _read_shooting_info,
     generate_name,
     warm_sessions,
 )

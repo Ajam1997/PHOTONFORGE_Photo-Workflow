@@ -39,7 +39,8 @@ def _head(classes, dim=512):
 
 
 def test_predict_axis_distribution_and_missing_classes() -> None:
-    e = np.zeros(512, dtype=np.float32); e[0] = 1.0
+    e = np.zeros(512, dtype=np.float32)
+    e[0] = 1.0
     head = _head(["vehicle", "object"])
     dist = predict_axis(e, head, SUBJECTS)
     assert abs(sum(dist.values()) - 1.0) < 1e-5
@@ -49,7 +50,8 @@ def test_predict_axis_distribution_and_missing_classes() -> None:
 
 
 def test_route_genre_uses_adapter_over_poe() -> None:
-    e = np.zeros(512, dtype=np.float32); e[0] = 1.0
+    e = np.zeros(512, dtype=np.float32)
+    e[0] = 1.0
     adapter = {"subject": _head(["vehicle", "object"]),
                "type": _head(["documentary", "scenic"])}
     res = route_genre(_ctx(e), genre_prototypes=None, adapter=adapter)
@@ -63,10 +65,12 @@ def test_needs_review_margin_based() -> None:
     adapter = {"subject": _head(["vehicle", "object"]),
                "type": _head(["documentary", "scenic"])}
     # Peaked: embedding aligns with one class -> large margin -> not flagged.
-    e_peak = np.zeros(512, dtype=np.float32); e_peak[0] = 1.0
+    e_peak = np.zeros(512, dtype=np.float32)
+    e_peak[0] = 1.0
     assert route_genre(_ctx(e_peak), adapter=adapter).needs_review is False
     # Ambiguous: equal mix of two classes -> tiny margin -> flagged.
-    e_amb = np.zeros(512, dtype=np.float32); e_amb[0] = e_amb[1] = 1 / np.sqrt(2)
+    e_amb = np.zeros(512, dtype=np.float32)
+    e_amb[0] = e_amb[1] = 1 / np.sqrt(2)
     assert route_genre(_ctx(e_amb), adapter=adapter).needs_review is True
 
 
@@ -79,10 +83,12 @@ def test_route_genre_falls_back_without_clip() -> None:
 
 def test_motion_blur_gate_fires_on_slow_shutter() -> None:
     # CLIP head says scenic; a 2s exposure should gate the TYPE to motion-blur.
-    e = np.zeros(512, dtype=np.float32); e[0] = 1.0
+    e = np.zeros(512, dtype=np.float32)
+    e[0] = 1.0
     adapter = {"subject": _head(["landscape", "waterfall"]),
                "type": _head(["scenic", "documentary"])}
-    ctx = _ctx(e); ctx.exif = {"shutter": 2.0}
+    ctx = _ctx(e)
+    ctx.exif = {"shutter": 2.0}
     res = route_genre(ctx, genre_prototypes=None, adapter=adapter)
     assert res.photo_type == "motion-blur"
     assert res.type_confidence >= 0.8
@@ -91,18 +97,22 @@ def test_motion_blur_gate_fires_on_slow_shutter() -> None:
 
 
 def test_motion_blur_gate_silent_on_fast_shutter() -> None:
-    e = np.zeros(512, dtype=np.float32); e[0] = 1.0
+    e = np.zeros(512, dtype=np.float32)
+    e[0] = 1.0
     adapter = {"subject": _head(["landscape", "waterfall"]),
                "type": _head(["scenic", "documentary"])}
-    ctx = _ctx(e); ctx.exif = {"shutter": 0.002}  # 1/500s
+    ctx = _ctx(e)
+    ctx.exif = {"shutter": 0.002}  # 1/500s
     res = route_genre(ctx, genre_prototypes=None, adapter=adapter)
     assert res.photo_type == "scenic"
 
 
 def test_motion_blur_gate_via_poe_path() -> None:
     # No adapter -> PoE fallback; the gate still applies from EXIF alone.
-    e = np.zeros(512, dtype=np.float32); e[0] = 1.0
-    ctx = _ctx(e); ctx.exif = {"shutter": 3.0}
+    e = np.zeros(512, dtype=np.float32)
+    e[0] = 1.0
+    ctx = _ctx(e)
+    ctx.exif = {"shutter": 3.0}
     res = route_genre(ctx, genre_prototypes=None, adapter=None)
     assert res.photo_type == "motion-blur"
 
@@ -117,7 +127,8 @@ def test_numpy_adapter_trains_without_sklearn() -> None:
     head = _train_axis_numpy(X, y, cv_folds=3)
     assert head["weight"].shape == (2, 512)   # one row per class (no binary special-case)
     assert head["cv_accuracy"] > 0.8
-    e = np.zeros(512, dtype=np.float32); e[0] = 3.0
+    e = np.zeros(512, dtype=np.float32)
+    e[0] = 3.0
     dist = predict_axis(e, head, SUBJECTS)
     assert max(dist, key=dist.__getitem__) == "vehicle"
 
@@ -150,6 +161,7 @@ def test_train_linear_adapter_roundtrip() -> None:
     assert set(heads) == {"subject", "type"}
     assert heads["subject"]["weight"].shape[1] == 512
     # predicts the right class on a clean exemplar
-    e = np.zeros(512, dtype=np.float32); e[0] = 3.0
+    e = np.zeros(512, dtype=np.float32)
+    e[0] = 3.0
     dist = predict_axis(e, heads["subject"], SUBJECTS)
     assert max(dist, key=dist.__getitem__) == "vehicle"
