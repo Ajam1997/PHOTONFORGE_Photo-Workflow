@@ -19,7 +19,7 @@ one-way export of `dev-docs/` for the operator's offline memory aid.
 
 | Thing | Canonical location | Rendered into | Notes |
 |---|---|---|---|
-| FR / UN / NFR / KPM status (`defined`, `in-progress`, `verified`, `validated`) | GitHub Issue labels | `dev-docs/living-user-needs.md`, `dev-docs/photonforge-architecture.md`, `dev-docs/roadmap.md`, `dev-docs/kpm-dashboard.md` (AUTO sections) | Only `pr_rollup.py` writes the `verified`/`validated` labels — see HB-7. Agents post comments via `github_comment.py` but never move labels. |
+| FR / UN / NFR / IF / KPM status (`defined`, `in-progress`, `verified`, `validated`) | GitHub Issue labels | `dev-docs/living-user-needs.md`, `dev-docs/photonforge-architecture.md`, `dev-docs/roadmap.md`, `dev-docs/kpm-dashboard.md` (AUTO sections) | Only `pr_rollup.py` writes the `verified`/`validated` labels — see HB-7. Agents post comments via `github_comment.py` but never move labels. |
 | FR acceptance criteria, KPM target | GitHub Issue body | `dev-docs/photonforge-architecture.md` (FR/NFR/KPM tables), `dev-docs/living-user-needs.md` | Edit the Issue body, then run `generate_docs.py`. |
 | Roadmap stage / stage assignment | GitHub Issue label `stage: N` + Epic Issue | `dev-docs/roadmap.md` | One Epic Issue per stage. |
 | Architecture contracts (module interfaces) | `dev-docs/architecture/<feature>-contracts.md` | n/a (hand-authored, no AUTO) | These are *design* docs, not status docs. Edit freely. |

@@ -51,7 +51,7 @@ section. Order: `Verified By` always before `Validated By`.
 
 | Issue type | Verified By | Validated By |
 |---|---|---|
-| **UN** (user need) | rolls up from its FR/NFR children (no direct entry) | one E2E or observable check that proves the need is met for a real user (you) |
+| **UN** (user need) | rolls up from its FR/NFR/IF children (no direct entry) | one E2E or observable check that proves the need is met for a real user (you) |
 | **FR** (functional) | one or more `pytest` lines | the KPM or E2E that touches this code path |
 | **NFR** (non-functional) | usually a `script`, `inspection`, or `pytest` line | the KPM (most NFRs constrain a measurable property) |
 | **KPM** | the benchmark script + its assertion (`pytest` or `script`) | (KPMs are self-validating — leave Validated By empty or `N/A`) |

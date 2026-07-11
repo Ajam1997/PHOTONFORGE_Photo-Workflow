@@ -2,11 +2,10 @@
 
 Called by .github/workflows/pr-close-issues.yml after a PR is merged.
 Parses closed Issue numbers from the PR body, applies status: verified to
-FR/NFR Issues, rolls up to parent UNs when all siblings are verified, and
+FR/NFR/IF Issues, rolls up to parent UNs when all siblings are verified, and
 promotes parent Epics to Done when all UNs in a stage are verified.
 """
 import argparse
-import json
 import os
 import re
 import sys
@@ -49,17 +48,20 @@ def load_maps() -> tuple[dict, dict]:
     return issue_map, req_map
 
 
-def build_reverse_maps(issue_map: dict, req_map: dict) -> tuple[dict, dict, dict, dict]:
-    """Return (fr_to_uns, nfr_to_uns, un_to_stage, stage_to_epic_num).
+def build_reverse_maps(
+    issue_map: dict, req_map: dict
+) -> tuple[dict, dict, dict, dict, dict]:
+    """Return (fr_to_uns, nfr_to_uns, if_to_uns, un_to_stage, stage_to_epic_num).
 
-    A single FR/NFR may legitimately decompose more than one UN (e.g. FR-1.1
+    A single FR/NFR/IF may legitimately decompose more than one UN (e.g. FR-1.1
     "ingest from SD" is a building block for both UN-030 "auto-ingest on
-    insertion" and UN-040 "SD→SSD staging for safe SD removal"). The reverse
-    map therefore returns *all* parent UNs for each FR/NFR, not just the last
-    one written.
+    insertion" and UN-040 "SD→SSD staging for safe SD removal"; IF-2.1 spans
+    UN-012/013/014). The reverse map therefore returns *all* parent UNs for
+    each requirement, not just the last one written.
     """
     fr_to_uns: dict[str, list[str]] = {}
     nfr_to_uns: dict[str, list[str]] = {}
+    if_to_uns: dict[str, list[str]] = {}
     un_to_stage: dict[str, int] = {}
     stage_to_epic_num: dict[int, int] = {}
 
@@ -76,14 +78,17 @@ def build_reverse_maps(issue_map: dict, req_map: dict) -> tuple[dict, dict, dict
                 fr_to_uns.setdefault(fr_id, []).append(un_id)
             for nfr_id in un_entry.get("non_functional_requirements", []):
                 nfr_to_uns.setdefault(nfr_id, []).append(un_id)
+            for if_id in un_entry.get("interface_requirements", []):
+                if_to_uns.setdefault(if_id, []).append(un_id)
 
-    return fr_to_uns, nfr_to_uns, un_to_stage, stage_to_epic_num
+    return fr_to_uns, nfr_to_uns, if_to_uns, un_to_stage, stage_to_epic_num
 
 
 def build_num_to_req_id(issue_map: dict) -> dict[int, str]:
-    """Map GitHub Issue number → requirement ID for all FR/NFR entries."""
+    """Map GitHub Issue number → requirement ID for all FR/NFR/IF entries."""
     result: dict[int, str] = {}
-    for section in ("functional_requirements", "non_functional_requirements"):
+    for section in ("functional_requirements", "non_functional_requirements",
+                    "interface_requirements"):
         for req_id, data in issue_map.get(section, {}).items():
             result[data["number"]] = req_id
     return result
@@ -94,7 +99,8 @@ def is_verified(issue: dict) -> bool:
 
 
 def get_req_issue_num(issue_map: dict, req_id: str) -> int | None:
-    for section in ("functional_requirements", "non_functional_requirements"):
+    for section in ("functional_requirements", "non_functional_requirements",
+                    "interface_requirements"):
         entry = issue_map.get(section, {}).get(req_id)
         if entry:
             return entry["number"]
@@ -133,7 +139,7 @@ def build_stage_to_milestone(client: GitHubClient, req_map: dict | None = None) 
 
 def rollup(pr_body: str, dry_run: bool = False) -> None:
     issue_map, req_map = load_maps()
-    fr_to_uns, nfr_to_uns, un_to_stage, stage_to_epic_num = build_reverse_maps(issue_map, req_map)
+    fr_to_uns, nfr_to_uns, if_to_uns, un_to_stage, stage_to_epic_num = build_reverse_maps(issue_map, req_map)
     num_to_req_id = build_num_to_req_id(issue_map)
 
     client = GitHubClient()
@@ -154,7 +160,7 @@ def rollup(pr_body: str, dry_run: bool = False) -> None:
     for num in closed_nums:
         req_id = num_to_req_id.get(num)
         if not req_id:
-            print(f"  #{num}: not a tracked FR/NFR — skipping")
+            print(f"  #{num}: not a tracked FR/NFR/IF — skipping")
             continue
 
         print(f"  #{num} ({req_id}): applying status: verified")
@@ -166,17 +172,22 @@ def rollup(pr_body: str, dry_run: bool = False) -> None:
             labels.append({"name": "status: verified"})
             all_issues[num]["labels"] = labels
 
-        parent_uns = fr_to_uns.get(req_id, []) + nfr_to_uns.get(req_id, [])
+        parent_uns = (
+            fr_to_uns.get(req_id, [])
+            + nfr_to_uns.get(req_id, [])
+            + if_to_uns.get(req_id, [])
+        )
         if not parent_uns:
             print(f"    no parent UN for {req_id} — skipping rollup")
             continue
 
         for parent_un in parent_uns:
-            # Check all FR/NFR siblings under this parent
+            # Check all FR/NFR/IF siblings under this parent
             un_entry = req_map["user_needs"].get(parent_un, {})
             sibling_ids = (
                 un_entry.get("functional_requirements", []) +
-                un_entry.get("non_functional_requirements", [])
+                un_entry.get("non_functional_requirements", []) +
+                un_entry.get("interface_requirements", [])
             )
 
             unverified = []
