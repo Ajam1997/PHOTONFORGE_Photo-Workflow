@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """KPM-1.4 soak test cycle runner.
 
-Runs one complete ejectâ†’unplugâ†’replugâ†’integrity cycle and appends the result
+Runs one complete eject→unplug→replug→integrity cycle and appends the result
 to dev-docs/ValidationReports/soak-test-log.md.
 
 Usage:
@@ -72,7 +72,7 @@ def sync_and_unmount(mount_point: Path) -> bool:
             _stop_systemd_mount(mount_point)
             return True
         except subprocess.CalledProcessError as e:
-            log(f"udisksctl failed ({e}) â€” falling back to sudo umount")
+            log(f"udisksctl failed ({e}) — falling back to sudo umount")
 
     # sudo umount with NOPASSWD rule in /etc/sudoers.d/photonforge-eject
     for cmd in (["sudo", "-n", "umount", str(mount_point)], ["umount", str(mount_point)]):
@@ -105,8 +105,8 @@ def _stop_systemd_mount(mount_point: Path) -> None:
 def _notify_physical(message: str, blocking: bool) -> None:
     """Send an action prompt to the Yoga 910 display.
 
-    blocking=True  â†’ zenity dialog (operator must click OK before polling starts)
-    blocking=False â†’ notify-send toast (script polls immediately)
+    blocking=True  → zenity dialog (operator must click OK before polling starts)
+    blocking=False → notify-send toast (script polls immediately)
     Falls back to wall broadcast if the primary binary is missing.
     """
     env = {**os.environ, "DISPLAY": ":0"}
@@ -180,28 +180,28 @@ def wait_for_replug_and_mount(mount_point: Path, timeout: int, cycle: int = 0) -
     """Wait for UUID to disappear (unplug) then reappear (replug), then mount."""
 
     # Step 1: wait for UUID link to disappear (confirms physical unplug)
-    _notify_physical(f"Cycle {cycle} â€” Unplug the SSD now, then click OK", blocking=True)
-    log(f"Unplug the SSD now â€” waiting for UUID {PHOTON_SSD_UUID} to disappear...")
+    _notify_physical(f"Cycle {cycle} — Unplug the SSD now, then click OK", blocking=True)
+    log(f"Unplug the SSD now — waiting for UUID {PHOTON_SSD_UUID} to disappear...")
     deadline = time.monotonic() + timeout
     disappeared = False
     while time.monotonic() < deadline:
         if _uuid_device() is None:
-            log("UUID gone â€” unplug detected.")
+            log("UUID gone — unplug detected.")
             disappeared = True
             break
         time.sleep(1)
     if not disappeared:
-        log("WARNING: UUID never disappeared â€” physical unplug may not have occurred")
+        log("WARNING: UUID never disappeared — physical unplug may not have occurred")
 
     # Step 2: wait for UUID link to reappear (confirms physical replug)
-    _notify_physical(f"Cycle {cycle} â€” Plug the SSD back in", blocking=False)
-    log(f"Plug the SSD back in â€” waiting for UUID {PHOTON_SSD_UUID} to reappear...")
+    _notify_physical(f"Cycle {cycle} — Plug the SSD back in", blocking=False)
+    log(f"Plug the SSD back in — waiting for UUID {PHOTON_SSD_UUID} to reappear...")
     deadline = time.monotonic() + timeout
     dev = None
     while time.monotonic() < deadline:
         dev = _uuid_device()
         if dev:
-            log(f"UUID back at {dev} â€” replug detected.")
+            log(f"UUID back at {dev} — replug detected.")
             time.sleep(2)  # let kernel finish enumeration
             dev = _uuid_device()  # re-resolve after settle
             break
@@ -285,13 +285,13 @@ def main() -> int:
     log_path = Path(args.log)
     cycle = args.cycle
 
-    log(f"=== KPM-1.4 Soak Test â€” Cycle {cycle}/50 ===")
+    log(f"=== KPM-1.4 Soak Test — Cycle {cycle}/50 ===")
 
     # Phase 1: flush + unmount
     if db.exists():
         flush_wal(db)
     else:
-        log(f"WARNING: DB not found at {db} â€” skipping WAL flush")
+        log(f"WARNING: DB not found at {db} — skipping WAL flush")
 
     dev = _uuid_device()
     log(f"Block device (by UUID): {dev or 'not found'}")
@@ -306,7 +306,7 @@ def main() -> int:
         append_log(log_path, cycle, False)
         return 1
 
-    # Phase 3: wait for physical unplug â†’ replug â†’ auto-mount
+    # Phase 3: wait for physical unplug → replug → auto-mount
     if not wait_for_replug_and_mount(mount, args.timeout, cycle=cycle):
         append_log(log_path, cycle, False)
         return 1
