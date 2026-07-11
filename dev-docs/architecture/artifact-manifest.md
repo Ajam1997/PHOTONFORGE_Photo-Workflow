@@ -102,7 +102,7 @@ results, etc. — this section is not parsed.>
 
 `mass_g` and `cost_unit_usd` are the bridge to the KPM rollup engine.
 If a child KPM is `aggregation: independent` but linked to an artifact
-with `mass_g: 60`, `kpm_rollup.py` (future enhancement) can read the
+with `mass_g: 60`, `sf-kpm-rollup` (future enhancement) can read the
 manifest's mass directly instead of needing a per-component KPM
 measurement.
 

@@ -71,7 +71,7 @@ demands them:
   hand-authored SysMLv2 snippets or a Mermaid→SysMLv2 parser. Punt.
 - **Executable constraint expressions** — KPM aggregation is emitted as a
   comment, not a SysMLv2 calculation. Each target tool's solver dialect
-  varies; the YAML stays authoritative for `kpm_rollup.py` math.
+  varies; the YAML stays authoritative for `sf-kpm-rollup` math.
 - **Port typing on interfaces** — IFs render with bare `end side_a` /
   `end side_b`. Real interface typing (flow ports, signal types) needs
   more schema in `interface_requirements/` than the YAML currently

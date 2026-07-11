@@ -182,7 +182,7 @@ Update the `**Status:**` line in the header when the gate is passed.
 - **Changed by** @systems_lead with discipline-lead concurrence after
   PDR.
 
-The doc is not under AUTO regen — `generate_docs.py` does not touch
+The doc is not under AUTO regen — `sf-docs` does not touch
 it. Hand-edits are the only way it changes.
 
 ---

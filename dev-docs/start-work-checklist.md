@@ -34,7 +34,7 @@ If you can't decide, default:
 - **Design / interfaces / budgets / architecture** → @systems_lead
 - **src/ implementation, software tests** → @software_lead
 - **Host integration (deploy/, scripts/, cartridge, udisks2/polkit)** → @software_lead
-- **Per-commit verification** → @verification (or skip — `pr_rollup.py` handles labels)
+- **Per-commit verification** → @verification (or skip — `sf-pr-rollup` handles labels)
 - **Per-milestone E2E pass** → @validation
 - **Cross-cutting / architecture review** → @systemmaster (operator-invoked only)
 
@@ -44,7 +44,7 @@ PHOTONForge is Profile A (software only) — see `config/disciplines.yml`.
 
 Breadcrumb rules (HB-8):
 
-- Every `github_comment.py` call already requires `--next-action "..."` —
+- Every `sf-comment` call already requires `--next-action "..."` —
   the CLI fails fast if you forget.
 - Every brief authored by @systems_lead must end with
   `## Open questions if you stop mid-step`, even if empty.

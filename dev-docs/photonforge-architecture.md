@@ -398,8 +398,10 @@ photo-workflow/
     install_polkit.sh            # polkit rule so udisks2 mounts work unprivileged
     provision_models.sh          # One-time ONNX download + config fetch
     remote_test.sh               # Automated test runner (JSON output)
-    generate_docs.py, check_drift.py, check_doc_references.py, ...
-                                 # Docs/issues automation (see CLAUDE.md write-back protocol)
+    check_doc_references.py, validate_generated_docs.py, doc_parser.py, ...
+                                 # Docs/issues automation (see CLAUDE.md write-back protocol);
+                                 # sf-docs/sf-pr-rollup/sf-wiki/sf-comment now ship via the
+                                 # systems-first package (sf-* CLIs)
   deploy/
     Dockerfile                   # Container (Ubuntu 24.04)
     docker-compose.yml           # Service orchestration
