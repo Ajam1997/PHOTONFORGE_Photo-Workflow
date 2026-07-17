@@ -101,6 +101,27 @@ Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`po
 4. **Pinned Darktable URLs/hashes rot** → manifest + cache + `--offline` + provenance lock + documented refresh procedure.
 5. **darktablerc clobber on Darktable exit** → self-location (never bake absolute paths); write `darktablerc` only while Darktable is closed; keep `cli_path`/`models_path` blank.
 
+## Android companion (continuity note, 2026-07-17)
+
+The same cartridge is also the target of the **Android Direct-Attach app** (PR #141,
+`dev-docs/architecture/android-port-brief.md`): a Kotlin app that runs the sorting
+pipeline + a cull/review/export UI when the drive or an SD card plugs straight into a
+phone. Points of contact with this plan:
+
+- **The exFAT decision above is load-bearing for Android too** — Android mounts
+  exFAT/FAT32 only, never ext4. Fold Android into the ADR's justification
+  (`ADR-00X-exfat-cross-os-cartridge`): one filesystem unblocks Windows, macOS, *and*
+  the phone.
+- **KPM-1.4 re-validation on exFAT** should include the phone as a host (SAF-mediated
+  writes count toward the 50 safe-eject cycles).
+- **Layout compatibility:** the Android app reads shoot folders at root, `models/`
+  (ONNX files are data — loadable from the drive under W^X), and `photonforge.db`;
+  it writes **XMP sidecars only** and never touches `dt-config/library.db` — desktop
+  darktable reconciles phone culls from `xmp:Rating`/`lr:hierarchicalSubject` in the
+  sidecars. `apps/`, `runtime/`, and `dt-config/` are desktop-only payloads the phone
+  ignores. No task in this plan changes for Android; this note pins the contract so
+  neither plan drifts.
+
 ## Verification (end-to-end)
 
 1. `pytest tests/test_portable.py` and the CI matrix smoke of the frozen CLI (both OSes).
