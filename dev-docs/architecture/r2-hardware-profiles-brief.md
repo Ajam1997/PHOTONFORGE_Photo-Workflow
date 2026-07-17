@@ -393,3 +393,16 @@ direction; each is the next concrete step toward making R2 buildable.
    committing earlier to the own-pipeline endgame (Phase 2/3). Either way, keep
    `renderer_bridge` engine-agnostic so the choice stays reversible. RapidRAW is already
    evaluated and rejected as the engine (§7.1).
+
+5. **Profile 3 — Direct-Attach Mobile (Android).** A Kotlin Android app hosting the
+   pipeline + a cull/review/export UI when a card or cartridge plugs straight into the
+   phone — see `android-port-brief.md`. It extends (does not replace) Profile 1's
+   "phone = remote viewer" role, and is orthogonal to the pixel-engine choice above:
+   darktable does not run on Android, the phone renders embedded previews only and never
+   edits. Two continuity items it raises for this brief:
+   - **FR-1.9 cartridge filesystem**: ext4 cartridges are unreadable on Android; the
+     Android brief recommends migrating cartridges to **exFAT** (needs @systems_lead
+     sign-off — see `android-port-brief.md` §9.2).
+   - Cull results travel as **standard XMP** (`xmp:Rating`, `xmp:Label`,
+     `lr:hierarchicalSubject`) written parse-modify-write, a superset of the desktop
+     `photon:*`-only sidecars, so desktop darktable ingests them with no bridge code.
