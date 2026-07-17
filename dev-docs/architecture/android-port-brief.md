@@ -91,10 +91,18 @@ needed at runtime (prototypes are precomputed). Florence-2 additionally needs
 `tokenizer.json` (BPE decode), `preprocessor_config.json`, and the 4-session
 autoregressive loop — by far the highest-effort component to port.
 
-**Recommendation: defer Florence-2 naming off the phone (Phase 6 stretch).** Culling
-doesn't need captions, it drops the model payload ~4×, and `semantic_name` can be filled
-in later by the desktop/appliance run over the same cartridge (the `stages` column
-already models "scored but not named").
+**Recommendation: naming ships as an in-app toggle, default OFF** (operator decision,
+PR #141 review). Culling doesn't need captions, and keeping Florence-2 out of the APK
+drops the bundled payload ~4× — so the APK carries only the scoring models, and the
+naming toggle activates when the Florence-2 files are reachable: loaded straight from
+the cartridge's `models/florence2_int8/` (ONNX files are data — W^X permits this) or
+from a one-time on-device provision copy. Expectation-setting: there is **no accessible
+NPU on the Pixel** (Tensor TPU is closed, NNAPI deprecated — kickoff constraint #3), so
+naming runs on CPU/XNNPACK; Florence-2 INT8 does ~2.5 s/image on an AVX2 i7, so plan for
+**roughly 3–8 s/image on the Tensor G4's CPU** until Phase 2 measures it. With the
+toggle on, naming runs as a low-priority pass after scoring (batch/charging-friendly);
+`semantic_name` can still be filled in later by the desktop/appliance over the same
+cartridge (the `stages` column already models "scored but not named").
 
 ---
 
@@ -280,7 +288,7 @@ inference matters**, which the decode-bound analysis says it won't. No NNAPI, no
 | **3 — Ingest** | SAF/libaums, new-file detection (`(original_name, exif_timestamp)` parity), foreground service + progress notification, resume-on-interrupt (stage tokens), safe-eject flow | full card processed unattended with screen off; interrupted run resumes |
 | **4 — Review UI** | Compose dark grid of previews; sort/filter: stars, subject, type, needs_review, session, date, master score; keep/reject + star overrides → `xmp:Rating` parse-modify-write | cull a real shoot end-to-end on the phone; overrides visible in desktop darktable |
 | **5 — Export & share** | Quick JPEG export = embedded preview + EXIF copy → MediaStore `Pictures/PhotonForge` (instant); share-sheet intent (Google Photos target) single/multi-select | export + "send to Google Photos" works offline-then-sync; stretch: full-res export via LibRaw NDK |
-| **6 — Stretch** | Florence-2 naming on-device; GPU delegate eval (profiling-gated); user-calibrated `training_weights.db` consumption from cartridge | — |
+| **6 — Stretch** | Florence-2 naming toggle (default off; models from cartridge `models/` or on-device provision; settings switch lands in the Phase 4 UI, engine lands here); GPU delegate eval (profiling-gated); user-calibrated `training_weights.db` consumption from cartridge | naming produces desktop-identical `semantic_name` on a sample set; toggle honored mid-batch |
 
 Google Photos: the share-sheet (`ACTION_SEND`/`SEND_MULTIPLE` with `image/jpeg`) reaches
 Google Photos with zero permissions, no OAuth, and no cloud code in the app — that is the
