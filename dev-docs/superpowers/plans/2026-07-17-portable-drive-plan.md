@@ -68,6 +68,26 @@ Creates: `dt-config/` (plugin + luarc + baseline darktablerc with `cli_path`/`mo
 ### Task 4 — exFAT provisioning (`src/photo_workflow/provision.py`)
 Default `mkfs.exfat` (keep `--fs ext4`); update the `mount_point` derivation. Note: exFAT tools (`exfatprogs`/`mkfs.exfat`) must be present on the provisioning host.
 
+### Task 4b — Migration of existing ext4 cartridges (`photo-cartridge migrate-fs`)
+Reformatting is destructive, so migration is copy-out → reformat → copy-back. All
+cartridge state is plain files (shoot folders + XMP, `photonforge.db`,
+`training_weights.db`, corpus JSONL, `dt-config/`) — nothing depends on ext4 semantics
+(DBs are opened by path; POSIX perms are irrelevant to the pipeline). Keep the same
+`PHOTON-XXX` label so `extract_cartridge_id` and existing naming continue unchanged.
+- [ ] `photo-cartridge migrate-fs <device> --staging <dir>` (thin click wrapper, logic in
+      `portable.py`): (1) refuse if the cartridge is mounted busy / mid-run (check
+      `.pid` files + open WAL); (2) `rsync -a` cartridge → staging, then a `rsync -c`
+      checksum verify pass; (3) reprovision the device via the Task-4 exFAT path with
+      the **same label**; (4) `rsync -a` staging → cartridge; (5) `PRAGMA
+      integrity_check` on `photonforge.db` (and `dt-config/library.db` if present) +
+      compare file count/bytes vs staging; (6) leave staging in place until the user
+      confirms (`--keep-staging` default on).
+- [ ] Requires ≥1× cartridge-used-bytes free at `--staging`; error out up front if not
+      (`shutil.disk_usage`). Cartridge-to-cartridge variant: point `--staging` at a
+      second mounted PHOTON drive.
+- [ ] Document in `docs/portable-drive-setup.md`: migrate one cartridge, run the KPM-1.4
+      eject soak on it, then batch the rest.
+
 ### Task 5 — Frozen-aware model root (`src/photo_workflow/pipeline.py` + `naming.py`)
 Add `_default_model_root()`: when `getattr(sys, "frozen", False)`, resolve models relative to `Path(sys.executable)` (→ `<DRIVE>/models`) instead of `Path(__file__)...` (which breaks when frozen). Wire into the 5 `model_dir is None` fallbacks (pipeline.py ~490/727/907, naming.py ~446/463). Belt-and-suspenders with `runner.lua` always passing `--model-dir`.
 
