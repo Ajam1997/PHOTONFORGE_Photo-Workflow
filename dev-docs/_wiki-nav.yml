@@ -55,6 +55,7 @@ sections:
       - { label: "Module BDD", page: architecture/module-bdd.md }
       - { label: "R2 Model Stack Investigation", page: architecture/r2-model-stack-investigation.md }
       - { label: "R2 Hardware Profiles", page: architecture/r2-hardware-profiles-brief.md }
+      - { label: "Android Port Brief", page: architecture/android-port-brief.md }
 
   - title: Research
     items:
