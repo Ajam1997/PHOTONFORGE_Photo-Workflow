@@ -3,9 +3,11 @@
 **Date:** 2026-07-17
 **Status:** Phase 1 (analysis, no app code) — awaiting operator review before Phase 2.
 **Author:** @systems_lead session — Android port kickoff
-**Related:** `r2-hardware-profiles-brief.md` (R2 deployment profiles; this brief adds a
-direct-attach mobile profile), PR #108 (pixel-engine selection), UN-031 (cartridges as
-portable libraries), FR-1.9 (cartridge format).
+**Related:** PR #140 (self-contained portable drive plan,
+`dev-docs/superpowers/plans/2026-07-17-portable-drive-plan.md` — the companion desktop
+half of the same cartridge), `r2-hardware-profiles-brief.md` (R2 deployment profiles;
+this brief adds a direct-attach mobile profile), PR #108 (pixel-engine selection),
+UN-031 (cartridges as portable libraries), FR-1.9 (cartridge format).
 
 ---
 
@@ -304,26 +306,29 @@ The pixel-engine question (PR #108) is **orthogonal and unaffected**: the phone 
 renders edits — it displays embedded previews only. darktable-cli/RawTherapee/own-pipeline
 remain desktop/appliance decisions.
 
-### 9.2 One real conflict: cartridge filesystem (FR-1.9)
+### 9.2 Cartridge filesystem (FR-1.9) — resolved by the portable-drive plan (PR #140)
 
 FR-1.9 specifies cartridges as **ext4** labeled `PHOTON-XXX`. Android does not mount
-ext4 external media, and libaums implements FAT/exFAT only — so a phone cannot read a
-PHOTON cartridge today. (Camera SD cards are exFAT and work fine, so Phases 2–3 are
-unblocked regardless.) Options:
+ext4 external media, and libaums implements FAT/exFAT only — so a phone cannot read an
+ext4 PHOTON cartridge. (Camera SD cards are exFAT and work fine, so Phases 2–3 are
+unblocked regardless.)
 
-- **A (recommended): migrate cartridges to exFAT.** Readable by Android, Windows, macOS,
-  and Linux — strictly more portable, which is UN-031's point. SQLite on exFAT is fine
-  with `journal_mode=DELETE` (already the setting, chosen for exactly this class of
-  reason). Costs: no POSIX permissions/journaling on the cartridge; `mkfs`/labels in
-  `provision.py`/`manage_ssd.sh` change; KPM-1.4 (50 safe-eject cycles) must be re-run
-  on exFAT.
-- **B: keep ext4; phone handles SD cards only** and sees cartridge content only via the
-  appliance/desktop (viewer requirement on cartridges unmet).
-- **C: userspace ext4 on Android** — no maintained implementation; reject.
+**The self-contained portable-drive plan (PR #140) independently reached the same
+answer for Windows compatibility: cartridges become a single GPT exFAT partition**
+(`mkfs.exfat` default in `provision.py`, ext4 kept behind `--fs ext4`), with an ADR
+(`ADR-00X-exfat-cross-os-cartridge`) recording the decision. Android compatibility is a
+second, mutually reinforcing justification for that ADR — one filesystem decision
+unblocks Windows, macOS, *and* the phone. Two Android-specific riders on that plan:
 
-This is a requirements-level change (FR-1.9/UN-031) → **@systems_lead sign-off needed**;
-flagged rather than absorbed silently. Recommendation is A, sequenced before Phase 4's
-"view photos off the cartridge" goal (Phases 2–3 proceed on SD cards meanwhile).
+- **KPM-1.4 re-validation on exFAT** (already in PR #140's checklist) should count the
+  phone as a host: 50 safe-eject cycles must include SAF-mediated writes from Android.
+- The Android app treats the PR #140 drive layout as read-mostly: it reads shoot folders,
+  `models/`, `photonforge.db`, and writes **XMP sidecars only** — never
+  `dt-config/library.db` (desktop darktable reconciles from XMP). `apps/`, `runtime/`,
+  `dt-config/` are desktop-only payloads the phone ignores. Bonus: since `.onnx` files
+  are data (not executables), W^X permits loading the models straight from the
+  cartridge's `models/` dir — the APK's bundled copies become a fallback for SD-only
+  sessions, not the only source.
 
 ### 9.3 Sidecar hardening feeds back to desktop
 
@@ -347,7 +352,8 @@ trips complexity triggers → separate PR, not the roundup).
    kernels later (all uses are enumerable).
 5. **Thermals**: sustained multi-model inference + decode on a phone in the field.
    `getThermalHeadroom` instrumentation is in from day one; batch pacing if needed.
-6. **Cartridge exFAT migration** (§9.2) — requirements decision, not a code decision.
+6. **Cartridge exFAT migration** (§9.2) — decided in the portable-drive plan (PR #140);
+   residual risk is the KPM-1.4 exFAT soak, shared with that plan.
 
 ---
 
