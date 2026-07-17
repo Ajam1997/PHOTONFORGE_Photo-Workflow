@@ -78,51 +78,180 @@ def _xml_escape(value: object) -> str:
     return escape(str(value), {'"': "&quot;"})
 
 
-def _write_xmp(record: "PhotoRecord") -> None:
-    xmp_path = xmp_sidecar_path(record.path)
+_RDF_NS = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+_XPACKET_HEADER = "<?xpacket begin='﻿' id='W5M0MpCehiHzreSzNTczkc9d'?>"
+_XPACKET_FOOTER = "<?xpacket end='w'?>"
+
+
+def _photon_properties(record: "PhotoRecord") -> tuple[list[tuple[str, str]], list[str]]:
+    """Photon property values in template order, plus the Genres bag entries.
+
+    Single source for both write paths so the merged sidecar and the fresh
+    template can never drift apart.
+    """
     original_filename = record.metadata.get("original_filename", record.path.name)
     ss = record.sub_scores
-
-    # Build genres rdf:Bag (multi-genre entries)
-    genres_bag = ""
-    if hasattr(record, "genres") and record.genres:
-        genres_bag = "\n        ".join(
-            f'<rdf:li>{_xml_escape(g)}</rdf:li>' for g, _ in record.genres
-        )
+    if getattr(record, "genres", None):
+        genres = [str(g) for g, _ in record.genres]
     else:
-        # Fallback to primary genre
-        genres_bag = f'<rdf:li>{_xml_escape(record.genre)}</rdf:li>'
+        genres = [str(record.genre)]
+    props = [
+        ("SharpnessScore", str(record.sharpness_score)),
+        ("CompositionScore", str(record.composition_score)),
+        ("ExposureScore", str(record.exposure_score)),
+        ("SemanticName", str(record.semantic_name)),
+        ("OriginalFilename", str(original_filename)),
+        ("SessionID", str(record.session_id)),
+        ("IsDuplicate", str(record.is_duplicate).lower()),
+        ("Genre", str(record.genre)),
+        ("GenreConfidence", str(record.genre_confidence)),
+        ("MasterScore", str(record.master_score)),
+        ("NeedsReview", "true" if getattr(record, "needs_review", False) else "false"),
+        ("EyeSharpness", str(ss.get("eye_sharpness", 0.0))),
+        ("SubjectSharpness", str(ss.get("subject_sharpness", 0.0))),
+        ("SubjectIsolation", str(ss.get("subject_isolation", 0.0))),
+        ("BlurType", str(ss.get("blur_type", ""))),
+        ("CompositionRoT", str(ss.get("composition_rot", 0.0))),
+        ("Symmetry", str(ss.get("symmetry", 0.0))),
+        ("LeadingLines", str(ss.get("leading_lines", 0.0))),
+        ("NegativeSpace", str(ss.get("negative_space", 0.0))),
+        ("ZoneEntropy", str(ss.get("zone_entropy", 0.0))),
+        ("DynamicRange", str(ss.get("dynamic_range", 0.0))),
+        ("ExposureStyle", str(ss.get("exposure_style", ""))),
+        ("FaceExposure", str(ss.get("face_exposure", 0.0))),
+        ("AestheticScore", str(ss.get("aesthetic_clip", 0.0))),
+    ]
+    return props, genres
 
-    needs_review = "true" if getattr(record, "needs_review", False) else "false"
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(path)
+
+
+def _merge_photon_into_sidecar(
+    xmp_path: Path, props: list[tuple[str, str]], genres: list[str]
+) -> str | None:
+    """Return the existing sidecar with only the photon:* block replaced.
+
+    Everything outside the photon namespace — darktable:history_*, xmp:Rating,
+    masks, unknown namespaces — is preserved. Returns None if the file cannot
+    be parsed, so the caller can fall back safely.
+
+    Serialization notes: ElementTree hoists all xmlns declarations onto the
+    root element (semantically identical XML; exiv2/darktable parse it fine),
+    and prefixes are kept by registering every declaration found in the file.
+    """
+    import re
+
+    try:
+        text = xmp_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    for prefix, uri in re.findall(
+        r'xmlns:([A-Za-z_][\w.-]*)\s*=\s*["\']([^"\']+)["\']', text
+    ):
+        if prefix != "xml":
+            ET.register_namespace(prefix, uri)
+    ET.register_namespace("photon", _PHOTON_NS)
+    try:
+        parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True, insert_pis=True))
+        root = ET.fromstring(text, parser=parser)
+    except ET.ParseError:
+        return None
+    if "xmpmeta" not in root.tag:
+        return None
+    desc = root.find(f".//{{{_RDF_NS}}}Description")
+    if desc is None:
+        return None
+
+    photon_clark = f"{{{_PHOTON_NS}}}"
+    for child in list(desc):
+        if isinstance(child.tag, str) and child.tag.startswith(photon_clark):
+            desc.remove(child)
+    for attr in [a for a in desc.attrib if a.startswith(photon_clark)]:
+        del desc.attrib[attr]
+
+    new_elems: list[ET.Element] = []
+    for name, value in props:
+        el = ET.Element(f"{photon_clark}{name}")
+        el.text = value
+        new_elems.append(el)
+        if name == "MasterScore":
+            genres_el = ET.Element(f"{photon_clark}Genres")
+            bag = ET.SubElement(genres_el, f"{{{_RDF_NS}}}Bag")
+            for genre in genres:
+                li = ET.SubElement(bag, f"{{{_RDF_NS}}}li")
+                li.text = genre
+            new_elems.append(genres_el)
+
+    indent, closing = "\n      ", "\n    "
+    for el in new_elems:
+        el.tail = indent
+    new_elems[-1].tail = closing
+    if len(desc):
+        desc[-1].tail = indent
+    else:
+        desc.text = indent
+    desc.extend(new_elems)
+
+    body = ET.tostring(root, encoding="unicode")
+    return f"{_XPACKET_HEADER}\n{body}\n{_XPACKET_FOOTER}\n"
+
+
+def _write_xmp(record: "PhotoRecord") -> None:
+    xmp_path = xmp_sidecar_path(record.path)
+    props, genres = _photon_properties(record)
+
+    if xmp_path.exists():
+        merged = _merge_photon_into_sidecar(xmp_path, props, genres)
+        if merged is not None:
+            _atomic_write_text(xmp_path, merged)
+            return
+        # Unparseable sidecar: preserve it before writing fresh, never destroy.
+        backup = xmp_path.with_name(xmp_path.name + ".bak")
+        try:
+            backup.write_bytes(xmp_path.read_bytes())
+            logger.warning(
+                "Sidecar %s is not parseable XML; preserved as %s and rewriting fresh",
+                xmp_path,
+                backup,
+            )
+        except OSError as exc:
+            logger.error("Could not back up unparseable sidecar %s: %s; skipping", xmp_path, exc)
+            return
+
+    values = dict(props)
+    genres_bag = "\n        ".join(f"<rdf:li>{_xml_escape(g)}</rdf:li>" for g in genres)
     xmp_content = XMP_TEMPLATE.format(
-        sharpness=record.sharpness_score,
-        composition=record.composition_score,
-        exposure=record.exposure_score,
-        semantic_name=_xml_escape(record.semantic_name),
-        original_filename=_xml_escape(original_filename),
-        session_id=_xml_escape(record.session_id),
-        is_duplicate=str(record.is_duplicate).lower(),
-        genre=_xml_escape(record.genre),
-        genre_confidence=record.genre_confidence,
-        master_score=record.master_score,
+        sharpness=values["SharpnessScore"],
+        composition=values["CompositionScore"],
+        exposure=values["ExposureScore"],
+        semantic_name=_xml_escape(values["SemanticName"]),
+        original_filename=_xml_escape(values["OriginalFilename"]),
+        session_id=_xml_escape(values["SessionID"]),
+        is_duplicate=values["IsDuplicate"],
+        genre=_xml_escape(values["Genre"]),
+        genre_confidence=values["GenreConfidence"],
+        master_score=values["MasterScore"],
         genres_bag=genres_bag,
-        needs_review=needs_review,
-        eye_sharpness=ss.get("eye_sharpness", 0.0),
-        subject_sharpness=ss.get("subject_sharpness", 0.0),
-        subject_isolation=ss.get("subject_isolation", 0.0),
-        blur_type=_xml_escape(ss.get("blur_type", "")),
-        composition_rot=ss.get("composition_rot", 0.0),
-        symmetry=ss.get("symmetry", 0.0),
-        leading_lines=ss.get("leading_lines", 0.0),
-        negative_space=ss.get("negative_space", 0.0),
-        zone_entropy=ss.get("zone_entropy", 0.0),
-        dynamic_range=ss.get("dynamic_range", 0.0),
-        exposure_style=_xml_escape(ss.get("exposure_style", "")),
-        face_exposure=ss.get("face_exposure", 0.0),
-        aesthetic_score=ss.get("aesthetic_clip", 0.0),
+        needs_review=values["NeedsReview"],
+        eye_sharpness=values["EyeSharpness"],
+        subject_sharpness=values["SubjectSharpness"],
+        subject_isolation=values["SubjectIsolation"],
+        blur_type=_xml_escape(values["BlurType"]),
+        composition_rot=values["CompositionRoT"],
+        symmetry=values["Symmetry"],
+        leading_lines=values["LeadingLines"],
+        negative_space=values["NegativeSpace"],
+        zone_entropy=values["ZoneEntropy"],
+        dynamic_range=values["DynamicRange"],
+        exposure_style=_xml_escape(values["ExposureStyle"]),
+        face_exposure=values["FaceExposure"],
+        aesthetic_score=values["AestheticScore"],
     )
-    xmp_path.write_text(xmp_content, encoding="utf-8")
+    _atomic_write_text(xmp_path, xmp_content)
 
 
 def validate_xmp(xmp_path: Path) -> bool:
