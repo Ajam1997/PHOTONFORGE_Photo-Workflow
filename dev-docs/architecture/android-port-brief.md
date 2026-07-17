@@ -270,12 +270,32 @@ sampled per batch, battery temp, and throttle events. Emitted as NDJSON to logca
 CSV on the device — this doubles as the benchmark harness and the A/B calibration tool
 (§4.3).
 
-### 7.4 Acceleration seam (Pixel 11 readiness)
+### 7.4 Acceleration seam — NPU-ready for the Pixel 11 (operator decision, PR #141)
 
-`InferenceEngine` exposes `load(model): Session` / `run(session, tensors)`. Today:
-`OrtCpuEngine` (XNNPACK). Later candidates behind the same interface: ORT GPU/OpenCL EPs
-or TFLite-GPU (requires ONNX→TFLite conversion) — **only if Phase 2 profiling shows
-inference matters**, which the decode-bound analysis says it won't. No NNAPI, no TPU.
+The operator will upgrade to a Pixel 11, expected to open third-party NPU access. The
+app is built so that adopting it is a bounded engine swap, not a refactor:
+
+- **`InferenceEngine` is the single seam**: `load(model): Session` / `run(session,
+  tensors)`, selected **per model** at session creation. Pipeline code never imports an
+  engine — it asks an `EngineRegistry` that probes device capabilities at startup and
+  applies a per-model preference list (e.g. `florence → [npu, cpu]`, `yunet → [cpu]`).
+- **Automatic CPU fallback**: any engine load/run failure demotes that model to
+  `OrtCpuEngine` (XNNPACK) for the session and logs it — the pipeline never hard-fails
+  on an acceleration bug. CPU stays the correctness reference.
+- **Models stay NPU-friendly**: all inference is ONNX INT8 with plain conv/attention ops
+  (no custom ops in any of the five scoring models), which is exactly what NPU compilers
+  want. No model change is anticipated for the swap; per-vendor compiled/cached variants
+  slot in beside the `.onnx` files if the eventual SDK wants them.
+- **Delivery vehicle is deliberately undecided** until the real Pixel 11 SDK exists:
+  candidates are an ONNX Runtime vendor EP (QNN-style), LiteRT/TFLite with an NPU
+  delegate (requires ONNX→TFLite conversion), or whatever Google ships. Nothing in app
+  code assumes CPU beyond the `OrtCpuEngine` class itself.
+- **The Phase 2 harness logs timings per engine per model**, so the day the NPU engine
+  lands, its win is measured with the same instrument — and the naming toggle (§3) is
+  the biggest beneficiary (Florence-2 is the one genuinely inference-heavy stage).
+
+Today's baseline remains CPU/XNNPACK; GPU EPs remain a profiling-gated option. Still no
+NNAPI (deprecated) and no Tensor-TPU attempts on the Pixel 9 (closed).
 
 ---
 
@@ -288,7 +308,7 @@ inference matters**, which the decode-bound analysis says it won't. No NNAPI, no
 | **3 — Ingest** | SAF/libaums, new-file detection (`(original_name, exif_timestamp)` parity), foreground service + progress notification, resume-on-interrupt (stage tokens), safe-eject flow | full card processed unattended with screen off; interrupted run resumes |
 | **4 — Review UI** | Compose dark grid of previews; sort/filter: stars, subject, type, needs_review, session, date, master score; keep/reject + star overrides → `xmp:Rating` parse-modify-write | cull a real shoot end-to-end on the phone; overrides visible in desktop darktable |
 | **5 — Export & share** | Quick JPEG export = embedded preview + EXIF copy → MediaStore `Pictures/PhotonForge` (instant); share-sheet intent (Google Photos target) single/multi-select | export + "send to Google Photos" works offline-then-sync; stretch: full-res export via LibRaw NDK |
-| **6 — Stretch** | Florence-2 naming toggle (default off; models from cartridge `models/` or on-device provision; settings switch lands in the Phase 4 UI, engine lands here); GPU delegate eval (profiling-gated); user-calibrated `training_weights.db` consumption from cartridge | naming produces desktop-identical `semantic_name` on a sample set; toggle honored mid-batch |
+| **6 — Stretch** | Florence-2 naming toggle (default off; models from cartridge `models/` or on-device provision; settings switch lands in the Phase 4 UI, engine lands here); GPU delegate eval (profiling-gated); **Pixel 11 NPU engine** behind `InferenceEngine` (§7.4, hardware-gated on the device/SDK shipping); user-calibrated `training_weights.db` consumption from cartridge | naming produces desktop-identical `semantic_name` on a sample set; toggle honored mid-batch; NPU engine ≥2× CPU on Florence-2 or it stays off by default |
 
 Google Photos: the share-sheet (`ACTION_SEND`/`SEND_MULTIPLE` with `image/jpeg`) reaches
 Google Photos with zero permissions, no OAuth, and no cloud code in the app — that is the
