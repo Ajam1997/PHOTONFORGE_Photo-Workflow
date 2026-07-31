@@ -347,3 +347,107 @@ def test_write_keywords_refuses_when_darktable_lockfile_present(tmp_path: Path) 
     lock.unlink()
     write_darktable_keywords(lib, "IMG_0001.ARW", ["photon|subject|people"])
     assert read_darktable_keywords(lib, "IMG_0001.ARW") == ["photon|subject|people"]
+
+
+# ---------------------------------------------------------------------------
+# XMP parse-modify-write (darktable edit-history preservation)
+# ---------------------------------------------------------------------------
+
+_RDF = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+_XMP = "http://ns.adobe.com/xap/1.0/"
+_DT = "http://darktable.sf.net/"
+
+_DT_SIDECAR = """<?xpacket begin='﻿' id='W5M0MpCehiHzreSzNTczkc9d'?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="XMP Core 4.4.0-Exiv2">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about=""
+    xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+    xmlns:darktable="http://darktable.sf.net/"
+    xmp:Rating="2"
+    darktable:xmp_version="5"
+    darktable:history_end="1">
+   <darktable:history>
+    <rdf:Seq>
+     <rdf:li darktable:operation="exposure" darktable:params="abc123"/>
+    </rdf:Seq>
+   </darktable:history>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end='w'?>
+"""
+
+
+def test_xmp_merge_preserves_darktable_history(tmp_path: Path) -> None:
+    """Regression: _write_xmp used to overwrite the whole sidecar, destroying
+    darktable's edit stack, rating, and any non-photon metadata."""
+    import xml.etree.ElementTree as ET
+
+    rec = _make_record(tmp_path)
+    xmp_path = xmp_sidecar_path(rec.path)
+    xmp_path.write_text(_DT_SIDECAR, encoding="utf-8")
+
+    _write_xmp(rec)
+
+    content = xmp_path.read_text()
+    assert "<photon:Genre>wildlife</photon:Genre>" in content
+    assert "golden_hour_landscape" in content
+    assert validate_xmp(xmp_path) is True
+
+    root = ET.fromstring(content)
+    desc = root.find(f".//{{{_RDF}}}Description")
+    assert desc is not None
+    assert desc.attrib.get(f"{{{_XMP}}}Rating") == "2"
+    assert desc.attrib.get(f"{{{_DT}}}history_end") == "1"
+    hist = desc.find(f"{{{_DT}}}history")
+    assert hist is not None
+    li = hist.find(f".//{{{_RDF}}}li")
+    assert li is not None
+    assert li.attrib.get(f"{{{_DT}}}operation") == "exposure"
+    assert li.attrib.get(f"{{{_DT}}}params") == "abc123"
+
+
+def test_xmp_merge_is_idempotent(tmp_path: Path) -> None:
+    rec = _make_record(tmp_path)
+    _write_xmp(rec)
+    rec.sharpness_score = 0.5
+    _write_xmp(rec)
+    _write_xmp(rec)
+
+    content = xmp_sidecar_path(rec.path).read_text()
+    # exactly one element: one open + one close tag
+    assert content.count("SharpnessScore") == 2
+    assert "<photon:SharpnessScore>0.5</photon:SharpnessScore>" in content
+    assert content.count("<photon:Genres>") == 1
+    assert validate_xmp(xmp_sidecar_path(rec.path)) is True
+
+
+def test_xmp_merge_updates_values_in_existing_dt_sidecar(tmp_path: Path) -> None:
+    rec = _make_record(tmp_path)
+    xmp_path = xmp_sidecar_path(rec.path)
+    xmp_path.write_text(_DT_SIDECAR, encoding="utf-8")
+    _write_xmp(rec)
+
+    rec.sharpness_score = 0.11
+    rec.genre = "landscape"
+    _write_xmp(rec)
+
+    content = xmp_path.read_text()
+    assert "<photon:SharpnessScore>0.11</photon:SharpnessScore>" in content
+    assert "<photon:Genre>landscape</photon:Genre>" in content
+    assert content.count("SharpnessScore") == 2
+    # darktable state still intact after two merge passes
+    assert 'darktable:operation="exposure"' in content or "exposure" in content
+
+
+def test_xmp_unparseable_sidecar_backed_up_not_destroyed(tmp_path: Path) -> None:
+    rec = _make_record(tmp_path)
+    xmp_path = xmp_sidecar_path(rec.path)
+    xmp_path.write_text("<not-xml", encoding="utf-8")
+
+    _write_xmp(rec)
+
+    assert validate_xmp(xmp_path) is True
+    backup = xmp_path.with_name(xmp_path.name + ".bak")
+    assert backup.exists()
+    assert backup.read_text() == "<not-xml"
