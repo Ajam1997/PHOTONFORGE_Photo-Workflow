@@ -68,8 +68,34 @@ Creates: `dt-config/` (plugin + luarc + baseline darktablerc with `cli_path`/`mo
 ### Task 4 — exFAT provisioning (`src/photo_workflow/provision.py`)
 Default `mkfs.exfat` (keep `--fs ext4`); update the `mount_point` derivation. Note: exFAT tools (`exfatprogs`/`mkfs.exfat`) must be present on the provisioning host.
 
+### Task 4a — Cartridge backup/archive (`photo-cartridge backup`) — PREREQUISITE for 4b
+No backup capability exists anywhere in the repo today (2026-07-31 audit: nothing in
+`scripts/` or `src/photo_workflow/`); the only copy logic is Task 4b's one-shot staging.
+Per operator direction (PR #141 review), a general backup/archive feature lands BEFORE
+any migration runs — migration then consumes it instead of ad-hoc staging.
+- [ ] `photo-cartridge backup <drive> --dest <dir>` (logic in `portable.py`, thin click
+      wrapper): rsync-style copy of the cartridge into a dated snapshot
+      `<dest>/<PHOTON-XXX>/<UTC timestamp>/`, followed by a checksum verify pass;
+      writes `snapshot-manifest.json` (cartridge label/id, file count, total bytes,
+      sha256 of `photonforge.db`/`training_weights.db`/`dt-config/library.db`,
+      tool version, started/finished timestamps).
+- [ ] `--state-only` mode: only the small mutable state (`photonforge.db`,
+      `training_weights.db`, corpus `*.jsonl`, `dt-config/`, `*.xmp` sidecars) —
+      cheap frequent archives without re-copying immutable RAWs. Full mode is
+      incremental against the previous snapshot (rsync link-dest style) so repeat
+      backups don't duplicate unchanged RAWs.
+- [ ] `photo-cartridge verify-backup <snapshot>` — re-checksum a snapshot against its
+      manifest (and optionally against the live cartridge).
+- [ ] Refuse to run while the cartridge is mid-pipeline (`.pid` files / DB busy) —
+      shared guard with 4b's migrate-fs.
+- [ ] Retention: `--keep N` prunes oldest snapshots per cartridge after a successful
+      verified backup; never prunes the snapshot just written.
+- [ ] Tests alongside `tests/test_portable.py`: snapshot tree + manifest correctness,
+      state-only file set, verify-pass/verify-fail on a tampered snapshot, busy-guard,
+      retention pruning.
+
 ### Task 4b — Migration of existing ext4 cartridges (`photo-cartridge migrate-fs`)
-Reformatting is destructive, so migration is copy-out → reformat → copy-back. All
+**Requires a fresh verified Task 4a backup — `migrate-fs` refuses to run without one (`--backup <snapshot>` pointing at a snapshot whose manifest verifies and is newer than the cartridge's last write).** Reformatting is destructive, so migration is copy-out → reformat → copy-back; the copy-out step reuses the Task 4a snapshot code path. All
 cartridge state is plain files (shoot folders + XMP, `photonforge.db`,
 `training_weights.db`, corpus JSONL, `dt-config/`) — nothing depends on ext4 semantics
 (DBs are opened by path; POSIX perms are irrelevant to the pipeline). Keep the same
