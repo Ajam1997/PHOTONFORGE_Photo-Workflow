@@ -21,3 +21,9 @@ yolov8n.pt
 site/
 corpus/
 training_data/
+
+# Android (Phase 2 app)
+android/.gradle/
+android/build/
+android/*/build/
+android/local.properties

@@ -83,6 +83,10 @@ src/photo_workflow/  (22 modules)
   naming.py, raw_loader.py, darktable_bridge.py,
   photondb.py, cartridge.py, volume.py, provision.py
 lua/photonforge/ -- Darktable Lua plugin (panel, runner, tag_manager, applicator, json, config)
+android/   -- Kotlin Android port (Phase 2 headless core): core/ (pure-JVM scoring math,
+             golden-tested vs the Python reference), app/ (ORT + SAF + debug harness),
+             tools/ (asset/golden generators). See android/README.md + android-port-brief.md
+
 scripts/   -- safe_eject.sh, manage_ssd.sh, install_polkit.sh, remote_test.sh (doc machinery now in the systems-first package, sf-* CLIs)
 deploy/    -- Dockerfile, docker-compose.yml
 tests/     -- fixtures/, test_*.py
