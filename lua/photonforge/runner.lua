@@ -45,13 +45,39 @@ end
 -- venv, so derive it from cli_path instead of making the user configure a
 -- second path. cartridge_path overrides, for a non-standard layout where the
 -- name substitution does not apply.
-local function cartridge_cli()
+local function file_exists(p)
+  local fh = io.open(p, "r")
+  if fh then fh:close(); return true end
+  return false
+end
+
+local function cartridge_cli(log_fn)
+  local function note(msg)
+    if log_fn then log_fn("[cartridge] " .. msg) end
+  end
+
+  -- A configured path is only honoured if it actually opens as a file. Without
+  -- that check a stray value silently becomes the program name: a cartridge
+  -- drive root typed into this preference produced
+  --   "H:\\" backup "H:\\" --dest ...
+  -- and cmd reported '"H:\\"' is not recognized -- an error that says nothing
+  -- about which preference caused it.
   local explicit = config.read("cartridge_path")
-  if explicit ~= "" then return shell_quote(explicit) end
+  if explicit ~= "" then
+    if file_exists(explicit) then return shell_quote(explicit) end
+    note("ignoring 'photo-cartridge program path' (" .. explicit ..
+         "): not a file. That preference wants the photo-cartridge executable, "
+         .. "not the cartridge drive -- clear it in Preferences -> Lua options.")
+  end
+
   local p = config.read("cli_path")
   if p ~= "" then
     local sibling = p:gsub("photo%-workflow", "photo-cartridge")
-    if sibling ~= p then return shell_quote(sibling) end
+    if sibling ~= p then
+      if file_exists(sibling) then return shell_quote(sibling) end
+      note("derived " .. sibling .. " from the photo-workflow path, but it does "
+           .. "not exist; falling back to PATH.")
+    end
   end
   return "photo-cartridge"
 end
@@ -394,7 +420,7 @@ function M.launch_provision(log_fn)
   local drive = get_drive_root(dest)
   local id = config.read("cartridge_id")
   local idflag = (id ~= "" and (" --id " .. id)) or ""
-  local inner = cartridge_cli() .. ' provision ' .. shell_quote(drive) .. idflag
+  local inner = cartridge_cli(log_fn) .. ' provision ' .. shell_quote(drive) .. idflag
   log_fn(string.format("[%s] Provisioning cartridge (elevated): %s", os.date("%H:%M:%S"), inner))
   if IS_WINDOWS then
     -- UAC prompt -> elevated cmd window that stays open (/k) showing the result.
@@ -488,7 +514,7 @@ function M.launch_snapshot(log_fn)
     dt.print("PHOTONForge: set a Destination path")
     return
   end
-  local inner = cartridge_cli() .. " snapshot " .. shell_quote(root)
+  local inner = cartridge_cli(log_fn) .. " snapshot " .. shell_quote(root)
                 .. " --keep " .. tostring(config.read("snapshot_keep"))
   log_fn(string.format("[%s] Snapshotting catalog DBs (local, offline): %s",
                        os.date("%H:%M:%S"), inner))
@@ -510,7 +536,7 @@ function M.launch_backup(log_fn)
     dt.print("PHOTONForge: set a Destination path")
     return
   end
-  local inner = cartridge_cli() .. " backup " .. shell_quote(root)
+  local inner = cartridge_cli(log_fn) .. " backup " .. shell_quote(root)
                 .. " --dest " .. shell_quote(dest)
                 .. " --keep " .. tostring(config.read("backup_keep"))
   log_fn(string.format("[%s] Mirroring cartridge: %s", os.date("%H:%M:%S"), inner))
@@ -528,7 +554,7 @@ function M.launch_verify(log_fn)
     dt.print("PHOTONForge: set a Backup dest in the panel")
     return
   end
-  local inner = cartridge_cli() .. " verify-backup --dest " .. shell_quote(dest)
+  local inner = cartridge_cli(log_fn) .. " verify-backup --dest " .. shell_quote(dest)
   local root = cartridge_root()
   if root ~= "" then inner = inner .. " --root " .. shell_quote(root) end
   log_fn(string.format("[%s] Verifying newest mirror: %s", os.date("%H:%M:%S"), inner))
@@ -545,7 +571,7 @@ function M.launch_archive(log_fn)
     return
   end
   local drive = get_drive_root(config.read("dest_path"))
-  local inner = cartridge_cli() .. " archive " .. shell_quote(drive) .. flags .. " --init"
+  local inner = cartridge_cli(log_fn) .. " archive " .. shell_quote(drive) .. flags .. " --init"
   log_fn(string.format("[%s] Archiving cartridge: %s", os.date("%H:%M:%S"), inner))
   launch_terminal(inner, false, "archive")
   log_fn("[archive] Launched in a terminal window; first backup uploads everything, later ones are incremental.")
@@ -563,7 +589,7 @@ function M.launch_restore(log_fn)
   local drive = get_drive_root(config.read("dest_path"))
   local id = config.read("cartridge_id")
   local idflag = (id ~= "" and (" --id " .. id)) or ""
-  local inner = cartridge_cli() .. " restore" .. flags .. " --to " .. shell_quote(drive) .. idflag
+  local inner = cartridge_cli(log_fn) .. " restore" .. flags .. " --to " .. shell_quote(drive) .. idflag
   log_fn(string.format("[%s] Restoring cartridge (elevated): %s", os.date("%H:%M:%S"), inner))
   launch_terminal(inner, true, "restore")
   log_fn("[restore] Launched. Approve the elevation prompt; the window shows restore progress.")

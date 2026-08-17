@@ -74,6 +74,22 @@ local function last_cmd()
   return executed[#executed]
 end
 
+-- cartridge_cli() only honours a path that actually opens as a file, so the
+-- resolution tests need real ones. These are created relative to the CWD (the
+-- repo root) and removed at the end. On Linux a "F:\\..." string is simply a
+-- filename containing backslashes, which is exactly what we want for the
+-- Windows-mode section.
+local made_files = {}
+local function make_fake(path)
+  local fh = io.open(path, "w")
+  if fh then
+    fh:write("x")
+    fh:close()
+    made_files[#made_files + 1] = path
+  end
+  return path
+end
+
 -- ---------------------------------------------------------------------------
 -- Fixtures: a Linux cartridge at /media/alex/PHOTON-004
 -- ---------------------------------------------------------------------------
@@ -142,28 +158,53 @@ check(#executed == 1, "snapshot works without a backup destination")
 -- Darktable launches as a GUI, so its subprocess PATH excludes the venv's
 -- Scripts dir. A bare `photo-cartridge` dies with "not recognized" inside the
 -- terminal the button just opened -- which is exactly what shipped once.
-prefs.cli_path = "F:\\repo\\.venv\\Scripts\\photo-workflow.exe"
+local fake_wf = make_fake("./photo-workflow.testbin")
+make_fake("./photo-cartridge.testbin")
+prefs.cli_path = fake_wf
 reset()
 runner.launch_snapshot(log_fn)
-contains(last_cmd(), "photo-cartridge.exe", "snapshot uses the resolved exe, not the bare name")
-contains(last_cmd(), "F:\\repo\\.venv\\Scripts\\", "snapshot keeps the venv directory")
-check(last_cmd():find("[^\\\\]photo%-cartridge snapshot") == nil,
+contains(last_cmd(), "photo-cartridge.testbin", "snapshot uses the resolved sibling, not the bare name")
+check(last_cmd():find("[^%.]photo%-cartridge snapshot") == nil,
       "snapshot must not invoke a bare 'photo-cartridge'")
 
 reset()
 runner.launch_backup(log_fn)
-contains(last_cmd(), "photo-cartridge.exe", "backup uses the resolved exe")
+contains(last_cmd(), "photo-cartridge.testbin", "backup uses the resolved sibling")
 
 reset()
 runner.launch_verify(log_fn)
-contains(last_cmd(), "photo-cartridge.exe", "verify uses the resolved exe")
+contains(last_cmd(), "photo-cartridge.testbin", "verify uses the resolved sibling")
 
--- An explicit override wins over the derivation.
-prefs.cartridge_path = "D:\\custom\\pc.exe"
+-- An explicit override wins over the derivation -- but only if it is a real
+-- file. This harness runs from the repo root, so use a file that exists here.
+prefs.cartridge_path = "README.md"
 reset()
 runner.launch_snapshot(log_fn)
-contains(last_cmd(), "D:\\custom\\pc.exe", "cartridge_path overrides the derived path")
+contains(last_cmd(), "README.md", "an existing cartridge_path overrides the derivation")
+
+-- A path that is not a file must be IGNORED, not used as the program name.
+-- Pointing this preference at the cartridge drive produced
+--   "H:\\" backup "H:\\" ...
+-- and cmd said '"H:\\"' is not recognized, naming nothing useful.
+prefs.cartridge_path = "/definitely/not/a/file"
+reset()
+runner.launch_snapshot(log_fn)
+check(last_cmd():find("/definitely/not/a/file", 1, true) == nil,
+      "a non-file cartridge_path must not become the program")
+contains(last_cmd(), "photo-cartridge", "it falls back to a real resolution")
+contains(table.concat(logged, "\n"), "not a file",
+         "and says which preference is wrong")
+contains(table.concat(logged, "\n"), "not the cartridge drive",
+         "and names the likely mistake")
 prefs.cartridge_path = ""
+
+-- A cli_path whose sibling does not exist warns and falls back rather than
+-- invoking a path that is not there.
+prefs.cli_path = "/nowhere/photo-workflow"
+reset()
+runner.launch_snapshot(log_fn)
+contains(last_cmd(), "photo-cartridge snapshot", "missing sibling falls back to PATH")
+contains(table.concat(logged, "\n"), "does not exist", "and says the derived path is missing")
 
 -- Blank cli_path (Linux/container: it really is on PATH) falls back to bare.
 prefs.cli_path = ""
@@ -219,7 +260,8 @@ local function bat_command(tag)
 end
 
 prefs.dest_path = "H:\\Photos\\ICELAND"
-prefs.cli_path = "F:\\repo\\.venv\\Scripts\\photo-workflow.exe"
+prefs.cli_path = make_fake("F:\\repo\\.venv\\Scripts\\photo-workflow.exe")
+make_fake("F:\\repo\\.venv\\Scripts\\photo-cartridge.exe")
 prefs.backup_dest = "G:\\BACKUP"
 prefs.cartridge_path = ""
 
@@ -260,6 +302,7 @@ contains(verify_cmd or "", '--dest "G:\\BACKUP"', "windows: verify quotes the de
 contains(verify_cmd or "", '--root "H:\\\\"', "windows: verify scopes to the drive root")
 
 for path in pairs(written) do os.remove(path) end
+for _, path in ipairs(made_files) do os.remove(path) end
 
 package.config = real_package_config
 
