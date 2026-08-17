@@ -410,32 +410,56 @@ end
 -- Launch a long-running cartridge command in its own visible terminal window so the
 -- user can watch progress (backups can take a long time). elevated=true wraps it in
 -- the OS privilege prompt (needed when the command sets a volume label).
-local function launch_terminal(inner, elevated)
-  if IS_WINDOWS then
-    if elevated then
-      -- NOTE: this path is currently unreachable (every elevated command is
-      -- gated off in CARTRIDGE_IMPLEMENTED) and is NOT known to survive the
-      -- same quoting problem as the branch below -- Start-Process re-quotes
-      -- -ArgumentList, and `inner` contains embedded double quotes. Verify it
-      -- against a real elevated run before ungating provision/restore.
-      local ps = 'Start-Process cmd -Verb RunAs -ArgumentList \'/k\',\'' .. inner .. '\''
-      os.execute('powershell -NoProfile -Command "' .. ps .. '"')
-    else
-      -- The extra quote pair around `inner` is required, not cosmetic.
-      -- `cmd /k` only preserves quotes when the line contains EXACTLY two of
-      -- them around an executable name; otherwise it strips the first and the
-      -- last quote character and keeps the rest. Our line has at least four
-      -- (quoted exe + quoted path), so the strip welded a stray quote onto the
-      -- exe name and CreateProcess failed with "The filename, directory name,
-      -- or volume label syntax is incorrect".
-      --
-      -- Wrapping the whole command gives cmd an outer pair to consume, so what
-      -- survives the strip is exactly `inner`.
-      os.execute('start "PHOTONForge" cmd /k "' .. inner .. '"')
-    end
-  else
+-- Launch a long-running cartridge command in its own visible terminal window so
+-- the user can watch progress (backups can take a long time). elevated=true wraps
+-- it in the OS privilege prompt (needed when the command sets a volume label).
+--
+-- On Windows the command goes through a one-line batch file rather than being
+-- nested inside `start ... cmd /k <command>`. Nesting is a minefield: cmd only
+-- preserves quotes when the line holds EXACTLY two of them around an executable
+-- name, and otherwise strips the first and the last. Our command has a quoted
+-- exe AND quoted paths, so three separate attempts to quote around that rule
+-- produced three different failures ("not recognized", then an invalid path,
+-- then cmd trying to run the drive-root argument as the program).
+--
+-- Writing the command to a .bat sidesteps all of it: the cmd /k line then holds
+-- exactly two quotes around a .bat path -- the one shape cmd handles predictably
+-- -- and the command inside the file is parsed by ordinary batch rules. `echo on`
+-- makes the window print the command before running it, so the user can see
+-- exactly what executed without us hand-escaping anything.
+local function launch_terminal(inner, elevated, tag)
+  if not IS_WINDOWS then
     local cmd = elevated and ('pkexec ' .. inner) or inner
     os.execute('x-terminal-emulator -e "' .. cmd .. '" || ' .. cmd .. ' &')
+    return
+  end
+
+  -- Per-command filename so two different buttons cannot clobber each other
+  -- between `start` returning and the new window reading the file.
+  local bat = get_temp_dir() .. "\\photonforge_" .. (tag or "cartridge") .. ".bat"
+  local fh = io.open(bat, "w")
+  if fh then
+    fh:write("@echo off\r\n")
+    fh:write("echo PHOTONForge cartridge command:\r\n")
+    fh:write("@echo on\r\n")
+    fh:write(inner .. "\r\n")
+    fh:close()
+    if elevated then
+      local ps = "Start-Process cmd -Verb RunAs -ArgumentList '/k','\\\"" .. bat .. "\\\"'"
+      os.execute('powershell -NoProfile -Command "' .. ps .. '"')
+    else
+      os.execute('start "PHOTONForge" cmd /k "' .. bat .. '"')
+    end
+    return
+  end
+
+  -- Temp not writable: fall back to the nested form. Known-fragile, but better
+  -- than doing nothing, and the panel log still carries the exact command.
+  if elevated then
+    local ps = 'Start-Process cmd -Verb RunAs -ArgumentList \'/k\',\'' .. inner .. '\''
+    os.execute('powershell -NoProfile -Command "' .. ps .. '"')
+  else
+    os.execute('start "PHOTONForge" cmd /k "' .. inner .. '"')
   end
 end
 
@@ -468,7 +492,7 @@ function M.launch_snapshot(log_fn)
                 .. " --keep " .. tostring(config.read("snapshot_keep"))
   log_fn(string.format("[%s] Snapshotting catalog DBs (local, offline): %s",
                        os.date("%H:%M:%S"), inner))
-  launch_terminal(inner, false)
+  launch_terminal(inner, false, "snapshot")
 end
 
 -- Tier 2: verified whole-cartridge mirror to the configured second drive.
@@ -490,7 +514,7 @@ function M.launch_backup(log_fn)
                 .. " --dest " .. shell_quote(dest)
                 .. " --keep " .. tostring(config.read("backup_keep"))
   log_fn(string.format("[%s] Mirroring cartridge: %s", os.date("%H:%M:%S"), inner))
-  launch_terminal(inner, false)
+  launch_terminal(inner, false, "backup")
   log_fn("[backup] Launched in a terminal window; the first mirror copies "
          .. "everything, later ones reuse unchanged files where the filesystem allows.")
 end
@@ -508,7 +532,7 @@ function M.launch_verify(log_fn)
   local root = cartridge_root()
   if root ~= "" then inner = inner .. " --root " .. shell_quote(root) end
   log_fn(string.format("[%s] Verifying newest mirror: %s", os.date("%H:%M:%S"), inner))
-  launch_terminal(inner, false)
+  launch_terminal(inner, false, "verify")
 end
 
 -- Archive the whole cartridge (DB + photos) to the configured restic repo.
@@ -523,7 +547,7 @@ function M.launch_archive(log_fn)
   local drive = get_drive_root(config.read("dest_path"))
   local inner = cartridge_cli() .. " archive " .. shell_quote(drive) .. flags .. " --init"
   log_fn(string.format("[%s] Archiving cartridge: %s", os.date("%H:%M:%S"), inner))
-  launch_terminal(inner, false)
+  launch_terminal(inner, false, "archive")
   log_fn("[archive] Launched in a terminal window; first backup uploads everything, later ones are incremental.")
 end
 
@@ -541,7 +565,7 @@ function M.launch_restore(log_fn)
   local idflag = (id ~= "" and (" --id " .. id)) or ""
   local inner = cartridge_cli() .. " restore" .. flags .. " --to " .. shell_quote(drive) .. idflag
   log_fn(string.format("[%s] Restoring cartridge (elevated): %s", os.date("%H:%M:%S"), inner))
-  launch_terminal(inner, true)
+  launch_terminal(inner, true, "restore")
   log_fn("[restore] Launched. Approve the elevation prompt; the window shows restore progress.")
 end
 

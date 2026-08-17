@@ -184,6 +184,9 @@ end
 -- Everything above ran with POSIX quoting, but the panel's primary home is
 -- Windows -- and Windows is where the quoting actually bites. runner.lua picks
 -- its branch from package.config at load time, so swap that and re-require.
+--
+-- On Windows the command is written to a .bat and cmd runs the file, so the
+-- assertions read the batch contents: that is what actually executes.
 -- ===========================================================================
 package.loaded["photonforge/runner"] = nil
 package.loaded["photonforge/config"] = nil
@@ -192,52 +195,71 @@ package.config = "\\\n;\n?\n!\n-\n"   -- Windows separators
 config = require "photonforge/config"
 runner = require "photonforge/runner"
 
-prefs.dest_path = "F:\\Photos\\ICELAND"
+local function win_temp()
+  return os.getenv("TEMP") or os.getenv("TMP") or "C:\\Temp"
+end
+
+local written = {}
+
+local function bat_path(tag)
+  return win_temp() .. "\\photonforge_" .. tag .. ".bat"
+end
+
+-- The command line inside the batch file (the last non-empty line).
+local function bat_command(tag)
+  local path = bat_path(tag)
+  written[path] = true
+  local fh = io.open(path, "r")
+  if not fh then return nil end
+  local text = fh:read("*a")
+  fh:close()
+  local last
+  for line in text:gmatch("[^\r\n]+") do last = line end
+  return last, text
+end
+
+prefs.dest_path = "H:\\Photos\\ICELAND"
 prefs.cli_path = "F:\\repo\\.venv\\Scripts\\photo-workflow.exe"
 prefs.backup_dest = "G:\\BACKUP"
 prefs.cartridge_path = ""
 
 reset()
 runner.launch_snapshot(log_fn)
-local win = last_cmd()
 
-contains(win, '"F:\\repo\\.venv\\Scripts\\photo-cartridge.exe"',
-         "windows: cartridge exe is resolved and double-quoted")
+-- cmd /k gets exactly two quotes around a .bat path -- the one shape cmd
+-- parses predictably. Nesting the real command there is what failed three
+-- times: cmd strips the first and last quote unless there are exactly two.
+contains(last_cmd(), 'cmd /k "', "windows: cmd /k runs a quoted batch file")
+contains(last_cmd(), "photonforge_snapshot.bat", "windows: per-command batch name")
+check(select(2, last_cmd():gsub('"', '')) == 4,
+      "windows: the launch line has exactly 4 quotes (title + bat), nothing nested")
 
--- The cartridge root is a drive root, so it ends in a backslash. Inside quotes
--- that backslash would escape the closing quote, so it must be DOUBLED. The
--- old code stripped it to "F:", which Windows reads as the current directory
--- on drive F: -- Darktable's own bin folder, not the cartridge.
-contains(win, '"F:\\\\"', "windows: drive root keeps its separator (doubled)")
-check(win:find('"F:"', 1, true) == nil,
-      'windows: drive root must not collapse to "F:" (means cwd on F:, not the root)')
+local snap_cmd, snap_text = bat_command("snapshot")
+check(snap_cmd ~= nil, "windows: snapshot batch file was written")
+contains(snap_text or "", "@echo on",
+         "windows: batch echoes the command so the window shows what ran")
+contains(snap_cmd or "", '"F:\\repo\\.venv\\Scripts\\photo-cartridge.exe"',
+         "windows: batch invokes the resolved exe")
+contains(snap_cmd or "", '"H:\\\\"',
+         "windows: drive root keeps its separator (doubled)")
+check((snap_cmd or ""):find('"H:"', 1, true) == nil,
+      'windows: drive root must not collapse to "H:" (means cwd on H:, not the root)')
+contains(snap_cmd or "", "--keep 7", "windows: snapshot passes retention")
 
 reset()
 runner.launch_backup(log_fn)
-local winb = last_cmd()
-contains(winb, '"F:\\\\"', "windows: backup passes the real drive root")
-contains(winb, '"G:\\BACKUP"', "windows: backup destination is quoted")
-check(winb:find('"F:"', 1, true) == nil, "windows: backup root must not collapse")
+local backup_cmd = bat_command("backup")
+contains(backup_cmd or "", '"H:\\\\"', "windows: backup passes the real drive root")
+contains(backup_cmd or "", '--dest "G:\\BACKUP"', "windows: backup destination is quoted")
+check((backup_cmd or ""):find('"H:"', 1, true) == nil, "windows: backup root must not collapse")
 
--- A normal directory path (no trailing separator) is quoted unchanged.
 reset()
-prefs.dest_path = "F:\\Photos\\ICELAND"
 runner.launch_verify(log_fn)
-contains(last_cmd(), '"G:\\BACKUP"', "windows: verify quotes the destination")
+local verify_cmd = bat_command("verify")
+contains(verify_cmd or "", '--dest "G:\\BACKUP"', "windows: verify quotes the destination")
+contains(verify_cmd or "", '--root "H:\\\\"', "windows: verify scopes to the drive root")
 
--- `cmd /k` strips the first and last quote unless the line has exactly two.
--- Without an outer pair to sacrifice, the strip welds a quote onto the exe
--- name and CreateProcess fails with "The filename, directory name, or volume
--- label syntax is incorrect". The whole command must therefore be wrapped.
-reset()
-runner.launch_snapshot(log_fn)
-local launched = last_cmd()
-contains(launched, 'cmd /k "', "windows: the command is wrapped for cmd /k")
-check(launched:sub(-1) == '"',
-      "windows: the wrapping quote must close at the very end of the line")
-local after_k = launched:match('cmd /k (.*)$')
-check(after_k and after_k:sub(1, 2) == '""',
-      "windows: cmd /k is followed by the outer quote then the quoted exe")
+for path in pairs(written) do os.remove(path) end
 
 package.config = real_package_config
 
