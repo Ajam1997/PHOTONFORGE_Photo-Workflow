@@ -125,7 +125,7 @@ prefs.backup_dest = ""
 reset()
 runner.launch_backup(log_fn)
 check(#executed == 0, "backup with no destination must not execute")
-contains(table.concat(logged, "\n"), "Backup destination", "backup names the missing pref")
+contains(table.concat(logged, "\n"), "Backup dest", "backup names the missing pref")
 
 reset()
 runner.launch_verify(log_fn)

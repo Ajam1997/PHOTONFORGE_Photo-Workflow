@@ -296,6 +296,6 @@ if (-not $VerifyOnly) {
     Write-Host "  Row 1  Snapshot / Backup / Verify    <- working"
     Write-Host "  Row 2  Provision / Archive / Restore <- refuse with a message; not built yet"
     Write-Host ""
-    Write-Host "Set 'Backup destination' under Preferences -> Lua options before using Backup or Verify."
+    Write-Host "Set 'Backup dest' in the panel's Configuration section before using Backup or Verify."
 }
 exit 0

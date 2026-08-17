@@ -433,8 +433,8 @@ function M.launch_backup(log_fn)
   if cartridge_cmd_unavailable("backup", log_fn) then return end
   local dest = config.read("backup_dest")
   if dest == "" then
-    log_fn("[backup] Set 'Backup destination' in the plugin's Lua options first.")
-    dt.print("PHOTONForge: set a Backup destination in preferences")
+    log_fn("[backup] Set 'Backup dest' in the panel's Configuration section first.")
+    dt.print("PHOTONForge: set a Backup dest in the panel")
     return
   end
   local root = cartridge_root()
@@ -457,8 +457,8 @@ function M.launch_verify(log_fn)
   if cartridge_cmd_unavailable("verify-backup", log_fn) then return end
   local dest = config.read("backup_dest")
   if dest == "" then
-    log_fn("[verify] Set 'Backup destination' in the plugin's Lua options first.")
-    dt.print("PHOTONForge: set a Backup destination in preferences")
+    log_fn("[verify] Set 'Backup dest' in the panel's Configuration section first.")
+    dt.print("PHOTONForge: set a Backup dest in the panel")
     return
   end
   local inner = "photo-cartridge verify-backup --dest " .. shell_quote(dest)

@@ -160,6 +160,7 @@ function M.build()
     orientation = "vertical",
     make_path_row("SD card path:", "sd_path", "ingest only\u{2026}"),
     make_path_row("Destination:",  "dest_path", "required\u{2026}"),
+    make_path_row("Backup dest:",  "backup_dest", "second drive, for Backup/Verify\u{2026}"),
     make_path_row("Corpus JSONL (training only):", "corpus_path", "optional\u{2026}"),
     tz_box,
   }
@@ -622,8 +623,8 @@ function M.build()
 
   -- == Cartridge strip (shared chrome) =====================================
   -- These launch external (sometimes elevated) commands in their own window.
-  -- Paths, Cartridge ID and Backup destination come from the plugin's Lua
-  -- preferences (darktable Preferences -> Lua options).
+  -- Paths (including Backup dest) are set in the panel's Configuration
+  -- section; Cartridge ID lives in Preferences -> Lua options.
   --
   -- Row 1 (Snapshot / Backup / Verify) is implemented. Row 2 (Provision /
   -- Archive / Restore) is gated off in runner.lua's CARTRIDGE_IMPLEMENTED
@@ -675,7 +676,7 @@ function M.build()
   set_name(restore_btn, "pf_cartridge_btn")
 
   -- Backup row (Tiers 1-2, implemented). Snapshot needs nothing but the
-  -- cartridge; Backup and Verify need a 'Backup destination' pref.
+  -- cartridge; Backup and Verify need the 'Backup dest' path set above.
   local snapshot_btn = dt.new_widget("button") {
     label = "\u{1F4F8} Snapshot",
     tooltip = "Fast local copy of the catalog databases (scores, names, stage "
@@ -695,8 +696,8 @@ function M.build()
     label = "\u{1F4BD} Backup",
     tooltip = "Full verified copy of the cartridge (databases + photos) to "
            .. "another drive, checksummed on the way out. This is the one to "
-           .. "run before migrating or reformatting. Set 'Backup destination' "
-           .. "in the plugin's Lua options first.",
+           .. "run before migrating or reformatting. Set 'Backup dest' in the "
+           .. "Configuration section above first.",
     clicked_callback = function()
       local ok, err = pcall(function()
         save_entries()

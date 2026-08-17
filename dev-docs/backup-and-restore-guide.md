@@ -38,7 +38,8 @@ photo-cartridge backup /media/alex/PHOTON-001 --dest /media/alex/BACKUP --keep 1
 ```
 
 Or press **Snapshot** / **Backup** in the panel's CARTRIDGE strip, having set
-*Backup destination* in Preferences → Lua options.
+*Backup dest* in the panel's Configuration section (it has a folder browser,
+like SD card path and Destination).
 
 Snapshots rotate (`--keep`, default 7) and land in
 `/media/alex/PHOTON-001/.photon-snapshots/<timestamp>/`. Mirrors land in

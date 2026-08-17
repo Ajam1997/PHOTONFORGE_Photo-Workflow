@@ -105,7 +105,8 @@ Plugin preferences (Preferences → Lua options) worth setting up front:
 - **Models dir** — absolute path to the repo's `models/` directory (required
   for a non-editable install; recommended always).
 - **Cartridge ID** (e.g. `003`) — used by Provision.
-- **Backup destination** — a second drive to hold verified cartridge mirrors,
+- **Backup dest** (also in the panel's Configuration section, with a folder
+  browser) — a second drive to hold verified cartridge mirrors,
   e.g. `/media/alex/BACKUP`. Required by the Backup and Verify buttons.
 - **Catalog snapshots to keep** (default 7) and **Cartridge mirrors to keep**
   (default 10) — retention for the two backup tiers.
