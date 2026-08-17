@@ -74,14 +74,14 @@ stack rationale (most of it — EE/ME — is N/A for this project).
 - Documentation conventions (docs-impact matrix, supersession banner, glossary, templates) are data-driven and enforced by `sf-style` — see `dev-docs/house-style/`
 
 ## Project Layout
-src/photo_workflow/  (22 modules)
+src/photo_workflow/  (23 modules)
   pipeline.py, ingest.py, grouping.py, dedup.py,
   sharpness.py, composition.py, exposure.py,
   score_fusion.py, scoring_types.py, subject_context.py,
   genre_router.py, genre_adapter.py, genre_trainer.py,
   active_learning.py, training_weights_db.py,
   naming.py, raw_loader.py, darktable_bridge.py,
-  photondb.py, cartridge.py, volume.py, provision.py
+  photondb.py, cartridge.py, volume.py, provision.py, backup.py
 lua/photonforge/ -- Darktable Lua plugin (panel, runner, tag_manager, applicator, json, config)
 scripts/   -- safe_eject.sh, manage_ssd.sh, install_polkit.sh, remote_test.sh (doc machinery now in the systems-first package, sf-* CLIs)
 deploy/    -- Dockerfile, docker-compose.yml

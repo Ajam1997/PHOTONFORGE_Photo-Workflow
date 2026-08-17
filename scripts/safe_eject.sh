@@ -27,11 +27,25 @@ except Exception as e:
     fi
 fi
 
-# 2. Sync filesystem buffers
+# 2. Optional Tier-1 catalog snapshot (opt-in via PHOTONFORGE_SNAPSHOT_ON_EJECT=1).
+# Runs before the sync so the snapshot's own writes are flushed with everything
+# else. A backup problem must never strand the drive, so failure only warns.
+if [ "${PHOTONFORGE_SNAPSHOT_ON_EJECT:-0}" = "1" ]; then
+    if command -v photo-cartridge >/dev/null 2>&1; then
+        log "Snapshotting catalog DBs before eject..."
+        photo-cartridge snapshot "$MOUNT_POINT" \
+            --keep "${PHOTONFORGE_SNAPSHOT_KEEP:-7}" || \
+            log "WARNING: pre-eject snapshot failed — proceeding with unmount"
+    else
+        log "WARNING: photo-cartridge not on PATH — skipping pre-eject snapshot"
+    fi
+fi
+
+# 3. Sync filesystem buffers
 log "Syncing filesystem buffers..."
 sync
 
-# 3. Unmount
+# 4. Unmount
 log "Unmounting $MOUNT_POINT"
 if command -v udisksctl >/dev/null 2>&1; then
     udisksctl unmount --block-device "$(findmnt -n -o SOURCE "$MOUNT_POINT")" --no-user-interaction

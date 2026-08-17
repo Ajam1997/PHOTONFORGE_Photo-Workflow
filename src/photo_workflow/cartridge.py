@@ -78,6 +78,135 @@ def main() -> None:
     """PHOTONForge cartridge management."""
 
 
+@main.command("snapshot")
+@click.argument("root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--dest", type=click.Path(path_type=Path), default=None,
+              help="Snapshot dir (default: <root>/.photon-snapshots)")
+@click.option("--keep", default=7, show_default=True, help="Rotating snapshots to retain")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def snapshot_cmd(root: Path, dest: Path | None, keep: int, as_json: bool) -> None:
+    """Tier 1: VACUUM-copy the cartridge DBs into a rotating local snapshot."""
+    import json as _json
+
+    from .backup import SNAPSHOT_DIRNAME, rotate_snapshots, snapshot_databases, snapshot_timestamp
+
+    snaproot = Path(dest) if dest else root / SNAPSHOT_DIRNAME
+    target = snaproot / snapshot_timestamp()
+    try:
+        snapshot_databases(root, target)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+    pruned = rotate_snapshots(snaproot, keep)
+    if as_json:
+        click.echo(_json.dumps({"step": "snapshot", "status": "ok",
+                                "path": str(target), "pruned": len(pruned)}))
+    else:
+        click.echo(f"Snapshot written to {target} (pruned {len(pruned)} old).")
+
+
+@main.command("backup")
+@click.argument("root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--dest", required=True, type=click.Path(path_type=Path),
+              help="Backup destination directory (a second drive)")
+@click.option("--state-only", is_flag=True, help="DBs, corpus, dt-config and XMP only")
+@click.option("--exclude-models", is_flag=True, help="Skip models/ (regenerable)")
+@click.option("--keep", default=None, type=int,
+              help="Prune to N snapshots after a clean verify")
+@click.option("--no-incremental", is_flag=True,
+              help="Do not hardlink against the previous snapshot")
+@click.option("--force", is_flag=True, help="Proceed even if the cartridge looks busy")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def backup_cmd(root: Path, dest: Path, state_only: bool, exclude_models: bool,
+               keep: int | None, no_incremental: bool, force: bool, as_json: bool) -> None:
+    """Tier 2: verified whole-cartridge mirror to a second drive."""
+    import json as _json
+
+    from . import backup as backup_mod
+
+    label = backup_mod.cartridge_backup_name(root)
+    link_dest = None if no_incremental else backup_mod.latest_snapshot(dest, label)
+
+    def _progress(index: int, total: int, rel: Path) -> None:
+        if not as_json:
+            click.echo(f"  [{index}/{total}] {rel}")
+
+    try:
+        snapshot = backup_mod.mirror_cartridge(
+            root, dest, state_only=state_only, exclude_models=exclude_models,
+            link_dest=link_dest, keep=keep, force=force, progress=_progress,
+        )
+    except backup_mod.CartridgeBusy as exc:
+        raise click.ClickException(str(exc)) from exc
+    except (FileNotFoundError, RuntimeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    manifest = _json.loads((snapshot / backup_mod.MANIFEST_NAME).read_text(encoding="utf-8"))
+    totals = manifest["totals"]
+    if as_json:
+        click.echo(_json.dumps({
+            "step": "backup", "status": "ok", "path": str(snapshot),
+            "files": totals["files"], "bytes": totals["bytes"],
+            "linked": totals["linked"], "hardlinks": manifest["hardlinks"],
+        }))
+    else:
+        click.echo(
+            f"Mirror written to {snapshot} — {totals['files']} files, "
+            f"{totals['bytes']} bytes ({totals['linked']} linked)."
+        )
+        if link_dest is not None and not manifest["hardlinks"]:
+            click.echo(
+                "  Note: this filesystem has no hardlinks (exFAT/FAT32), so unchanged "
+                "files were copied rather than linked."
+            )
+
+
+@main.command("verify-backup")
+@click.argument("snapshot", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--against", type=click.Path(exists=True, file_okay=False, path_type=Path),
+              default=None, help="Also compare against this live cartridge")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def verify_backup_cmd(snapshot: Path, against: Path | None, as_json: bool) -> None:
+    """Re-checksum a Tier-2 mirror against its manifest."""
+    import json as _json
+
+    from .backup import verify_snapshot
+
+    problems = verify_snapshot(snapshot, against=against)
+    if as_json:
+        click.echo(_json.dumps({"step": "verify-backup",
+                                "status": "ok" if not problems else "failed",
+                                "path": str(snapshot), "problems": problems}))
+    else:
+        for problem in problems:
+            click.echo(f"  {problem}")
+        click.echo(f"{snapshot}: {'clean' if not problems else f'{len(problems)} problem(s)'}")
+    if problems:
+        raise SystemExit(1)
+
+
+@main.command("restore-backup")
+@click.argument("snapshot", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--to", "target", required=True, type=click.Path(path_type=Path),
+              help="Where to restore (a mounted cartridge, or a scratch dir)")
+@click.option("--force", is_flag=True, help="Restore over a non-empty target")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def restore_backup_cmd(snapshot: Path, target: Path, force: bool, as_json: bool) -> None:
+    """Restore a Tier-2 mirror (DBs + photos) into --to."""
+    import json as _json
+
+    from .backup import restore_snapshot
+
+    try:
+        restore_snapshot(snapshot, target, force=force)
+    except FileExistsError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if as_json:
+        click.echo(_json.dumps({"step": "restore-backup", "status": "ok",
+                                "path": str(target)}))
+    else:
+        click.echo(f"Restored {snapshot} into {target}.")
+
+
 @main.command("init")
 @click.argument("mount_path", type=click.Path(path_type=Path))
 def init_cartridge(mount_path: Path) -> None:
