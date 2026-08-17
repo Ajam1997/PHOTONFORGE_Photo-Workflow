@@ -263,14 +263,22 @@ if ($luarcOk) {
 
 $rc = Join-Path $DarktableDir "darktablerc"
 if (Test-Path $rc) {
-    $cliPref = Get-Content $rc | Where-Object { $_ -like 'lua/photonforge/cli_path=*' } | Select-Object -First 1
-    $wanted = "lua/photonforge/cli_path=" + $workflow
-    if (-not $cliPref) {
-        Write-Warn2 "cli_path not set in darktablerc - the panel will call bare 'photo-workflow', which a GUI-launched Darktable usually cannot see"
-    } elseif ($workflow -and ($cliPref -ne $wanted)) {
-        Write-Warn2 "cli_path points elsewhere: $cliPref"
-    } else {
-        Write-Ok "cli_path -> $workflow"
+    $rcLines = @(Get-Content $rc)
+    # Both paths matter. A GUI-launched Darktable cannot see the venv on PATH,
+    # so a missing or stale value here is what produces "'photo-cartridge' is
+    # not recognized" inside the terminal a panel button just opened.
+    foreach ($pair in @(@("cli_path", $workflow), @("cartridge_path", $cartridge))) {
+        $prefName = $pair[0]
+        $exePath  = $pair[1]
+        $pref = $rcLines | Where-Object { $_ -like "lua/photonforge/$prefName=*" } | Select-Object -First 1
+        $wanted = "lua/photonforge/$prefName=" + $exePath
+        if (-not $pref) {
+            Write-Warn2 "$prefName not set in darktablerc - the panel will fall back to a bare command name, which a GUI-launched Darktable usually cannot resolve"
+        } elseif ($exePath -and ($pref -ne $wanted)) {
+            Write-Bad "$prefName points elsewhere: $pref (expected $exePath)"
+        } else {
+            Write-Ok "$prefName -> $exePath"
+        }
     }
 } else {
     Write-Warn2 "no darktablerc yet (Darktable writes it on first exit)"

@@ -100,32 +100,61 @@ if (-not $luarcOk) {
     Write-Host "[luarc] Already present: $requireLine"
 }
 
-# --- Auto-configure the CLI path ---------------------------------------------
+# --- Auto-configure the CLI paths ---------------------------------------------
 # Darktable launches as a GUI; its subprocess PATH does not include the repo
-# venv's Scripts dir, so the plugin's bare `photo-workflow` invocation fails with
-# "not recognized". We know the venv here, so bake the resolved exe into the
-# plugin's `cli_path` preference (stored in darktablerc as lua/photonforge/*).
-$exe = Join-Path $repoRoot ".venv\Scripts\photo-workflow.exe"
-$rc  = Join-Path $DarktableDir "darktablerc"
-if (Test-Path $exe) {
-    if (Get-Process -Name darktable -ErrorAction SilentlyContinue) {
-        Write-Host "[cli]   Darktable is running -- close it before deploy, or the"
-        Write-Host "        cli_path preference will be overwritten on its next exit."
-    }
-    $prefLine = "lua/photonforge/cli_path=$exe"
-    $lines = if (Test-Path $rc) { @(Get-Content $rc) } else { @() }
-    $existing = $lines | Where-Object { $_ -like 'lua/photonforge/cli_path=*' } | Select-Object -First 1
-    if ($existing -eq $prefLine) {
-        Write-Host "[cli]   cli_path already set: $exe"
+# venv's Scripts dir, so the plugin's bare `photo-workflow` / `photo-cartridge`
+# invocations fail with "not recognized". We know the venv here, so bake both
+# resolved exes into the plugin's preferences (stored in darktablerc as
+# lua/photonforge/*).
+#
+# BOTH are written explicitly. runner.lua can derive the cartridge path from
+# cli_path as a fallback, but that chain broke in practice -- and a stale or
+# hand-edited cartridge_path (e.g. someone typing a drive letter into it) is
+# corrected here rather than silently becoming the program name.
+$rc = Join-Path $DarktableDir "darktablerc"
+
+$prefs = @{}
+$missing = @()
+foreach ($pair in @(@("cli_path", "photo-workflow.exe"), @("cartridge_path", "photo-cartridge.exe"))) {
+    $prefName = $pair[0]
+    $exeName  = $pair[1]
+    $exePath  = Join-Path $repoRoot ".venv\Scripts\$exeName"
+    if (Test-Path $exePath) {
+        $prefs[$prefName] = $exePath
     } else {
-        $kept = $lines | Where-Object { $_ -notlike 'lua/photonforge/cli_path=*' }
-        $out  = @($kept + $prefLine)
-        [System.IO.File]::WriteAllLines($rc, $out, (New-Object System.Text.UTF8Encoding($false)))
-        Write-Host "[cli]   Set cli_path -> $exe"
+        $missing += $exePath
     }
-} else {
-    Write-Host "[cli]   WARN: $exe not found. Create the venv (see dev-machine-setup.md)"
-    Write-Host "        or set 'photo-workflow CLI path' in Darktable Lua preferences."
+}
+
+if ($prefs.Count -gt 0) {
+    if (Get-Process -Name darktable -ErrorAction SilentlyContinue) {
+        Write-Host "[cli]   Darktable is running -- close it before deploy, or these"
+        Write-Host "        preferences will be overwritten on its next exit."
+    }
+    $lines = @()
+    if (Test-Path $rc) { $lines = @(Get-Content $rc) }
+
+    $changed = $false
+    foreach ($name in $prefs.Keys) {
+        $wanted = "lua/photonforge/$name=" + $prefs[$name]
+        $existing = $lines | Where-Object { $_ -like "lua/photonforge/$name=*" } | Select-Object -First 1
+        if ($existing -eq $wanted) {
+            Write-Host ("[cli]   " + $name + " already set: " + $prefs[$name])
+        } else {
+            $lines = @($lines | Where-Object { $_ -notlike "lua/photonforge/$name=*" })
+            $lines = @($lines + $wanted)
+            $changed = $true
+            Write-Host ("[cli]   Set " + $name + " -> " + $prefs[$name])
+        }
+    }
+    if ($changed) {
+        [System.IO.File]::WriteAllLines($rc, $lines, (New-Object System.Text.UTF8Encoding($false)))
+    }
+}
+
+foreach ($m in $missing) {
+    Write-Host "[cli]   WARN: $m not found. Create the venv (see dev-machine-setup.md)"
+    Write-Host "        or set the matching path in Darktable Lua preferences."
 }
 
 # --- Summary -----------------------------------------------------------------
