@@ -178,6 +178,55 @@ for _, key in ipairs({ "backup_dest", "snapshot_keep", "backup_keep",
   check(ok, "config.read knows '" .. key .. "'")
 end
 
+-- ===========================================================================
+-- Windows mode
+--
+-- Everything above ran with POSIX quoting, but the panel's primary home is
+-- Windows -- and Windows is where the quoting actually bites. runner.lua picks
+-- its branch from package.config at load time, so swap that and re-require.
+-- ===========================================================================
+package.loaded["photonforge/runner"] = nil
+package.loaded["photonforge/config"] = nil
+local real_package_config = package.config
+package.config = "\\\n;\n?\n!\n-\n"   -- Windows separators
+config = require "photonforge/config"
+runner = require "photonforge/runner"
+
+prefs.dest_path = "F:\\Photos\\ICELAND"
+prefs.cli_path = "F:\\repo\\.venv\\Scripts\\photo-workflow.exe"
+prefs.backup_dest = "G:\\BACKUP"
+prefs.cartridge_path = ""
+
+reset()
+runner.launch_snapshot(log_fn)
+local win = last_cmd()
+
+contains(win, '"F:\\repo\\.venv\\Scripts\\photo-cartridge.exe"',
+         "windows: cartridge exe is resolved and double-quoted")
+
+-- The cartridge root is a drive root, so it ends in a backslash. Inside quotes
+-- that backslash would escape the closing quote, so it must be DOUBLED. The
+-- old code stripped it to "F:", which Windows reads as the current directory
+-- on drive F: -- Darktable's own bin folder, not the cartridge.
+contains(win, '"F:\\\\"', "windows: drive root keeps its separator (doubled)")
+check(win:find('"F:"', 1, true) == nil,
+      'windows: drive root must not collapse to "F:" (means cwd on F:, not the root)')
+
+reset()
+runner.launch_backup(log_fn)
+local winb = last_cmd()
+contains(winb, '"F:\\\\"', "windows: backup passes the real drive root")
+contains(winb, '"G:\\BACKUP"', "windows: backup destination is quoted")
+check(winb:find('"F:"', 1, true) == nil, "windows: backup root must not collapse")
+
+-- A normal directory path (no trailing separator) is quoted unchanged.
+reset()
+prefs.dest_path = "F:\\Photos\\ICELAND"
+runner.launch_verify(log_fn)
+contains(last_cmd(), '"G:\\BACKUP"', "windows: verify quotes the destination")
+
+package.config = real_package_config
+
 -- ---------------------------------------------------------------------------
 os.execute = real_execute           -- luacheck: ignore
 io.write(string.format("%d checks, %d failure(s)\n", checks, failures))

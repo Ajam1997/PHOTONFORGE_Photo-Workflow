@@ -11,7 +11,17 @@ local IS_WINDOWS = package.config:sub(1,1) == "\\"
 
 local function shell_quote(s)
   if IS_WINDOWS then
-    s = s:gsub("\\$", "")
+    -- A trailing backslash inside quotes escapes the closing quote for
+    -- CommandLineToArgvW, so "F:\" arrives mangled. DOUBLE it instead: "F:\\"
+    -- parses back to a real F:\ argument.
+    --
+    -- The old code stripped it, yielding "F:" -- which Windows reads as "the
+    -- current directory on drive F:", not the drive root. Harmless for the
+    -- pipeline steps (dest_path rarely ends in a separator) but wrong for the
+    -- cartridge commands, whose root comes from get_drive_root() and always
+    -- does: they silently targeted Darktable's own working directory.
+    local trailing = s:match("(\\+)$")
+    if trailing then s = s .. trailing end
     return '"' .. s .. '"'
   end
   return "'" .. s:gsub("'", "'\\''") .. "'"
@@ -464,7 +474,7 @@ function M.launch_backup(log_fn)
   local inner = cartridge_cli() .. " backup " .. shell_quote(root)
                 .. " --dest " .. shell_quote(dest)
                 .. " --keep " .. tostring(config.read("backup_keep"))
-  log_fn(string.format("[%s] Mirroring cartridge to %s", os.date("%H:%M:%S"), dest))
+  log_fn(string.format("[%s] Mirroring cartridge: %s", os.date("%H:%M:%S"), inner))
   launch_terminal(inner, false)
   log_fn("[backup] Launched in a terminal window; the first mirror copies "
          .. "everything, later ones reuse unchanged files where the filesystem allows.")
@@ -482,7 +492,7 @@ function M.launch_verify(log_fn)
   local inner = cartridge_cli() .. " verify-backup --dest " .. shell_quote(dest)
   local root = cartridge_root()
   if root ~= "" then inner = inner .. " --root " .. shell_quote(root) end
-  log_fn(string.format("[%s] Verifying newest mirror under %s", os.date("%H:%M:%S"), dest))
+  log_fn(string.format("[%s] Verifying newest mirror: %s", os.date("%H:%M:%S"), inner))
   launch_terminal(inner, false)
 end
 
