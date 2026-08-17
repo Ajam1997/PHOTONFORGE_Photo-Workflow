@@ -1,5 +1,11 @@
 # Cartridge Backup & Archive Implementation Plan
 
+> **SUPERSEDED (2026-08-17, PR #PLACEHOLDER):** see [`../../../superpowers/plans/2026-08-17-cartridge-backup-archive-plan.md`](../../../superpowers/plans/2026-08-17-cartridge-backup-archive-plan.md).
+> Never implemented. Its restic tier survives as Tier 3 of the reconciled plan, which
+> merges this design with Task 4a of the portable-drive plan (a second, conflicting
+> backup design written 2026-07-31 without sight of this document). Do not implement
+> from this file.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close the disaster-recovery gap ([issue #131](https://github.com/Ajam1997/PHOTONFORGE_Photo-Workflow/issues/131)) by implementing the stubbed `photo-cartridge` backup subcommands in two tiers: fast local catalog snapshots and full-cartridge archives to local or cloud storage with deduplication + compression.

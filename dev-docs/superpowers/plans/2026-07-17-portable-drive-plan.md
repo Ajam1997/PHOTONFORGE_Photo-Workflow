@@ -68,34 +68,39 @@ Creates: `dt-config/` (plugin + luarc + baseline darktablerc with `cli_path`/`mo
 ### Task 4 — exFAT provisioning (`src/photo_workflow/provision.py`)
 Default `mkfs.exfat` (keep `--fs ext4`); update the `mount_point` derivation. Note: exFAT tools (`exfatprogs`/`mkfs.exfat`) must be present on the provisioning host.
 
-### Task 4a — Cartridge backup/archive (`photo-cartridge backup`) — PREREQUISITE for 4b
-No backup capability exists anywhere in the repo today (2026-07-31 audit: nothing in
-`scripts/` or `src/photo_workflow/`); the only copy logic is Task 4b's one-shot staging.
-Per operator direction (PR #141 review), a general backup/archive feature lands BEFORE
-any migration runs — migration then consumes it instead of ad-hoc staging.
-- [ ] `photo-cartridge backup <drive> --dest <dir>` (logic in `portable.py`, thin click
-      wrapper): rsync-style copy of the cartridge into a dated snapshot
-      `<dest>/<PHOTON-XXX>/<UTC timestamp>/`, followed by a checksum verify pass;
-      writes `snapshot-manifest.json` (cartridge label/id, file count, total bytes,
-      sha256 of `photonforge.db`/`training_weights.db`/`dt-config/library.db`,
-      tool version, started/finished timestamps).
-- [ ] `--state-only` mode: only the small mutable state (`photonforge.db`,
-      `training_weights.db`, corpus `*.jsonl`, `dt-config/`, `*.xmp` sidecars) —
-      cheap frequent archives without re-copying immutable RAWs. Full mode is
-      incremental against the previous snapshot (rsync link-dest style) so repeat
-      backups don't duplicate unchanged RAWs.
-- [ ] `photo-cartridge verify-backup <snapshot>` — re-checksum a snapshot against its
-      manifest (and optionally against the live cartridge).
-- [ ] Refuse to run while the cartridge is mid-pipeline (`.pid` files / DB busy) —
-      shared guard with 4b's migrate-fs.
-- [ ] Retention: `--keep N` prunes oldest snapshots per cartridge after a successful
-      verified backup; never prunes the snapshot just written.
-- [ ] Tests alongside `tests/test_portable.py`: snapshot tree + manifest correctness,
-      state-only file set, verify-pass/verify-fail on a tampered snapshot, busy-guard,
-      retention pruning.
+### Task 4a — Cartridge backup/archive — PREREQUISITE for 4b — **moved out of this plan**
+
+> **Moved 2026-08-17 (PR #PLACEHOLDER):** this task now lives in
+> [`2026-08-17-cartridge-backup-archive-plan.md`](2026-08-17-cartridge-backup-archive-plan.md),
+> Tasks 1–4. Implement it from there, not from the summary below.
+
+The requirement is unchanged — a general backup/archive feature lands BEFORE any
+migration runs, per operator direction (PR #141 review), and migration consumes it
+instead of ad-hoc staging. Two things changed when it was reconciled with the
+(then-unnoticed) 2026-07-11 backup plan, which proposed a different mechanism for the
+same capability:
+
+- **Home:** `src/photo_workflow/backup.py`, not `portable.py`. Backup is not a
+  portable-drive concern; `portable.py` imports it.
+- **Mechanism:** three tiers rather than one. Tier 1 is a `VACUUM INTO` catalog
+  snapshot, **Tier 2 is the verified plain-tree mirror this task specified** (and the
+  only tier `migrate-fs` may consume), Tier 3 is an optional restic archive for
+  dedup/encryption/offsite. Everything this task asked for — dated snapshots,
+  `snapshot-manifest.json`, `--state-only`, incremental copies, `verify-backup`,
+  busy-guard, `--keep` retention, tests — is in Tier 2.
+
+Two substantive corrections came out of the merge, both affecting this plan:
+
+- **Hardlink incrementals do not work on exFAT** — the filesystem Task 4 makes the
+  default. Link-dest is best-effort with a probe and a copy fallback; see the
+  reconciled plan's "Two conflicts the merge forced into the open".
+- **`models/` is included** in Tier-2 mirrors by default, so `migrate-fs` does not
+  force a re-provision after every migration.
+
+**Status gate:** Tasks 1–4 of the reconciled plan must be merged before 4b runs.
 
 ### Task 4b — Migration of existing ext4 cartridges (`photo-cartridge migrate-fs`)
-**Requires a fresh verified Task 4a backup — `migrate-fs` refuses to run without one (`--backup <snapshot>` pointing at a snapshot whose manifest verifies and is newer than the cartridge's last write).** Reformatting is destructive, so migration is copy-out → reformat → copy-back; the copy-out step reuses the Task 4a snapshot code path. All
+**Requires a fresh verified Tier-2 mirror — `migrate-fs` refuses to run without one (`--backup <snapshot>` pointing at a snapshot whose manifest verifies and is newer than the cartridge's last write).** Reformatting is destructive, so migration is copy-out → reformat → copy-back; the copy-out step reuses the Tier-2 code path. Import `assert_cartridge_idle`, `mirror_cartridge`, `verify_snapshot`, and `snapshot_is_fresh` from `backup.py` — the gate is `verify_snapshot(snap) == [] and snapshot_is_fresh(snap, root)`; write no copy or checksum logic here. Note that Tier 2 mirrors are plain trees precisely so this step needs nothing installed beyond Python. All
 cartridge state is plain files (shoot folders + XMP, `photonforge.db`,
 `training_weights.db`, corpus JSONL, `dt-config/`) — nothing depends on ext4 semantics
 (DBs are opened by path; POSIX perms are irrelevant to the pipeline). Keep the same
