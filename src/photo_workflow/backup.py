@@ -19,8 +19,11 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import shutil
 import sqlite3
+import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -164,6 +167,78 @@ def snapshot_databases(root: Path, dest_dir: Path) -> Path:
         },
     )
     return Path(dest_dir)
+
+
+class CartridgeBusy(RuntimeError):
+    """The cartridge is mid-pipeline; backing it up would capture a torn state."""
+
+
+def _pid_is_alive(pid: int) -> bool:
+    """Best-effort liveness probe. Unknown => treat as dead.
+
+    A stale lock file must never permanently block backups, so every
+    uncertainty resolves toward "not running".
+    """
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        out = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+            capture_output=True, text=True, check=False,
+        )
+        return str(pid) in out.stdout
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, owned by someone else
+    except OSError:
+        return False
+    return True
+
+
+def cartridge_busy_reason(root: Path) -> str | None:
+    """Why this cartridge is busy, or None if it is idle.
+
+    Two independent signals: a lock file naming a live process, and a catalog
+    DB that will not grant a write transaction.
+    """
+    root = Path(root)
+    for lock in sorted(root.glob("*.pid")):
+        try:
+            pid = int(lock.read_text().strip())
+        except (ValueError, OSError):
+            continue  # unparseable lock is a stale lock
+        if _pid_is_alive(pid):
+            return f"pid file {lock.name} names live process {pid}"
+
+    for src in cartridge_layout(root).dbs.values():
+        conn = None
+        try:
+            conn = sqlite3.connect(str(src), timeout=0.5)
+            conn.execute("BEGIN IMMEDIATE")
+            conn.rollback()
+        except sqlite3.OperationalError as exc:
+            return f"{src.name} is write-locked ({exc})"
+        finally:
+            if conn is not None:
+                conn.close()
+    return None
+
+
+def assert_cartridge_idle(root: Path, *, force: bool = False) -> None:
+    """Raise CartridgeBusy unless the cartridge is idle (or force is set)."""
+    reason = cartridge_busy_reason(root)
+    if reason is None:
+        return
+    if force:
+        logger.warning("Proceeding on a busy cartridge (--force): %s", reason)
+        return
+    raise CartridgeBusy(
+        f"Cartridge at {root} looks busy: {reason}. "
+        "Close Darktable and any running pipeline, or pass --force."
+    )
 
 
 def rotate_snapshots(snapshots_root: Path, keep: int) -> list[Path]:
