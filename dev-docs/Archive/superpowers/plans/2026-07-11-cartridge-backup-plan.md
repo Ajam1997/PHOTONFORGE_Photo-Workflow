@@ -1,6 +1,6 @@
 # Cartridge Backup & Archive Implementation Plan
 
-> **SUPERSEDED (2026-08-17, PR #PLACEHOLDER):** see [`../../../superpowers/plans/2026-08-17-cartridge-backup-archive-plan.md`](../../../superpowers/plans/2026-08-17-cartridge-backup-archive-plan.md).
+> **SUPERSEDED (2026-08-17, PR #144):** see [`../../../superpowers/plans/2026-08-17-cartridge-backup-archive-plan.md`](../../../superpowers/plans/2026-08-17-cartridge-backup-archive-plan.md).
 > Never implemented. Its restic tier survives as Tier 3 of the reconciled plan, which
 > merges this design with Task 4a of the portable-drive plan (a second, conflicting
 > backup design written 2026-07-31 without sight of this document). Do not implement

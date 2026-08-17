@@ -70,7 +70,7 @@ Default `mkfs.exfat` (keep `--fs ext4`); update the `mount_point` derivation. No
 
 ### Task 4a — Cartridge backup/archive — PREREQUISITE for 4b — **moved out of this plan**
 
-> **Moved 2026-08-17 (PR #PLACEHOLDER):** this task now lives in
+> **Moved 2026-08-17 (PR #144):** this task now lives in
 > [`2026-08-17-cartridge-backup-archive-plan.md`](2026-08-17-cartridge-backup-archive-plan.md),
 > Tasks 1–4. Implement it from there, not from the summary below.
 
