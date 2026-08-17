@@ -15,8 +15,8 @@ import pytest
 from photo_workflow import backup
 
 
-def _cartridge(tmp_path):
-    root = tmp_path / "PHOTON-004"
+def _cartridge(tmp_path, name="PHOTON-004"):
+    root = tmp_path / name
     (root / "ICELAND").mkdir(parents=True)
     (root / "models").mkdir()
     (root / "dt-config").mkdir()
@@ -101,6 +101,46 @@ def test_tier1_snapshot_still_flattens(tmp_path):
     snap = backup.snapshot_databases(root, tmp_path / "t1")
     assert (snap / "library.db").exists()
     assert not (snap / "dt-config").exists()
+
+
+def test_backup_name_ignores_a_label_that_is_not_the_cartridge_s(tmp_path, monkeypatch):
+    """The host filesystem's label must never become a cartridge identity.
+
+    get_volume_label() resolves the enclosing mount point, so on a machine
+    where it answers (CI runners do) an ordinary directory reports the host
+    rootfs label. Taking it would collapse two unrelated cartridges into one
+    backup folder and make latest_snapshot() return the wrong one's mirror.
+    """
+    from photo_workflow import volume
+
+    monkeypatch.setattr(volume, "get_volume_label", lambda _p: "cloudimg-rootfs")
+    a = _cartridge(tmp_path / "one", "PHOTON-001")
+    b = _cartridge(tmp_path / "two", "PHOTON-002")
+    assert backup.cartridge_backup_name(a) == "PHOTON-001"
+    assert backup.cartridge_backup_name(b) == "PHOTON-002"
+    assert backup.cartridge_backup_name(a) != backup.cartridge_backup_name(b)
+
+
+def test_backup_name_uses_the_label_when_root_is_the_mount_point(tmp_path, monkeypatch):
+    from photo_workflow import volume
+
+    monkeypatch.setattr(volume, "get_volume_label", lambda _p: "PHOTON-007")
+    monkeypatch.setattr(backup.os.path, "ismount", lambda _p: True)
+    root = _cartridge(tmp_path / "mnt")
+    assert backup.cartridge_backup_name(root) == "PHOTON-007"
+    assert backup.describe_cartridge(root)["id"] == "007"
+
+
+def test_two_cartridges_do_not_share_a_backup_folder(tmp_path, monkeypatch):
+    from photo_workflow import volume
+
+    monkeypatch.setattr(volume, "get_volume_label", lambda _p: "cloudimg-rootfs")
+    dest = tmp_path / "backups"
+    snap_a = backup.mirror_cartridge(_cartridge(tmp_path / "one", "PHOTON-001"), dest)
+    snap_b = backup.mirror_cartridge(_cartridge(tmp_path / "two", "PHOTON-002"), dest)
+    assert snap_a.parent != snap_b.parent
+    assert backup.latest_snapshot(dest, "PHOTON-001") == snap_a
+    assert backup.latest_snapshot(dest, "PHOTON-002") == snap_b
 
 
 def test_mirror_verifies_clean(tmp_path):
