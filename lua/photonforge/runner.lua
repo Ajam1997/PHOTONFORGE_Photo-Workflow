@@ -413,10 +413,25 @@ end
 local function launch_terminal(inner, elevated)
   if IS_WINDOWS then
     if elevated then
+      -- NOTE: this path is currently unreachable (every elevated command is
+      -- gated off in CARTRIDGE_IMPLEMENTED) and is NOT known to survive the
+      -- same quoting problem as the branch below -- Start-Process re-quotes
+      -- -ArgumentList, and `inner` contains embedded double quotes. Verify it
+      -- against a real elevated run before ungating provision/restore.
       local ps = 'Start-Process cmd -Verb RunAs -ArgumentList \'/k\',\'' .. inner .. '\''
       os.execute('powershell -NoProfile -Command "' .. ps .. '"')
     else
-      os.execute('start "PHOTONForge" cmd /k ' .. inner)
+      -- The extra quote pair around `inner` is required, not cosmetic.
+      -- `cmd /k` only preserves quotes when the line contains EXACTLY two of
+      -- them around an executable name; otherwise it strips the first and the
+      -- last quote character and keeps the rest. Our line has at least four
+      -- (quoted exe + quoted path), so the strip welded a stray quote onto the
+      -- exe name and CreateProcess failed with "The filename, directory name,
+      -- or volume label syntax is incorrect".
+      --
+      -- Wrapping the whole command gives cmd an outer pair to consume, so what
+      -- survives the strip is exactly `inner`.
+      os.execute('start "PHOTONForge" cmd /k "' .. inner .. '"')
     end
   else
     local cmd = elevated and ('pkexec ' .. inner) or inner

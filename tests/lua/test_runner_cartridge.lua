@@ -225,6 +225,20 @@ prefs.dest_path = "F:\\Photos\\ICELAND"
 runner.launch_verify(log_fn)
 contains(last_cmd(), '"G:\\BACKUP"', "windows: verify quotes the destination")
 
+-- `cmd /k` strips the first and last quote unless the line has exactly two.
+-- Without an outer pair to sacrifice, the strip welds a quote onto the exe
+-- name and CreateProcess fails with "The filename, directory name, or volume
+-- label syntax is incorrect". The whole command must therefore be wrapped.
+reset()
+runner.launch_snapshot(log_fn)
+local launched = last_cmd()
+contains(launched, 'cmd /k "', "windows: the command is wrapped for cmd /k")
+check(launched:sub(-1) == '"',
+      "windows: the wrapping quote must close at the very end of the line")
+local after_k = launched:match('cmd /k (.*)$')
+check(after_k and after_k:sub(1, 2) == '""',
+      "windows: cmd /k is followed by the outer quote then the quoted exe")
+
 package.config = real_package_config
 
 -- ---------------------------------------------------------------------------
