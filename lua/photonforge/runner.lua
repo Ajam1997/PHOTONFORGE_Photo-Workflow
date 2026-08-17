@@ -335,15 +335,24 @@ end
 -- run_step polling loop — they fire-and-forget into a terminal.
 -- ---------------------------------------------------------------------------
 
--- photo-cartridge currently implements only `init`; the provision/archive/
--- restore subcommands these buttons invoke do not exist yet. Flip to true
--- once they are implemented — until then the buttons refuse loudly instead
--- of opening a terminal that dies with "No such command" (or worse, running
--- an elevated command against a mis-resolved drive root).
-local CARTRIDGE_CMDS_IMPLEMENTED = false
+-- Which photo-cartridge subcommands actually exist. Gating is PER COMMAND so
+-- shipping one tier does not expose buttons for a tier that is still unbuilt:
+-- a button that opens a terminal only to die with "No such command" is worse
+-- than one that refuses up front (and an elevated one is worse still).
+-- Backup Tiers 1-2 landed in PR #145; Tier 3 (restic archive/restore) and
+-- provision are not implemented.
+local CARTRIDGE_IMPLEMENTED = {
+  snapshot          = true,
+  backup            = true,
+  ["verify-backup"] = true,
+  ["restore-backup"] = true,
+  archive           = false,
+  restore           = false,
+  provision         = false,
+}
 
 local function cartridge_cmd_unavailable(name, log_fn)
-  if CARTRIDGE_CMDS_IMPLEMENTED then return false end
+  if CARTRIDGE_IMPLEMENTED[name] then return false end
   log_fn(string.format("[%s] photo-cartridge %s is not implemented yet.", name, name))
   dt.print("PHOTONForge: cartridge " .. name .. " is not available yet")
   return true
@@ -394,6 +403,69 @@ local function backup_flags()
   local f = " -r " .. shell_quote(repo)
   if pw ~= "" then f = f .. " --password-file " .. shell_quote(pw) end
   return f
+end
+
+-- The cartridge root the backup commands act on. Same derivation the pipeline
+-- steps use, so the panel never backs up a different drive than it processes.
+local function cartridge_root()
+  return get_drive_root(config.read("dest_path"))
+end
+
+-- Tier 1: VACUUM-copy the catalog DBs into a rotating dir ON the cartridge.
+-- Needs no second drive and no extra software — the always-available option.
+function M.launch_snapshot(log_fn)
+  if cartridge_cmd_unavailable("snapshot", log_fn) then return end
+  local root = cartridge_root()
+  if root == "" then
+    log_fn("[snapshot] Set the Destination path first.")
+    dt.print("PHOTONForge: set a Destination path")
+    return
+  end
+  local inner = "photo-cartridge snapshot " .. shell_quote(root)
+                .. " --keep " .. tostring(config.read("snapshot_keep"))
+  log_fn(string.format("[%s] Snapshotting catalog DBs (local, offline): %s",
+                       os.date("%H:%M:%S"), inner))
+  launch_terminal(inner, false)
+end
+
+-- Tier 2: verified whole-cartridge mirror to the configured second drive.
+function M.launch_backup(log_fn)
+  if cartridge_cmd_unavailable("backup", log_fn) then return end
+  local dest = config.read("backup_dest")
+  if dest == "" then
+    log_fn("[backup] Set 'Backup destination' in the plugin's Lua options first.")
+    dt.print("PHOTONForge: set a Backup destination in preferences")
+    return
+  end
+  local root = cartridge_root()
+  if root == "" then
+    log_fn("[backup] Set the Destination path first.")
+    dt.print("PHOTONForge: set a Destination path")
+    return
+  end
+  local inner = "photo-cartridge backup " .. shell_quote(root)
+                .. " --dest " .. shell_quote(dest)
+                .. " --keep " .. tostring(config.read("backup_keep"))
+  log_fn(string.format("[%s] Mirroring cartridge to %s", os.date("%H:%M:%S"), dest))
+  launch_terminal(inner, false)
+  log_fn("[backup] Launched in a terminal window; the first mirror copies "
+         .. "everything, later ones reuse unchanged files where the filesystem allows.")
+end
+
+-- Tier 2: re-checksum the newest mirror for this cartridge against its manifest.
+function M.launch_verify(log_fn)
+  if cartridge_cmd_unavailable("verify-backup", log_fn) then return end
+  local dest = config.read("backup_dest")
+  if dest == "" then
+    log_fn("[verify] Set 'Backup destination' in the plugin's Lua options first.")
+    dt.print("PHOTONForge: set a Backup destination in preferences")
+    return
+  end
+  local inner = "photo-cartridge verify-backup --dest " .. shell_quote(dest)
+  local root = cartridge_root()
+  if root ~= "" then inner = inner .. " --root " .. shell_quote(root) end
+  log_fn(string.format("[%s] Verifying newest mirror under %s", os.date("%H:%M:%S"), dest))
+  launch_terminal(inner, false)
 end
 
 -- Archive the whole cartridge (DB + photos) to the configured restic repo.

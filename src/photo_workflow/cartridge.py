@@ -161,15 +161,33 @@ def backup_cmd(root: Path, dest: Path, state_only: bool, exclude_models: bool,
 
 
 @main.command("verify-backup")
-@click.argument("snapshot", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument("snapshot", required=False,
+                type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--dest", type=click.Path(exists=True, file_okay=False, path_type=Path),
+              default=None, help="Verify the newest snapshot under this destination")
+@click.option("--root", type=click.Path(exists=True, file_okay=False, path_type=Path),
+              default=None, help="With --dest, scope 'newest' to this cartridge")
 @click.option("--against", type=click.Path(exists=True, file_okay=False, path_type=Path),
               default=None, help="Also compare against this live cartridge")
 @click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
-def verify_backup_cmd(snapshot: Path, against: Path | None, as_json: bool) -> None:
-    """Re-checksum a Tier-2 mirror against its manifest."""
+def verify_backup_cmd(snapshot: Path | None, dest: Path | None, root: Path | None,
+                      against: Path | None, as_json: bool) -> None:
+    """Re-checksum a Tier-2 mirror against its manifest.
+
+    Give an explicit SNAPSHOT, or --dest to verify the newest one there
+    (the panel has no snapshot picker, so it uses --dest).
+    """
     import json as _json
 
-    from .backup import verify_snapshot
+    from .backup import cartridge_backup_name, latest_snapshot, verify_snapshot
+
+    if snapshot is None:
+        if dest is None:
+            raise click.UsageError("Give a SNAPSHOT path or --dest to verify the newest.")
+        label = cartridge_backup_name(root) if root else None
+        snapshot = latest_snapshot(dest, label)
+        if snapshot is None:
+            raise click.ClickException(f"No snapshot found under {dest}")
 
     problems = verify_snapshot(snapshot, against=against)
     if as_json:

@@ -11,9 +11,9 @@ from click.testing import CliRunner
 from photo_workflow.cartridge import main
 
 
-def _cartridge(tmp_path):
-    root = tmp_path / "cart"
-    root.mkdir()
+def _cartridge(tmp_path, name="cart"):
+    root = tmp_path / name
+    root.mkdir(parents=True)
     conn = sqlite3.connect(root / "photonforge.db")
     conn.execute("CREATE TABLE t (x)")
     conn.commit()
@@ -66,8 +66,8 @@ def test_snapshot_rotates_across_runs(tmp_path):
     assert "2026-01-02T00-00-00" in remaining
 
 
-def _full_cartridge(tmp_path):
-    root = _cartridge(tmp_path)
+def _full_cartridge(tmp_path, name="cart"):
+    root = _cartridge(tmp_path, name)
     (root / "ICELAND").mkdir()
     (root / "ICELAND" / "DSC0001.ARW").write_bytes(b"raw" * 100)
     return root
@@ -99,6 +99,52 @@ def test_verify_backup_passes_then_fails_on_tampering(tmp_path):
     bad = runner.invoke(main, ["verify-backup", snap])
     assert bad.exit_code != 0
     assert "DSC0001.ARW" in bad.output
+
+
+def test_verify_backup_resolves_latest_from_dest(tmp_path):
+    """The panel has no snapshot picker, so --dest means 'verify the newest'."""
+    root = _full_cartridge(tmp_path)
+    dest = tmp_path / "backups"
+    runner = CliRunner()
+    runner.invoke(main, ["backup", str(root), "--dest", str(dest), "--json"])
+    second = json.loads(
+        runner.invoke(main, ["backup", str(root), "--dest", str(dest), "--json"]).output
+    )["path"]
+
+    result = runner.invoke(main, ["verify-backup", "--dest", str(dest), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["path"] == second          # newest, not the first
+    assert payload["problems"] == []
+
+
+def test_verify_backup_scopes_latest_to_the_named_cartridge(tmp_path):
+    root_a = _full_cartridge(tmp_path, "PHOTON-001")
+    root_b = _full_cartridge(tmp_path, "PHOTON-002")
+    dest = tmp_path / "backups"
+    runner = CliRunner()
+    runner.invoke(main, ["backup", str(root_a), "--dest", str(dest), "--json"])
+    b_snap = json.loads(
+        runner.invoke(main, ["backup", str(root_b), "--dest", str(dest), "--json"]).output
+    )["path"]
+    result = runner.invoke(
+        main, ["verify-backup", "--dest", str(dest), "--root", str(root_a), "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["path"] != b_snap
+
+
+def test_verify_backup_needs_a_snapshot_or_a_dest(tmp_path):
+    result = CliRunner().invoke(main, ["verify-backup"])
+    assert result.exit_code != 0
+    assert "--dest" in result.output
+
+
+def test_verify_backup_reports_an_empty_dest(tmp_path):
+    empty = tmp_path / "nothing"
+    empty.mkdir()
+    result = CliRunner().invoke(main, ["verify-backup", "--dest", str(empty)])
+    assert result.exit_code != 0
+    assert "no snapshot" in result.output.lower()
 
 
 def test_restore_backup_command(tmp_path):
