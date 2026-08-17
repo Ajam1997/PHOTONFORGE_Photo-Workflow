@@ -29,6 +29,33 @@ python scripts/provision_scoring_models.py
 
 ## 3. Darktable Lua plugin
 
+**Updating an existing install** — one command, from the repo or anywhere:
+
+```powershell
+# Close Darktable first. Refreshes the venv package, deploys the plugin,
+# then VERIFIES the result and exits non-zero if anything is off.
+.\scripts\update_install.ps1
+
+# Did it actually take effect? (changes nothing)
+.\scripts\update_install.ps1 -VerifyOnly
+
+# Portable install with its own config dir:
+.\scripts\update_install.ps1 -DarktableDir "<darktable config dir>"
+```
+
+It deploys **whatever is checked out** and never runs git, so it cannot move
+your working tree. Useful switches: `-SkipPip` (plugin only — the install is
+editable, so new modules and CLI subcommands are normally picked up without
+reinstalling), `-Force` (proceed with Darktable running; see the warning
+below about `darktablerc`).
+
+The verification is the point: it hashes every deployed `.lua` against the
+repo and flags **STALE** copies, runs `photo-cartridge --help` and checks each
+subcommand the panel can press actually exists, and confirms `luarc` and
+`cli_path`. A silently-stale plugin is the failure this catches.
+
+**Plugin only** (what `update_install.ps1` calls internally):
+
 ```powershell
 # Copies lua/photonforge/*.lua into the Darktable config dir and adds the
 # require line to luarc. Re-run after every .lua change.
@@ -42,7 +69,8 @@ Note: the plugin lives in Darktable's **config** directory
 portable install at `F:\...\54-creative\Darktable` keeps its config where
 its launcher's `--configdir` points — pass that to `-DarktableDir`.
 
-> **⚠ Deploy this yourself, not through an AI agent.** Claude Code's tools
+> **⚠ Deploy this yourself, not through an AI agent** — this applies to
+> `update_install.ps1` exactly as it does to `deploy_lua.ps1`. Claude Code's tools
 > on this machine run behind a **copy-on-write filesystem overlay** for
 > `%LOCALAPPDATA%` (and other user-profile paths). When an agent runs
 > `deploy_lua.ps1`, the files land in the overlay at the *same path string*
@@ -87,14 +115,24 @@ pre-rebuild venv and is **not** in this repo — reinstall it into `.venv`
 
 ## 5. Cartridge / SSD tooling (Linux target only)
 
-udisks2 polling, `photo-cartridge`, and the eject scripts target the Yoga
-910 Linux host — nothing to set up on the Windows dev machine. Remote test
-entry point: `scripts/remote_test.sh` over SSH (see CLAUDE.md §Remote
-Execution; re-add your SSH key to the Yoga after the rebuild if needed).
+udisks2 polling, cartridge detection/provisioning, and the eject scripts
+target the Yoga 910 Linux host — nothing to set up on the Windows dev
+machine. Remote test entry point: `scripts/remote_test.sh` over SSH (see
+CLAUDE.md §Remote Execution; re-add your SSH key to the Yoga after the
+rebuild if needed).
+
+**Exception — the backup subcommands run on Windows too.** `photo-cartridge
+snapshot`, `backup`, `verify-backup` and `restore-backup` are pure Python with
+no udisks2/lsblk dependency, and the panel's Snapshot/Backup/Verify buttons
+invoke them here. They work against any mounted cartridge (`E:\`, or a
+portable drive) with a backup destination on a second drive. The Linux-only
+pieces are `detect_cartridges` (lsblk) and provisioning. See the
+[backup runbook](backup-and-restore-guide.md).
 
 ## 6. Sanity checklist
 
 - [ ] `python -m pytest -m "not slow"` green
+- [ ] `.\scripts\update_install.ps1 -VerifyOnly` reports "Install is up to date"
 - [ ] `photo-workflow --help` prints the staged commands
 - [ ] `models/florence2_int8/*.onnx` present (4 files)
 - [ ] Darktable shows the PHOTONForge panel (lighttable view)
