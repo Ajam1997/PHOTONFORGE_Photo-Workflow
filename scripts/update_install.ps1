@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Refreshes the Python package in the repo venv, deploys the Darktable Lua
-    plugin, then VERIFIES the result — console scripts resolve, the expected
+    plugin, then VERIFIES the result - console scripts resolve, the expected
     photo-cartridge subcommands exist, every deployed .lua matches the repo,
     luarc has the require line, and darktablerc points at the venv CLI.
 
@@ -15,13 +15,18 @@
     Idempotent: re-running when nothing changed reports "already up to date"
     and touches nothing.
 
-    ⚠ RUN THIS YOURSELF IN A NORMAL POWERSHELL WINDOW — not through an AI
+    NOTE: kept to a deliberately plain PowerShell subset - pure ASCII, no
+    $(if ...) string interpolation - so Windows PowerShell 5.1 parses it
+    identically to PowerShell 7. Please keep it that way when editing.
+
+    !! RUN THIS YOURSELF IN A NORMAL POWERSHELL WINDOW - not through an AI
     agent. Agent tooling on this machine writes %LOCALAPPDATA% through a
     copy-on-write overlay, so files land at the same path string but a
     different backing store than the Darktable you launch. Everything
-    "passes" and the panel never appears. See dev-docs/dev-machine-setup.md §3.
+    "passes" and the panel never appears. See dev-docs/dev-machine-setup.md
+    section 3.
 
-    ⚠ CLOSE DARKTABLE FIRST. It rewrites darktablerc on exit and will drop
+    !! CLOSE DARKTABLE FIRST. It rewrites darktablerc on exit and will drop
     the cli_path preference this script sets.
 
 .PARAMETER DarktableDir
@@ -40,7 +45,7 @@
     this switch makes that skip explicit and fast.
 
 .PARAMETER Force
-    Proceed even if Darktable is running. Not recommended — see above.
+    Proceed even if Darktable is running. Not recommended - see above.
 
 .EXAMPLE
     .\scripts\update_install.ps1
@@ -48,7 +53,7 @@
     .\scripts\update_install.ps1 -DarktableDir "F:\54-creative\Darktable\config"
 #>
 param(
-    [string]$DarktableDir = $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "darktable" } else { "" }),
+    [string]$DarktableDir = "",
     [switch]$VerifyOnly,
     [switch]$SkipPip,
     [switch]$Force
@@ -57,8 +62,14 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+if (-not $DarktableDir) {
+    if ($env:LOCALAPPDATA) {
+        $DarktableDir = Join-Path $env:LOCALAPPDATA "darktable"
+    }
+}
+
 # photo-cartridge subcommands the Darktable panel invokes. Keep in step with
-# runner.lua's CARTRIDGE_IMPLEMENTED table and IF-1.1 sub-contract 4 — if the
+# runner.lua's CARTRIDGE_IMPLEMENTED table and IF-1.1 sub-contract 4 - if the
 # panel can press it, this script checks the CLI actually has it.
 $ExpectedCommands = @("init", "snapshot", "backup", "verify-backup", "restore-backup")
 
@@ -86,18 +97,26 @@ $venvBin = $venvDirs | Where-Object { Test-Path $_ } | Select-Object -First 1
 
 function Resolve-Entry($name) {
     if (-not $venvBin) { return $null }
-    foreach ($candidate in @("$name.exe", $name)) {
+    $candidates = @(($name + ".exe"), $name)
+    foreach ($candidate in $candidates) {
         $p = Join-Path $venvBin $candidate
         if (Test-Path $p) { return $p }
     }
     return $null
 }
 
+$dtLabel = "(not set)"
+if ($DarktableDir) { $dtLabel = $DarktableDir }
+$venvLabel = "(not found)"
+if ($venvBin) { $venvLabel = $venvBin }
+
 Write-Host "PHOTONForge install updater"
 Write-Host "  repo:      $repoRoot"
-Write-Host "  darktable: $(if ($DarktableDir) { $DarktableDir } else { '(not set)' })"
-Write-Host "  venv:      $(if ($venvBin) { $venvBin } else { '(not found)' })"
-if ($VerifyOnly) { Write-Host "  mode:      VERIFY ONLY (nothing will be changed)" -ForegroundColor Yellow }
+Write-Host "  darktable: $dtLabel"
+Write-Host "  venv:      $venvLabel"
+if ($VerifyOnly) {
+    Write-Host "  mode:      VERIFY ONLY (nothing will be changed)" -ForegroundColor Yellow
+}
 
 # --- Preflight ---------------------------------------------------------------
 Write-Step "Preflight"
@@ -111,7 +130,7 @@ if (-not $DarktableDir) {
 }
 
 if (-not $venvBin) {
-    Write-Bad "No venv at $repoRoot\.venv — see dev-docs/dev-machine-setup.md §2"
+    Write-Bad "No venv at $repoRoot\.venv - see dev-docs/dev-machine-setup.md section 2"
 } else {
     Write-Ok "venv found"
 }
@@ -132,26 +151,28 @@ if ($dtProcs.Count -gt 0) {
 if ($script:Problems.Count -gt 0) {
     Write-Host ""
     Write-Host "Preflight failed:" -ForegroundColor Red
-    $script:Problems | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+    foreach ($p in $script:Problems) { Write-Host "  - $p" -ForegroundColor Red }
     exit 1
 }
 
 # --- 1. Python package -------------------------------------------------------
 Write-Step "Python package"
 if ($VerifyOnly -or $SkipPip) {
-    Write-Ok "skipped$(if ($SkipPip) { ' (-SkipPip)' } else { ' (-VerifyOnly)' })"
+    $why = "(-VerifyOnly)"
+    if ($SkipPip) { $why = "(-SkipPip)" }
+    Write-Ok "skipped $why"
 } else {
-    # `python -m pip`, not pip.exe: on Windows pip cannot replace itself while
+    # 'python -m pip', not pip.exe: on Windows pip cannot replace itself while
     # its own .exe is running, and this works even in venvs created without a
     # bundled pip shim.
     $python = Resolve-Entry "python"
     if (-not $python) {
         Write-Bad "python not found in $venvBin"
     } else {
-        # Absolute path, not "." — the script must work from any working
+        # Absolute path, not "." - the script must work from any working
         # directory, and pip resolves "." against the caller's CWD.
-        $target = "$repoRoot[dev]"
-        Write-Act "python -m pip install -e `"$target`""
+        $target = $repoRoot + "[dev]"
+        Write-Act ("python -m pip install -e '" + $target + "'")
         & $python -m pip install -e $target --quiet
         if ($LASTEXITCODE -ne 0) {
             Write-Bad "pip install failed (exit $LASTEXITCODE)"
@@ -170,7 +191,7 @@ if ($VerifyOnly) {
     if (-not (Test-Path $deploy)) {
         Write-Bad "deploy_lua.ps1 not found next to this script"
     } else {
-        Write-Act "deploy_lua.ps1 -DarktableDir `"$DarktableDir`""
+        Write-Act ("deploy_lua.ps1 -DarktableDir '" + $DarktableDir + "'")
         & $deploy -DarktableDir $DarktableDir | ForEach-Object { Write-Host "         $_" }
     }
 }
@@ -180,7 +201,7 @@ Write-Step "Verify: console scripts"
 $cartridge = Resolve-Entry "photo-cartridge"
 $workflow  = Resolve-Entry "photo-workflow"
 
-if (-not $workflow)  { Write-Bad "photo-workflow entry point missing" }  else { Write-Ok "photo-workflow" }
+if (-not $workflow) { Write-Bad "photo-workflow entry point missing" } else { Write-Ok "photo-workflow" }
 if (-not $cartridge) { Write-Bad "photo-cartridge entry point missing" } else { Write-Ok "photo-cartridge" }
 
 if ($cartridge) {
@@ -190,8 +211,10 @@ if ($cartridge) {
         Write-Bad "photo-cartridge --help failed (exit $LASTEXITCODE)"
     } else {
         foreach ($cmd in $ExpectedCommands) {
-            if ($help -match "(?m)^\s+$([regex]::Escape($cmd))\b") {
-                Write-Ok "$cmd"
+            $escaped = [regex]::Escape($cmd)
+            $pattern = '(?m)^\s+' + $escaped + '\b'
+            if ($help -match $pattern) {
+                Write-Ok $cmd
             } else {
                 Write-Bad "$cmd missing from photo-cartridge --help"
             }
@@ -207,14 +230,18 @@ if (-not (Test-Path $dstDir)) {
 } else {
     $stale = 0
     foreach ($f in Get-ChildItem -Path $srcDir -Filter "*.lua") {
-        $dst = Join-Path $dstDir $f.Name
+        $name = $f.Name
+        $dst = Join-Path $dstDir $name
         if (-not (Test-Path $dst)) {
-            Write-Bad "$($f.Name) not deployed"
-            $stale++
-        } elseif ((Get-FileHash $f.FullName -Algorithm MD5).Hash -ne
-                  (Get-FileHash $dst        -Algorithm MD5).Hash) {
-            Write-Bad "$($f.Name) is STALE (deployed copy differs from the repo)"
-            $stale++
+            Write-Bad "$name not deployed"
+            $stale = $stale + 1
+        } else {
+            $srcHash = (Get-FileHash $f.FullName -Algorithm MD5).Hash
+            $dstHash = (Get-FileHash $dst -Algorithm MD5).Hash
+            if ($srcHash -ne $dstHash) {
+                Write-Bad "$name is STALE (deployed copy differs from the repo)"
+                $stale = $stale + 1
+            }
         }
     }
     if ($stale -eq 0) { Write-Ok "all .lua files match the repo" }
@@ -223,7 +250,12 @@ if (-not (Test-Path $dstDir)) {
 Write-Step "Verify: Darktable wiring"
 $luarc = Join-Path $DarktableDir "luarc"
 $requireLine = 'require "photonforge/main"'
-if ((Test-Path $luarc) -and ((Get-Content $luarc -Raw) -match [regex]::Escape($requireLine))) {
+$luarcOk = $false
+if (Test-Path $luarc) {
+    $luarcText = Get-Content $luarc -Raw
+    if ($luarcText -match [regex]::Escape($requireLine)) { $luarcOk = $true }
+}
+if ($luarcOk) {
     Write-Ok "luarc loads the plugin"
 } else {
     Write-Bad "luarc is missing: $requireLine"
@@ -232,9 +264,10 @@ if ((Test-Path $luarc) -and ((Get-Content $luarc -Raw) -match [regex]::Escape($r
 $rc = Join-Path $DarktableDir "darktablerc"
 if (Test-Path $rc) {
     $cliPref = Get-Content $rc | Where-Object { $_ -like 'lua/photonforge/cli_path=*' } | Select-Object -First 1
+    $wanted = "lua/photonforge/cli_path=" + $workflow
     if (-not $cliPref) {
-        Write-Warn2 "cli_path not set in darktablerc — the panel will call bare 'photo-workflow', which a GUI-launched Darktable usually cannot see"
-    } elseif ($workflow -and $cliPref -ne "lua/photonforge/cli_path=$workflow") {
+        Write-Warn2 "cli_path not set in darktablerc - the panel will call bare 'photo-workflow', which a GUI-launched Darktable usually cannot see"
+    } elseif ($workflow -and ($cliPref -ne $wanted)) {
         Write-Warn2 "cli_path points elsewhere: $cliPref"
     } else {
         Write-Ok "cli_path -> $workflow"
@@ -246,12 +279,13 @@ if (Test-Path $rc) {
 # --- Summary -----------------------------------------------------------------
 Write-Host ""
 if ($script:Problems.Count -gt 0) {
-    Write-Host "FAILED — $($script:Problems.Count) problem(s):" -ForegroundColor Red
-    $script:Problems | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+    $count = $script:Problems.Count
+    Write-Host "FAILED - $count problem(s):" -ForegroundColor Red
+    foreach ($p in $script:Problems) { Write-Host "  - $p" -ForegroundColor Red }
     Write-Host ""
     Write-Host "If every check looks like it should pass but the panel is still missing," -ForegroundColor Yellow
     Write-Host "you are probably seeing the AppData overlay described in" -ForegroundColor Yellow
-    Write-Host "dev-docs/dev-machine-setup.md §3. Re-run this in a normal PowerShell window." -ForegroundColor Yellow
+    Write-Host "dev-docs/dev-machine-setup.md section 3. Re-run this in a normal PowerShell window." -ForegroundColor Yellow
     exit 1
 }
 
@@ -259,7 +293,7 @@ Write-Host "Install is up to date." -ForegroundColor Green
 if (-not $VerifyOnly) {
     Write-Host ""
     Write-Host "Restart Darktable, then look for the CARTRIDGE strip in the lighttable panel:"
-    Write-Host "  Row 1  Snapshot / Backup / Verify   <- working"
+    Write-Host "  Row 1  Snapshot / Backup / Verify    <- working"
     Write-Host "  Row 2  Provision / Archive / Restore <- refuse with a message; not built yet"
     Write-Host ""
     Write-Host "Set 'Backup destination' under Preferences -> Lua options before using Backup or Verify."
