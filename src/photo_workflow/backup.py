@@ -16,6 +16,7 @@ maintenance operation, never a pipeline operation.
 
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import logging
@@ -24,6 +25,8 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import time
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -241,18 +244,356 @@ def assert_cartridge_idle(root: Path, *, force: bool = False) -> None:
     )
 
 
-def rotate_snapshots(snapshots_root: Path, keep: int) -> list[Path]:
+def rotate_snapshots(snapshots_root: Path, keep: int,
+                     protect: Path | None = None) -> list[Path]:
     """Keep the newest `keep` timestamped snapshot dirs; delete the rest.
 
     Sorting is lexicographic, which is chronological for snapshot_timestamp()
     names. Loose files are ignored — only directories are candidates.
+
+    `protect` is never deleted regardless of where it sorts. Callers pass the
+    snapshot they just wrote: a backup that pruned the last known-good copy
+    and kept only itself is worse than no backup at all.
     """
     snapshots_root = Path(snapshots_root)
     if not snapshots_root.exists() or keep <= 0:
         return []
     dirs = sorted((p for p in snapshots_root.iterdir() if p.is_dir()), key=lambda p: p.name)
     to_delete = dirs[:-keep]
+    if protect is not None:
+        protect = Path(protect)
+        to_delete = [p for p in to_delete if p != protect]
     for path in to_delete:
         shutil.rmtree(path, ignore_errors=True)
         logger.info("Pruned old snapshot %s", path.name)
     return to_delete
+
+
+# ---------------------------------------------------------------------------
+# Tier 2 — verified whole-cartridge mirror
+# ---------------------------------------------------------------------------
+
+# Directory names never worth mirroring: our own Tier-1 output plus OS litter.
+_EXCLUDE_DIRS = frozenset({
+    SNAPSHOT_DIRNAME, "lost+found", "System Volume Information", "$RECYCLE.BIN",
+})
+# Glob patterns for files never worth mirroring. The -wal/-shm sidecars are
+# excluded because the DBs are captured by VACUUM INTO, which folds the WAL in;
+# copying a stale sidecar next to a vacuumed DB would corrupt the restore.
+_EXCLUDE_FILES = ("*__preview.jpg", "*.mcp.json", "*.tmp", "*.db-wal", "*.db-shm")
+# --state-only: the small mutable state, no RAWs.
+_STATE_ONLY_SUFFIXES = frozenset({".db", ".jsonl", ".xmp"})
+_STATE_ONLY_DIRS = frozenset({"dt-config", "darktable"})
+
+
+def supports_hardlinks(dest: Path) -> bool:
+    """Probe the destination filesystem with a real os.link attempt.
+
+    exFAT and FAT32 have no hardlinks, and exFAT is the portable-drive
+    default, so link-dest incrementals must degrade rather than fail.
+    """
+    dest = Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    probe = dest / ".photon-link-probe"
+    linked = dest / ".photon-link-probe-2"
+    try:
+        probe.write_bytes(b"")
+        linked.unlink(missing_ok=True)
+        os.link(probe, linked)
+        return True
+    except (OSError, NotImplementedError):
+        return False
+    finally:
+        probe.unlink(missing_ok=True)
+        linked.unlink(missing_ok=True)
+
+
+def _is_excluded_file(name: str) -> bool:
+    return any(fnmatch.fnmatch(name, pat) for pat in _EXCLUDE_FILES)
+
+
+def _wanted_for_state_only(rel: Path) -> bool:
+    if rel.suffix.lower() in _STATE_ONLY_SUFFIXES:
+        return True
+    return bool(rel.parts) and rel.parts[0] in _STATE_ONLY_DIRS
+
+
+def _iter_payload(root: Path, *, state_only: bool, exclude_models: bool,
+                  skip: set[Path]) -> Iterator[tuple[Path, Path]]:
+    """Yield (absolute, relative) for every file that belongs in the mirror."""
+    root = Path(root)
+    for dirpath, dirnames, filenames in os.walk(root):
+        here = Path(dirpath)
+        rel_dir = here.relative_to(root)
+        # prune in place so excluded trees are never descended into
+        dirnames[:] = [
+            d for d in dirnames
+            if d not in _EXCLUDE_DIRS
+            and not d.startswith(".Trash-")
+            and not (exclude_models and rel_dir == Path(".") and d == "models")
+            and not (state_only and rel_dir == Path(".") and d == "models")
+        ]
+        dirnames.sort()
+        for name in sorted(filenames):
+            src = here / name
+            rel = rel_dir / name if rel_dir != Path(".") else Path(name)
+            if src in skip or _is_excluded_file(name):
+                continue
+            if state_only and not _wanted_for_state_only(rel):
+                continue
+            yield src, rel
+
+
+def _copy_and_hash(src: Path, dst: Path, chunk: int = 65536) -> tuple[int, str]:
+    """Stream src to dst, hashing as we go — one read, not two (NFR-2.2)."""
+    digest = hashlib.sha256()
+    total = 0
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    with open(src, "rb") as fin, open(dst, "wb") as fout:
+        for block in iter(lambda: fin.read(chunk), b""):
+            digest.update(block)
+            fout.write(block)
+            total += len(block)
+    shutil.copystat(src, dst)      # preserve mtime: the incremental compare needs it
+    return total, digest.hexdigest()
+
+
+def _unique_snapshot_dir(parent: Path) -> Path:
+    """A fresh timestamped dir that sorts strictly after every existing sibling.
+
+    Two runs inside the same second collide, so the stamp gets a numeric
+    suffix. The suffix is derived from the highest sibling sharing the stamp,
+    NOT from the first free name: retention can delete the bare stamp, and
+    reusing that freed name would produce a "newest" snapshot that sorts
+    oldest — which rotation would then immediately prune.
+    """
+    parent.mkdir(parents=True, exist_ok=True)
+    stamp = snapshot_timestamp()
+    siblings = {p.name for p in parent.iterdir() if p.is_dir() and p.name.startswith(stamp)}
+    if not siblings:
+        return parent / stamp
+    highest = 0
+    for name in siblings:
+        suffix = name[len(stamp):]
+        if suffix.startswith("-") and suffix[1:].isdigit():
+            highest = max(highest, int(suffix[1:]))
+    return parent / f"{stamp}-{highest + 1}"
+
+
+def _read_manifest(snapshot: Path) -> dict:
+    return json.loads((Path(snapshot) / MANIFEST_NAME).read_text(encoding="utf-8"))
+
+
+def _previous_index(link_dest: Path | None) -> dict[str, dict]:
+    """Relpath -> manifest entry for the previous snapshot, for link-dest."""
+    if link_dest is None:
+        return {}
+    try:
+        manifest = _read_manifest(link_dest)
+    except (OSError, ValueError):
+        return {}
+    return {entry["path"]: entry for entry in manifest.get("files", [])}
+
+
+def cartridge_backup_name(root: Path) -> str:
+    """Per-cartridge directory name under the backup destination."""
+    label = describe_cartridge(root).get("label") or ""
+    return label or Path(root).resolve().name or "cartridge"
+
+
+def mirror_cartridge(root: Path, dest: Path, *, state_only: bool = False,
+                     exclude_models: bool = False, link_dest: Path | None = None,
+                     keep: int | None = None, force: bool = False,
+                     progress: Callable[[int, int, Path], None] | None = None) -> Path:
+    """Tier 2: verified whole-cartridge mirror into <dest>/<cartridge>/<timestamp>/.
+
+    DBs go through VACUUM INTO; everything else is copied (or hardlinked from
+    link_dest when the file is unchanged and the filesystem supports links).
+    The mirror is verified before it is declared good, and retention only runs
+    after a clean verify — an unverified copy that pruned the last known-good
+    snapshot is worse than no backup at all.
+    """
+    root = Path(root)
+    assert_cartridge_idle(root, force=force)
+    started = utcnow()
+    started_epoch = time.time()
+
+    snap_parent = Path(dest) / cartridge_backup_name(root)
+    snapshot = _unique_snapshot_dir(snap_parent)
+    snapshot.mkdir(parents=True, exist_ok=True)
+
+    db_entries = _vacuum_dbs(root, snapshot)
+    skip = {Path(entry["source"]) for entry in db_entries.values()}
+
+    # Probe regardless of whether we have a link source, so the manifest's
+    # "hardlinks" field describes the destination filesystem rather than
+    # whether this particular run happened to have a previous snapshot.
+    fs_hardlinks = supports_hardlinks(Path(dest))
+    can_link = bool(link_dest) and fs_hardlinks
+    previous = _previous_index(link_dest) if can_link else {}
+
+    payload = list(_iter_payload(root, state_only=state_only,
+                                 exclude_models=exclude_models, skip=skip))
+    files: list[dict] = []
+    linked = copied = total_bytes = 0
+    for index, (src, rel) in enumerate(payload, start=1):
+        dst = snapshot / rel
+        stat = src.stat()
+        key = rel.as_posix()
+        prior = previous.get(key)
+        reuse = (
+            prior is not None
+            and prior.get("bytes") == stat.st_size
+            and abs(float(prior.get("mtime", -1)) - stat.st_mtime) < 1e-6
+            and link_dest is not None
+            and (Path(link_dest) / rel).exists()
+        )
+        if reuse:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            os.link(Path(link_dest) / rel, dst)
+            size, digest = stat.st_size, prior["sha256"]
+            linked += 1
+        else:
+            size, digest = _copy_and_hash(src, dst)
+            copied += 1
+        total_bytes += size
+        files.append({"path": key, "bytes": size, "mtime": stat.st_mtime, "sha256": digest})
+        if progress is not None:
+            progress(index, len(payload), rel)
+
+    write_manifest(snapshot, {
+        "kind": "mirror",
+        "state_only": state_only,
+        "exclude_models": exclude_models,
+        "cartridge": describe_cartridge(root),
+        "started_at": started,
+        "finished_at": utcnow(),
+        "finished_at_epoch": time.time(),
+        "started_at_epoch": started_epoch,
+        "hardlinks": fs_hardlinks,
+        "link_dest": Path(link_dest).name if link_dest else None,
+        "totals": {"files": len(files), "bytes": total_bytes,
+                   "linked": linked, "copied": copied},
+        "dbs": db_entries,
+        "files": files,
+    })
+
+    problems = verify_snapshot(snapshot)
+    if problems:
+        raise RuntimeError(
+            f"Mirror at {snapshot} failed verification:\n  " + "\n  ".join(problems[:10])
+        )
+    logger.info("Mirrored %d file(s) (%d linked) into %s", len(files), linked, snapshot)
+    if keep:
+        rotate_snapshots(snap_parent, keep, protect=snapshot)
+    return snapshot
+
+
+def verify_snapshot(snapshot: Path, *, against: Path | None = None) -> list[str]:
+    """Re-hash every manifest entry. Returns discrepancies; empty means clean."""
+    snapshot = Path(snapshot)
+    problems: list[str] = []
+    try:
+        manifest = _read_manifest(snapshot)
+    except FileNotFoundError:
+        return [f"{MANIFEST_NAME} missing from {snapshot}"]
+    except ValueError as exc:
+        return [f"{MANIFEST_NAME} is unreadable: {exc}"]
+
+    for key, entry in manifest.get("dbs", {}).items():
+        path = snapshot / entry["snapshot"]
+        if not path.exists():
+            problems.append(f"{entry['snapshot']}: missing (db {key})")
+        elif sha256_file(path) != entry["sha256"]:
+            problems.append(f"{entry['snapshot']}: checksum mismatch (db {key})")
+
+    for entry in manifest.get("files", []):
+        path = snapshot / entry["path"]
+        if not path.exists():
+            problems.append(f"{entry['path']}: missing")
+            continue
+        if path.stat().st_size != entry["bytes"]:
+            problems.append(f"{entry['path']}: size mismatch")
+        elif sha256_file(path) != entry["sha256"]:
+            problems.append(f"{entry['path']}: checksum mismatch")
+
+    if against is not None:
+        against = Path(against)
+        for entry in manifest.get("files", []):
+            live = against / entry["path"]
+            if not live.exists():
+                problems.append(f"{entry['path']}: gone from the live cartridge")
+            elif live.stat().st_size != entry["bytes"]:
+                problems.append(f"{entry['path']}: differs from the live cartridge")
+    return problems
+
+
+def latest_snapshot(dest: Path, label: str | None = None) -> Path | None:
+    """Newest snapshot under dest, optionally restricted to one cartridge."""
+    dest = Path(dest)
+    if not dest.exists():
+        return None
+    roots = [dest / label] if label else [p for p in dest.iterdir() if p.is_dir()]
+    candidates = [
+        snap
+        for cartridge_dir in roots if cartridge_dir.is_dir()
+        for snap in cartridge_dir.iterdir()
+        if snap.is_dir() and (snap / MANIFEST_NAME).exists()
+    ]
+    return max(candidates, key=lambda p: p.name) if candidates else None
+
+
+def snapshot_is_fresh(snapshot: Path, root: Path) -> bool:
+    """True when nothing on the cartridge has been written since the snapshot.
+
+    This is the predicate migrate-fs gates on: reformatting is destructive, so
+    the safety net must postdate the last write it is supposed to protect.
+    """
+    try:
+        manifest = _read_manifest(snapshot)
+    except (OSError, ValueError):
+        return False
+    finished = manifest.get("finished_at_epoch")
+    if finished is None:
+        return False
+    root = Path(root)
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [
+            d for d in dirnames if d not in _EXCLUDE_DIRS and not d.startswith(".Trash-")
+        ]
+        here = Path(dirpath)
+        for name in filenames:
+            if _is_excluded_file(name):
+                continue
+            try:
+                if (here / name).stat().st_mtime > finished:
+                    return False
+            except OSError:
+                continue
+    return True
+
+
+def restore_snapshot(snapshot: Path, target: Path, *, force: bool = False) -> Path:
+    """Copy a Tier-2 mirror back onto a cartridge (or a scratch dir).
+
+    The manifest is metadata, not payload, so it is not restored.
+    """
+    snapshot, target = Path(snapshot), Path(target)
+    if target.exists() and any(target.iterdir()) and not force:
+        raise FileExistsError(
+            f"{target} is not empty; pass force=True to restore over it"
+        )
+    target.mkdir(parents=True, exist_ok=True)
+    for src in sorted(snapshot.rglob("*")):
+        rel = src.relative_to(snapshot)
+        if rel.name == MANIFEST_NAME:
+            continue
+        dst = target / rel
+        if src.is_dir():
+            dst.mkdir(parents=True, exist_ok=True)
+        else:
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst)
+            shutil.copystat(src, dst)
+    logger.info("Restored %s into %s", snapshot, target)
+    return target

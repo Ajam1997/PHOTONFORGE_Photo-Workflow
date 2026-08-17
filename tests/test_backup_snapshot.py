@@ -129,6 +129,18 @@ def test_rotate_missing_root_is_a_noop(tmp_path):
     assert rotate_snapshots(tmp_path / "nope", keep=3) == []
 
 
+def test_rotate_never_deletes_the_protected_snapshot(tmp_path):
+    """The snapshot just written survives even if it sorts oldest."""
+    snaproot = tmp_path / "s"
+    snaproot.mkdir()
+    for name in ("2026-07-01T00-00-00", "2026-07-02T00-00-00", "2026-07-03T00-00-00"):
+        (snaproot / name).mkdir()
+    oldest = snaproot / "2026-07-01T00-00-00"
+    deleted = rotate_snapshots(snaproot, keep=1, protect=oldest)
+    assert oldest.exists()
+    assert oldest not in deleted
+
+
 def test_rotate_ignores_loose_files(tmp_path):
     snaproot = tmp_path / "s"
     snaproot.mkdir()
