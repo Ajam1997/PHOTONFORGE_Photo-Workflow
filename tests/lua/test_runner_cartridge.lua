@@ -82,6 +82,7 @@ prefs.backup_dest = "/media/alex/BACKUP"
 prefs.snapshot_keep = 7
 prefs.backup_keep = 10
 prefs.cli_path = ""
+prefs.cartridge_path = ""
 prefs.models_path = ""
 prefs.backup_repo = ""
 prefs.backup_pwfile = ""
@@ -137,8 +138,42 @@ reset()
 runner.launch_snapshot(log_fn)
 check(#executed == 1, "snapshot works without a backup destination")
 
+-- === The CLI must be resolved, not invoked by bare name ====================
+-- Darktable launches as a GUI, so its subprocess PATH excludes the venv's
+-- Scripts dir. A bare `photo-cartridge` dies with "not recognized" inside the
+-- terminal the button just opened -- which is exactly what shipped once.
+prefs.cli_path = "F:\\repo\\.venv\\Scripts\\photo-workflow.exe"
+reset()
+runner.launch_snapshot(log_fn)
+contains(last_cmd(), "photo-cartridge.exe", "snapshot uses the resolved exe, not the bare name")
+contains(last_cmd(), "F:\\repo\\.venv\\Scripts\\", "snapshot keeps the venv directory")
+check(last_cmd():find("[^\\\\]photo%-cartridge snapshot") == nil,
+      "snapshot must not invoke a bare 'photo-cartridge'")
+
+reset()
+runner.launch_backup(log_fn)
+contains(last_cmd(), "photo-cartridge.exe", "backup uses the resolved exe")
+
+reset()
+runner.launch_verify(log_fn)
+contains(last_cmd(), "photo-cartridge.exe", "verify uses the resolved exe")
+
+-- An explicit override wins over the derivation.
+prefs.cartridge_path = "D:\\custom\\pc.exe"
+reset()
+runner.launch_snapshot(log_fn)
+contains(last_cmd(), "D:\\custom\\pc.exe", "cartridge_path overrides the derived path")
+prefs.cartridge_path = ""
+
+-- Blank cli_path (Linux/container: it really is on PATH) falls back to bare.
+prefs.cli_path = ""
+reset()
+runner.launch_snapshot(log_fn)
+contains(last_cmd(), "photo-cartridge snapshot", "bare name is the fallback when nothing is configured")
+
 -- === config.read must know every key the runner reads ======================
-for _, key in ipairs({ "backup_dest", "snapshot_keep", "backup_keep", "dest_path" }) do
+for _, key in ipairs({ "backup_dest", "snapshot_keep", "backup_keep",
+                       "dest_path", "cli_path", "cartridge_path" }) do
   local ok = pcall(config.read, key)
   check(ok, "config.read knows '" .. key .. "'")
 end

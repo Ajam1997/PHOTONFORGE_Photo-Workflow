@@ -28,6 +28,24 @@ local function cli()
   return "photo-workflow"
 end
 
+-- Same problem as cli(), same fix: a GUI-launched Darktable's subprocess PATH
+-- does not include the venv's Scripts/bin, so a bare `photo-cartridge` dies
+-- with "not recognized" in the terminal window the button just opened.
+-- photo-cartridge is a sibling console script of photo-workflow in the same
+-- venv, so derive it from cli_path instead of making the user configure a
+-- second path. cartridge_path overrides, for a non-standard layout where the
+-- name substitution does not apply.
+local function cartridge_cli()
+  local explicit = config.read("cartridge_path")
+  if explicit ~= "" then return shell_quote(explicit) end
+  local p = config.read("cli_path")
+  if p ~= "" then
+    local sibling = p:gsub("photo%-workflow", "photo-cartridge")
+    if sibling ~= p then return shell_quote(sibling) end
+  end
+  return "photo-cartridge"
+end
+
 local function get_drive_root(path)
   if IS_WINDOWS then
     local drive = path:match("^(%a:\\)")
@@ -366,7 +384,7 @@ function M.launch_provision(log_fn)
   local drive = get_drive_root(dest)
   local id = config.read("cartridge_id")
   local idflag = (id ~= "" and (" --id " .. id)) or ""
-  local inner = 'photo-cartridge provision ' .. shell_quote(drive) .. idflag
+  local inner = cartridge_cli() .. ' provision ' .. shell_quote(drive) .. idflag
   log_fn(string.format("[%s] Provisioning cartridge (elevated): %s", os.date("%H:%M:%S"), inner))
   if IS_WINDOWS then
     -- UAC prompt -> elevated cmd window that stays open (/k) showing the result.
@@ -421,7 +439,7 @@ function M.launch_snapshot(log_fn)
     dt.print("PHOTONForge: set a Destination path")
     return
   end
-  local inner = "photo-cartridge snapshot " .. shell_quote(root)
+  local inner = cartridge_cli() .. " snapshot " .. shell_quote(root)
                 .. " --keep " .. tostring(config.read("snapshot_keep"))
   log_fn(string.format("[%s] Snapshotting catalog DBs (local, offline): %s",
                        os.date("%H:%M:%S"), inner))
@@ -443,7 +461,7 @@ function M.launch_backup(log_fn)
     dt.print("PHOTONForge: set a Destination path")
     return
   end
-  local inner = "photo-cartridge backup " .. shell_quote(root)
+  local inner = cartridge_cli() .. " backup " .. shell_quote(root)
                 .. " --dest " .. shell_quote(dest)
                 .. " --keep " .. tostring(config.read("backup_keep"))
   log_fn(string.format("[%s] Mirroring cartridge to %s", os.date("%H:%M:%S"), dest))
@@ -461,7 +479,7 @@ function M.launch_verify(log_fn)
     dt.print("PHOTONForge: set a Backup dest in the panel")
     return
   end
-  local inner = "photo-cartridge verify-backup --dest " .. shell_quote(dest)
+  local inner = cartridge_cli() .. " verify-backup --dest " .. shell_quote(dest)
   local root = cartridge_root()
   if root ~= "" then inner = inner .. " --root " .. shell_quote(root) end
   log_fn(string.format("[%s] Verifying newest mirror under %s", os.date("%H:%M:%S"), dest))
@@ -478,7 +496,7 @@ function M.launch_archive(log_fn)
     return
   end
   local drive = get_drive_root(config.read("dest_path"))
-  local inner = "photo-cartridge archive " .. shell_quote(drive) .. flags .. " --init"
+  local inner = cartridge_cli() .. " archive " .. shell_quote(drive) .. flags .. " --init"
   log_fn(string.format("[%s] Archiving cartridge: %s", os.date("%H:%M:%S"), inner))
   launch_terminal(inner, false)
   log_fn("[archive] Launched in a terminal window; first backup uploads everything, later ones are incremental.")
@@ -496,7 +514,7 @@ function M.launch_restore(log_fn)
   local drive = get_drive_root(config.read("dest_path"))
   local id = config.read("cartridge_id")
   local idflag = (id ~= "" and (" --id " .. id)) or ""
-  local inner = "photo-cartridge restore" .. flags .. " --to " .. shell_quote(drive) .. idflag
+  local inner = cartridge_cli() .. " restore" .. flags .. " --to " .. shell_quote(drive) .. idflag
   log_fn(string.format("[%s] Restoring cartridge (elevated): %s", os.date("%H:%M:%S"), inner))
   launch_terminal(inner, true)
   log_fn("[restore] Launched. Approve the elevation prompt; the window shows restore progress.")

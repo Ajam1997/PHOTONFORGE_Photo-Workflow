@@ -17,6 +17,7 @@ local DEFS = {
   { name = "corpus_path",      type = "string",  default = "", label = "Corpus JSONL path" },
   { name = "models_path",      type = "string",  default = "", label = "Models dir (blank = auto-detect from package)" },
   { name = "cli_path",         type = "string",  default = "", label = "photo-workflow CLI path (blank = 'photo-workflow' on PATH; set to <venv>/Scripts/photo-workflow.exe when Darktable can't see the venv)" },
+  { name = "cartridge_path",   type = "string",  default = "", label = "photo-cartridge CLI path (blank = derived from the photo-workflow path; set only for a non-standard layout)" },
   { name = "dev_mode",         type = "bool",    default = false, label = "Developer mode panel (resolved command, timing, open log)" },
   { name = "cartridge_id",     type = "string",  default = "", label = "Cartridge ID (e.g. 003) for provisioning" },
   { name = "backup_dest",      type = "string",  default = "", label = "Backup destination (second drive, for verified cartridge mirrors)" },
