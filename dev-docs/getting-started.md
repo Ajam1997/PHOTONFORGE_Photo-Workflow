@@ -40,6 +40,7 @@ python -m scripts.check_doc_references   # docs-to-code reference integrity
 | CI | `.github/workflows/` (`tests.yml`, `docs-integrity.yml`, doc automation) |
 | Requirements & ICDs | `requirements/` + GitHub Issues (canonical) |
 | Developer docs (wiki source) | `dev-docs/` (`Archive/` = dated history) |
+| Backing up / restoring a cartridge | [`backup-and-restore-guide.md`](backup-and-restore-guide.md) |
 
 ## 5. Working conventions
 

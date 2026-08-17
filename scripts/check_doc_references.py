@@ -58,8 +58,13 @@ EXEMPT_DIRS = (
 
 # Repo-path shapes worth checking. Requires a known top-level dir and a file
 # extension, so prose like "the src tree" or glob examples don't match.
+# The leading (?<![\w-]) is load-bearing: plain \b still matches mid-token after
+# a hyphen, so "dt-config/library.db" was read as a reference to the top-level
+# "config/" dir and reported missing. Hyphenated dir names are normal here
+# (dt-config is the portable-drive layout), so anchor on "not preceded by a word
+# char or a hyphen" instead.
 PATH_RE = re.compile(
-    r"\b((?:src|scripts|tests|deploy|lua|tools|config|docs|dev-docs|requirements|models|prompts|artifacts)"
+    r"(?<![\w-])((?:src|scripts|tests|deploy|lua|tools|config|docs|dev-docs|requirements|models|prompts|artifacts)"
     r"/[\w][\w./-]*\.(?:py|sh|lua|yml|yaml|md|css|json|toml|ps1|bat|spec|onnx|db))\b"
 )
 
