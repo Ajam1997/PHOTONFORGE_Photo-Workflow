@@ -122,13 +122,21 @@ def write_manifest(dest_dir: Path, body: dict) -> Path:
     return path
 
 
-def _vacuum_dbs(root: Path, dest_dir: Path) -> dict[str, dict]:
+def _vacuum_dbs(root: Path, dest_dir: Path, *, flatten: bool = True) -> dict[str, dict]:
     """VACUUM INTO every present DB under dest_dir; return the manifest entries.
 
     VACUUM INTO writes a defragmented, self-contained copy while readers stay live;
-    a plain file copy of a DB mid-write can be torn. Snapshot filenames are
-    basenames, so library.db/data.db land flat next to photonforge.db.
+    a plain file copy of a DB mid-write can be torn.
+
+    `flatten` controls placement, and the two tiers genuinely differ:
+
+    * Tier 1 flattens to basenames, so library.db/data.db land next to
+      photonforge.db — a rescue copy you grab by hand.
+    * Tier 2 must NOT flatten. Its mirror is what migrate-fs copies back onto a
+      reformatted cartridge; moving dt-config/library.db to the root would
+      leave Darktable unable to find its catalog.
     """
+    root = Path(root)
     layout = cartridge_layout(root)
     if not layout.dbs:
         raise FileNotFoundError(f"No PHOTONForge/Darktable DBs found under {root}")
@@ -137,7 +145,9 @@ def _vacuum_dbs(root: Path, dest_dir: Path) -> dict[str, dict]:
 
     entries: dict[str, dict] = {}
     for key, src in layout.dbs.items():
-        out = dest_dir / src.name
+        rel = Path(src.name) if flatten else src.relative_to(root)
+        out = dest_dir / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(src))
         try:
             # VACUUM INTO takes no bind parameters; quote the path by doubling quotes.
@@ -146,7 +156,7 @@ def _vacuum_dbs(root: Path, dest_dir: Path) -> dict[str, dict]:
             conn.close()
         entries[key] = {
             "source": str(src),
-            "snapshot": out.name,
+            "snapshot": rel.as_posix(),
             "bytes": out.stat().st_size,
             "sha256": sha256_file(out),  # hash the copy: the source is live
         }
@@ -422,7 +432,8 @@ def mirror_cartridge(root: Path, dest: Path, *, state_only: bool = False,
     snapshot = _unique_snapshot_dir(snap_parent)
     snapshot.mkdir(parents=True, exist_ok=True)
 
-    db_entries = _vacuum_dbs(root, snapshot)
+    # flatten=False: this mirror gets restored onto a real cartridge.
+    db_entries = _vacuum_dbs(root, snapshot, flatten=False)
     skip = {Path(entry["source"]) for entry in db_entries.values()}
 
     # Probe regardless of whether we have a link source, so the manifest's

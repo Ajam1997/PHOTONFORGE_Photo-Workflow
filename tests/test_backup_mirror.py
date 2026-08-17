@@ -57,6 +57,52 @@ def test_mirror_nests_under_the_cartridge_label(tmp_path):
     assert snap.parent.name  # a per-cartridge dir sits between dest and the snapshot
 
 
+def test_mirror_preserves_the_darktable_catalog_path(tmp_path):
+    """A mirror must restore onto a *working* cartridge.
+
+    Tier 1 flattens DB names (a rescue copy you hand-inspect), but Tier 2 is
+    what migrate-fs copies back after a reformat — flattening dt-config/library.db
+    to the root would leave Darktable unable to find its catalog.
+    """
+    root = _cartridge(tmp_path)
+    conn = sqlite3.connect(root / "dt-config" / "library.db")
+    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY)")
+    conn.commit()
+    conn.close()
+
+    snap = backup.mirror_cartridge(root, tmp_path / "backups")
+    assert (snap / "dt-config" / "library.db").exists()
+    assert not (snap / "library.db").exists()
+    assert backup.verify_snapshot(snap) == []
+
+    target = tmp_path / "restored"
+    backup.restore_snapshot(snap, target)
+    assert (target / "dt-config" / "library.db").exists()
+    assert (target / "photonforge.db").exists()      # root-level DBs stay at root
+
+
+def test_state_only_mirror_also_preserves_catalog_path(tmp_path):
+    root = _cartridge(tmp_path)
+    conn = sqlite3.connect(root / "dt-config" / "library.db")
+    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY)")
+    conn.commit()
+    conn.close()
+    snap = backup.mirror_cartridge(root, tmp_path / "backups", state_only=True)
+    assert (snap / "dt-config" / "library.db").exists()
+
+
+def test_tier1_snapshot_still_flattens(tmp_path):
+    """The Tier-1 contract is unchanged: basenames, flat, easy to grab."""
+    root = _cartridge(tmp_path)
+    conn = sqlite3.connect(root / "dt-config" / "library.db")
+    conn.execute("CREATE TABLE images (id INTEGER PRIMARY KEY)")
+    conn.commit()
+    conn.close()
+    snap = backup.snapshot_databases(root, tmp_path / "t1")
+    assert (snap / "library.db").exists()
+    assert not (snap / "dt-config").exists()
+
+
 def test_mirror_verifies_clean(tmp_path):
     snap = backup.mirror_cartridge(_cartridge(tmp_path), tmp_path / "backups")
     assert backup.verify_snapshot(snap) == []
