@@ -78,6 +78,32 @@ def main() -> None:
     """PHOTONForge cartridge management."""
 
 
+@main.command("snapshot")
+@click.argument("root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--dest", type=click.Path(path_type=Path), default=None,
+              help="Snapshot dir (default: <root>/.photon-snapshots)")
+@click.option("--keep", default=7, show_default=True, help="Rotating snapshots to retain")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def snapshot_cmd(root: Path, dest: Path | None, keep: int, as_json: bool) -> None:
+    """Tier 1: VACUUM-copy the cartridge DBs into a rotating local snapshot."""
+    import json as _json
+
+    from .backup import SNAPSHOT_DIRNAME, rotate_snapshots, snapshot_databases, snapshot_timestamp
+
+    snaproot = Path(dest) if dest else root / SNAPSHOT_DIRNAME
+    target = snaproot / snapshot_timestamp()
+    try:
+        snapshot_databases(root, target)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+    pruned = rotate_snapshots(snaproot, keep)
+    if as_json:
+        click.echo(_json.dumps({"step": "snapshot", "status": "ok",
+                                "path": str(target), "pruned": len(pruned)}))
+    else:
+        click.echo(f"Snapshot written to {target} (pruned {len(pruned)} old).")
+
+
 @main.command("init")
 @click.argument("mount_path", type=click.Path(path_type=Path))
 def init_cartridge(mount_path: Path) -> None:
