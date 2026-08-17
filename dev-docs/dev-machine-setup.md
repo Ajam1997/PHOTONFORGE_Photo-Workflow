@@ -29,6 +29,23 @@ python scripts/provision_scoring_models.py
 
 ## 3. Darktable Lua plugin
 
+> **First run: "running scripts is disabled on this system."** Windows blocks
+> `.ps1` *files* by default. One-time fix, no admin needed:
+>
+> ```powershell
+> Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+> ```
+>
+> `RemoteSigned` runs local scripts freely and still requires a signature on
+> downloaded ones. Repo scripts count as local because `git clone` does not set
+> the mark-of-the-web (if you unpacked a GitHub ZIP instead, also run
+> `Get-ChildItem .\scripts\*.ps1 | Unblock-File`). To avoid changing the policy
+> at all, invoke per-run instead:
+> `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_install.ps1`.
+>
+> This governs script files only — the plugin is unaffected, since `runner.lua`
+> launches PowerShell with `-Command`.
+
 **Updating an existing install** — one command, from the repo or anywhere:
 
 ```powershell
