@@ -8,6 +8,10 @@ deleted code; do not implement from them.
 ## Active
 
 - [Documentation Overhaul Plan (2026-07-09)](plans/2026-07-09-docs-overhaul-plan.md)
+- [Self-Contained Portable Drive Plan (2026-07-17)](plans/2026-07-17-portable-drive-plan.md)
+- [Cartridge Backup & Archive Plan (2026-08-17)](plans/2026-08-17-cartridge-backup-archive-plan.md)
+  — reconciles the superseded 2026-07-11 backup plan with the portable-drive plan's
+  Task 4a. **Blocks** the portable-drive plan's Task 4b (`migrate-fs`).
 
 ## Archived
 
