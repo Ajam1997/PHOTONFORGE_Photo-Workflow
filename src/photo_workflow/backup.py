@@ -511,7 +511,11 @@ def mirror_cartridge(root: Path, dest: Path, *, state_only: bool = False,
         "files": files,
     })
 
-    problems = verify_snapshot(snapshot)
+    def _verify_progress(done: int, total: int, name: str) -> None:
+        if progress is not None:
+            progress(done, total, Path("[verify] " + name))
+
+    problems = verify_snapshot(snapshot, progress=_verify_progress)
     if problems:
         raise RuntimeError(
             f"Mirror at {snapshot} failed verification:\n  " + "\n  ".join(problems[:10])
@@ -522,8 +526,14 @@ def mirror_cartridge(root: Path, dest: Path, *, state_only: bool = False,
     return snapshot
 
 
-def verify_snapshot(snapshot: Path, *, against: Path | None = None) -> list[str]:
-    """Re-hash every manifest entry. Returns discrepancies; empty means clean."""
+def verify_snapshot(snapshot: Path, *, against: Path | None = None,
+                    progress: Callable[[int, int, str], None] | None = None) -> list[str]:
+    """Re-hash every manifest entry. Returns discrepancies; empty means clean.
+
+    Verification re-reads the whole mirror, so on a real photo library it runs
+    for minutes. `progress` receives (done, total, name) after each entry —
+    without it the command sits silent and looks indistinguishable from a hang.
+    """
     snapshot = Path(snapshot)
     problems: list[str] = []
     try:
@@ -533,22 +543,36 @@ def verify_snapshot(snapshot: Path, *, against: Path | None = None) -> list[str]
     except ValueError as exc:
         return [f"{MANIFEST_NAME} is unreadable: {exc}"]
 
-    for key, entry in manifest.get("dbs", {}).items():
+    dbs = manifest.get("dbs", {})
+    files = manifest.get("files", [])
+    total = len(dbs) + len(files)
+    done = 0
+
+    def _tick(name: str) -> None:
+        nonlocal done
+        done += 1
+        if progress is not None:
+            progress(done, total, name)
+
+    for key, entry in dbs.items():
         path = snapshot / entry["snapshot"]
         if not path.exists():
             problems.append(f"{entry['snapshot']}: missing (db {key})")
         elif sha256_file(path) != entry["sha256"]:
             problems.append(f"{entry['snapshot']}: checksum mismatch (db {key})")
+        _tick(entry["snapshot"])
 
-    for entry in manifest.get("files", []):
+    for entry in files:
         path = snapshot / entry["path"]
         if not path.exists():
             problems.append(f"{entry['path']}: missing")
+            _tick(entry["path"])
             continue
         if path.stat().st_size != entry["bytes"]:
             problems.append(f"{entry['path']}: size mismatch")
         elif sha256_file(path) != entry["sha256"]:
             problems.append(f"{entry['path']}: checksum mismatch")
+        _tick(entry["path"])
 
     if against is not None:
         against = Path(against)

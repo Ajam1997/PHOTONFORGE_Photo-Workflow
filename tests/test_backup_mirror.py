@@ -300,3 +300,30 @@ def test_restore_refuses_nonempty_target_without_force(tmp_path):
         backup.restore_snapshot(snap, target)
     backup.restore_snapshot(snap, target, force=True)
     assert (target / "photonforge.db").exists()
+
+
+def test_verify_reports_progress(tmp_path):
+    """Verification re-reads the whole mirror; without progress it looks hung."""
+    root = _cartridge(tmp_path)
+    snap = backup.mirror_cartridge(root, tmp_path / "backups")
+
+    seen = []
+    problems = backup.verify_snapshot(snap, progress=lambda d, t, n: seen.append((d, t, n)))
+    assert problems == []
+    assert seen, "verify_snapshot must report progress when asked"
+    # monotonic, terminates at the total, and the total covers dbs + files
+    assert [d for d, _, _ in seen] == list(range(1, len(seen) + 1))
+    assert seen[-1][0] == seen[-1][1]
+    manifest = json.loads((snap / backup.MANIFEST_NAME).read_text())
+    assert seen[-1][1] == len(manifest["dbs"]) + len(manifest["files"])
+
+
+def test_verify_progress_counts_missing_files_too(tmp_path):
+    """A missing entry must still advance the counter, or progress stalls."""
+    root = _cartridge(tmp_path)
+    snap = backup.mirror_cartridge(root, tmp_path / "backups")
+    (snap / "ICELAND" / "DSC0001.ARW").unlink()
+
+    seen = []
+    assert backup.verify_snapshot(snap, progress=lambda d, t, n: seen.append(d))
+    assert seen[-1] == len(seen)

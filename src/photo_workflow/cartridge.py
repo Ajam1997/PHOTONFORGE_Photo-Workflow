@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -127,8 +128,14 @@ def backup_cmd(root: Path, dest: Path, state_only: bool, exclude_models: bool,
     link_dest = None if no_incremental else backup_mod.latest_snapshot(dest, label)
 
     def _progress(index: int, total: int, rel: Path) -> None:
-        if not as_json:
-            click.echo(f"  [{index}/{total}] {rel}")
+        # One overwriting line, not one line per file: a real cartridge is
+        # thousands of files and the scrollback is useless. The verify pass
+        # reuses this and prefixes its entries with [verify].
+        if as_json:
+            return
+        pct = (index * 100 // total) if total else 100
+        sys.stdout.write(f"\r  {index}/{total} ({pct}%) {str(rel)[-48:]:<48}")
+        sys.stdout.flush()
 
     try:
         snapshot = backup_mod.mirror_cartridge(
@@ -139,6 +146,10 @@ def backup_cmd(root: Path, dest: Path, state_only: bool, exclude_models: bool,
         raise click.ClickException(str(exc)) from exc
     except (FileNotFoundError, RuntimeError) as exc:
         raise click.ClickException(str(exc)) from exc
+
+    if not as_json:
+        sys.stdout.write("\r" + " " * 78 + "\r")
+        sys.stdout.flush()
 
     manifest = _json.loads((snapshot / backup_mod.MANIFEST_NAME).read_text(encoding="utf-8"))
     totals = manifest["totals"]
@@ -189,7 +200,20 @@ def verify_backup_cmd(snapshot: Path | None, dest: Path | None, root: Path | Non
         if snapshot is None:
             raise click.ClickException(f"No snapshot found under {dest}")
 
-    problems = verify_snapshot(snapshot, against=against)
+    def _progress(done: int, total: int, name: str) -> None:
+        if as_json:
+            return
+        # Verification re-reads the whole mirror; on a real library that is
+        # minutes. Overwrite one line so the window shows liveness without
+        # scrolling thousands of filenames past.
+        pct = (done * 100 // total) if total else 100
+        sys.stdout.write(f"\r  verifying {done}/{total} ({pct}%) {name[-48:]:<48}")
+        sys.stdout.flush()
+
+    problems = verify_snapshot(snapshot, against=against, progress=_progress)
+    if not as_json:
+        sys.stdout.write("\r" + " " * 78 + "\r")
+        sys.stdout.flush()
     if as_json:
         click.echo(_json.dumps({"step": "verify-backup",
                                 "status": "ok" if not problems else "failed",
