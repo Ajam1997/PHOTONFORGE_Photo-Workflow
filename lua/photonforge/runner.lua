@@ -27,30 +27,78 @@ local function shell_quote(s)
   return "'" .. s:gsub("'", "'\\''") .. "'"
 end
 
--- Resolve the photo-workflow CLI invocation. Darktable launches as a GUI, so the
--- PATH its spawned subprocess sees does NOT include a project venv's Scripts/bin
--- dir -- the bare name then fails with "not recognized"/"command not found". When
--- cli_path is set (dev/Windows), use the full exe path; otherwise fall back to the
--- bare name (Linux/container installs where photo-workflow is on PATH).
-local function cli()
-  local p = config.read("cli_path")
-  if p ~= "" then return shell_quote(p) end
-  return "photo-workflow"
-end
-
--- Same problem as cli(), same fix: a GUI-launched Darktable's subprocess PATH
--- does not include the venv's Scripts/bin, so a bare `photo-cartridge` dies
--- with "not recognized" in the terminal window the button just opened.
--- photo-cartridge is a sibling console script of photo-workflow in the same
--- venv, so derive it from cli_path instead of making the user configure a
--- second path. cartridge_path overrides, for a non-standard layout where the
--- name substitution does not apply.
 local function file_exists(p)
   local fh = io.open(p, "r")
   if fh then fh:close(); return true end
   return false
 end
 
+-- Directories cannot be opened with io.open on Windows, so fall back to the
+-- rename-to-itself trick, which succeeds for any existing path and changes
+-- nothing. Kept separate from file_exists() on purpose: an executable
+-- preference must reject a directory (a drive root typed into it once became
+-- the program name).
+local function path_exists(p)
+  if p == nil or p == "" then return false end
+  if file_exists(p) then return true end
+  return os.rename(p, p) == true
+end
+
+-- The cartridge root of a PORTABLE drive, derived from Darktable's own config
+-- dir. A portable launcher starts Darktable with --configdir <DRIVE>/dt-config,
+-- so the parent of that IS the drive root.
+--
+-- Recomputed every run rather than baked into a preference, because Darktable
+-- rewrites darktablerc on clean exit and would clobber a stored absolute path
+-- -- and because the drive letter changes between machines, which is the whole
+-- point of a portable drive.
+--
+-- Returns "" on a host install (config_dir is under ~/.config or %LOCALAPPDATA%
+-- and has no runtime/ or models/ beside it), and on any error at all: this runs
+-- inside preview_cmd, which resolves commands without executing them and must
+-- never throw.
+local function config_parent()
+  local ok, dir = pcall(function() return dt.configuration.config_dir end)
+  if not ok or type(dir) ~= "string" or dir == "" then return "" end
+  local parent = dir:match("^(.*)[/\\][^/\\]+[/\\]?$")
+  if not parent or parent == "" then return "" end
+  return parent
+end
+
+local function drive_path(root, ...)
+  local sep = IS_WINDOWS and "\\" or "/"
+  return root .. sep .. table.concat({ ... }, sep)
+end
+
+-- <root>/runtime/{win,linux}/<name>[.exe] on a portable drive, or nil.
+local function portable_exe(name)
+  local root = config_parent()
+  if root == "" then return nil end
+  local sub = IS_WINDOWS and "win" or "linux"
+  local exe = IS_WINDOWS and (name .. ".exe") or name
+  local candidate = drive_path(root, "runtime", sub, exe)
+  if file_exists(candidate) then return candidate end
+  return nil
+end
+
+-- Resolve the photo-workflow CLI invocation. Darktable launches as a GUI, so the
+-- PATH its spawned subprocess sees does NOT include a project venv's Scripts/bin
+-- dir -- the bare name then fails with "not recognized"/"command not found".
+--
+-- Order: an explicitly configured path wins (dev/Windows), then the drive's own
+-- frozen binary if we are running from a portable cartridge, then the bare name
+-- (Linux/container installs where photo-workflow really is on PATH).
+local function cli()
+  local p = config.read("cli_path")
+  if p ~= "" then return shell_quote(p) end
+  local portable = portable_exe("photo-workflow")
+  if portable then return shell_quote(portable) end
+  return "photo-workflow"
+end
+
+-- Same problem as cli(), same resolution order, plus one extra source:
+-- photo-cartridge is a sibling console script of photo-workflow in the same
+-- venv, so it can be derived from cli_path rather than configured separately.
 local function cartridge_cli(log_fn)
   local function note(msg)
     if log_fn then log_fn("[cartridge] " .. msg) end
@@ -76,10 +124,27 @@ local function cartridge_cli(log_fn)
     if sibling ~= p then
       if file_exists(sibling) then return shell_quote(sibling) end
       note("derived " .. sibling .. " from the photo-workflow path, but it does "
-           .. "not exist; falling back to PATH.")
+           .. "not exist; falling back to the drive or PATH.")
     end
   end
+
+  local portable = portable_exe("photo-cartridge")
+  if portable then return shell_quote(portable) end
   return "photo-cartridge"
+end
+
+-- The models directory, unquoted (callers shell_quote at the point of use).
+-- Preference first; then <root>/models on a portable drive, recognised by the
+-- florence2_int8 subdir the naming step needs; then "" so the CLI auto-detects
+-- from its own package location, which is the legacy host-install behaviour.
+local function models_dir()
+  local p = config.read("models_path")
+  if p ~= "" then return p end
+  local root = config_parent()
+  if root ~= "" and path_exists(drive_path(root, "models", "florence2_int8")) then
+    return drive_path(root, "models")
+  end
+  return ""
 end
 
 local function get_drive_root(path)
@@ -155,7 +220,7 @@ local function build_cmd(step)
               .. " --source-dir " .. shell_quote(dest) .. mode_flag
     -- Pin the scoring model dir so CLIP/genre models load regardless of how the
     -- package is installed (a non-editable install cannot auto-detect models/).
-    local models = config.read("models_path")
+    local models = models_dir()
     if models ~= "" then
       cmd = cmd .. " --model-dir " .. shell_quote(models)
     end
@@ -173,7 +238,7 @@ local function build_cmd(step)
               .. " --source-dir " .. shell_quote(dest)
               .. mode_flag
     -- The name (Florence-2) step expects the florence2_int8 subdir of models/.
-    local models = config.read("models_path")
+    local models = models_dir()
     if models ~= "" then
       local sep = IS_WINDOWS and "\\" or "/"
       cmd = cmd .. " --model-dir " .. shell_quote(models .. sep .. "florence2_int8")
@@ -200,7 +265,7 @@ local function build_cmd(step)
     -- Recompute needs_review from cached embeddings (no image re-decode) and
     -- re-emit score recs so the applicator detaches stale photon|needs_review tags.
     local cmd = base .. " --db " .. shell_quote(db) .. " --folder " .. shell_quote(folder)
-    local models = config.read("models_path")
+    local models = models_dir()
     if models ~= "" then
       cmd = cmd .. " --model-dir " .. shell_quote(models)
     end
@@ -222,7 +287,7 @@ local function build_cmd(step)
     local cmd = cli() .. " training recalibrate"
               .. " --photon-db " .. shell_quote(db)
               .. " --training-db " .. shell_quote(training_db)
-    local models = config.read("models_path")
+    local models = models_dir()
     if models ~= "" then
       cmd = cmd .. " --model-dir " .. shell_quote(models)
     end
@@ -249,7 +314,7 @@ local function build_cmd(step)
     else
       cmd = cmd .. " --force"
     end
-    local models = config.read("models_path")
+    local models = models_dir()
     if models ~= "" then
       cmd = cmd .. " --model-dir " .. shell_quote(models)
     end

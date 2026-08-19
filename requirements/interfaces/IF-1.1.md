@@ -27,6 +27,16 @@ Lua invokes the installed `photo-workflow` console script:
 photo-workflow <stage> [--json-progress] [stage-specific flags]
 ```
 
+**How the program is located** (both console scripts): an explicitly
+configured path wins (`cli_path` / `cartridge_path`), then `photo-cartridge`
+may be derived as a sibling of `cli_path`, then `<drive>/runtime/{win,linux}/`
+when running from a portable cartridge, then the bare name on `PATH`. A
+GUI-launched Darktable's subprocess `PATH` excludes a project venv, so the bare
+name fails there — resolution is not cosmetic. The portable root is recomputed
+from `dt.configuration.config_dir` on every call rather than stored, because
+Darktable rewrites `darktablerc` on exit and the drive letter changes between
+machines. A configured path is used only if it opens as a file.
+
 Stages the plugin may invoke: `ingest`, `scan`, `dedup`, `score`,
 `name`, `sync-tags`, `suggest-training-set`, `refresh-review`,
 rescore (`score --only-files --skip-genre`), `training recalibrate`,
