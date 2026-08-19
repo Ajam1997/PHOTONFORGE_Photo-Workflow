@@ -13,10 +13,13 @@ scripts from pipeline code or cron.
 
 ```bash
 sudo apt update
-sudo apt install -y python3.11 python3.11-venv git zenity udisks2 sqlite3 darktable
+sudo apt install -y python3.11 python3.11-venv git zenity udisks2 sqlite3 darktable exfatprogs
 ```
 
 Notes:
+- `exfatprogs` provides `mkfs.exfat`, the default cartridge filesystem. It must
+  be **exfatprogs**, not the older `exfat-utils` — their `mkfs.exfat` takes `-n`
+  for the label where exfatprogs takes `-L`.
 - `zenity` is used for operator dialogs (NFR-2.4 path) and the plugin's folder
   browser on Linux.
 - `udisks2` is normally preinstalled on desktop Ubuntu; cartridge detection
@@ -76,11 +79,11 @@ tools. Install the scoped sudoers rule once:
 
 ```bash
 sudo bash scripts/install_polkit.sh
-# validates with visudo; test: sudo -n mkfs.ext4 --help
+# validates with visudo; test: sudo -n mkfs.exfat --version
 ```
 
-This grants passwordless sudo for `parted`, `wipefs`, `mkfs.ext4`, `udevadm`,
-and `umount` only. The Darktable plugin's Provision/Restore buttons elevate
+This grants passwordless sudo for `parted`, `wipefs`, `mkfs.exfat`, `mkfs.ext4`,
+`udevadm`, and `umount` only. The Darktable plugin's Provision/Restore buttons elevate
 via `pkexec` in a visible terminal.
 
 ## 5. Darktable Lua plugin
@@ -160,11 +163,21 @@ never blocks the eject.
 
 ## 6. Cartridge expectations
 
-A PHOTON cartridge is an external SSD with a **GPT + single ext4 partition
+A PHOTON cartridge is an external SSD with a **GPT + single exFAT partition
 labeled `PHOTON-XXX`** (e.g. `PHOTON-001`). Provisioning
-(`photo-cartridge` / `src/photo_workflow/provision.py`, or the plugin's
-Provision button) creates that layout; udisks2 then auto-mounts it (typically
+(`src/photo_workflow/provision.py`, or the plugin's Provision button once it is
+implemented) creates that layout; udisks2 then auto-mounts it (typically
 `/media/$USER/PHOTON-001`).
+
+exFAT is the default because the cartridge has to be readable on Windows,
+macOS and Android as well as Linux — ext4 is Linux-only. Pass `fs="ext4"` for a
+drive that will never leave Linux. The partition is typed **Microsoft Basic
+Data**, which Windows requires before it will assign a drive letter; a
+Linux-typed partition holding an exFAT filesystem may not mount there at all.
+
+exFAT volume labels are capped at **11 characters**, which `PHOTON-001` fits
+with one to spare. Provisioning refuses a longer label up front rather than
+failing at `mkfs` after the partition table has already been rewritten.
 
 Data layout — the shoot folder's **parent (the cartridge root)** holds the
 state, so the library travels with the drive (NFR-2.3):

@@ -133,12 +133,16 @@ If that count matches your library, your backup path works end to end. The
 automated equivalent runs in CI (`tests/test_backup_mirror.py`), but a drill
 you have personally run is the one you will trust at 2am.
 
-## Before migrating or reformatting a drive
+## Before reformatting or re-provisioning a drive
 
-`migrate-fs` (ext4 → exFAT, not yet implemented) reformats the cartridge, which
-is destructive and irreversible. It will refuse to run without a **fresh
-verified mirror**: one whose manifest verifies *and* postdates the cartridge's
-last write. Make that mirror yourself first, including models:
+Cartridges are provisioned as exFAT, so the ext4 → exFAT migration the plan
+once called for is **not needed** and `migrate-fs` was never built. Check what
+you have with `lsblk -no FSTYPE <device>` (Linux) or `Get-Volume -DriveLetter
+<X>` (Windows) before assuming otherwise.
+
+Any re-provision is still destructive and irreversible, so take a **fresh
+verified mirror** first — one whose manifest verifies *and* postdates the
+cartridge's last write. Include the models:
 
 ```bash
 photo-cartridge backup /media/alex/PHOTON-001 --dest /media/alex/BACKUP

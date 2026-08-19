@@ -74,7 +74,27 @@ photo-cartridge make-portable <drive>
 ```
 Creates: `dt-config/` (plugin + luarc + baseline darktablerc with `cli_path`/`models_path` **blank**; does NOT seed `library.db`), `apps/darktable-{win,linux}/` (download+verify+extract), `runtime/{win,linux}/` (copy prebuilt frozen CLIs), `models/` (copytree with progress), launchers, `.photonforge/manifest.lock.json`. Reuse `volume.py::get_volume_label`/`extract_cartridge_id` to verify the `PHOTON-XXX` label. Deprecate `init_cartridge`'s Layout-A scaffold.
 
-### Task 4 — exFAT provisioning (`src/photo_workflow/provision.py`)
+### Task 4 — exFAT provisioning (`src/photo_workflow/provision.py`) — **DONE**
+
+> Landed 2026-08-19. `provision_cartridge(..., fs="exfat")` is the default;
+> `fs="ext4"` remains for Linux-only drives. Three things the one-line spec did
+> not anticipate:
+>
+> - **The partition type matters, not just the filesystem.** parted's fs-type
+>   argument sets the GPT partition GUID, and Windows will not assign a drive
+>   letter to a partition typed as Linux filesystem data. exFAT therefore passes
+>   `ntfs` to parted (Microsoft Basic Data) — which reads wrong and is correct.
+> - **exFAT caps volume labels at 11 characters.** `PHOTON-001` fits with one to
+>   spare, but a longer label is now refused up front rather than failing at
+>   `mkfs` after the partition table has already been rewritten.
+> - **`mkfs.exfat` needs its own sudoers grant**, and must come from
+>   **exfatprogs** rather than the older exfat-utils — the two take different
+>   flags for the volume label (`-L` vs `-n`).
+>
+> The `mount_point` derivation was not just stale but wrong: it returned a
+> hardcoded `/mnt/photon_ssd/<id>` that nothing ever mounted. It now asks the
+> kernel and falls back to the udisks2 convention `/media/$USER/<LABEL>`.
+
 Default `mkfs.exfat` (keep `--fs ext4`); update the `mount_point` derivation. Note: exFAT tools (`exfatprogs`/`mkfs.exfat`) must be present on the provisioning host.
 
 ### Task 4a — Cartridge backup/archive — PREREQUISITE for 4b — **moved out of this plan**

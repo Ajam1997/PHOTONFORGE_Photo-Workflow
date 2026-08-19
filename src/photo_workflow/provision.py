@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -100,6 +101,73 @@ def next_available_cartridge_id(label_prefix: str = "PHOTON") -> str:
     raise RuntimeError("No available cartridge IDs (001-999 all in use)")
 
 
+# Supported cartridge filesystems.
+#
+# exFAT is the default because a cartridge has to be readable by Windows, macOS
+# and Android as well as Linux, and ext4 is Linux-only (see the portable-drive
+# plan's "Dominant constraint"). ext4 stays available for a Linux-only drive.
+#
+# parted_type is parted's fs-type argument, which on GPT only selects the
+# PARTITION TYPE GUID -- mkfs decides the actual filesystem. "ntfs" looks wrong
+# next to exFAT but is deliberate: it yields Microsoft Basic Data, the GUID
+# Windows expects before it will assign a drive letter. Naming ext4 there would
+# stamp "Linux filesystem data" onto a drive whose whole point is cross-OS use.
+#
+# mkfs_label_flag differs by tool: exfatprogs' mkfs.exfat takes -L. The older
+# exfat-utils build takes -n, so exfatprogs specifically is required.
+_FILESYSTEMS = {
+    "exfat": {
+        "mkfs": "mkfs.exfat",
+        "parted_type": "ntfs",
+        "label_flag": "-L",
+        "extra_args": [],
+        "max_label": 11,      # exFAT volume labels are capped at 11 characters
+    },
+    "ext4": {
+        "mkfs": "mkfs.ext4",
+        "parted_type": "ext4",
+        "label_flag": "-L",
+        "extra_args": ["-F"],
+        "max_label": 16,
+    },
+}
+
+DEFAULT_FS = "exfat"
+
+
+def _fs_spec(fs: str) -> dict:
+    spec = _FILESYSTEMS.get(fs)
+    if spec is None:
+        raise ValueError(
+            f"Unsupported filesystem {fs!r}; expected one of {sorted(_FILESYSTEMS)}"
+        )
+    return spec
+
+
+def _resolve_mount_point(partition_device: str | None, label: str) -> str:
+    """Where the cartridge actually ended up, once udisks2 has auto-mounted it.
+
+    The old hardcoded /mnt/photon_ssd/<id> never matched reality -- udisks2
+    mounts under /media/$USER/<LABEL> -- so callers were handed a path with
+    nothing on it. Ask the kernel, and fall back to the udisks2 convention only
+    when the answer is not available yet.
+    """
+    if partition_device:
+        try:
+            result = subprocess.run(
+                ["lsblk", "--json", "--output", "NAME,MOUNTPOINT", partition_device],
+                capture_output=True, text=True, check=True,
+            )
+            for dev in json.loads(result.stdout).get("blockdevices", []):
+                mount = dev.get("mountpoint")
+                if mount:
+                    return mount
+        except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as exc:
+            logger.debug("Could not read mount point for %s: %s", partition_device, exc)
+    user = os.environ.get("SUDO_USER") or os.environ.get("USER") or "root"
+    return f"/media/{user}/{label}"
+
+
 @dataclass
 class ProvisionResult:
     label: str
@@ -107,6 +175,7 @@ class ProvisionResult:
     mount_point: str
     created_partition: bool
     wiped_signatures: bool
+    filesystem: str = DEFAULT_FS
 
 
 def provision_cartridge(
@@ -115,15 +184,19 @@ def provision_cartridge(
     force_repartition: bool = False,
     dry_run: bool = False,
     progress_cb: Callable[[str, int, int], None] | None = None,
+    fs: str = DEFAULT_FS,
 ) -> ProvisionResult:
     """
     Full provisioning workflow:
     1. Analyze device
     2. Wipefs -a on device and partition (if exists)
-    3. Create GPT + single ext4 partition (if !has_partitions or force_repartition)
-    4. mkfs.ext4 -L <label> on partition device
+    3. Create GPT + single partition (if !has_partitions or force_repartition)
+    4. mkfs.<fs> -L <label> on partition device
     5. udevadm trigger --action=add on partition device
-    6. Initialize directory structure
+    6. Resolve the resulting mount point
+
+    `fs` defaults to exFAT so the cartridge is readable on Windows, macOS and
+    Android as well as Linux; pass "ext4" for a Linux-only drive.
     """
     import time
 
@@ -131,6 +204,13 @@ def provision_cartridge(
         if progress_cb:
             progress_cb(step, current, total)
         logger.info("[%d/%d] %s", current, total, step)
+
+    spec = _fs_spec(fs)
+    if len(label) > spec["max_label"]:
+        raise ValueError(
+            f"Label {label!r} is {len(label)} characters; {fs} allows at most "
+            f"{spec['max_label']}"
+        )
 
     device_path = Path(device)
     if not device_path.exists():
@@ -173,7 +253,8 @@ def provision_cartridge(
         if not dry_run:
             subprocess.run(
                 ["sudo", "-n", "parted", device, "--script",
-                 "mklabel", "gpt", "mkpart", "primary", "ext4", "0%", "100%"],
+                 "mklabel", "gpt", "mkpart", "primary", spec["parted_type"],
+                 "0%", "100%"],
                 check=True,
             )
             partition_device = _partition_node(device)
@@ -190,12 +271,12 @@ def provision_cartridge(
     _emit("formatting", 3, 5)
     if not dry_run:
         subprocess.run(
-            ["sudo", "-n", "mkfs.ext4", "-L", label, "-F", partition_device],
+            ["sudo", "-n", spec["mkfs"], spec["label_flag"], label,
+             *spec["extra_args"], partition_device],
             check=True,
         )
 
     _emit("initializing", 4, 5)
-    mount_point = f"/mnt/photon_ssd/{label.replace('PHOTON-', '')}"
 
     if not dry_run:
         subprocess.run(
@@ -204,10 +285,13 @@ def provision_cartridge(
         )
         time.sleep(1)
 
+    mount_point = _resolve_mount_point(partition_device, label)
+
     return ProvisionResult(
         label=label,
         device=partition_device or device,
         mount_point=mount_point,
         created_partition=created_partition,
         wiped_signatures=wiped,
+        filesystem=fs,
     )

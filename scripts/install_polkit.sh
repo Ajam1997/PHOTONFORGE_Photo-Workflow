@@ -13,7 +13,9 @@ fi
 
 # Write all commands on a single line — multi-line sudoers entries require \
 # continuation and are easy to get wrong.
-echo "${SUDOERS_USER} ALL=(ALL) NOPASSWD: /usr/sbin/parted *, /usr/sbin/wipefs *, /usr/sbin/mkfs.ext4 *, /usr/bin/udevadm *, /usr/bin/umount *" \
+# mkfs.exfat is the default (cross-OS cartridges); mkfs.ext4 stays for
+# Linux-only drives provisioned with --fs ext4.
+echo "${SUDOERS_USER} ALL=(ALL) NOPASSWD: /usr/sbin/parted *, /usr/sbin/wipefs *, /usr/sbin/mkfs.exfat *, /usr/sbin/mkfs.ext4 *, /usr/bin/udevadm *, /usr/bin/umount *" \
   > "$SUDOERS_FILE"
 chmod 440 "$SUDOERS_FILE"
 
@@ -25,4 +27,4 @@ if ! visudo -c -f "$SUDOERS_FILE"; then
 fi
 
 echo "Sudoers rule installed at $SUDOERS_FILE"
-echo "Test with: sudo -n mkfs.ext4 --help"
+echo "Test with: sudo -n mkfs.exfat --version"
