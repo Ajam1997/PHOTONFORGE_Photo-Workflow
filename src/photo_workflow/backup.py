@@ -98,15 +98,34 @@ def tool_version() -> str:
         return "photo-workflow unknown"
 
 
-def describe_cartridge(root: Path) -> dict[str, str]:
-    """Label/id for the manifest; degrades gracefully off a real cartridge."""
-    from .volume import extract_cartridge_id, get_volume_label
+def cartridge_volume_label(root: Path) -> str:
+    """The volume label, but only when it actually belongs to `root`.
+
+    get_volume_label() resolves the *enclosing* mount point, so asking it about
+    an ordinary directory answers with the host filesystem's label. Taking that
+    as a cartridge identity is actively dangerous: two unrelated sources on the
+    same filesystem collapse into one backup folder, their snapshots interleave,
+    and latest_snapshot(dest, label) then hands back the wrong cartridge's
+    mirror — which is what migrate-fs checks for freshness before reformatting
+    a drive. Only trust the label when root is itself the mount point.
+    """
+    root = Path(root)
+    from .volume import get_volume_label
 
     try:
-        label = get_volume_label(Path(root)) or ""
+        if not os.path.ismount(root):
+            return ""
+        return get_volume_label(root) or ""
     except Exception as exc:  # noqa: BLE001 - provenance, never a reason to fail a backup
         logger.debug("Could not read volume label for %s: %s", root, exc)
-        label = ""
+        return ""
+
+
+def describe_cartridge(root: Path) -> dict[str, str]:
+    """Label/id for the manifest; degrades gracefully off a real cartridge."""
+    from .volume import extract_cartridge_id
+
+    label = cartridge_volume_label(root)
     return {
         "label": label,
         "id": extract_cartridge_id(label) if label else "",
@@ -406,9 +425,12 @@ def _previous_index(link_dest: Path | None) -> dict[str, dict]:
 
 
 def cartridge_backup_name(root: Path) -> str:
-    """Per-cartridge directory name under the backup destination."""
-    label = describe_cartridge(root).get("label") or ""
-    return label or Path(root).resolve().name or "cartridge"
+    """Per-cartridge directory name under the backup destination.
+
+    Two different cartridges must never share this name — see
+    cartridge_volume_label for why the label alone cannot be trusted.
+    """
+    return cartridge_volume_label(root) or Path(root).resolve().name or "cartridge"
 
 
 def mirror_cartridge(root: Path, dest: Path, *, state_only: bool = False,
@@ -489,7 +511,11 @@ def mirror_cartridge(root: Path, dest: Path, *, state_only: bool = False,
         "files": files,
     })
 
-    problems = verify_snapshot(snapshot)
+    def _verify_progress(done: int, total: int, name: str) -> None:
+        if progress is not None:
+            progress(done, total, Path("[verify] " + name))
+
+    problems = verify_snapshot(snapshot, progress=_verify_progress)
     if problems:
         raise RuntimeError(
             f"Mirror at {snapshot} failed verification:\n  " + "\n  ".join(problems[:10])
@@ -500,8 +526,14 @@ def mirror_cartridge(root: Path, dest: Path, *, state_only: bool = False,
     return snapshot
 
 
-def verify_snapshot(snapshot: Path, *, against: Path | None = None) -> list[str]:
-    """Re-hash every manifest entry. Returns discrepancies; empty means clean."""
+def verify_snapshot(snapshot: Path, *, against: Path | None = None,
+                    progress: Callable[[int, int, str], None] | None = None) -> list[str]:
+    """Re-hash every manifest entry. Returns discrepancies; empty means clean.
+
+    Verification re-reads the whole mirror, so on a real photo library it runs
+    for minutes. `progress` receives (done, total, name) after each entry —
+    without it the command sits silent and looks indistinguishable from a hang.
+    """
     snapshot = Path(snapshot)
     problems: list[str] = []
     try:
@@ -511,22 +543,36 @@ def verify_snapshot(snapshot: Path, *, against: Path | None = None) -> list[str]
     except ValueError as exc:
         return [f"{MANIFEST_NAME} is unreadable: {exc}"]
 
-    for key, entry in manifest.get("dbs", {}).items():
+    dbs = manifest.get("dbs", {})
+    files = manifest.get("files", [])
+    total = len(dbs) + len(files)
+    done = 0
+
+    def _tick(name: str) -> None:
+        nonlocal done
+        done += 1
+        if progress is not None:
+            progress(done, total, name)
+
+    for key, entry in dbs.items():
         path = snapshot / entry["snapshot"]
         if not path.exists():
             problems.append(f"{entry['snapshot']}: missing (db {key})")
         elif sha256_file(path) != entry["sha256"]:
             problems.append(f"{entry['snapshot']}: checksum mismatch (db {key})")
+        _tick(entry["snapshot"])
 
-    for entry in manifest.get("files", []):
+    for entry in files:
         path = snapshot / entry["path"]
         if not path.exists():
             problems.append(f"{entry['path']}: missing")
+            _tick(entry["path"])
             continue
         if path.stat().st_size != entry["bytes"]:
             problems.append(f"{entry['path']}: size mismatch")
         elif sha256_file(path) != entry["sha256"]:
             problems.append(f"{entry['path']}: checksum mismatch")
+        _tick(entry["path"])
 
     if against is not None:
         against = Path(against)

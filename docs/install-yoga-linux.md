@@ -105,9 +105,55 @@ Plugin preferences (Preferences → Lua options) worth setting up front:
 - **Models dir** — absolute path to the repo's `models/` directory (required
   for a non-editable install; recommended always).
 - **Cartridge ID** (e.g. `003`) — used by Provision.
-- **Backup repo / password file** — restic target for Archive/Restore.
+- **Backup dest** (also in the panel's Configuration section, with a folder
+  browser) — a second drive to hold verified cartridge mirrors,
+  e.g. `/media/alex/BACKUP`. Required by the Backup and Verify buttons.
+- **Catalog snapshots to keep** (default 7) and **Cartridge mirrors to keep**
+  (default 10) — retention for the two backup tiers.
+- **Backup repo / password file** — restic target. The restic tier is **not
+  implemented yet**; these prefs do nothing today.
 - SD card path, destination path, TZ offset, run mode, file type — also
   editable in the panel itself.
+
+### Backing up a cartridge
+
+The panel's CARTRIDGE strip has two rows. The first is implemented:
+
+| Button | What it does | Needs |
+|---|---|---|
+| **Snapshot** | Copies just the catalog databases (scores, names, stage state) into a rotating `.photon-snapshots/` folder **on the cartridge itself**. Seconds, offline, no second drive. Does *not* copy photos. | nothing |
+| **Backup** | Full verified mirror of the cartridge — databases *and* photos — to the Backup destination, checksummed as it copies. Run this before migrating or reformatting a drive. | Backup destination |
+| **Verify** | Re-checksums the newest mirror of this cartridge against its manifest. | Backup destination |
+
+The second row (**Provision / Archive / Restore**) is not implemented yet and
+each button says so when pressed rather than opening a terminal that fails.
+
+Snapshot protects the expensive-to-recompute work but not the photos; Backup
+protects everything. They complement each other — a snapshot before each eject,
+a full backup on a cadence you choose.
+
+Two things worth knowing:
+
+- **Repeat mirrors reuse unchanged files via hardlinks where the filesystem
+  supports it.** exFAT and FAT32 do not, so on those destinations every mirror
+  is a full copy. The manifest records `"hardlinks": false` when that happens.
+- **Because unchanged files are shared between mirrors, one corrupted file
+  affects every mirror holding it.** N mirrors is not N independent copies —
+  that is what **Verify** is for. Run it periodically.
+
+To restore, use the CLI (there is deliberately no restore button — it needs an
+explicit snapshot path, and guessing at a destructive operation is worse than
+typing it):
+
+```bash
+photo-cartridge verify-backup /media/alex/BACKUP/PHOTON-001/<timestamp>
+photo-cartridge restore-backup /media/alex/BACKUP/PHOTON-001/<timestamp> \
+    --to /media/alex/PHOTON-001
+```
+
+Optional: set `PHOTONFORGE_SNAPSHOT_ON_EJECT=1` to make `scripts/safe_eject.sh`
+take a catalog snapshot before unmounting. A snapshot failure only warns — it
+never blocks the eject.
 
 ## 6. Cartridge expectations
 

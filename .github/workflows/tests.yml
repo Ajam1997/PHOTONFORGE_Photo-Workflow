@@ -19,6 +19,13 @@ jobs:
         run: pip install -e ".[dev,docs]"
       - name: Run test suite
         run: python -m pytest -m "not slow"
+      # The Lua plugin builds photo-cartridge command strings by hand; this
+      # loads runner.lua against a stubbed darktable and asserts them, so a
+      # panel button can't silently drift from the CLI it invokes.
+      - name: Install Lua (plugin command-string tests)
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - name: Lua plugin tests
+        run: lua5.4 tests/lua/test_runner_cartridge.lua
       # Informational until the 60 pre-existing lint findings are burned down
       - name: Ruff lint (non-blocking)
         run: ruff check src/ tests/

@@ -29,6 +29,7 @@ sections:
       - { label: "Start-Work Checklist", page: start-work-checklist.md }
       - { label: "Dev Machine Setup", page: dev-machine-setup.md }
       - { label: "Training Loop Guide", page: training-loop-guide.md }
+      - { label: "Backup & Restore Runbook", page: backup-and-restore-guide.md }
 
   - title: Core Docs
     items:

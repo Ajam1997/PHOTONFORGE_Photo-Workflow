@@ -160,6 +160,7 @@ function M.build()
     orientation = "vertical",
     make_path_row("SD card path:", "sd_path", "ingest only\u{2026}"),
     make_path_row("Destination:",  "dest_path", "required\u{2026}"),
+    make_path_row("Backup dest:",  "backup_dest", "second drive, for Backup/Verify\u{2026}"),
     make_path_row("Corpus JSONL (training only):", "corpus_path", "optional\u{2026}"),
     tz_box,
   }
@@ -621,9 +622,14 @@ function M.build()
   set_name(correction_loop_btn, "pf_run")
 
   -- == Cartridge strip (shared chrome) =====================================
-  -- Provision / Archive / Restore launch external (often elevated) commands in
-  -- their own window. Identity/Cartridge ID + Backup repo are set via the
-  -- plugin's Lua preferences (darktable Preferences -> Lua options).
+  -- These launch external (sometimes elevated) commands in their own window.
+  -- Paths (including Backup dest) are set in the panel's Configuration
+  -- section; Cartridge ID lives in Preferences -> Lua options.
+  --
+  -- Row 1 (Snapshot / Backup / Verify) is implemented. Row 2 (Provision /
+  -- Archive / Restore) is gated off in runner.lua's CARTRIDGE_IMPLEMENTED
+  -- table and refuses with a message — Archive/Restore need the restic tier,
+  -- which is not built yet.
   local provision_btn = dt.new_widget("button") {
     label = "\u{1F4BE} Provision",
     tooltip = "Provision the destination drive as a PHOTON cartridge (sets the "
@@ -641,8 +647,9 @@ function M.build()
 
   local archive_btn = dt.new_widget("button") {
     label = "\u{2601} Archive",
-    tooltip = "Back up the whole cartridge (DB + photos) to the configured restic "
-           .. "repo. Set 'Backup repo' in the plugin's Lua options first.",
+    tooltip = "NOT IMPLEMENTED YET. Will archive the cartridge to a deduplicated, "
+           .. "encrypted restic repo (local or cloud) for off-site copies. For a "
+           .. "local backup today, use Backup.",
     clicked_callback = function()
       local ok, err = pcall(function()
         save_entries()
@@ -655,8 +662,9 @@ function M.build()
 
   local restore_btn = dt.new_widget("button") {
     label = "\u{1F504} Restore",
-    tooltip = "Restore an archived cartridge (DB + photos) from the backup repo "
-           .. "onto the destination drive. Set 'Backup repo' and Cartridge ID first.",
+    tooltip = "NOT IMPLEMENTED YET. Will restore a cartridge from a restic repo. "
+           .. "To restore from a Backup mirror today, run "
+           .. "'photo-cartridge restore-backup <snapshot> --to <drive>' at a terminal.",
     clicked_callback = function()
       local ok, err = pcall(function()
         save_entries()
@@ -667,11 +675,65 @@ function M.build()
   }
   set_name(restore_btn, "pf_cartridge_btn")
 
-  cartridge_btns = { provision_btn, archive_btn, restore_btn }
+  -- Backup row (Tiers 1-2, implemented). Snapshot needs nothing but the
+  -- cartridge; Backup and Verify need the 'Backup dest' path set above.
+  local snapshot_btn = dt.new_widget("button") {
+    label = "\u{1F4F8} Snapshot",
+    tooltip = "Fast local copy of the catalog databases (scores, names, stage "
+           .. "state) into a rotating folder on the cartridge itself. No second "
+           .. "drive or extra software needed. Does NOT copy your photos.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        runner.launch_snapshot(append_log)
+      end)
+      if not ok then append_log("[ERROR] snapshot: " .. tostring(err)) end
+    end,
+  }
+  set_name(snapshot_btn, "pf_cartridge_btn")
+
+  local backup_btn = dt.new_widget("button") {
+    label = "\u{1F4BD} Backup",
+    tooltip = "Full verified copy of the cartridge (databases + photos) to "
+           .. "another drive, checksummed on the way out. This is the one to "
+           .. "run before migrating or reformatting. Set 'Backup dest' in the "
+           .. "Configuration section above first.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        runner.launch_backup(append_log)
+      end)
+      if not ok then append_log("[ERROR] backup: " .. tostring(err)) end
+    end,
+  }
+  set_name(backup_btn, "pf_cartridge_btn")
+
+  local verify_btn = dt.new_widget("button") {
+    label = "\u{2714} Verify",
+    tooltip = "Re-checksum the newest backup of this cartridge against its "
+           .. "manifest. Worth running periodically: snapshots can share "
+           .. "unchanged files, so one corrupted file affects every backup "
+           .. "holding it.",
+    clicked_callback = function()
+      local ok, err = pcall(function()
+        save_entries()
+        runner.launch_verify(append_log)
+      end)
+      if not ok then append_log("[ERROR] verify: " .. tostring(err)) end
+    end,
+  }
+  set_name(verify_btn, "pf_cartridge_btn")
+
+  cartridge_btns = {
+    snapshot_btn, backup_btn, verify_btn, provision_btn, archive_btn, restore_btn,
+  }
 
   local cartridge_strip = dt.new_widget("box") {
     orientation = "vertical",
     dt.new_widget("section_label") { label = "CARTRIDGE" },
+    dt.new_widget("box") {
+      orientation = "horizontal", snapshot_btn, backup_btn, verify_btn,
+    },
     dt.new_widget("box") {
       orientation = "horizontal", provision_btn, archive_btn, restore_btn,
     },

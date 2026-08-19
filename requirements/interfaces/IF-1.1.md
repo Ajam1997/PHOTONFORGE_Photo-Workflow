@@ -6,7 +6,7 @@
 **Owner:** @software_lead
 
 > The one genuinely cross-language boundary in the system: Lua (inside
-> Darktable) drives Python (the pipeline) over subprocess IPC. Four
+> Darktable) drives Python (the pipeline) over subprocess IPC. Five
 > sub-contracts must stay in agreement.
 
 ## What crosses
@@ -14,7 +14,8 @@
 1. **Command invocation** — Lua spawns the CLI as a subprocess.
 2. **Progress stream** — Python emits machine-readable progress on stdout.
 3. **Stop signal** — Lua tracks each launched step's own process PID and sends a scoped kill (no shared sentinel).
-4. **Result store** — Python writes results; Lua reads them back.
+4. **Cartridge commands** — Lua launches the separate `photo-cartridge` script into a terminal.
+5. **Result store** — Python writes results; Lua reads them back.
 
 ## Contract
 
@@ -68,7 +69,40 @@ the per-step pidfile path/format (`photonforge_<step>.pid`, PID as
 plain text) and the process-group semantics (`setsid` on Linux,
 `cmd.exe` as the tracked Windows image name).
 
-### 4. Result store (B → A)
+### 4. Cartridge commands (A → B, `photo-cartridge`)
+
+The CARTRIDGE strip launches the **separate** `photo-cartridge` console
+script fire-and-forget into a visible terminal. It is outside the
+progress/stop contract above: no `--json-progress`, no pidfile, no
+liveness tracking — the user watches the terminal.
+
+Subcommands the plugin may invoke, and the flags it passes verbatim:
+
+| Button | Command | Gate |
+|---|---|---|
+| Snapshot | `photo-cartridge snapshot <root> --keep N` | implemented |
+| Backup | `photo-cartridge backup <root> --dest <dir> --keep N` | implemented |
+| Verify | `photo-cartridge verify-backup --dest <dir> [--root <root>]` | implemented |
+| Provision | `photo-cartridge provision <root> [--id NNN]` | **not implemented** |
+| Archive | `photo-cartridge archive <root> -r <repo> …` | **not implemented** (restic tier) |
+| Restore | `photo-cartridge restore -r <repo> --to <root>` | **not implemented** (restic tier) |
+
+**The contract is the subcommand names and flag spellings.** Lua builds
+these strings by hand, so a renamed flag surfaces as `No such option` in
+a terminal window the user cannot scroll back — not as a test failure.
+Two things keep them honest:
+
+- `runner.lua`'s `CARTRIDGE_IMPLEMENTED` table gates **per command**, so
+  a tier can ship without exposing buttons for one that has not. A gated
+  button logs and refuses instead of shelling out.
+- `tests/lua/test_runner_cartridge.lua` loads `runner.lua` against a
+  stubbed `darktable`, captures what it would execute, and asserts the
+  command strings — including that gated commands execute nothing.
+
+Adding a subcommand means: implement it, flip its `CARTRIDGE_IMPLEMENTED`
+entry, add its row here, and assert its string in the Lua test.
+
+### 5. Result store (B → A)
 
 Python writes results to two stores the plugin reads:
 - **XMP sidecars** next to each image (scores + `photon|subject|*` /
@@ -81,11 +115,12 @@ IF-3.2).
 
 ## Verified By (Side A — Lua)
 
-- (none yet) — manual: plugin run from Darktable drives a full pipeline; progress bar advances; Stop halts mid-stage
+- lua: tests/lua/test_runner_cartridge.lua (sub-contract 4 — cartridge command strings + per-command gating)
+- manual: plugin run from Darktable drives a full pipeline; progress bar advances; Stop halts mid-stage
 
 ## Verified By (Side B — Python)
 
-- pytest: tests/test_cli_v2.py
+- pytest: tests/test_cli_v2.py, tests/test_cartridge_cli.py
 
 ## Validated By
 
