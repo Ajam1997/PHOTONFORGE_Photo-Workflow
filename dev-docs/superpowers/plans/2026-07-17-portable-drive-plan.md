@@ -46,12 +46,21 @@ Canonicalize on **Layout B** (drive-root state, which `runner.lua` already uses)
 
 ## Tasks
 
-### Task 1 — Lua self-location (`lua/photonforge/runner.lua`, `config.lua`)
+### Task 1 — Lua self-location (`lua/photonforge/runner.lua`, `config.lua`) — **DONE**
+
+> Landed 2026-08-19. `cartridge_cli()` got the same treatment (it did not exist
+> when this task was written), so `photo-cartridge` also resolves from
+> `<root>/runtime/` on a portable drive. Covered by
+> `tests/lua/test_runner_cartridge.lua`, which builds a real drive tree and
+> asserts resolution, precedence of an explicit preference, unchanged
+> host-install behaviour, and that a broken `darktable.configuration` cannot
+> make `preview_cmd` throw.
+
 Chosen over launcher-rewrite: Darktable rewrites `darktablerc` on clean exit, so baking absolute paths in would be clobbered. Self-location recomputes paths every run from `dt.configuration.config_dir` (the *current* real mount), so drive-letter/mount churn is irrelevant. Fully backward-compatible (only fires when the pref is blank AND the sibling dir exists). Keep all new helpers `pcall`-safe so `preview_cmd` never throws.
-- [ ] Add `config_parent()` — strip the last component of `dt.configuration.config_dir` (`<DRIVE>/dt-config`) → drive root (Win `\`, Linux `/` variants).
-- [ ] Modify `cli()` (lines 25-29): between the `cli_path`-set branch and the bare-name fallback, probe `<root>/runtime/{win/photo-workflow.exe | linux/photo-workflow}`; return it if present, else fall through to `return "photo-workflow"` (unchanged legacy).
-- [ ] Add `models_dir()` — return `config.read("models_path")` if set; else probe `<root>/models/florence2_int8` and return `<root>/models`; else `""` (CLI auto-detects). Replace the 5 inline `config.read("models_path")` reads (score ~104, name ~122, refresh-review ~150, recalibrate ~171, rescore ~198) with `models_dir()`; the existing `if models ~= "" then --model-dir` blocks stay.
-- [ ] `config.lua`: help-text only on `cli_path`/`models_path` (lines 18-19) — note blank auto-locates `../runtime` and `../models` relative to the Darktable config dir on a portable drive. No schema change.
+- [x] Add `config_parent()` — strip the last component of `dt.configuration.config_dir` (`<DRIVE>/dt-config`) → drive root (Win `\`, Linux `/` variants).
+- [x] Modify `cli()` (lines 25-29): between the `cli_path`-set branch and the bare-name fallback, probe `<root>/runtime/{win/photo-workflow.exe | linux/photo-workflow}`; return it if present, else fall through to `return "photo-workflow"` (unchanged legacy).
+- [x] Add `models_dir()` — return `config.read("models_path")` if set; else probe `<root>/models/florence2_int8` and return `<root>/models`; else `""` (CLI auto-detects). Replace the 5 inline `config.read("models_path")` reads (score ~104, name ~122, refresh-review ~150, recalibrate ~171, rescore ~198) with `models_dir()`; the existing `if models ~= "" then --model-dir` blocks stay.
+- [x] `config.lua`: help-text only on `cli_path`/`models_path` (lines 18-19) — note blank auto-locates `../runtime` and `../models` relative to the Darktable config dir on a portable drive. No schema change.
 
 ### Task 2 — Builder core (new `src/photo_workflow/portable.py`)
 Unit-testable, no click. Manifest load/verify, downloader (mockable), extractor (zip / innoextract / appimage-extract), `_deploy_plugin(dt_config, repo_lua_dir)` (copies `lua/photonforge/*.lua`+`.css`, idempotent `require "photonforge/main"` in luarc — reuses `scripts/deploy_lua.ps1` logic cross-platform), launcher templating, and the layout builder.
@@ -99,7 +108,19 @@ Two substantive corrections came out of the merge, both affecting this plan:
 
 **Status gate:** Tasks 1–4 of the reconciled plan must be merged before 4b runs.
 
-### Task 4b — Migration of existing ext4 cartridges (`photo-cartridge migrate-fs`)
+### Task 4b — Migration of existing ext4 cartridges (`photo-cartridge migrate-fs`) — **NOT NEEDED (2026-08-19)**
+
+> The premise does not hold for the current fleet. `Get-Volume` on the only
+> cartridge in existence (PHOTON-001, 4 TB) reports **exFAT** — it is already
+> on the target filesystem, so there is nothing to migrate. Task 4a was built
+> as a prerequisite for this and stands on its own merits regardless: it closed
+> issue #131, an independent durability gap.
+>
+> Do NOT implement this unless an ext4 cartridge actually turns up. If one
+> does, the spec below is still correct and its prerequisite is now satisfied.
+> **Task 4 (exFAT provisioning) is still required either way** — `provision.py`
+> would format the *next* cartridge as ext4 and recreate the problem.
+
 **Requires a fresh verified Tier-2 mirror — `migrate-fs` refuses to run without one (`--backup <snapshot>` pointing at a snapshot whose manifest verifies and is newer than the cartridge's last write).** Reformatting is destructive, so migration is copy-out → reformat → copy-back; the copy-out step reuses the Tier-2 code path. Import `assert_cartridge_idle`, `mirror_cartridge`, `verify_snapshot`, and `snapshot_is_fresh` from `backup.py` — the gate is `verify_snapshot(snap) == [] and snapshot_is_fresh(snap, root)`; write no copy or checksum logic here. Note that Tier 2 mirrors are plain trees precisely so this step needs nothing installed beyond Python. All
 cartridge state is plain files (shoot folders + XMP, `photonforge.db`,
 `training_weights.db`, corpus JSONL, `dt-config/`) — nothing depends on ext4 semantics

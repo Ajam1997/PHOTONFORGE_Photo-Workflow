@@ -220,6 +220,84 @@ for _, key in ipairs({ "backup_dest", "snapshot_keep", "backup_keep",
 end
 
 -- ===========================================================================
+-- Self-location (portable drive)
+--
+-- The keystone of the portable-drive plan: launched with
+-- --configdir <DRIVE>/dt-config, the plugin must resolve the CLI and the models
+-- from the CURRENT mount, with no preference set and no absolute path baked in
+-- anywhere. Darktable rewrites darktablerc on exit and the drive letter changes
+-- between machines, so anything stored would be wrong by the next run.
+--
+-- Uses a real directory tree, because resolution is existence-based.
+-- ===========================================================================
+local drive = "./pf_drive_test"
+-- real_execute, not os.execute: the latter is stubbed above to capture
+-- commands rather than run them, so a mkdir through it would silently do
+-- nothing and the probes would all miss.
+real_execute("mkdir -p " .. drive .. "/dt-config " .. drive .. "/runtime/linux "
+             .. drive .. "/models/florence2_int8")
+make_fake(drive .. "/runtime/linux/photo-workflow")
+make_fake(drive .. "/runtime/linux/photo-cartridge")
+
+local real_config_dir = dt_stub.configuration.config_dir
+
+-- Nothing configured: exactly the state a freshly built portable drive is in.
+prefs.cli_path = ""
+prefs.cartridge_path = ""
+prefs.models_path = ""
+prefs.dest_path = drive .. "/ICELAND"
+dt_stub.configuration.config_dir = drive .. "/dt-config"
+
+reset()
+runner.launch_snapshot(log_fn)
+contains(last_cmd(), drive .. "/runtime/linux/photo-cartridge",
+         "portable: cartridge CLI resolves from the drive with no pref set")
+
+local preview_ok, preview = pcall(runner.preview_cmd, "score")
+check(preview_ok, "portable: preview_cmd must not throw")
+contains(preview or "", drive .. "/runtime/linux/photo-workflow",
+         "portable: photo-workflow resolves from the drive")
+contains(preview or "", "--model-dir",
+         "portable: models are passed explicitly")
+contains(preview or "", drive .. "/models",
+         "portable: models resolve from the drive")
+
+-- An explicit preference still wins -- the portable probe must not hijack a
+-- deliberately configured dev install.
+prefs.cli_path = fake_wf
+reset()
+local _, pinned = pcall(runner.preview_cmd, "score")
+contains(pinned or "", fake_wf, "portable: a configured cli_path still wins")
+prefs.cli_path = ""
+
+-- A host install (config dir with no runtime/ or models/ beside it) must behave
+-- exactly as before: bare name, no --model-dir. This is the backward-compatible
+-- half of the contract.
+dt_stub.configuration.config_dir = "/home/alex/.config/darktable"
+reset()
+local _, host = pcall(runner.preview_cmd, "score")
+contains(host or "", "photo-workflow score", "host install: bare name unchanged")
+check((host or ""):find("--model-dir") == nil,
+      "host install: no --model-dir when nothing is configured or on the drive")
+
+reset()
+runner.launch_snapshot(log_fn)
+contains(last_cmd(), "photo-cartridge snapshot",
+         "host install: cartridge falls back to the bare name")
+
+-- config_parent() must survive a darktable stub that raises or returns junk;
+-- preview_cmd resolves commands without executing them and must never throw.
+local saved_conf = dt_stub.configuration
+dt_stub.configuration = setmetatable({}, { __index = function() error("boom") end })
+local safe_ok = pcall(runner.preview_cmd, "score")
+check(safe_ok, "a broken darktable.configuration must not make preview_cmd throw")
+dt_stub.configuration = saved_conf
+
+dt_stub.configuration.config_dir = real_config_dir
+prefs.dest_path = "/media/alex/PHOTON-004/ICELAND"
+real_execute("rm -rf " .. drive)
+
+-- ===========================================================================
 -- Windows mode
 --
 -- Everything above ran with POSIX quoting, but the panel's primary home is

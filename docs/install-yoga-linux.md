@@ -103,7 +103,10 @@ fully functional without it).
 
 Plugin preferences (Preferences → Lua options) worth setting up front:
 - **Models dir** — absolute path to the repo's `models/` directory (required
-  for a non-editable install; recommended always).
+  for a non-editable install; recommended always). On a **portable cartridge**
+  leave it blank: the plugin locates `<drive>/models` from Darktable's own
+  `--configdir`, so nothing has to be reconfigured when the drive letter or
+  mount point changes. The same applies to the two CLI paths.
 - **Cartridge ID** (e.g. `003`) — used by Provision.
 - **Backup dest** (also in the panel's Configuration section, with a folder
   browser) — a second drive to hold verified cartridge mirrors,
