@@ -206,8 +206,44 @@ cartridge state is plain files (shoot folders + XMP, `photonforge.db`,
 - [ ] Document in `docs/portable-drive-setup.md`: migrate one cartridge, run the KPM-1.4
       eject soak on it, then batch the rest.
 
-### Task 5 — Frozen-aware model root (`src/photo_workflow/pipeline.py` + `naming.py`)
-Add `_default_model_root()`: when `getattr(sys, "frozen", False)`, resolve models relative to `Path(sys.executable)` (→ `<DRIVE>/models`) instead of `Path(__file__)...` (which breaks when frozen). Wire into the 5 `model_dir is None` fallbacks (pipeline.py ~490/727/907, naming.py ~446/463). Belt-and-suspenders with `runner.lua` always passing `--model-dir`.
+### Task 5 — Frozen-aware model root (`src/photo_workflow/pipeline.py` + `naming.py`) — **DONE**
+
+> Landed 2026-08-20. `_default_model_root()` in both modules: unfrozen
+> (editable/dev install) climbs from `Path(__file__)` to the repo root, same
+> as it always did; frozen (`getattr(sys, "frozen", False)`) climbs three
+> parents from `Path(sys.executable)` instead, since a PyInstaller onedir
+> freeze has no `pipeline.py`/`naming.py` on disk to climb from — the drive
+> layout puts the executable at `<DRIVE>/runtime/<os>/photo-workflow(.exe)`,
+> and three parents up from there lands at `<DRIVE>`, whose `models/` sibling
+> is what's wanted.
+>
+> **Four call sites in `pipeline.py`, not three** — the plan's line numbers
+> (score/name/refresh-review) missed `training recalibrate`'s fallback
+> (originally ~1163), which has the identical `Path(__file__)...` bug. Fixed
+> alongside the other three; a regression test AST-parses `pipeline.py` and
+> asserts exactly 4 calls to `_default_model_root()`.
+>
+> **`naming.py`'s two sites were function-signature defaults, not
+> `if is None` guards** — `warm_sessions(model_dir: Path = Path("models/florence2_int8"))`
+> and `generate_name(..., model_dir: Path = Path("models/florence2_int8"))`.
+> A literal relative `Path` default is resolved against the process's CWD
+> the first time `.resolve()` runs on it, which is exactly the frozen bug in
+> a different shape: CWD when Darktable subprocess-launches the frozen CLI is
+> unpredictable, not necessarily the drive root. Changed both defaults to
+> `None` with an `if model_dir is None: model_dir = _default_model_root() / "florence2_int8"`
+> guard, matching `pipeline.py`'s pattern. All existing callers already
+> passed `model_dir` explicitly, so this is not a behavior change for any
+> current call site — only the never-actually-exercised default path changes.
+>
+> `naming.py` keeps its own 3-line copy of `_default_model_root()` rather than
+> importing `pipeline.py`'s — `naming.py` has no other dependency on
+> `pipeline.py` today, and duplicating three lines beats introducing one.
+>
+> Belt-and-suspenders unchanged: `runner.lua` always passes `--model-dir`
+> explicitly regardless, so this fallback only matters for direct CLI /
+> script use without that flag. Tests: `tests/test_frozen_model_root.py` (7
+> tests, both modules' frozen/unfrozen resolution plus the call-site count
+> guard).
 
 ### Task 6 — Build scripts (`scripts/build_portable_cli.{sh,ps1}` + `scripts/photonforge.spec`) — **DONE (Linux verified; Windows unverified)**
 
@@ -299,7 +335,7 @@ Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`po
 
 **Create:** `config/portable-manifest.yml` (Task 7, still open — Task 2 only defines and consumes its YAML schema), ~~`src/photo_workflow/portable.py`~~ DONE, ~~`scripts/build_portable_cli.{sh,ps1}`~~ DONE, ~~`scripts/photonforge.spec`~~ DONE (plus `scripts/portable/freeze_entry_photo_{workflow,cartridge}.py` and `tests/test_portable_build.py`, not originally listed), ~~`deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`~~ DONE, ~~`tests/test_portable.py`~~ DONE (plus `tests/test_cartridge_make_portable_cli.py`, not originally listed), `tests/lua/test_runner_selflocate.lua` (superseded by `tests/lua/test_runner_cartridge.lua`, landed with Task 1), `docs/portable-drive-setup.md`, `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`.
 
-**Modify:** `lua/photonforge/runner.lua`, `lua/photonforge/config.lua`, ~~`src/photo_workflow/cartridge.py`~~ DONE (`make-portable` + `init` deprecation notice), `src/photo_workflow/provision.py`, `src/photo_workflow/pipeline.py`, `src/photo_workflow/naming.py`, ~~`pyproject.toml`~~ DONE (added `provision` extra: PyYAML; `build`/pyinstaller landed with Task 6), `scripts/deploy_lua.ps1` + `deploy/entrypoint.sh` (delegate to shared `_deploy_plugin` — **not done**: `_deploy_plugin` is Python, and wiring a PowerShell dev-machine script through it would add a runtime dependency beyond what Task 2/3 needed; left as explicit future work rather than silently dropped), plus the docs above.
+**Modify:** `lua/photonforge/runner.lua`, `lua/photonforge/config.lua`, ~~`src/photo_workflow/cartridge.py`~~ DONE (`make-portable` + `init` deprecation notice), `src/photo_workflow/provision.py`, ~~`src/photo_workflow/pipeline.py`~~ DONE, ~~`src/photo_workflow/naming.py`~~ DONE, ~~`pyproject.toml`~~ DONE (added `provision` extra: PyYAML; `build`/pyinstaller landed with Task 6), `scripts/deploy_lua.ps1` + `deploy/entrypoint.sh` (delegate to shared `_deploy_plugin` — **not done**: `_deploy_plugin` is Python, and wiring a PowerShell dev-machine script through it would add a runtime dependency beyond what Task 2/3 needed; left as explicit future work rather than silently dropped), plus the docs above.
 
 ## Highest-risk parts (with mitigations)
 

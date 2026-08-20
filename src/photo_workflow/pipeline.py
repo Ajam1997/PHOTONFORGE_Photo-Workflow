@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +23,25 @@ _DEFAULT_CORPUS = str(_REPO_ROOT / "corpus" / "genre_labels.jsonl")
 _DEFAULT_SECONDARY_FEEDBACK = str(_REPO_ROOT / "corpus" / "secondary_feedback.jsonl")
 
 logger = logging.getLogger(__name__)
+
+
+def _default_model_root() -> Path:
+    """models/ directory to fall back to when --model-dir is not given.
+
+    Portable-drive plan Task 5. Path(__file__)-based resolution (what
+    _REPO_ROOT above uses) is correct for an editable/dev install, but a
+    PyInstaller onedir freeze has no src/photo_workflow/pipeline.py on disk
+    to climb from — sys.executable is the frozen binary itself. On a
+    portable drive it lives at <drive>/runtime/<os>/photo-workflow(.exe)
+    (see the drive layout in the portable-drive plan), so climbing three
+    parents from the executable lands at the drive root, whose models/
+    sibling is what we want. runner.lua always passes --model-dir
+    explicitly regardless (belt-and-suspenders) — this is the fallback for
+    direct CLI use.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent.parent.parent / "models"
+    return _REPO_ROOT / "models"
 
 if TYPE_CHECKING:
     pass
@@ -487,7 +507,7 @@ def score(db_path: Path, folder: str, source_dir: Path, model_dir: Path | None, 
     from .photondb import sanitize_table_name, ensure_table, get_pending, update_scores, update_genre_scores, update_stages, clear_stage
 
     if model_dir is None:
-        model_dir = Path(__file__).resolve().parent.parent.parent / "models"
+        model_dir = _default_model_root()
 
     table = sanitize_table_name(folder)
     conn = sqlite3.connect(str(db_path))
@@ -724,7 +744,7 @@ def name(
 ) -> None:
     """Generate semantic descriptions via Florence-2 (written to Darktable description, not filename)."""
     if model_dir is None:
-        model_dir = Path(__file__).resolve().parent.parent.parent / "models" / "florence2_int8"
+        model_dir = _default_model_root() / "florence2_int8"
     import sqlite3
 
     from .naming import generate_name
@@ -904,7 +924,7 @@ def refresh_review(photon_db: Path, folder: str, model_dir: Path | None,
     from .photondb import sanitize_table_name
 
     if model_dir is None:
-        model_dir = Path(__file__).resolve().parent.parent.parent / "models"
+        model_dir = _default_model_root()
     table = sanitize_table_name(folder)
     adapter = ModelSessions(model_dir, training_db_path=training_db).genre_adapter
     if not adapter or not adapter.get("subject") or not adapter.get("type"):
@@ -1161,7 +1181,7 @@ def recalibrate(
     from .genre_router import SUBJECTS, PHOTO_TYPES, ALL_LABELS
 
     if model_dir is None:
-        model_dir = Path(__file__).resolve().parent.parent.parent / "models"
+        model_dir = _default_model_root()
 
     proto_path = model_dir / "genre_prototypes.npy"
     if not proto_path.exists():
