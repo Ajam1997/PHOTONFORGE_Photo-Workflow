@@ -62,10 +62,56 @@ Chosen over launcher-rewrite: Darktable rewrites `darktablerc` on clean exit, so
 - [x] Add `models_dir()` — return `config.read("models_path")` if set; else probe `<root>/models/florence2_int8` and return `<root>/models`; else `""` (CLI auto-detects). Replace the 5 inline `config.read("models_path")` reads (score ~104, name ~122, refresh-review ~150, recalibrate ~171, rescore ~198) with `models_dir()`; the existing `if models ~= "" then --model-dir` blocks stay.
 - [x] `config.lua`: help-text only on `cli_path`/`models_path` (lines 18-19) — note blank auto-locates `../runtime` and `../models` relative to the Darktable config dir on a portable drive. No schema change.
 
-### Task 2 — Builder core (new `src/photo_workflow/portable.py`)
-Unit-testable, no click. Manifest load/verify, downloader (mockable), extractor (zip / innoextract / appimage-extract), `_deploy_plugin(dt_config, repo_lua_dir)` (copies `lua/photonforge/*.lua`+`.css`, idempotent `require "photonforge/main"` in luarc — reuses `scripts/deploy_lua.ps1` logic cross-platform), launcher templating, and the layout builder.
+### Task 2 — Builder core (new `src/photo_workflow/portable.py`) — **DONE**
 
-### Task 3 — `make-portable` subcommand (`src/photo_workflow/cartridge.py`)
+> Landed 2026-08-20. Manifest load/verify, a content-addressed sha256-verified
+> downloader (`download_verified`, cache keyed by the *expected* hash so a
+> corrupt or interrupted prior run is never silently trusted — mismatches
+> raise `DownloadError` and the bad file is discarded, no TOFU), an extractor
+> (`extract_archive`: `zip` is real via stdlib `zipfile`; `appimage` and
+> `innosetup` dispatch to `--appimage-extract`/`innoextract` and are
+> dispatch-tested with `subprocess.run` mocked, since neither tool exists in
+> this environment), `_deploy_plugin` (idempotent copy + luarc require-line,
+> mirroring `scripts/deploy_lua.ps1`'s MD5-compare-before-overwrite logic
+> cross-platform — verified idempotent across two real runs in
+> `tests/test_portable.py`), `write_baseline_darktablerc` (leaves
+> `cli_path`/`cartridge_path`/`models_path` blank — the deliberate opposite of
+> `deploy_lua.ps1`'s host-venv auto-bake, since a portable drive's mount point
+> changes between machines and only self-location survives that), launcher
+> templating (`render_launchers`, copying `deploy/portable/*.tmpl` verbatim
+> plus a best-effort exec bit on the `.sh`), and `build_portable_layout`, the
+> orchestrator Task 3 calls.
+>
+> **The manifest is optional by design**, not a hard dependency on Task 7:
+> `config/portable-manifest.yml` does not exist yet, so `build_portable_layout`
+> accepts `manifest: PortableManifest | None` and skips only the
+> Darktable-download step for an OS with no manifest target, rather than
+> blocking runtime/models/plugin assembly on a file that isn't written yet.
+> Verified end-to-end against a real zip archive (build one in the test,
+> download it via an injected `fetch`, verify the sha256, extract it, confirm
+> the binary lands at the manifest's `exe_relpath`) — not just schema-shape
+> assertions.
+>
+> `PortableManifest`'s YAML schema (`win`/`linux` → `version`, `url`,
+> `sha256`, `archive_type`, `exe_relpath`|`apprun_relpath`) is defined here
+> since nothing else has defined it yet; Task 7 must produce a
+> `config/portable-manifest.yml` conforming to this shape, not invent a new one.
+
+### Task 3 — `make-portable` subcommand (`src/photo_workflow/cartridge.py`) — **DONE**
+
+> Landed 2026-08-20 alongside Task 2. `photo-cartridge make-portable <drive>`
+> is a thin click wrapper over `portable.build_portable_layout`: it verifies
+> the volume label starts with `PHOTON` (and optionally matches `--id`) via
+> `volume.py::get_volume_label`/`extract_cartridge_id` before touching the
+> drive, loads `--manifest` if given, and reports either human-readable or
+> `--json` output. `init`'s Layout-A scaffold is kept working but now prints a
+> stderr deprecation notice pointing at `provision` + `make-portable`.
+>
+> One deliberate deviation from the one-line spec below: `--cache` has no
+> default and is validated at build time (`ValueError` → clean
+> `ClickException`) rather than required unconditionally, since a manifest-less
+> build (the common case until Task 7 lands) has nothing to cache.
+
 Runs on the **provisioning machine** (unfrozen `photo-cartridge` entry), assembles files onto an already-mounted drive (unelevated; partition/format stays in `provision.py`). Thin click wrapper over `portable.py`.
 ```
 photo-cartridge make-portable <drive>
@@ -225,7 +271,22 @@ Fresh venv, `pip install .` (non-editable) + pyinstaller, build `photo-workflow`
 Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`portableapps`/`innosetup`/`appimage`), and resolved binary relpath (`exe_relpath` / `apprun_relpath`). Downloader streams to `--cache`, verifies sha256 (abort on mismatch — no TOFU). Windows: prefer the official Darktable **zip** to avoid needing `innoextract`. Linux AppImage extracted to `squashfs-root/` (needs a Linux host). Building a **dual-OS** drive from one host needs both toolchains → document per-OS provisioning as the reliable path. Downloads happen **only** in `make-portable`; nothing in `runtime/`, launchers, or `runner.lua` touches the network (NFR-2.1). `--offline` = cache-only, error on miss. `.photonforge/manifest.lock.json` is the audit record.
 
 ### Task 8 — Tests
-- [ ] `tests/test_portable.py` (mock net via `responses`): manifest schema/sha256 validation; downloader verify-pass/verify-fail + `--offline`; layout builder against a `tmp_path` drive (fetch/extract monkeypatched to drop placeholders) asserting the tree, single idempotent luarc require line, models copied, launchers present, lockfile hashes; launcher templates contain `$PSScriptRoot`/`%~dp0`/`readlink -f` and the AppImage fallback, with a regex assertion that **no absolute host path** leaked; `_deploy_plugin` idempotent across two runs.
+- [x] `tests/test_portable.py` — landed with Task 2 (29 tests). Manifest
+      schema/sha256 validation; downloader verify-pass/verify-fail/offline
+      (an injected `fetch` callable, not the `responses` library — no HTTP
+      client exists in `portable.py` to intercept, since `urllib.request` is
+      only reached by the *default* fetch, which the tests never exercise);
+      `extract_archive` real against an actual zip; layout builder against a
+      real `tmp_path` drive tree (both with and without a manifest) asserting
+      the tree, single idempotent luarc require line, models copied,
+      launchers present, lockfile contents; launcher templates asserted to
+      contain `$PSScriptRoot`/`%~dp0`/`readlink -f` and the AppImage
+      `--appimage-extract-and-run` fallback, plus a regex assertion that no
+      absolute host path (`/home/*`, `/root`, `C:\Users\*`) leaked into any
+      rendered launcher; `_deploy_plugin` idempotency verified across two
+      real runs. `tests/test_cartridge_make_portable_cli.py` covers the click
+      surface (label/id checks, manifest-less assembly, error wrapping, the
+      `init` deprecation notice).
 - [ ] `tests/lua/test_runner_selflocate.lua` run via `lua5.4` in CI: stub the global `darktable` table and assert `cli()`, `models_dir()`, and `M.preview_cmd("score")` yield drive-relative paths under `<root>/runtime/...` and `<root>/models`. (`preview_cmd` already resolves `build_cmd` without executing — the natural seam.)
 - [ ] Per-OS CI smoke of the frozen CLI (models external): `--help`, `dedup`/`ingest` on fixtures, then `score --model-dir models ...` (onnxruntime — #1 freeze risk) and `name --model-dir models/florence2_int8 <RAW fixture>` (Florence-2 + tokenizers + rawpy — #2).
 
@@ -236,9 +297,9 @@ Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`po
 
 ## Files at a glance
 
-**Create:** `config/portable-manifest.yml`, `src/photo_workflow/portable.py`, ~~`scripts/build_portable_cli.{sh,ps1}`~~ DONE, ~~`scripts/photonforge.spec`~~ DONE (plus `scripts/portable/freeze_entry_photo_{workflow,cartridge}.py` and `tests/test_portable_build.py`, not originally listed), `deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`, `tests/lua/test_runner_selflocate.lua` (superseded by `tests/lua/test_runner_cartridge.lua`, landed with Task 1), `docs/portable-drive-setup.md`, `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`.
+**Create:** `config/portable-manifest.yml` (Task 7, still open — Task 2 only defines and consumes its YAML schema), ~~`src/photo_workflow/portable.py`~~ DONE, ~~`scripts/build_portable_cli.{sh,ps1}`~~ DONE, ~~`scripts/photonforge.spec`~~ DONE (plus `scripts/portable/freeze_entry_photo_{workflow,cartridge}.py` and `tests/test_portable_build.py`, not originally listed), ~~`deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`~~ DONE, ~~`tests/test_portable.py`~~ DONE (plus `tests/test_cartridge_make_portable_cli.py`, not originally listed), `tests/lua/test_runner_selflocate.lua` (superseded by `tests/lua/test_runner_cartridge.lua`, landed with Task 1), `docs/portable-drive-setup.md`, `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`.
 
-**Modify:** `lua/photonforge/runner.lua`, `lua/photonforge/config.lua`, `src/photo_workflow/cartridge.py`, `src/photo_workflow/provision.py`, `src/photo_workflow/pipeline.py`, `src/photo_workflow/naming.py`, `pyproject.toml` (add `build`/`provision` extras: pyinstaller, PyYAML), `scripts/deploy_lua.ps1` + `deploy/entrypoint.sh` (delegate to shared `_deploy_plugin`), plus the docs above.
+**Modify:** `lua/photonforge/runner.lua`, `lua/photonforge/config.lua`, ~~`src/photo_workflow/cartridge.py`~~ DONE (`make-portable` + `init` deprecation notice), `src/photo_workflow/provision.py`, `src/photo_workflow/pipeline.py`, `src/photo_workflow/naming.py`, ~~`pyproject.toml`~~ DONE (added `provision` extra: PyYAML; `build`/pyinstaller landed with Task 6), `scripts/deploy_lua.ps1` + `deploy/entrypoint.sh` (delegate to shared `_deploy_plugin` — **not done**: `_deploy_plugin` is Python, and wiring a PowerShell dev-machine script through it would add a runtime dependency beyond what Task 2/3 needed; left as explicit future work rather than silently dropped), plus the docs above.
 
 ## Highest-risk parts (with mitigations)
 

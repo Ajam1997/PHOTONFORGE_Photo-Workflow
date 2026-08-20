@@ -1,0 +1,5 @@
+@echo off
+rem PHOTONForge portable launcher (Windows double-click entry point).
+rem %~dp0 is this .bat file's own directory, so this stays drive-relative
+rem no matter which drive letter Windows assigns.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0PHOTONForge.ps1"

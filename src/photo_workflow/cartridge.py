@@ -249,11 +249,110 @@ def restore_backup_cmd(snapshot: Path, target: Path, force: bool, as_json: bool)
         click.echo(f"Restored {snapshot} into {target}.")
 
 
+@main.command("make-portable")
+@click.argument("drive", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--os", "oses", multiple=True, type=click.Choice(["win", "linux"]),
+              default=("win", "linux"), show_default=True,
+              help="Which Darktable app(s) to bundle")
+@click.option("--manifest", type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              default=None,
+              help="config/portable-manifest.yml (Darktable download pins); "
+                   "omit to skip the Darktable-app step")
+@click.option("--models-src", type=click.Path(exists=True, file_okay=False, path_type=Path),
+              default=None, help="Local models/ dir to copy onto the drive")
+@click.option("--cli-src", type=click.Path(exists=True, file_okay=False, path_type=Path),
+              default=None, help="Local runtime/ dir (frozen CLI builds) to copy onto the drive")
+@click.option("--cache", "cache_dir", type=click.Path(path_type=Path), default=None,
+              help="Download cache for Darktable archives (required if --manifest is given)")
+@click.option("--offline", is_flag=True, help="Cache-only: error instead of downloading")
+@click.option("--templates-dir", type=click.Path(exists=True, file_okay=False, path_type=Path),
+              default=Path("deploy/portable"), show_default=True)
+@click.option("--lua-src", type=click.Path(exists=True, file_okay=False, path_type=Path),
+              default=Path("lua/photonforge"), show_default=True)
+@click.option("--id", "cart_id", default=None,
+              help="Expected PHOTON-XXX id; verified against the drive's volume label")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
+                      models_src: Path | None, cli_src: Path | None, cache_dir: Path | None,
+                      offline: bool, templates_dir: Path, lua_src: Path,
+                      cart_id: str | None, as_json: bool) -> None:
+    """Assemble a self-contained portable drive (Darktable + CLI + models) onto DRIVE.
+
+    DRIVE must already be a mounted, provisioned PHOTON-XXX cartridge (see
+    `provision`). Runs unelevated; partitioning/formatting stays in
+    provision.py.
+    """
+    from . import portable as portable_mod
+    from .volume import extract_cartridge_id, get_volume_label
+
+    label = get_volume_label(drive)
+    if not label.startswith("PHOTON"):
+        raise click.ClickException(
+            f"{drive} does not look like a PHOTON cartridge (volume label: {label!r})."
+        )
+    if cart_id is not None and extract_cartridge_id(label) != cart_id.zfill(3)[:3]:
+        raise click.ClickException(
+            f"Volume label {label!r} (id {extract_cartridge_id(label)}) "
+            f"does not match --id {cart_id}."
+        )
+
+    loaded_manifest = portable_mod.PortableManifest.load(manifest) if manifest else None
+
+    def _progress(msg: str) -> None:
+        if not as_json:
+            click.echo(msg)
+
+    try:
+        result = portable_mod.build_portable_layout(
+            drive, oses=list(oses), manifest=loaded_manifest,
+            templates_dir=templates_dir, repo_lua_dir=lua_src,
+            models_src=models_src, cli_src=cli_src, cache_dir=cache_dir,
+            offline=offline, progress=_progress,
+        )
+    except (portable_mod.DownloadError, FileNotFoundError, ValueError, RuntimeError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if as_json:
+        import json as _json
+        click.echo(_json.dumps({
+            "step": "make-portable", "status": "ok", "drive": str(drive),
+            "apps": {k: str(v) for k, v in result.apps.items()},
+            "runtimes": {k: str(v) for k, v in result.runtimes.items()},
+            "models_copied": result.models_copied,
+            "manifest_lock": str(result.manifest_lock),
+        }))
+    else:
+        click.echo(f"Portable drive assembled at {drive}")
+        click.echo(
+            f"  plugin: {len(result.plugin['copied'])} copied, "
+            f"{len(result.plugin['up_to_date'])} up to date"
+        )
+        for os_name, path in result.apps.items():
+            click.echo(f"  apps/darktable-{os_name}: {path}")
+        for os_name, path in result.runtimes.items():
+            click.echo(f"  runtime/{os_name}: {path}")
+        if result.models_copied:
+            click.echo("  models/: copied")
+        click.echo(f"  manifest lock: {result.manifest_lock}")
+
+
 @main.command("init")
 @click.argument("mount_path", type=click.Path(path_type=Path))
 def init_cartridge(mount_path: Path) -> None:
-    """Provision a new PHOTON cartridge with the correct directory structure."""
+    """[DEPRECATED] Legacy Layout A scaffold (<mount>/darktable/, <mount>/photos/).
+
+    Superseded by Layout B (drive-root state) — see the portable-drive plan.
+    New cartridges should use `provision` + `make-portable` instead. Kept
+    only for compatibility with pre-migration cartridges.
+    """
     import sqlite3
+    click.echo(
+        "Warning: 'init' creates the legacy Layout A scaffold "
+        "(<mount>/darktable/, <mount>/photos/). New cartridges should use "
+        "'provision' + 'make-portable' instead (Layout B — see "
+        "dev-docs/superpowers/plans/2026-07-17-portable-drive-plan.md).",
+        err=True,
+    )
     mount_path = mount_path.resolve()
     (mount_path / "darktable").mkdir(parents=True, exist_ok=True)
     (mount_path / "photos").mkdir(parents=True, exist_ok=True)
