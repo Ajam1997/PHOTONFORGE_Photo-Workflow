@@ -188,6 +188,27 @@ def extract_archive(archive_path: Path, dest_dir: Path, archive_type: str) -> No
         raise ValueError(f"Unknown archive_type: {archive_type!r}")
 
 
+def _run_extractor(cmd: list[str], *, cwd: Path | None = None, hint: str = "") -> None:
+    """Run an external extractor, turning failure into an actionable error.
+
+    A bare CalledProcessError surfaces as "returned non-zero exit status 2"
+    with the tool's real complaint buried in captured stderr, and it is not a
+    RuntimeError so the CLI's exception handler would let it escape as a
+    traceback. Both are fixed here: the tool's own output is put in the
+    message, and `hint` explains the known cause.
+    """
+    try:
+        subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or "").strip()
+        message = f"{cmd[0]} failed (exit {exc.returncode})"
+        if detail:
+            message += f":\n{detail}"
+        if hint:
+            message += f"\n\n{hint}"
+        raise RuntimeError(message) from exc
+
+
 def _extract_appimage(archive_path: Path, dest_dir: Path) -> None:
     target = dest_dir / archive_path.name
     shutil.copy2(archive_path, target)
@@ -195,23 +216,44 @@ def _extract_appimage(archive_path: Path, dest_dir: Path) -> None:
         target.chmod(target.stat().st_mode | 0o111)
     except OSError:
         pass  # best-effort exec bit; exFAT has none anyway
-    subprocess.run(
-        [str(target), "--appimage-extract"],
-        cwd=dest_dir, check=True, capture_output=True,
+    _run_extractor(
+        [str(target), "--appimage-extract"], cwd=dest_dir,
+        hint="Extracting an AppImage needs a Linux host; build the linux half "
+             "of the drive there (see the portable-drive plan's per-OS "
+             "provisioning note).",
     )
     extracted = dest_dir / "squashfs-root"
     if not extracted.exists():
         raise RuntimeError(f"--appimage-extract did not produce {extracted}")
 
 
+# Distro innoextract (1.9, the newest *release*, shipped by Debian stable and
+# Ubuntu 24.04) predates Inno Setup's setup-loader revision 2 and cannot read
+# any installer built with Inno Setup 6.5 or later — including the current
+# Darktable Windows installer, which is Inno Setup 6.7.0. It exits 2 having
+# written nothing, so this fails loudly rather than silently producing an
+# empty apps/darktable-win/, but the raw message does not say why.
+_INNOEXTRACT_HINT = (
+    "The Darktable Windows installer is built with Inno Setup 6.7, which needs "
+    "innoextract with setup-loader revision 2 support. innoextract 1.9 — the "
+    "newest release, and what Debian stable / Ubuntu 24.04 package — cannot "
+    "read it and exits without extracting anything.\n"
+    "Run `innoextract --version`: the second line must advertise support up to "
+    "at least Inno Setup 6.7. If it stops at 6.0.5, build innoextract from "
+    "upstream master with the MSYS2 patch series applied — see "
+    "docs/portable-drive-setup.md."
+)
+
+
 def _extract_innosetup(archive_path: Path, dest_dir: Path) -> None:
     if shutil.which("innoextract") is None:
         raise RuntimeError(
-            "innoextract not found on PATH — required for archive_type=innosetup"
+            "innoextract not found on PATH — required for archive_type=innosetup.\n\n"
+            + _INNOEXTRACT_HINT
         )
-    subprocess.run(
+    _run_extractor(
         ["innoextract", "-d", str(dest_dir), str(archive_path)],
-        check=True, capture_output=True,
+        hint=_INNOEXTRACT_HINT,
     )
 
 

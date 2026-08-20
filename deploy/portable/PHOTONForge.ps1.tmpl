@@ -1,5 +1,5 @@
 # PHOTONForge portable launcher (Windows).
-# Written onto the drive by `photo-cartridge make-portable` — do not edit the
+# Written onto the drive by `photo-cartridge make-portable` - do not edit the
 # copy on a cartridge by hand, re-run make-portable instead. Contains no
 # absolute host path: everything below is resolved from $PSScriptRoot, the
 # directory this script itself lives in, so it works regardless of which
@@ -20,7 +20,10 @@ if (-not $relpath) {
     exit 1
 }
 
-$dt = Join-Path $root $relpath
+# binary_relpath is recorded relative to the extracted app directory, NOT to
+# the drive root -- e.g. "app/bin/darktable.exe" under apps/darktable-win/.
+$relpath = $relpath -replace '/', '\'
+$dt = Join-Path (Join-Path $root "apps\darktable-win") $relpath
 if (-not (Test-Path $dt)) {
     Write-Error "Darktable binary not found at $dt"
     exit 1

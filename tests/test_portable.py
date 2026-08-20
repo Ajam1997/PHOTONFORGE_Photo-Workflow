@@ -190,7 +190,7 @@ def test_extract_archive_unknown_type_raises(tmp_path):
 def test_extract_archive_appimage_dispatches_extract_flag(tmp_path, monkeypatch):
     calls = []
 
-    def fake_run(cmd, cwd=None, check=None, capture_output=None):
+    def fake_run(cmd, cwd=None, **kwargs):
         calls.append((cmd, cwd))
         # simulate what --appimage-extract would produce
         (Path(cwd) / "squashfs-root").mkdir()
@@ -213,6 +213,7 @@ def test_extract_archive_appimage_raises_if_extract_produces_nothing(tmp_path, m
         portable.subprocess, "run",
         lambda *a, **k: subprocess.CompletedProcess([], 0),
     )
+
     archive = tmp_path / "dt.AppImage"
     archive.write_bytes(b"fake")
     with pytest.raises(RuntimeError, match="squashfs-root"):
@@ -224,7 +225,7 @@ def test_extract_archive_innosetup_dispatches_to_innoextract(tmp_path, monkeypat
     monkeypatch.setattr(portable.shutil, "which", lambda name: "/usr/bin/innoextract")
     monkeypatch.setattr(
         portable.subprocess, "run",
-        lambda cmd, check=None, capture_output=None: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0),
+        lambda cmd, **k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0),
     )
     archive = tmp_path / "dt-setup.exe"
     archive.write_bytes(b"fake installer")
@@ -237,6 +238,43 @@ def test_extract_archive_innosetup_requires_the_tool_on_path(tmp_path, monkeypat
     monkeypatch.setattr(portable.shutil, "which", lambda name: None)
     with pytest.raises(RuntimeError, match="innoextract"):
         portable.extract_archive(tmp_path / "x.exe", tmp_path / "y", "innosetup")
+
+
+def test_missing_innoextract_error_explains_the_version_requirement(tmp_path, monkeypatch):
+    """The distro innoextract is too old for Inno Setup 6.7 — say so."""
+    monkeypatch.setattr(portable.shutil, "which", lambda name: None)
+    with pytest.raises(RuntimeError) as excinfo:
+        portable.extract_archive(tmp_path / "x.exe", tmp_path / "y", "innosetup")
+    assert "6.7" in str(excinfo.value)
+
+
+def test_extractor_failure_becomes_a_runtime_error_carrying_the_tools_output(tmp_path,
+                                                                             monkeypatch):
+    """A failing extractor must not escape as a bare CalledProcessError.
+
+    innoextract 1.9 exits 2 on an Inno Setup 6.7 installer having written
+    nothing. CalledProcessError is not a RuntimeError, so the make-portable
+    CLI's handler would let it through as a traceback, and its message
+    ("returned non-zero exit status 2") hides the tool's real complaint.
+    """
+    monkeypatch.setattr(portable.shutil, "which", lambda name: "/usr/bin/innoextract")
+
+    def fake_run(cmd, **kwargs):
+        raise subprocess.CalledProcessError(
+            2, cmd, output="", stderr="Could not determine setup data version!"
+        )
+
+    monkeypatch.setattr(portable.subprocess, "run", fake_run)
+    archive = tmp_path / "dt-setup.exe"
+    archive.write_bytes(b"fake installer")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        portable.extract_archive(archive, tmp_path / "extracted", "innosetup")
+    message = str(excinfo.value)
+    assert not isinstance(excinfo.value, subprocess.CalledProcessError)
+    assert "Could not determine setup data version!" in message   # the tool's own words
+    assert "exit 2" in message
+    assert "6.7" in message                                        # the actionable hint
 
 
 # ---------------------------------------------------------------------------
@@ -331,6 +369,19 @@ def test_render_launchers_use_drive_relative_resolution():
     assert "%~dp0" in bat
     assert "readlink -f" in sh
     assert "appimage-extract-and-run" in sh  # FUSE-less fallback present
+
+
+def test_windows_launcher_resolves_binary_under_the_app_dir():
+    """binary_relpath is relative to apps/darktable-win/, not to the drive root.
+
+    The lockfile records e.g. "app/bin/darktable.exe"; joining that straight
+    onto $PSScriptRoot yields <DRIVE>\\app\\bin\\darktable.exe, which does not
+    exist. Verified against a real extracted darktable 5.6.0 tree.
+    """
+    ps1 = (TEMPLATES_DIR / "PHOTONForge.ps1.tmpl").read_text(encoding="utf-8")
+    assert "apps\\darktable-win" in ps1
+    sh = (TEMPLATES_DIR / "PHOTONForge.sh.tmpl").read_text(encoding="utf-8")
+    assert "apps/darktable-linux" in sh
 
 
 def test_render_launchers_missing_template_raises(tmp_path):
@@ -452,3 +503,36 @@ def test_build_portable_layout_progress_callback_is_invoked(tmp_path):
     )
     assert any("plugin" in m for m in messages)
     assert any("launchers" in m for m in messages)
+
+
+# ---------------------------------------------------------------------------
+# config/portable-manifest.yml — the shipped provisioning pins (Task 7)
+# ---------------------------------------------------------------------------
+
+MANIFEST_PATH = Path(__file__).resolve().parent.parent / "config" / "portable-manifest.yml"
+
+
+def test_shipped_manifest_exists_and_loads():
+    assert MANIFEST_PATH.exists(), f"missing {MANIFEST_PATH}"
+    manifest = portable.PortableManifest.load(MANIFEST_PATH)
+    assert manifest.win is not None
+    assert manifest.linux is not None
+
+
+@pytest.mark.parametrize("os_name", ["win", "linux"])
+def test_shipped_manifest_entries_are_well_formed(os_name):
+    """A malformed pin fails at provisioning time on the operator's machine,
+    after a multi-hundred-MB download — cheap to catch here instead."""
+    target = portable.PortableManifest.load(MANIFEST_PATH).target_for(os_name)
+    assert re.fullmatch(r"[0-9a-f]{64}", target.sha256), "sha256 must be 64 lowercase hex"
+    assert target.url.startswith("https://"), "downloads must be over https"
+    assert target.archive_type in {"zip", "appimage", "innosetup"}
+    assert target.binary_relpath and not target.binary_relpath.startswith("/")
+    assert target.version
+
+
+def test_shipped_manifest_linux_is_an_appimage_with_a_squashfs_apprun():
+    """PHOTONForge.sh looks for squashfs-root/AppRun specifically."""
+    target = portable.PortableManifest.load(MANIFEST_PATH).target_for("linux")
+    assert target.archive_type == "appimage"
+    assert target.binary_relpath == "squashfs-root/AppRun"
