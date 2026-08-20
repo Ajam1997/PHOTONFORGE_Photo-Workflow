@@ -40,6 +40,10 @@ build = [
     # rawpy at runtime, not just at import-graph-analysis time.
     "pyinstaller>=6.0",
 ]
+provision = [
+    # config/portable-manifest.yml (portable-drive plan Task 2/7) is YAML.
+    "PyYAML>=6.0",
+]
 docs = [
     "requests>=2.32",
     "PyYAML>=6.0",

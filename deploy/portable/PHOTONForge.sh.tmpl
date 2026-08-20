@@ -1,0 +1,31 @@
+#!/bin/sh
+# PHOTONForge portable launcher (Linux).
+# Written onto the drive by `photo-cartridge make-portable`. Contains no
+# absolute host path: ROOT is resolved from this script's own location, so
+# it works regardless of where the drive is mounted on a given machine.
+set -eu
+
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+CONFIGDIR="$ROOT/dt-config"
+LIBRARY="$CONFIGDIR/library.db"
+
+# Prefer a pre-extracted squashfs-root: no runtime FUSE required.
+APPRUN="$ROOT/apps/darktable-linux/squashfs-root/AppRun"
+if [ -x "$APPRUN" ]; then
+    exec "$APPRUN" --configdir "$CONFIGDIR" --library "$LIBRARY"
+fi
+chmod +x "$APPRUN" 2>/dev/null || true
+if [ -f "$APPRUN" ]; then
+    exec "$APPRUN" --configdir "$CONFIGDIR" --library "$LIBRARY"
+fi
+
+# Fall back to the raw AppImage with --appimage-extract-and-run (works
+# without FUSE, at the cost of re-extracting on every launch).
+APPIMAGE=$(find "$ROOT/apps/darktable-linux" -maxdepth 1 -name '*.AppImage' 2>/dev/null | head -n1)
+if [ -n "$APPIMAGE" ]; then
+    chmod +x "$APPIMAGE" 2>/dev/null || true
+    exec "$APPIMAGE" --appimage-extract-and-run --configdir "$CONFIGDIR" --library "$LIBRARY"
+fi
+
+echo "No Darktable found under $ROOT/apps/darktable-linux" >&2
+exit 1

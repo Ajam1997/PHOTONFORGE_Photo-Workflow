@@ -1,0 +1,31 @@
+# PHOTONForge portable launcher (Windows).
+# Written onto the drive by `photo-cartridge make-portable` — do not edit the
+# copy on a cartridge by hand, re-run make-portable instead. Contains no
+# absolute host path: everything below is resolved from $PSScriptRoot, the
+# directory this script itself lives in, so it works regardless of which
+# drive letter Windows assigns on a given machine.
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$root = $PSScriptRoot
+$manifestPath = Join-Path $root ".photonforge\manifest.lock.json"
+if (-not (Test-Path $manifestPath)) {
+    Write-Error "Missing $manifestPath -- this drive was not assembled with make-portable."
+    exit 1
+}
+$lock = Get-Content $manifestPath -Raw | ConvertFrom-Json
+$relpath = $lock.darktable.win.binary_relpath
+if (-not $relpath) {
+    Write-Error "manifest.lock.json has no darktable.win.binary_relpath -- was --os win used?"
+    exit 1
+}
+
+$dt = Join-Path $root $relpath
+if (-not (Test-Path $dt)) {
+    Write-Error "Darktable binary not found at $dt"
+    exit 1
+}
+$configDir = Join-Path $root "dt-config"
+$library = Join-Path $configDir "library.db"
+
+& $dt --configdir "$configDir" --library "$library"
