@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,18 @@ import click
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def _default_model_root() -> Path:
+    """models/ directory to fall back to when model_dir is not given.
+
+    Portable-drive plan Task 5 — mirrors pipeline.py's helper of the same
+    name. Kept as a separate copy rather than a shared import: naming.py has
+    no other dependency on pipeline.py, and this is three lines.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent.parent.parent / "models"
+    return Path(__file__).resolve().parent.parent.parent / "models"
 
 ONNX_SUBDIR = "onnx"
 MAX_NEW_TOKENS = 30
@@ -443,13 +456,15 @@ def _read_shooting_info(path: Path) -> str:
     return " | ".join(parts) if parts else ""
 
 
-def warm_sessions(model_dir: Path = Path("models/florence2_int8")) -> bool:
+def warm_sessions(model_dir: Path | None = None) -> bool:
     """Pre-load and warm up Florence-2 sessions for the given model directory.
 
     Call this once before a batch to ensure the first image in the batch is not
     penalised by session-load and JIT-compilation overhead.  Returns True if
     sessions loaded successfully, False if the model is unavailable.
     """
+    if model_dir is None:
+        model_dir = _default_model_root() / "florence2_int8"
     cache_key = str(model_dir.resolve())
     if cache_key not in _session_cache:
         try:
@@ -460,8 +475,10 @@ def warm_sessions(model_dir: Path = Path("models/florence2_int8")) -> bool:
     return _session_cache[cache_key] is not None
 
 
-def generate_name(path: Path, model_dir: Path = Path("models/florence2_int8")) -> str:
+def generate_name(path: Path, model_dir: Path | None = None) -> str:
     """Generate a semantic description combining Florence-2 caption with EXIF metadata."""
+    if model_dir is None:
+        model_dir = _default_model_root() / "florence2_int8"
     caption = ""
     # Always resolve to absolute path so relative vs absolute callers share the same cache entry.
     cache_key = str(model_dir.resolve())
