@@ -34,6 +34,12 @@ dev = [
 train = [
     "scikit-learn>=1.4",
 ]
+build = [
+    # Verified against 6.22.2 (portable-drive plan Task 6); a real onedir
+    # freeze of both console scripts, exercising onnxruntime/cv2/tokenizers/
+    # rawpy at runtime, not just at import-graph-analysis time.
+    "pyinstaller>=6.0",
+]
 docs = [
     "requests>=2.32",
     "PyYAML>=6.0",

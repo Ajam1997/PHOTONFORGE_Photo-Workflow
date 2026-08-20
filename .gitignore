@@ -21,3 +21,6 @@ yolov8n.pt
 site/
 corpus/
 training_data/
+# portable-drive build output (scripts/build_portable_cli.{sh,ps1}) -- built
+# fresh onto a mounted cartridge or into a local scratch dir, never committed
+runtime/
