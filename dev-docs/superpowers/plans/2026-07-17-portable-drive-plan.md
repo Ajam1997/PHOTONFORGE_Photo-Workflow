@@ -163,7 +163,62 @@ cartridge state is plain files (shoot folders + XMP, `photonforge.db`,
 ### Task 5 — Frozen-aware model root (`src/photo_workflow/pipeline.py` + `naming.py`)
 Add `_default_model_root()`: when `getattr(sys, "frozen", False)`, resolve models relative to `Path(sys.executable)` (→ `<DRIVE>/models`) instead of `Path(__file__)...` (which breaks when frozen). Wire into the 5 `model_dir is None` fallbacks (pipeline.py ~490/727/907, naming.py ~446/463). Belt-and-suspenders with `runner.lua` always passing `--model-dir`.
 
-### Task 6 — Build scripts (`scripts/build_portable_cli.{sh,ps1}` + `scripts/photonforge.spec`)
+### Task 6 — Build scripts (`scripts/build_portable_cli.{sh,ps1}` + `scripts/photonforge.spec`) — **DONE (Linux verified; Windows unverified)**
+
+> Landed 2026-08-19. This was the highest-risk item in the whole plan --
+> "PyInstaller freeze of onnxruntime/rawpy/tokenizers — Windows is
+> unverified" -- and it was taken deliberately out of build order, ahead of
+> Tasks 2/3, specifically to find out early whether the freeze works at all
+> before building the drive-assembly machinery around it.
+>
+> **Actually verified on Linux, not just planned:** a real onedir build was
+> run from a throwaway venv with a non-editable install, and a smoke-test
+> executable exercised every collected package's native extension at
+> runtime (constructing an onnxruntime session, decoding a raw file with
+> rawpy, cv2 colour conversion, building a tokenizers Tokenizer, etc.) --
+> not just confirming PyInstaller's static import-graph analysis found them.
+> All eight passed. `tests/test_portable_build.py::test_real_freeze_build_end_to_end`
+> (marked `slow`) automates this: fresh venv, real freeze, `--help` on both
+> executables, and a relocation check (copy the build tree elsewhere and
+> confirm it still runs -- the mount point changing between machines is the
+> whole premise of a portable drive).
+>
+> **Two entry points, one shared runtime.** The plan's own drive-layout
+> diagram only shows `photo-workflow`, but Task 1 (landed first) already
+> probes for `photo-cartridge` too. Both are frozen from one spec and
+> collected into a single output directory via one `COLLECT()` call spanning
+> both `Analysis` objects, so ~450 MB of shared native libraries (onnxruntime,
+> opencv) is written once rather than duplicated per executable -- `COLLECT`
+> de-dupes by destination path, so this needs no `MERGE()`.
+>
+> **A real bug, not a hypothetical one:** giving `PYZ()` an explicit `name=`
+> (to keep the two pure-Python archives from colliding) makes PyInstaller
+> write that file relative to the **current directory**, bypassing
+> `--workpath` entirely -- caught by running the build twice from different
+> CWDs and finding a stray `.pyz` land at the repo root each time. Fixed by
+> leaving PyInstaller's automatic naming alone (already collision-free
+> across `Analysis` objects); pinned with a regression test that parses the
+> spec's AST and asserts no `PYZ` call carries a `name` keyword.
+>
+> **`scripts/photonforge.spec`'s package list is Linux-confirmed working**,
+> not merely copied from the plan text: `scipy` turned out to have zero
+> direct callers anywhere in `src/photo_workflow/` (only
+> `scripts/train_aesthetic_head.py`, a provisioning-time-only script that is
+> never frozen) -- kept in `--collect-all` per the plan rather than removed,
+> since a subtle transitive need is harder to prove absent than to keep
+> collecting defensively, and the disk cost is irrelevant on a multi-TB
+> cartridge.
+>
+> **What genuinely remains unverified: Windows.** There is no Windows
+> machine in the environment that built this. `scripts/build_portable_cli.ps1`
+> mirrors the bash script's logic (fresh venv, non-editable install of the
+> new `build` extra, same spec, same smoke test) and is parse-clean under
+> both PowerShell 7 and, via `tests/test_powershell_scripts.py`, the same
+> ASCII / no-`$(if ...)` discipline that `update_install.ps1` needed the
+> hard way -- but it has never actually run. The onnxruntime DLL-loading
+> path, in particular, is known to differ enough between platforms that a
+> clean Linux freeze does not predict a clean Windows one.
+
 Fresh venv, `pip install .` (non-editable) + pyinstaller, build `photo-workflow` as **onedir** (not onefile — onefile re-extracts per invocation, fatal for per-step shell-outs) → `runtime/{linux,win}/`. Models stay **external** (no `--add-data models`). Spec needs `--collect-all` for `onnxruntime` (esp. `onnxruntime.capi._pybind_state`), `cv2`, `scipy`, `tokenizers`, `rawpy`, `Pillow`, `imagehash`, `exifread`.
 
 ### Task 7 — Provisioning manifest & offline guarantee (`config/portable-manifest.yml`)
@@ -181,14 +236,14 @@ Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`po
 
 ## Files at a glance
 
-**Create:** `config/portable-manifest.yml`, `src/photo_workflow/portable.py`, `scripts/build_portable_cli.{sh,ps1}`, `scripts/photonforge.spec`, `deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`, `tests/test_portable.py`, `tests/lua/test_runner_selflocate.lua`, `docs/portable-drive-setup.md`, `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`.
+**Create:** `config/portable-manifest.yml`, `src/photo_workflow/portable.py`, ~~`scripts/build_portable_cli.{sh,ps1}`~~ DONE, ~~`scripts/photonforge.spec`~~ DONE (plus `scripts/portable/freeze_entry_photo_{workflow,cartridge}.py` and `tests/test_portable_build.py`, not originally listed), `deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`, `tests/lua/test_runner_selflocate.lua` (superseded by `tests/lua/test_runner_cartridge.lua`, landed with Task 1), `docs/portable-drive-setup.md`, `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`.
 
 **Modify:** `lua/photonforge/runner.lua`, `lua/photonforge/config.lua`, `src/photo_workflow/cartridge.py`, `src/photo_workflow/provision.py`, `src/photo_workflow/pipeline.py`, `src/photo_workflow/naming.py`, `pyproject.toml` (add `build`/`provision` extras: pyinstaller, PyYAML), `scripts/deploy_lua.ps1` + `deploy/entrypoint.sh` (delegate to shared `_deploy_plugin`), plus the docs above.
 
 ## Highest-risk parts (with mitigations)
 
 1. **exFAT** (whole goal hinges on it; loses exec bit/symlinks; SQLite WAL + KPM-1.4 unvalidated) → single exFAT partition, best-effort `chmod +x`, re-run the 50-cycle soak, fall back to `journal_mode=DELETE` if WAL is flaky.
-2. **PyInstaller freeze of onnxruntime/rawpy/tokenizers — Windows is unverified** (CLI is Linux-validated only) → `--collect-all` + explicit hooks + per-OS CI smoke of `score`/`name`.
+2. **PyInstaller freeze of onnxruntime/rawpy/tokenizers — Windows is still unverified; Linux is now real, not just planned** (see Task 6). A frozen build actually ran, and a dedicated smoke executable exercised every collected package's native extension at runtime (`tests/test_portable_build.py::test_real_freeze_build_end_to_end`, `slow`), not just PyInstaller's static import-graph analysis. `--collect-all` covers the plan's package list; per-OS CI smoke of `score`/`name` against real models is still open, and needs a Windows runner this environment does not have.
 3. **AppImage FUSE** on arbitrary hosts → pre-extract `squashfs-root/AppRun`; `--appimage-extract-and-run` fallback.
 4. **Pinned Darktable URLs/hashes rot** → manifest + cache + `--offline` + provenance lock + documented refresh procedure.
 5. **darktablerc clobber on Darktable exit** → self-location (never bake absolute paths); write `darktablerc` only while Darktable is closed; keep `cli_path`/`models_path` blank.
