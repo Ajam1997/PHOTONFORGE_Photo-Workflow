@@ -13,8 +13,9 @@
 | IEA40K | Entropy threshold reference set used against the 11-zone luminance segmentation in FR-1.6 |  |
 | IF | Interface Requirement (ICD-backed boundary) |  |
 | KPM | Key Performance Measure — measured, rolled up parent-ward | budget |
+| Layout B | Canonical drive-root state layout for a PHOTON cartridge: dt-config/ holds Darktable's own --configdir (library.db, luarc, the Lua plugin); shoot folders and photonforge.db sit at the drive root. Superseded Layout A (<mount>/<id>/darktable/library.db + photos/), which is kept only as a stderr-deprecated fallback in cartridge.py's init command. See ADR-008. |  |
 | NFR | Non-Functional Requirement |  |
-| PHOTON cartridge | External SSD cartridge holding library.db and user config for the photo-workflow pipeline (NFR-2.3); not host-resident |  |
+| PHOTON cartridge | External SSD cartridge holding library.db and user config for the photo-workflow pipeline (NFR-2.3); not host-resident. As a portable drive (see ADR-008) it is also a self-contained bundle: Darktable + the frozen photo-workflow CLI + ONNX models, running on any Windows or Linux host with nothing installed there | portable drive, portable cartridge |
 | Profile A | Software-only tool-stack profile for this project; no EE/ME/firmware tooling |  |
 | safe-eject | scripts/safe_eject.sh procedure for cleanly unmounting the PHOTON cartridge without SQLite corruption (KPM-1.4) |  |
 | SOP-B | Resume mid-flight work procedure |  |
