@@ -21,11 +21,20 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-PS_SCRIPTS = sorted((REPO / "scripts").glob("*.ps1"))
+# deploy/portable/*.ps1.tmpl is copied verbatim onto a cartridge and run by
+# whatever PowerShell the host has - which on a stock Windows box is 5.1. The
+# templates are subject to exactly the same two hazards as scripts/*.ps1, and
+# are further from view, so they are checked here too rather than separately.
+PS_SCRIPTS = sorted(
+    (REPO / "scripts").glob("*.ps1")
+) + sorted((REPO / "deploy" / "portable").glob("*.ps1.tmpl"))
 
 
 def test_there_are_powershell_scripts_to_check():
     assert PS_SCRIPTS, "expected at least one .ps1 under scripts/"
+    assert any(p.name.endswith(".ps1.tmpl") for p in PS_SCRIPTS), (
+        "expected the portable launcher template to be covered too"
+    )
 
 
 @pytest.mark.parametrize("script", PS_SCRIPTS, ids=lambda p: p.name)

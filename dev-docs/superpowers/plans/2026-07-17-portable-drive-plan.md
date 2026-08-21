@@ -111,6 +111,33 @@ Chosen over launcher-rewrite: Darktable rewrites `darktablerc` on clean exit, so
 > default and is validated at build time (`ValueError` → clean
 > `ClickException`) rather than required unconditionally, since a manifest-less
 > build (the common case until Task 7 lands) has nothing to cache.
+>
+> **Addendum 2026-08-21 — launcher visibility, from a real PR review thread**
+> (#151, "How does the portable build behave? does it auto launch darktable
+> when the drive gets plugged in?"). Researched rather than assumed: Windows
+> killed `autorun.inf`'s `open=`/`shellexecute=` for USB drives in Windows
+> 7+ specifically to stop USB-malware, and that is still fully in effect —
+> there is no way to make Windows prompt to run an arbitrary program off a
+> drive anymore. GNOME/Nautilus still has a real equivalent
+> (`nautilus-autorun-software`), but it is GNOME-only and gated by a setting
+> some distros disable, so building it would be asymmetric across the two
+> target OSes. Landed the zero-controversy alternative instead, all of it
+> execution-free: the two launchers are now written as `!START_PHOTONForge.bat`
+> / `!START_PHOTONForge.sh` (the `!` sorts before everything else at the
+> drive root in every file manager's default sort — `PHOTONForge.ps1` keeps
+> its old name since it's invoked by the `.bat`, not double-clicked
+> directly), a `!README.txt` pointing at both, and a Windows-only
+> `autorun.inf` carrying **only** `icon=`/`label=` (never `open=`/
+> `shellexecute=` — verified by a test that greps the generated file for
+> both directives and fails if either is present) pointing at a small
+> multi-resolution `.ico` generated at build time with Pillow (already a
+> core dependency, so this adds nothing new). A real bug surfaced writing
+> the icon generator's test: Pillow's ICO writer filters every requested
+> size against the *base* image passed to `.save()`, discarding anything
+> larger, so passing the smallest frame as the base silently produced a
+> 16x16-only .ico with every other size dropped — caught because the test
+> actually decodes the file with Pillow and checks for (256, 256), not just
+> that a file exists.
 
 Runs on the **provisioning machine** (unfrozen `photo-cartridge` entry), assembles files onto an already-mounted drive (unelevated; partition/format stays in `provision.py`). Thin click wrapper over `portable.py`.
 ```
@@ -303,7 +330,87 @@ cartridge state is plain files (shoot folders + XMP, `photonforge.db`,
 
 Fresh venv, `pip install .` (non-editable) + pyinstaller, build `photo-workflow` as **onedir** (not onefile — onefile re-extracts per invocation, fatal for per-step shell-outs) → `runtime/{linux,win}/`. Models stay **external** (no `--add-data models`). Spec needs `--collect-all` for `onnxruntime` (esp. `onnxruntime.capi._pybind_state`), `cv2`, `scipy`, `tokenizers`, `rawpy`, `Pillow`, `imagehash`, `exifread`.
 
-### Task 7 — Provisioning manifest & offline guarantee (`config/portable-manifest.yml`)
+### Task 7 — Provisioning manifest & offline guarantee (`config/portable-manifest.yml`) — **DONE (Linux verified end-to-end; Windows launch unverified)**
+
+> Landed 2026-08-20. `config/portable-manifest.yml` pins Darktable **5.6.0**
+> for both OSes. Both artifacts were **downloaded and hashed locally** rather
+> than copying checksums out of the release notes, both were extracted, and
+> both recorded relpaths were confirmed against the real extracted trees.
+>
+> **The plan's Windows preference is not available.** It says "prefer the
+> official Darktable **zip** to avoid needing `innoextract`" — upstream ships
+> no portable zip for Windows at all, only an Inno Setup installer. So
+> `archive_type: innosetup` is forced, and the innoextract dependency the plan
+> hoped to dodge is mandatory.
+>
+> **And the packaged innoextract cannot read it.** The 5.6.0 installer is built
+> with **Inno Setup 6.7.0**, which uses *setup-loader revision 2*. innoextract
+> **1.9** — the newest release, and what Debian stable / Ubuntu 24.04 package —
+> predates that and fails with "Could not determine setup data version!",
+> exiting 2 having written nothing. 7-Zip 23.01 cannot open it either. Both
+> were tested against the real installer, not assumed.
+>
+> The fix, verified by actually doing it: upstream master (`6e9e34e`) plus the
+> **MSYS2 patch series** (`MINGW-packages/mingw-w64-innoextract`, 14 patches,
+> pinned to that same commit) adds loader-revision-2 and Inno Setup 6.5–7.0.2
+> support. Built it, extracted the real installer: **3029 files, 715 MB, zero
+> zero-byte files, all 540 PE binaries valid, all 358 `.mo` catalogs valid, and
+> the 25 largest binaries (up to 102 MB) have complete section data** — i.e. no
+> truncation. The 3029 "could not read back … to calculate output checksum"
+> warnings are a verification step the patched multi-part path skips, not
+> corruption. Procedure documented in `docs/portable-drive-setup.md`.
+>
+> **Real end-to-end build, not a mocked one:** `build_portable_layout` was run
+> against the shipped manifest with `offline=True` and a `fetch` that raises,
+> proving cache-only assembly, and it produced a full dual-OS drive. The
+> extracted Linux Darktable **runs**: `AppRun --version` reports darktable
+> 5.6.0 with **Lua ENABLED (API 9.7.0)** — load-bearing, since the whole
+> PHOTONFORGE panel is a Lua plugin. `PHOTONForge.sh` was traced with `sh -x`
+> and execs the right `squashfs-root/AppRun` with `--configdir <DRIVE>/dt-config`.
+>
+> **Two real bugs in the Task 2/3 code, both found only because real data was
+> used:**
+>
+> - **`PHOTONForge.ps1` resolved the Darktable binary to the wrong place.**
+>   `binary_relpath` is recorded relative to `apps/darktable-<os>/` (it is
+>   `app/bin/darktable.exe`), but the launcher joined it straight onto
+>   `$PSScriptRoot`, yielding `<DRIVE>\app\bin\darktable.exe` — a path that
+>   does not exist. Fixed, and pinned with a regression test that was
+>   mutation-checked by reintroducing the bug.
+> - **The `.ps1` template carried an em dash** and was invisible to
+>   `tests/test_powershell_scripts.py`, whose ASCII guard only globbed
+>   `scripts/*.ps1`. That template is copied verbatim onto the drive and run by
+>   whatever PowerShell the host has — 5.1 on a stock Windows box, which
+>   decodes a BOM-less file as ANSI and mangles it. This is precisely the class
+>   of bug that guard exists to catch, so the guard now covers
+>   `deploy/portable/*.ps1.tmpl` too (also mutation-checked).
+>
+> Extraction failures no longer escape as a bare `CalledProcessError` (which is
+> not a `RuntimeError`, so the `make-portable` handler would have let it
+> through as a traceback): `_run_extractor` re-raises a `RuntimeError` carrying
+> the tool's own stderr plus an actionable hint naming the innoextract version
+> requirement.
+>
+> **Still unverified: launching on Windows.** The Windows half assembles and
+> its layout checks out, but no Windows host exists in this environment, so
+> neither `PHOTONForge.bat` nor `scripts/build_portable_cli.ps1` has ever been
+> run there.
+>
+> **Correction to the paragraph below: a single Linux host builds both OSes.**
+> The plan text says building a dual-OS drive needs both toolchains on
+> separate hosts. That is not what was found — `build_portable_layout(oses=
+> ["win", "linux"])` was run as **one call on one Linux container** in this
+> session and both extracted successfully. innoextract is a format parser,
+> not an installer executor: it never runs the Windows `.exe`, so a
+> Linux-built innoextract reads the Windows installer fine. Only the Linux
+> half is genuinely host-locked, because bundling it runs the downloaded
+> AppImage itself (`--appimage-extract`) as a subprocess, which needs
+> something that can execute a Linux ELF binary. Since the Yoga 910 (the
+> actual target machine, per `CLAUDE.md`) runs Ubuntu 24.04, the common case —
+> provision from the Yoga, get both OSes — already works in one run. Building
+> the Linux half from a Windows-only host (no WSL) remains the one real gap;
+> see `docs/portable-drive-setup.md`.
+
 Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`portableapps`/`innosetup`/`appimage`), and resolved binary relpath (`exe_relpath` / `apprun_relpath`). Downloader streams to `--cache`, verifies sha256 (abort on mismatch — no TOFU). Windows: prefer the official Darktable **zip** to avoid needing `innoextract`. Linux AppImage extracted to `squashfs-root/` (needs a Linux host). Building a **dual-OS** drive from one host needs both toolchains → document per-OS provisioning as the reliable path. Downloads happen **only** in `make-portable`; nothing in `runtime/`, launchers, or `runner.lua` touches the network (NFR-2.1). `--offline` = cache-only, error on miss. `.photonforge/manifest.lock.json` is the audit record.
 
 ### Task 8 — Tests
@@ -333,7 +440,7 @@ Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`po
 
 ## Files at a glance
 
-**Create:** `config/portable-manifest.yml` (Task 7, still open — Task 2 only defines and consumes its YAML schema), ~~`src/photo_workflow/portable.py`~~ DONE, ~~`scripts/build_portable_cli.{sh,ps1}`~~ DONE, ~~`scripts/photonforge.spec`~~ DONE (plus `scripts/portable/freeze_entry_photo_{workflow,cartridge}.py` and `tests/test_portable_build.py`, not originally listed), ~~`deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`~~ DONE, ~~`tests/test_portable.py`~~ DONE (plus `tests/test_cartridge_make_portable_cli.py`, not originally listed), `tests/lua/test_runner_selflocate.lua` (superseded by `tests/lua/test_runner_cartridge.lua`, landed with Task 1), `docs/portable-drive-setup.md`, `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`.
+**Create:** ~~`config/portable-manifest.yml`~~ DONE (darktable 5.6.0, both OSes, locally-verified hashes), ~~`src/photo_workflow/portable.py`~~ DONE, ~~`scripts/build_portable_cli.{sh,ps1}`~~ DONE, ~~`scripts/photonforge.spec`~~ DONE (plus `scripts/portable/freeze_entry_photo_{workflow,cartridge}.py` and `tests/test_portable_build.py`, not originally listed), ~~`deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`~~ DONE, ~~`tests/test_portable.py`~~ DONE (plus `tests/test_cartridge_make_portable_cli.py`, not originally listed), `tests/lua/test_runner_selflocate.lua` (superseded by `tests/lua/test_runner_cartridge.lua`, landed with Task 1), `docs/portable-drive-setup.md`, `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`.
 
 **Modify:** `lua/photonforge/runner.lua`, `lua/photonforge/config.lua`, ~~`src/photo_workflow/cartridge.py`~~ DONE (`make-portable` + `init` deprecation notice), `src/photo_workflow/provision.py`, ~~`src/photo_workflow/pipeline.py`~~ DONE, ~~`src/photo_workflow/naming.py`~~ DONE, ~~`pyproject.toml`~~ DONE (added `provision` extra: PyYAML; `build`/pyinstaller landed with Task 6), `scripts/deploy_lua.ps1` + `deploy/entrypoint.sh` (delegate to shared `_deploy_plugin` — **not done**: `_deploy_plugin` is Python, and wiring a PowerShell dev-machine script through it would add a runtime dependency beyond what Task 2/3 needed; left as explicit future work rather than silently dropped), plus the docs above.
 
@@ -342,7 +449,7 @@ Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`po
 1. **exFAT** (whole goal hinges on it; loses exec bit/symlinks; SQLite WAL + KPM-1.4 unvalidated) → single exFAT partition, best-effort `chmod +x`, re-run the 50-cycle soak, fall back to `journal_mode=DELETE` if WAL is flaky.
 2. **PyInstaller freeze of onnxruntime/rawpy/tokenizers — Windows is still unverified; Linux is now real, not just planned** (see Task 6). A frozen build actually ran, and a dedicated smoke executable exercised every collected package's native extension at runtime (`tests/test_portable_build.py::test_real_freeze_build_end_to_end`, `slow`), not just PyInstaller's static import-graph analysis. `--collect-all` covers the plan's package list; per-OS CI smoke of `score`/`name` against real models is still open, and needs a Windows runner this environment does not have.
 3. **AppImage FUSE** on arbitrary hosts → pre-extract `squashfs-root/AppRun`; `--appimage-extract-and-run` fallback.
-4. **Pinned Darktable URLs/hashes rot** → manifest + cache + `--offline` + provenance lock + documented refresh procedure.
+4. **Pinned Darktable URLs/hashes rot** → manifest + cache + `--offline` + provenance lock + documented refresh procedure (all landed in Task 7). **A sharper form of this risk turned out to be real and is only half-mitigated:** it is not just the URL that rots but the *extractor*. Upstream ships no Windows zip, so the drive depends on innoextract keeping pace with Inno Setup, and the packaged innoextract (1.9) is already too old for the current installer (Inno Setup 6.7). Today's answer is a patched build from upstream master + the MSYS2 patch series, documented in `docs/portable-drive-setup.md` — which means the Windows path depends on a hand-built tool, and will need re-checking whenever Darktable bumps its installer.
 5. **darktablerc clobber on Darktable exit** → self-location (never bake absolute paths); write `darktablerc` only while Darktable is closed; keep `cli_path`/`models_path` blank.
 
 ## Android companion (continuity note, 2026-07-17)

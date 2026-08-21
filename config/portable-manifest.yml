@@ -1,0 +1,64 @@
+# PHOTONForge portable-drive provisioning manifest (portable-drive plan Task 7).
+#
+# Pins the Darktable build that `photo-cartridge make-portable` downloads and
+# unpacks into <DRIVE>/apps/darktable-{win,linux}/. Consumed by
+# src/photo_workflow/portable.py::PortableManifest.load.
+#
+# This is the ONLY place in the system that names a network resource. Downloads
+# happen exclusively during `make-portable`; nothing in runtime/, the launchers,
+# or runner.lua ever touches the network (NFR-2.1). `--offline` makes even this
+# step cache-only.
+#
+# Every entry is verified by sha256 before it is unpacked — a mismatch aborts
+# the build rather than trusting the bytes (no trust-on-first-use).
+#
+# Schema per OS:
+#   version        upstream Darktable release
+#   url            direct download
+#   sha256         of the downloaded artifact
+#   archive_type   zip | appimage | innosetup
+#   exe_relpath    (win) binary path RELATIVE TO apps/darktable-win/
+#   apprun_relpath (linux) binary path RELATIVE TO apps/darktable-linux/
+# Extra keys are ignored by the loader and used here for provenance.
+#
+# ---------------------------------------------------------------------------
+# Refresh procedure (when pinning a newer Darktable)
+# ---------------------------------------------------------------------------
+# 1. Find the release: https://github.com/darktable-org/darktable/releases
+# 2. Download both artifacts and compute `sha256sum` yourself. Do NOT copy the
+#    checksum out of the release notes without downloading — the point of the
+#    pin is that it was verified locally.
+# 3. Extract each one and confirm the binary relpath below still holds; the
+#    Windows tree has moved between releases before.
+# 4. Update version/url/sha256/relpath here, then run
+#    `photo-cartridge make-portable` against a scratch dir and launch it.
+#
+# Verified 2026-08-20 against darktable 5.6.0: both artifacts downloaded, both
+# sha256 values computed locally, both extracted, and the two relpaths below
+# confirmed to exist in the extracted trees.
+
+win:
+  version: "5.6.0"
+  url: "https://github.com/darktable-org/darktable/releases/download/release-5.6.0/darktable-5.6.0-win64.exe"
+  sha256: "b42989195dfff44540c0b767b407987329ca99853612304cbbf14c48d1d3f803"
+  archive_type: innosetup
+  exe_relpath: "app/bin/darktable.exe"
+  # Upstream ships no portable .zip for Windows — only this Inno Setup
+  # installer — so `innosetup` is the only available archive_type, despite the
+  # plan originally preferring a zip to avoid needing innoextract.
+  #
+  # REQUIRES innoextract with Inno Setup 6.7 support. The installer is built
+  # with Inno Setup 6.7.0, which uses setup-loader revision 2; innoextract
+  # 1.9 (the newest release, and what Debian stable / Ubuntu 24.04 package)
+  # predates that and cannot read it. See docs/portable-drive-setup.md.
+  inno_setup_version: "6.7.0"
+
+linux:
+  version: "5.6.0"
+  url: "https://github.com/darktable-org/darktable/releases/download/release-5.6.0/Darktable-5.6.0-x86_64.AppImage"
+  sha256: "cbad7bf4be2607e1725db156d73c799d267a79fc29a572c3136a5deb9c9be948"
+  archive_type: appimage
+  apprun_relpath: "squashfs-root/AppRun"
+  # Pre-extracted at provisioning time so launching needs no FUSE on the host;
+  # PHOTONForge.sh falls back to `--appimage-extract-and-run` if squashfs-root
+  # is missing. Extraction requires a Linux provisioning host.

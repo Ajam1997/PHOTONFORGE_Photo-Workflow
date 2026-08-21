@@ -190,7 +190,7 @@ def test_extract_archive_unknown_type_raises(tmp_path):
 def test_extract_archive_appimage_dispatches_extract_flag(tmp_path, monkeypatch):
     calls = []
 
-    def fake_run(cmd, cwd=None, check=None, capture_output=None):
+    def fake_run(cmd, cwd=None, **kwargs):
         calls.append((cmd, cwd))
         # simulate what --appimage-extract would produce
         (Path(cwd) / "squashfs-root").mkdir()
@@ -213,6 +213,7 @@ def test_extract_archive_appimage_raises_if_extract_produces_nothing(tmp_path, m
         portable.subprocess, "run",
         lambda *a, **k: subprocess.CompletedProcess([], 0),
     )
+
     archive = tmp_path / "dt.AppImage"
     archive.write_bytes(b"fake")
     with pytest.raises(RuntimeError, match="squashfs-root"):
@@ -224,7 +225,7 @@ def test_extract_archive_innosetup_dispatches_to_innoextract(tmp_path, monkeypat
     monkeypatch.setattr(portable.shutil, "which", lambda name: "/usr/bin/innoextract")
     monkeypatch.setattr(
         portable.subprocess, "run",
-        lambda cmd, check=None, capture_output=None: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0),
+        lambda cmd, **k: calls.append(cmd) or subprocess.CompletedProcess(cmd, 0),
     )
     archive = tmp_path / "dt-setup.exe"
     archive.write_bytes(b"fake installer")
@@ -237,6 +238,43 @@ def test_extract_archive_innosetup_requires_the_tool_on_path(tmp_path, monkeypat
     monkeypatch.setattr(portable.shutil, "which", lambda name: None)
     with pytest.raises(RuntimeError, match="innoextract"):
         portable.extract_archive(tmp_path / "x.exe", tmp_path / "y", "innosetup")
+
+
+def test_missing_innoextract_error_explains_the_version_requirement(tmp_path, monkeypatch):
+    """The distro innoextract is too old for Inno Setup 6.7 — say so."""
+    monkeypatch.setattr(portable.shutil, "which", lambda name: None)
+    with pytest.raises(RuntimeError) as excinfo:
+        portable.extract_archive(tmp_path / "x.exe", tmp_path / "y", "innosetup")
+    assert "6.7" in str(excinfo.value)
+
+
+def test_extractor_failure_becomes_a_runtime_error_carrying_the_tools_output(tmp_path,
+                                                                             monkeypatch):
+    """A failing extractor must not escape as a bare CalledProcessError.
+
+    innoextract 1.9 exits 2 on an Inno Setup 6.7 installer having written
+    nothing. CalledProcessError is not a RuntimeError, so the make-portable
+    CLI's handler would let it through as a traceback, and its message
+    ("returned non-zero exit status 2") hides the tool's real complaint.
+    """
+    monkeypatch.setattr(portable.shutil, "which", lambda name: "/usr/bin/innoextract")
+
+    def fake_run(cmd, **kwargs):
+        raise subprocess.CalledProcessError(
+            2, cmd, output="", stderr="Could not determine setup data version!"
+        )
+
+    monkeypatch.setattr(portable.subprocess, "run", fake_run)
+    archive = tmp_path / "dt-setup.exe"
+    archive.write_bytes(b"fake installer")
+
+    with pytest.raises(RuntimeError) as excinfo:
+        portable.extract_archive(archive, tmp_path / "extracted", "innosetup")
+    message = str(excinfo.value)
+    assert not isinstance(excinfo.value, subprocess.CalledProcessError)
+    assert "Could not determine setup data version!" in message   # the tool's own words
+    assert "exit 2" in message
+    assert "6.7" in message                                        # the actionable hint
 
 
 # ---------------------------------------------------------------------------
@@ -310,8 +348,8 @@ def test_render_launchers_copies_all_three_and_sets_exec_bit(tmp_path):
     drive = tmp_path / "drive"
     written = portable.render_launchers(TEMPLATES_DIR, drive)
     names = {p.name for p in written}
-    assert names == {"PHOTONForge.ps1", "PHOTONForge.bat", "PHOTONForge.sh"}
-    sh = drive / "PHOTONForge.sh"
+    assert names == {"PHOTONForge.ps1", "!START_PHOTONForge.bat", "!START_PHOTONForge.sh"}
+    sh = drive / "!START_PHOTONForge.sh"
     assert sh.stat().st_mode & 0o111
 
 
@@ -333,9 +371,89 @@ def test_render_launchers_use_drive_relative_resolution():
     assert "appimage-extract-and-run" in sh  # FUSE-less fallback present
 
 
+def test_windows_launcher_resolves_binary_under_the_app_dir():
+    """binary_relpath is relative to apps/darktable-win/, not to the drive root.
+
+    The lockfile records e.g. "app/bin/darktable.exe"; joining that straight
+    onto $PSScriptRoot yields <DRIVE>\\app\\bin\\darktable.exe, which does not
+    exist. Verified against a real extracted darktable 5.6.0 tree.
+    """
+    ps1 = (TEMPLATES_DIR / "PHOTONForge.ps1.tmpl").read_text(encoding="utf-8")
+    assert "apps\\darktable-win" in ps1
+    sh = (TEMPLATES_DIR / "PHOTONForge.sh.tmpl").read_text(encoding="utf-8")
+    assert "apps/darktable-linux" in sh
+
+
 def test_render_launchers_missing_template_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         portable.render_launchers(tmp_path / "no-templates-here", tmp_path / "drive")
+
+
+def test_launcher_names_sort_before_ordinary_files(tmp_path):
+    """The '!' prefix must actually sort first, or the visibility trick is pointless."""
+    drive = tmp_path / "drive"
+    portable.render_launchers(TEMPLATES_DIR, drive)
+    (drive / "ICELAND").mkdir()  # a shoot folder, the kind of thing that piles up at root
+    (drive / "models").mkdir()
+    names = sorted(p.name for p in drive.iterdir())
+    assert names[0] == "!START_PHOTONForge.bat"
+    assert names[1] == "!START_PHOTONForge.sh"
+
+
+# ---------------------------------------------------------------------------
+# Drive branding — README, autorun.inf + icon (Windows, execution-free)
+# ---------------------------------------------------------------------------
+
+
+def test_write_readme_names_both_launchers(tmp_path):
+    drive = tmp_path / "drive"
+    readme = portable.write_readme(drive)
+    assert readme == drive / "!README.txt"
+    text = readme.read_text(encoding="utf-8")
+    assert "!START_PHOTONForge.bat" in text
+    assert "!START_PHOTONForge.sh" in text
+
+
+def test_write_autorun_inf_generates_a_real_multi_size_ico(tmp_path):
+    """Not a stub: actually decode the produced .ico with Pillow."""
+    from PIL import Image
+
+    drive = tmp_path / "drive"
+    autorun = portable.write_autorun_inf(drive, volume_label="PHOTON-001")
+    assert autorun == drive / "autorun.inf"
+    content = autorun.read_text(encoding="utf-8")
+    assert content.splitlines()[0] == "[autorun]"
+    assert "icon=PHOTONForge.ico" in content
+    assert "PHOTON-001" in content
+
+    icon_path = drive / "PHOTONForge.ico"
+    assert icon_path.exists()
+    with Image.open(icon_path) as img:
+        assert img.format == "ICO"
+        # PIL exposes the embedded resolutions via the .ico plugin's sizes()
+        assert (256, 256) in img.ico.sizes()
+        assert (16, 16) in img.ico.sizes()
+
+
+def test_write_autorun_inf_never_contains_an_execution_directive(tmp_path):
+    """The whole point: icon/label only, never open= or shellexecute=.
+
+    Windows disabled autorun.inf *execution* for USB drives in Windows 7+
+    specifically because open=/shellexecute= was a malware vector. Shipping
+    either here would be attempting to route around a deliberate OS security
+    control, not just be pointless (Windows would still ignore it).
+    """
+    drive = tmp_path / "drive"
+    autorun = portable.write_autorun_inf(drive)
+    content = autorun.read_text(encoding="utf-8").lower()
+    assert "open=" not in content
+    assert "shellexecute=" not in content
+
+
+def test_write_autorun_inf_falls_back_without_a_volume_label(tmp_path):
+    drive = tmp_path / "drive"
+    autorun = portable.write_autorun_inf(drive)
+    assert "label=PHOTONForge" in autorun.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -376,7 +494,12 @@ def test_build_portable_layout_without_manifest_skips_darktable_app(tmp_path):
     assert (drive / "models" / "florence2_int8" / "model.onnx").exists()
     assert (drive / "dt-config" / "lua" / "photonforge" / "main.lua").exists()
     assert (drive / "dt-config" / "darktablerc").exists()
-    assert (drive / "PHOTONForge.sh").exists()
+    assert (drive / "!START_PHOTONForge.sh").exists()
+    assert (drive / "!README.txt").exists()
+    assert "!START_PHOTONForge.bat" in result.readme.read_text(encoding="utf-8")
+    assert (drive / "autorun.inf").exists()
+    assert (drive / "PHOTONForge.ico").exists()
+    assert "icon=PHOTONForge.ico" in result.autorun_inf.read_text(encoding="utf-8")
 
     lock = json.loads(result.manifest_lock.read_text(encoding="utf-8"))
     assert lock["schema"] == 1
@@ -425,6 +548,87 @@ win:
     assert lock["darktable"]["win"]["binary_relpath"] == "darktable/bin/darktable.exe"
 
 
+def test_build_portable_layout_bundles_both_oses_from_one_call(tmp_path, monkeypatch):
+    """A single provisioning host can build the full dual-OS drive in one run.
+
+    This contradicts what the plan text (and an earlier draft of the docs)
+    assumed: that building both OSes needs two hosts with different
+    toolchains. It does not — innoextract is a format parser, never an
+    installer executor, so a Linux-run innoextract reads the Windows
+    installer fine. Only the AppImage step is host-locked, because it
+    executes the downloaded binary. Verified for real (not just here) by
+    running build_portable_layout(oses=["win", "linux"]) with a patched
+    innoextract on a single Linux host — see the Task 7 plan annotation.
+    """
+    drive = tmp_path / "drive"
+    drive.mkdir()
+
+    win_zip = tmp_path / "src-dt-win.zip"
+    with zipfile.ZipFile(win_zip, "w") as zf:
+        zf.writestr("app/bin/darktable.exe", "fake windows darktable")
+    win_bytes = win_zip.read_bytes()
+    win_digest = _sha256(win_bytes)
+
+    linux_bytes = b"fake appimage payload"
+    linux_digest = _sha256(linux_bytes)
+
+    manifest_path = tmp_path / "manifest.yml"
+    manifest_path.write_text(
+        f"""
+win:
+  version: "5.6.0"
+  url: "https://example.invalid/dt-win.exe"
+  sha256: "{win_digest}"
+  archive_type: innosetup
+  exe_relpath: "app/bin/darktable.exe"
+linux:
+  version: "5.6.0"
+  url: "https://example.invalid/dt-linux.AppImage"
+  sha256: "{linux_digest}"
+  archive_type: appimage
+  apprun_relpath: "squashfs-root/AppRun"
+""",
+        encoding="utf-8",
+    )
+    manifest = portable.PortableManifest.load(manifest_path)
+
+    def fetch(url, dest):
+        dest.write_bytes(win_bytes if "win" in url else linux_bytes)
+
+    # innosetup extraction is dispatched (no real innoextract in CI);
+    # appimage extraction is dispatched the same way real code does it.
+    # build_portable_layout also shells out to `git rev-parse HEAD` for
+    # provenance - let that (and anything else unrecognized) run for real.
+    real_run = subprocess.run
+
+    def fake_run(cmd, cwd=None, **kwargs):
+        if cmd and cmd[0] == "innoextract":
+            dest_dir = Path(cmd[cmd.index("-d") + 1])
+            out = dest_dir / "app" / "bin" / "darktable.exe"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"extracted windows darktable")
+            return subprocess.CompletedProcess(cmd, 0)
+        if cmd and "--appimage-extract" in cmd:
+            (Path(cwd) / "squashfs-root").mkdir()
+            return subprocess.CompletedProcess(cmd, 0)
+        return real_run(cmd, cwd=cwd, **kwargs)
+
+    monkeypatch.setattr(portable.shutil, "which", lambda name: "/usr/bin/innoextract")
+    monkeypatch.setattr(portable.subprocess, "run", fake_run)
+
+    result = portable.build_portable_layout(
+        drive, oses=["win", "linux"], manifest=manifest,
+        templates_dir=TEMPLATES_DIR, repo_lua_dir=LUA_DIR,
+        cache_dir=tmp_path / "cache", fetch=fetch,
+    )
+
+    assert set(result.apps) == {"win", "linux"}
+    assert (drive / "apps" / "darktable-win" / "app" / "bin" / "darktable.exe").exists()
+    assert (drive / "apps" / "darktable-linux" / "squashfs-root").exists()
+    lock = json.loads(result.manifest_lock.read_text(encoding="utf-8"))
+    assert set(lock["darktable"]) == {"win", "linux"}
+
+
 def test_build_portable_layout_requires_cache_dir_when_manifest_has_targets(tmp_path):
     drive = tmp_path / "drive"
     drive.mkdir()
@@ -452,3 +656,36 @@ def test_build_portable_layout_progress_callback_is_invoked(tmp_path):
     )
     assert any("plugin" in m for m in messages)
     assert any("launchers" in m for m in messages)
+
+
+# ---------------------------------------------------------------------------
+# config/portable-manifest.yml — the shipped provisioning pins (Task 7)
+# ---------------------------------------------------------------------------
+
+MANIFEST_PATH = Path(__file__).resolve().parent.parent / "config" / "portable-manifest.yml"
+
+
+def test_shipped_manifest_exists_and_loads():
+    assert MANIFEST_PATH.exists(), f"missing {MANIFEST_PATH}"
+    manifest = portable.PortableManifest.load(MANIFEST_PATH)
+    assert manifest.win is not None
+    assert manifest.linux is not None
+
+
+@pytest.mark.parametrize("os_name", ["win", "linux"])
+def test_shipped_manifest_entries_are_well_formed(os_name):
+    """A malformed pin fails at provisioning time on the operator's machine,
+    after a multi-hundred-MB download — cheap to catch here instead."""
+    target = portable.PortableManifest.load(MANIFEST_PATH).target_for(os_name)
+    assert re.fullmatch(r"[0-9a-f]{64}", target.sha256), "sha256 must be 64 lowercase hex"
+    assert target.url.startswith("https://"), "downloads must be over https"
+    assert target.archive_type in {"zip", "appimage", "innosetup"}
+    assert target.binary_relpath and not target.binary_relpath.startswith("/")
+    assert target.version
+
+
+def test_shipped_manifest_linux_is_an_appimage_with_a_squashfs_apprun():
+    """PHOTONForge.sh looks for squashfs-root/AppRun specifically."""
+    target = portable.PortableManifest.load(MANIFEST_PATH).target_for("linux")
+    assert target.archive_type == "appimage"
+    assert target.binary_relpath == "squashfs-root/AppRun"

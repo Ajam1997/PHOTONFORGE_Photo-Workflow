@@ -40,11 +40,39 @@ REQUIRE_LINE = 'require "photonforge/main"'
 MANIFEST_LOCK_NAME = "manifest.lock.json"
 LOCK_SCHEMA_VERSION = 1
 
+# Output names on the drive, deliberately not matching the .tmpl source names
+# below: a "!" prefix sorts before letters/digits in every file manager's
+# default sort, so the launchers land at the very top of the drive listing
+# instead of blending into whatever else accumulates at the root (shoot
+# folders, models/, etc). PHOTONForge.ps1 keeps its plain name since it is
+# not meant to be double-clicked directly -- !START_PHOTONForge.bat invokes
+# it by that exact name (see PHOTONForge.bat.tmpl), so it is never renamed.
 LAUNCHER_TEMPLATES = (
     ("PHOTONForge.ps1.tmpl", "PHOTONForge.ps1"),
-    ("PHOTONForge.bat.tmpl", "PHOTONForge.bat"),
-    ("PHOTONForge.sh.tmpl", "PHOTONForge.sh"),
+    ("PHOTONForge.bat.tmpl", "!START_PHOTONForge.bat"),
+    ("PHOTONForge.sh.tmpl", "!START_PHOTONForge.sh"),
 )
+README_NAME = "!README.txt"
+ICON_NAME = "PHOTONForge.ico"
+AUTORUN_NAME = "autorun.inf"
+
+README_TEXT = """\
+PHOTONForge portable drive
+===========================
+
+To start:
+
+  Windows -> double-click   !START_PHOTONForge.bat
+  Linux   -> run             !START_PHOTONForge.sh
+             (or double-click it in your file manager)
+
+Darktable opens with the PHOTONFORGE panel already loaded. Nothing needs to
+be installed on this computer -- everything the app needs lives on this
+drive, and it stays offline once running.
+
+Full setup and troubleshooting: docs/portable-drive-setup.md in the
+PHOTONForge repository.
+"""
 
 
 class DownloadError(RuntimeError):
@@ -188,6 +216,27 @@ def extract_archive(archive_path: Path, dest_dir: Path, archive_type: str) -> No
         raise ValueError(f"Unknown archive_type: {archive_type!r}")
 
 
+def _run_extractor(cmd: list[str], *, cwd: Path | None = None, hint: str = "") -> None:
+    """Run an external extractor, turning failure into an actionable error.
+
+    A bare CalledProcessError surfaces as "returned non-zero exit status 2"
+    with the tool's real complaint buried in captured stderr, and it is not a
+    RuntimeError so the CLI's exception handler would let it escape as a
+    traceback. Both are fixed here: the tool's own output is put in the
+    message, and `hint` explains the known cause.
+    """
+    try:
+        subprocess.run(cmd, cwd=cwd, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or "").strip()
+        message = f"{cmd[0]} failed (exit {exc.returncode})"
+        if detail:
+            message += f":\n{detail}"
+        if hint:
+            message += f"\n\n{hint}"
+        raise RuntimeError(message) from exc
+
+
 def _extract_appimage(archive_path: Path, dest_dir: Path) -> None:
     target = dest_dir / archive_path.name
     shutil.copy2(archive_path, target)
@@ -195,23 +244,44 @@ def _extract_appimage(archive_path: Path, dest_dir: Path) -> None:
         target.chmod(target.stat().st_mode | 0o111)
     except OSError:
         pass  # best-effort exec bit; exFAT has none anyway
-    subprocess.run(
-        [str(target), "--appimage-extract"],
-        cwd=dest_dir, check=True, capture_output=True,
+    _run_extractor(
+        [str(target), "--appimage-extract"], cwd=dest_dir,
+        hint="Extracting an AppImage needs a Linux host; build the linux half "
+             "of the drive there (see the portable-drive plan's per-OS "
+             "provisioning note).",
     )
     extracted = dest_dir / "squashfs-root"
     if not extracted.exists():
         raise RuntimeError(f"--appimage-extract did not produce {extracted}")
 
 
+# Distro innoextract (1.9, the newest *release*, shipped by Debian stable and
+# Ubuntu 24.04) predates Inno Setup's setup-loader revision 2 and cannot read
+# any installer built with Inno Setup 6.5 or later — including the current
+# Darktable Windows installer, which is Inno Setup 6.7.0. It exits 2 having
+# written nothing, so this fails loudly rather than silently producing an
+# empty apps/darktable-win/, but the raw message does not say why.
+_INNOEXTRACT_HINT = (
+    "The Darktable Windows installer is built with Inno Setup 6.7, which needs "
+    "innoextract with setup-loader revision 2 support. innoextract 1.9 — the "
+    "newest release, and what Debian stable / Ubuntu 24.04 package — cannot "
+    "read it and exits without extracting anything.\n"
+    "Run `innoextract --version`: the second line must advertise support up to "
+    "at least Inno Setup 6.7. If it stops at 6.0.5, build innoextract from "
+    "upstream master with the MSYS2 patch series applied — see "
+    "docs/portable-drive-setup.md."
+)
+
+
 def _extract_innosetup(archive_path: Path, dest_dir: Path) -> None:
     if shutil.which("innoextract") is None:
         raise RuntimeError(
-            "innoextract not found on PATH — required for archive_type=innosetup"
+            "innoextract not found on PATH — required for archive_type=innosetup.\n\n"
+            + _INNOEXTRACT_HINT
         )
-    subprocess.run(
+    _run_extractor(
         ["innoextract", "-d", str(dest_dir), str(archive_path)],
-        check=True, capture_output=True,
+        hint=_INNOEXTRACT_HINT,
     )
 
 
@@ -318,6 +388,67 @@ def render_launchers(templates_dir: Path, drive_root: Path) -> list[Path]:
 
 
 # ---------------------------------------------------------------------------
+# Drive branding — README, plus a Windows-only, execution-free icon/label.
+#
+# Windows disabled autorun.inf *execution* (open=/shellexecute=) for USB
+# drives in Windows 7+, specifically to stop USB-borne malware — see Task 7's
+# plan annotation and the "Can we trigger an OS prompt" PR thread. icon= and
+# label= were never part of that attack surface and still work; they only
+# change how the drive looks in Explorer, never run anything. This is a
+# passive visual cue, not a substitute for the user running the launcher.
+# ---------------------------------------------------------------------------
+
+
+def _generate_icon(dest: Path) -> None:
+    """A small multi-resolution .ico, drawn programmatically rather than
+    committing a binary asset — a plain concentric-ring mark that stays
+    legible down to 16x16 without depending on a bundled font. Pillow is
+    already a core dependency (raw image decoding), so this adds nothing new.
+    """
+    from PIL import Image, ImageDraw
+
+    sizes = (16, 24, 32, 48, 256)
+    images = []
+    for size in sizes:
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        margin = max(1, size // 8)
+        draw.ellipse([margin, margin, size - margin, size - margin], fill=(30, 32, 40, 255))
+        inner = margin + max(1, size // 4)
+        draw.ellipse([inner, inner, size - inner, size - inner], fill=(240, 196, 80, 255))
+        images.append(img)
+    # Pillow's ICO writer filters requested sizes against the *base* image's
+    # own dimensions (any requested size larger than the base is silently
+    # dropped) before it ever looks at append_images — so the base must be
+    # the largest frame, not the first one generated.
+    images[-1].save(dest, format="ICO", sizes=[(s, s) for s in sizes], append_images=images[:-1])
+
+
+def write_autorun_inf(drive_root: Path, *, volume_label: str | None = None) -> Path:
+    """Write autorun.inf + PHOTONForge.ico — icon/label only, never open=.
+
+    Windows Explorer reads icon=/label= for any removable drive regardless of
+    the open=/shellexecute= restriction, so the drive shows a distinct icon
+    and name instead of a generic one. This never launches anything.
+    """
+    drive_root = Path(drive_root)
+    drive_root.mkdir(parents=True, exist_ok=True)
+    _generate_icon(drive_root / ICON_NAME)
+    display = f"PHOTONForge ({volume_label})" if volume_label else "PHOTONForge"
+    autorun = drive_root / AUTORUN_NAME
+    autorun.write_text(f"[autorun]\nicon={ICON_NAME}\nlabel={display}\n", encoding="utf-8")
+    return autorun
+
+
+def write_readme(drive_root: Path) -> Path:
+    """Plain-text fallback pointer to the launchers, for whichever OS."""
+    path = Path(drive_root) / README_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(README_TEXT, encoding="utf-8")
+    return path
+
+
+# ---------------------------------------------------------------------------
 # Layout builder — the make-portable orchestrator
 # ---------------------------------------------------------------------------
 
@@ -331,6 +462,8 @@ class PortableBuildResult:
     runtimes: dict[str, Path]
     models_copied: bool
     launchers: list[Path]
+    readme: Path
+    autorun_inf: Path
     manifest_lock: Path
 
 
@@ -415,6 +548,7 @@ def build_portable_layout(
     offline: bool = False,
     fetch: Callable[[str, Path], None] | None = None,
     progress: Callable[[str], None] | None = None,
+    volume_label: str | None = None,
 ) -> PortableBuildResult:
     """Assemble the full portable-drive tree onto an already-provisioned drive.
 
@@ -466,6 +600,12 @@ def build_portable_layout(
     _progress("launchers: writing")
     launchers = render_launchers(templates_dir, drive_root)
 
+    _progress("readme: writing")
+    readme = write_readme(drive_root)
+
+    _progress("branding: writing autorun.inf + icon")
+    autorun_inf = write_autorun_inf(drive_root, volume_label=volume_label)
+
     _progress("manifest.lock.json: writing")
     manifest_lock = _write_manifest_lock(drive_root, oses, manifest, apps)
 
@@ -477,5 +617,7 @@ def build_portable_layout(
         runtimes=runtimes,
         models_copied=models_copied,
         launchers=launchers,
+        readme=readme,
+        autorun_inf=autorun_inf,
         manifest_lock=manifest_lock,
     )

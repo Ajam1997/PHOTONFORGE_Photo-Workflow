@@ -56,8 +56,13 @@ def test_make_portable_assembles_without_a_manifest(tmp_path, monkeypatch):
     assert payload["status"] == "ok"
     assert payload["apps"] == {}
     assert (drive / "dt-config" / "lua" / "photonforge" / "main.lua").exists()
-    assert (drive / "PHOTONForge.sh").exists()
+    assert (drive / "!START_PHOTONForge.sh").exists()
+    assert (drive / "!README.txt").exists()
+    assert (drive / "autorun.inf").exists()
+    assert "PHOTON-001" in (drive / "autorun.inf").read_text(encoding="utf-8")
     assert Path(payload["manifest_lock"]).exists()
+    assert Path(payload["readme"]).exists()
+    assert Path(payload["autorun_inf"]).exists()
 
 
 def test_make_portable_human_output_lists_plugin_and_launchers(tmp_path, monkeypatch):

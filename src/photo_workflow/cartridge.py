@@ -307,7 +307,7 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
             drive, oses=list(oses), manifest=loaded_manifest,
             templates_dir=templates_dir, repo_lua_dir=lua_src,
             models_src=models_src, cli_src=cli_src, cache_dir=cache_dir,
-            offline=offline, progress=_progress,
+            offline=offline, progress=_progress, volume_label=label,
         )
     except (portable_mod.DownloadError, FileNotFoundError, ValueError, RuntimeError) as exc:
         raise click.ClickException(str(exc)) from exc
@@ -319,6 +319,8 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
             "apps": {k: str(v) for k, v in result.apps.items()},
             "runtimes": {k: str(v) for k, v in result.runtimes.items()},
             "models_copied": result.models_copied,
+            "readme": str(result.readme),
+            "autorun_inf": str(result.autorun_inf),
             "manifest_lock": str(result.manifest_lock),
         }))
     else:
@@ -333,6 +335,10 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
             click.echo(f"  runtime/{os_name}: {path}")
         if result.models_copied:
             click.echo("  models/: copied")
+        for launcher in result.launchers:
+            click.echo(f"  launcher: {launcher.name}")
+        click.echo(f"  readme: {result.readme.name}")
+        click.echo(f"  drive icon/label: {result.autorun_inf.name}")
         click.echo(f"  manifest lock: {result.manifest_lock}")
 
 
