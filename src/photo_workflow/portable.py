@@ -40,11 +40,39 @@ REQUIRE_LINE = 'require "photonforge/main"'
 MANIFEST_LOCK_NAME = "manifest.lock.json"
 LOCK_SCHEMA_VERSION = 1
 
+# Output names on the drive, deliberately not matching the .tmpl source names
+# below: a "!" prefix sorts before letters/digits in every file manager's
+# default sort, so the launchers land at the very top of the drive listing
+# instead of blending into whatever else accumulates at the root (shoot
+# folders, models/, etc). PHOTONForge.ps1 keeps its plain name since it is
+# not meant to be double-clicked directly -- !START_PHOTONForge.bat invokes
+# it by that exact name (see PHOTONForge.bat.tmpl), so it is never renamed.
 LAUNCHER_TEMPLATES = (
     ("PHOTONForge.ps1.tmpl", "PHOTONForge.ps1"),
-    ("PHOTONForge.bat.tmpl", "PHOTONForge.bat"),
-    ("PHOTONForge.sh.tmpl", "PHOTONForge.sh"),
+    ("PHOTONForge.bat.tmpl", "!START_PHOTONForge.bat"),
+    ("PHOTONForge.sh.tmpl", "!START_PHOTONForge.sh"),
 )
+README_NAME = "!README.txt"
+ICON_NAME = "PHOTONForge.ico"
+AUTORUN_NAME = "autorun.inf"
+
+README_TEXT = """\
+PHOTONForge portable drive
+===========================
+
+To start:
+
+  Windows -> double-click   !START_PHOTONForge.bat
+  Linux   -> run             !START_PHOTONForge.sh
+             (or double-click it in your file manager)
+
+Darktable opens with the PHOTONFORGE panel already loaded. Nothing needs to
+be installed on this computer -- everything the app needs lives on this
+drive, and it stays offline once running.
+
+Full setup and troubleshooting: docs/portable-drive-setup.md in the
+PHOTONForge repository.
+"""
 
 
 class DownloadError(RuntimeError):
@@ -360,6 +388,67 @@ def render_launchers(templates_dir: Path, drive_root: Path) -> list[Path]:
 
 
 # ---------------------------------------------------------------------------
+# Drive branding — README, plus a Windows-only, execution-free icon/label.
+#
+# Windows disabled autorun.inf *execution* (open=/shellexecute=) for USB
+# drives in Windows 7+, specifically to stop USB-borne malware — see Task 7's
+# plan annotation and the "Can we trigger an OS prompt" PR thread. icon= and
+# label= were never part of that attack surface and still work; they only
+# change how the drive looks in Explorer, never run anything. This is a
+# passive visual cue, not a substitute for the user running the launcher.
+# ---------------------------------------------------------------------------
+
+
+def _generate_icon(dest: Path) -> None:
+    """A small multi-resolution .ico, drawn programmatically rather than
+    committing a binary asset — a plain concentric-ring mark that stays
+    legible down to 16x16 without depending on a bundled font. Pillow is
+    already a core dependency (raw image decoding), so this adds nothing new.
+    """
+    from PIL import Image, ImageDraw
+
+    sizes = (16, 24, 32, 48, 256)
+    images = []
+    for size in sizes:
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(img)
+        margin = max(1, size // 8)
+        draw.ellipse([margin, margin, size - margin, size - margin], fill=(30, 32, 40, 255))
+        inner = margin + max(1, size // 4)
+        draw.ellipse([inner, inner, size - inner, size - inner], fill=(240, 196, 80, 255))
+        images.append(img)
+    # Pillow's ICO writer filters requested sizes against the *base* image's
+    # own dimensions (any requested size larger than the base is silently
+    # dropped) before it ever looks at append_images — so the base must be
+    # the largest frame, not the first one generated.
+    images[-1].save(dest, format="ICO", sizes=[(s, s) for s in sizes], append_images=images[:-1])
+
+
+def write_autorun_inf(drive_root: Path, *, volume_label: str | None = None) -> Path:
+    """Write autorun.inf + PHOTONForge.ico — icon/label only, never open=.
+
+    Windows Explorer reads icon=/label= for any removable drive regardless of
+    the open=/shellexecute= restriction, so the drive shows a distinct icon
+    and name instead of a generic one. This never launches anything.
+    """
+    drive_root = Path(drive_root)
+    drive_root.mkdir(parents=True, exist_ok=True)
+    _generate_icon(drive_root / ICON_NAME)
+    display = f"PHOTONForge ({volume_label})" if volume_label else "PHOTONForge"
+    autorun = drive_root / AUTORUN_NAME
+    autorun.write_text(f"[autorun]\nicon={ICON_NAME}\nlabel={display}\n", encoding="utf-8")
+    return autorun
+
+
+def write_readme(drive_root: Path) -> Path:
+    """Plain-text fallback pointer to the launchers, for whichever OS."""
+    path = Path(drive_root) / README_NAME
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(README_TEXT, encoding="utf-8")
+    return path
+
+
+# ---------------------------------------------------------------------------
 # Layout builder — the make-portable orchestrator
 # ---------------------------------------------------------------------------
 
@@ -373,6 +462,8 @@ class PortableBuildResult:
     runtimes: dict[str, Path]
     models_copied: bool
     launchers: list[Path]
+    readme: Path
+    autorun_inf: Path
     manifest_lock: Path
 
 
@@ -457,6 +548,7 @@ def build_portable_layout(
     offline: bool = False,
     fetch: Callable[[str, Path], None] | None = None,
     progress: Callable[[str], None] | None = None,
+    volume_label: str | None = None,
 ) -> PortableBuildResult:
     """Assemble the full portable-drive tree onto an already-provisioned drive.
 
@@ -508,6 +600,12 @@ def build_portable_layout(
     _progress("launchers: writing")
     launchers = render_launchers(templates_dir, drive_root)
 
+    _progress("readme: writing")
+    readme = write_readme(drive_root)
+
+    _progress("branding: writing autorun.inf + icon")
+    autorun_inf = write_autorun_inf(drive_root, volume_label=volume_label)
+
     _progress("manifest.lock.json: writing")
     manifest_lock = _write_manifest_lock(drive_root, oses, manifest, apps)
 
@@ -519,5 +617,7 @@ def build_portable_layout(
         runtimes=runtimes,
         models_copied=models_copied,
         launchers=launchers,
+        readme=readme,
+        autorun_inf=autorun_inf,
         manifest_lock=manifest_lock,
     )

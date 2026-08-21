@@ -348,8 +348,8 @@ def test_render_launchers_copies_all_three_and_sets_exec_bit(tmp_path):
     drive = tmp_path / "drive"
     written = portable.render_launchers(TEMPLATES_DIR, drive)
     names = {p.name for p in written}
-    assert names == {"PHOTONForge.ps1", "PHOTONForge.bat", "PHOTONForge.sh"}
-    sh = drive / "PHOTONForge.sh"
+    assert names == {"PHOTONForge.ps1", "!START_PHOTONForge.bat", "!START_PHOTONForge.sh"}
+    sh = drive / "!START_PHOTONForge.sh"
     assert sh.stat().st_mode & 0o111
 
 
@@ -387,6 +387,73 @@ def test_windows_launcher_resolves_binary_under_the_app_dir():
 def test_render_launchers_missing_template_raises(tmp_path):
     with pytest.raises(FileNotFoundError):
         portable.render_launchers(tmp_path / "no-templates-here", tmp_path / "drive")
+
+
+def test_launcher_names_sort_before_ordinary_files(tmp_path):
+    """The '!' prefix must actually sort first, or the visibility trick is pointless."""
+    drive = tmp_path / "drive"
+    portable.render_launchers(TEMPLATES_DIR, drive)
+    (drive / "ICELAND").mkdir()  # a shoot folder, the kind of thing that piles up at root
+    (drive / "models").mkdir()
+    names = sorted(p.name for p in drive.iterdir())
+    assert names[0] == "!START_PHOTONForge.bat"
+    assert names[1] == "!START_PHOTONForge.sh"
+
+
+# ---------------------------------------------------------------------------
+# Drive branding — README, autorun.inf + icon (Windows, execution-free)
+# ---------------------------------------------------------------------------
+
+
+def test_write_readme_names_both_launchers(tmp_path):
+    drive = tmp_path / "drive"
+    readme = portable.write_readme(drive)
+    assert readme == drive / "!README.txt"
+    text = readme.read_text(encoding="utf-8")
+    assert "!START_PHOTONForge.bat" in text
+    assert "!START_PHOTONForge.sh" in text
+
+
+def test_write_autorun_inf_generates_a_real_multi_size_ico(tmp_path):
+    """Not a stub: actually decode the produced .ico with Pillow."""
+    from PIL import Image
+
+    drive = tmp_path / "drive"
+    autorun = portable.write_autorun_inf(drive, volume_label="PHOTON-001")
+    assert autorun == drive / "autorun.inf"
+    content = autorun.read_text(encoding="utf-8")
+    assert content.splitlines()[0] == "[autorun]"
+    assert "icon=PHOTONForge.ico" in content
+    assert "PHOTON-001" in content
+
+    icon_path = drive / "PHOTONForge.ico"
+    assert icon_path.exists()
+    with Image.open(icon_path) as img:
+        assert img.format == "ICO"
+        # PIL exposes the embedded resolutions via the .ico plugin's sizes()
+        assert (256, 256) in img.ico.sizes()
+        assert (16, 16) in img.ico.sizes()
+
+
+def test_write_autorun_inf_never_contains_an_execution_directive(tmp_path):
+    """The whole point: icon/label only, never open= or shellexecute=.
+
+    Windows disabled autorun.inf *execution* for USB drives in Windows 7+
+    specifically because open=/shellexecute= was a malware vector. Shipping
+    either here would be attempting to route around a deliberate OS security
+    control, not just be pointless (Windows would still ignore it).
+    """
+    drive = tmp_path / "drive"
+    autorun = portable.write_autorun_inf(drive)
+    content = autorun.read_text(encoding="utf-8").lower()
+    assert "open=" not in content
+    assert "shellexecute=" not in content
+
+
+def test_write_autorun_inf_falls_back_without_a_volume_label(tmp_path):
+    drive = tmp_path / "drive"
+    autorun = portable.write_autorun_inf(drive)
+    assert "label=PHOTONForge" in autorun.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
@@ -427,7 +494,12 @@ def test_build_portable_layout_without_manifest_skips_darktable_app(tmp_path):
     assert (drive / "models" / "florence2_int8" / "model.onnx").exists()
     assert (drive / "dt-config" / "lua" / "photonforge" / "main.lua").exists()
     assert (drive / "dt-config" / "darktablerc").exists()
-    assert (drive / "PHOTONForge.sh").exists()
+    assert (drive / "!START_PHOTONForge.sh").exists()
+    assert (drive / "!README.txt").exists()
+    assert "!START_PHOTONForge.bat" in result.readme.read_text(encoding="utf-8")
+    assert (drive / "autorun.inf").exists()
+    assert (drive / "PHOTONForge.ico").exists()
+    assert "icon=PHOTONForge.ico" in result.autorun_inf.read_text(encoding="utf-8")
 
     lock = json.loads(result.manifest_lock.read_text(encoding="utf-8"))
     assert lock["schema"] == 1

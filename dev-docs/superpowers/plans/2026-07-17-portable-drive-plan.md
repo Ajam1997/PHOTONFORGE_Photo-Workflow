@@ -111,6 +111,33 @@ Chosen over launcher-rewrite: Darktable rewrites `darktablerc` on clean exit, so
 > default and is validated at build time (`ValueError` → clean
 > `ClickException`) rather than required unconditionally, since a manifest-less
 > build (the common case until Task 7 lands) has nothing to cache.
+>
+> **Addendum 2026-08-21 — launcher visibility, from a real PR review thread**
+> (#151, "How does the portable build behave? does it auto launch darktable
+> when the drive gets plugged in?"). Researched rather than assumed: Windows
+> killed `autorun.inf`'s `open=`/`shellexecute=` for USB drives in Windows
+> 7+ specifically to stop USB-malware, and that is still fully in effect —
+> there is no way to make Windows prompt to run an arbitrary program off a
+> drive anymore. GNOME/Nautilus still has a real equivalent
+> (`nautilus-autorun-software`), but it is GNOME-only and gated by a setting
+> some distros disable, so building it would be asymmetric across the two
+> target OSes. Landed the zero-controversy alternative instead, all of it
+> execution-free: the two launchers are now written as `!START_PHOTONForge.bat`
+> / `!START_PHOTONForge.sh` (the `!` sorts before everything else at the
+> drive root in every file manager's default sort — `PHOTONForge.ps1` keeps
+> its old name since it's invoked by the `.bat`, not double-clicked
+> directly), a `!README.txt` pointing at both, and a Windows-only
+> `autorun.inf` carrying **only** `icon=`/`label=` (never `open=`/
+> `shellexecute=` — verified by a test that greps the generated file for
+> both directives and fails if either is present) pointing at a small
+> multi-resolution `.ico` generated at build time with Pillow (already a
+> core dependency, so this adds nothing new). A real bug surfaced writing
+> the icon generator's test: Pillow's ICO writer filters every requested
+> size against the *base* image passed to `.save()`, discarding anything
+> larger, so passing the smallest frame as the base silently produced a
+> 16x16-only .ico with every other size dropped — caught because the test
+> actually decodes the file with Pillow and checks for (256, 256), not just
+> that a file exists.
 
 Runs on the **provisioning machine** (unfrozen `photo-cartridge` entry), assembles files onto an already-mounted drive (unelevated; partition/format stays in `provision.py`). Thin click wrapper over `portable.py`.
 ```

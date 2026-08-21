@@ -12,8 +12,11 @@ or the Lua plugin ever touches the network.
 
 ```
 <DRIVE>/
-├── PHOTONForge.bat / .ps1        # Windows launcher (double-click)
-├── PHOTONForge.sh                # Linux launcher
+├── !README.txt                   # points at the two launchers below
+├── !START_PHOTONForge.bat        # Windows launcher (double-click)
+├── !START_PHOTONForge.sh         # Linux launcher (run, or double-click)
+├── PHOTONForge.ps1                # invoked by the .bat; not meant to be run directly
+├── autorun.inf / PHOTONForge.ico # Windows Explorer icon + label (no execution — see below)
 ├── apps/darktable-win/           # bundled Windows Darktable
 ├── apps/darktable-linux/         # bundled Linux Darktable (pre-extracted AppImage)
 ├── runtime/{win,linux}/          # frozen photo-workflow + photo-cartridge
@@ -28,6 +31,20 @@ The launchers resolve every path **relative to themselves** (`$PSScriptRoot`,
 Darktable's own `--configdir`. Nothing stores an absolute path, so the drive
 letter or mount point can change between machines and nothing needs
 reconfiguring.
+
+**Why the `!` prefix.** The launchers and README are named to sort before
+everything else a file manager shows — shoot folders, `models/`, `apps/` —
+so they stay the first thing visible no matter how much accumulates on the
+drive. `make-portable` writes them; there's nothing to configure.
+
+**Why `autorun.inf` doesn't launch anything.** Windows disabled
+`autorun.inf`'s `open=`/`shellexecute=` directives for USB drives in
+Windows 7+, specifically because that was the main vector for USB-borne
+malware — that restriction is still fully in effect on 10/11 today, and
+building around it isn't attempted here. `icon=`/`label=` were never part of
+that attack surface and still work, so the drive shows a distinct icon and
+name in Explorer instead of a generic one. It is a passive visual cue, never
+a substitute for double-clicking `!START_PHOTONForge.bat`.
 
 ## Prerequisites on the build machine
 
@@ -152,11 +169,11 @@ the extracted trees, then update the file.
 ## Caveats
 
 - **exFAT has no exec bit.** The launchers `chmod +x` best-effort and never
-  rely on symlinks. On Linux you may need `sh PHOTONForge.sh` rather than
-  `./PHOTONForge.sh` depending on the mount options.
+  rely on symlinks. On Linux you may need `sh !START_PHOTONForge.sh` rather
+  than `./!START_PHOTONForge.sh` depending on the mount options.
 - **AppImage and FUSE.** The AppImage is *pre-extracted* to
   `squashfs-root/` at build time so launching needs no FUSE on the host.
-  `PHOTONForge.sh` falls back to `--appimage-extract-and-run` if that
+  `!START_PHOTONForge.sh` falls back to `--appimage-extract-and-run` if that
   directory is missing, which works without FUSE but re-extracts on every
   launch.
 - **Leave the plugin's path preferences blank.** `make-portable` writes a
@@ -177,6 +194,9 @@ DRIVE=/media/alex/PHOTON-001
 ls "$DRIVE/dt-config/lua/photonforge/"                         # 7 .lua + .css
 cat "$DRIVE/dt-config/darktablerc"                             # paths must be BLANK
 cat "$DRIVE/.photonforge/manifest.lock.json"
+ls "$DRIVE" | sort                                             # !README.txt and the two
+                                                                 # !START_ launchers sort first
+cat "$DRIVE/autorun.inf"                                        # icon=/label= only, no open=
 ```
 
 `Lua -> ENABLED` matters: the PHOTONFORGE panel is a Lua plugin, and a
@@ -185,7 +205,8 @@ Darktable build without Lua support will start but never show it.
 Then the real acceptance test — plug the drive into a machine that has **no**
 PHOTONForge install:
 
-1. Run `PHOTONForge.sh` (Linux) or double-click `PHOTONForge.bat` (Windows).
+1. Run `!START_PHOTONForge.sh` (Linux) or double-click `!START_PHOTONForge.bat`
+   (Windows) — the file names are prefixed so they're the first thing you see.
 2. Darktable opens with the **PHOTONFORGE** panel in the lighttable view.
 3. Enable the `dev_mode` preference and confirm the resolved-command preview
    points at the **current** mount's `runtime/` and `models/`.
