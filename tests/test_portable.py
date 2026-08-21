@@ -476,6 +476,87 @@ win:
     assert lock["darktable"]["win"]["binary_relpath"] == "darktable/bin/darktable.exe"
 
 
+def test_build_portable_layout_bundles_both_oses_from_one_call(tmp_path, monkeypatch):
+    """A single provisioning host can build the full dual-OS drive in one run.
+
+    This contradicts what the plan text (and an earlier draft of the docs)
+    assumed: that building both OSes needs two hosts with different
+    toolchains. It does not — innoextract is a format parser, never an
+    installer executor, so a Linux-run innoextract reads the Windows
+    installer fine. Only the AppImage step is host-locked, because it
+    executes the downloaded binary. Verified for real (not just here) by
+    running build_portable_layout(oses=["win", "linux"]) with a patched
+    innoextract on a single Linux host — see the Task 7 plan annotation.
+    """
+    drive = tmp_path / "drive"
+    drive.mkdir()
+
+    win_zip = tmp_path / "src-dt-win.zip"
+    with zipfile.ZipFile(win_zip, "w") as zf:
+        zf.writestr("app/bin/darktable.exe", "fake windows darktable")
+    win_bytes = win_zip.read_bytes()
+    win_digest = _sha256(win_bytes)
+
+    linux_bytes = b"fake appimage payload"
+    linux_digest = _sha256(linux_bytes)
+
+    manifest_path = tmp_path / "manifest.yml"
+    manifest_path.write_text(
+        f"""
+win:
+  version: "5.6.0"
+  url: "https://example.invalid/dt-win.exe"
+  sha256: "{win_digest}"
+  archive_type: innosetup
+  exe_relpath: "app/bin/darktable.exe"
+linux:
+  version: "5.6.0"
+  url: "https://example.invalid/dt-linux.AppImage"
+  sha256: "{linux_digest}"
+  archive_type: appimage
+  apprun_relpath: "squashfs-root/AppRun"
+""",
+        encoding="utf-8",
+    )
+    manifest = portable.PortableManifest.load(manifest_path)
+
+    def fetch(url, dest):
+        dest.write_bytes(win_bytes if "win" in url else linux_bytes)
+
+    # innosetup extraction is dispatched (no real innoextract in CI);
+    # appimage extraction is dispatched the same way real code does it.
+    # build_portable_layout also shells out to `git rev-parse HEAD` for
+    # provenance - let that (and anything else unrecognized) run for real.
+    real_run = subprocess.run
+
+    def fake_run(cmd, cwd=None, **kwargs):
+        if cmd and cmd[0] == "innoextract":
+            dest_dir = Path(cmd[cmd.index("-d") + 1])
+            out = dest_dir / "app" / "bin" / "darktable.exe"
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"extracted windows darktable")
+            return subprocess.CompletedProcess(cmd, 0)
+        if cmd and "--appimage-extract" in cmd:
+            (Path(cwd) / "squashfs-root").mkdir()
+            return subprocess.CompletedProcess(cmd, 0)
+        return real_run(cmd, cwd=cwd, **kwargs)
+
+    monkeypatch.setattr(portable.shutil, "which", lambda name: "/usr/bin/innoextract")
+    monkeypatch.setattr(portable.subprocess, "run", fake_run)
+
+    result = portable.build_portable_layout(
+        drive, oses=["win", "linux"], manifest=manifest,
+        templates_dir=TEMPLATES_DIR, repo_lua_dir=LUA_DIR,
+        cache_dir=tmp_path / "cache", fetch=fetch,
+    )
+
+    assert set(result.apps) == {"win", "linux"}
+    assert (drive / "apps" / "darktable-win" / "app" / "bin" / "darktable.exe").exists()
+    assert (drive / "apps" / "darktable-linux" / "squashfs-root").exists()
+    lock = json.loads(result.manifest_lock.read_text(encoding="utf-8"))
+    assert set(lock["darktable"]) == {"win", "linux"}
+
+
 def test_build_portable_layout_requires_cache_dir_when_manifest_has_targets(tmp_path):
     drive = tmp_path / "drive"
     drive.mkdir()

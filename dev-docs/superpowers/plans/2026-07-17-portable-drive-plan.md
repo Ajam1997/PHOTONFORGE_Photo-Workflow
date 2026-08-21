@@ -368,6 +368,21 @@ Fresh venv, `pip install .` (non-editable) + pyinstaller, build `photo-workflow`
 > its layout checks out, but no Windows host exists in this environment, so
 > neither `PHOTONForge.bat` nor `scripts/build_portable_cli.ps1` has ever been
 > run there.
+>
+> **Correction to the paragraph below: a single Linux host builds both OSes.**
+> The plan text says building a dual-OS drive needs both toolchains on
+> separate hosts. That is not what was found — `build_portable_layout(oses=
+> ["win", "linux"])` was run as **one call on one Linux container** in this
+> session and both extracted successfully. innoextract is a format parser,
+> not an installer executor: it never runs the Windows `.exe`, so a
+> Linux-built innoextract reads the Windows installer fine. Only the Linux
+> half is genuinely host-locked, because bundling it runs the downloaded
+> AppImage itself (`--appimage-extract`) as a subprocess, which needs
+> something that can execute a Linux ELF binary. Since the Yoga 910 (the
+> actual target machine, per `CLAUDE.md`) runs Ubuntu 24.04, the common case —
+> provision from the Yoga, get both OSes — already works in one run. Building
+> the Linux half from a Windows-only host (no WSL) remains the one real gap;
+> see `docs/portable-drive-setup.md`.
 
 Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`portableapps`/`innosetup`/`appimage`), and resolved binary relpath (`exe_relpath` / `apprun_relpath`). Downloader streams to `--cache`, verifies sha256 (abort on mismatch — no TOFU). Windows: prefer the official Darktable **zip** to avoid needing `innoextract`. Linux AppImage extracted to `squashfs-root/` (needs a Linux host). Building a **dual-OS** drive from one host needs both toolchains → document per-OS provisioning as the reliable path. Downloads happen **only** in `make-portable`; nothing in `runtime/`, launchers, or `runner.lua` touches the network (NFR-2.1). `--offline` = cache-only, error on miss. `.photonforge/manifest.lock.json` is the audit record.
 

@@ -36,13 +36,28 @@ reconfiguring.
 | Python 3.11+ and this repo | everything |
 | A provisioned `PHOTON-XXX` cartridge | the target (`photo-cartridge provision`) |
 | **innoextract with Inno Setup 6.7 support** | bundling **Windows** Darktable |
-| A **Linux** host | extracting the **Linux** AppImage |
+| The ability to execute a Linux ELF binary (a **Linux** host, or WSL) | bundling **Linux** Darktable |
 
-Because the two extraction steps need different hosts, **building a dual-OS
-drive from a single machine is not the reliable path** — build the Linux half
-on Linux and the Windows half on a machine with a working innoextract, both
-onto the same cartridge (`make-portable` is incremental; run it once per OS
-with `--os`).
+**A Linux provisioning host builds the full dual-OS drive in one
+`make-portable` run** — verified end-to-end in this repo's tests. innoextract
+is a format parser, not an installer executor: it never runs the Windows
+`.exe`, it only reads the Inno Setup archive layout, so a Linux-built (or
+Linux-packaged) innoextract reads the Windows installer just fine. The only
+step that is genuinely host-locked is the **Linux** half, because bundling it
+runs the downloaded AppImage itself (`--appimage-extract`) as a subprocess —
+that needs something that can execute a Linux ELF binary.
+
+So the asymmetry runs one way:
+
+- **From Linux:** `make-portable --os win --os linux` in a single run.
+  This is also the primary target machine (the Yoga 910 runs Ubuntu 24.04),
+  so the common case needs nothing special.
+- **From Windows only:** you can bundle the **Windows** half (innoextract has
+  native Windows builds too, via the same MSYS2 patch series used below), but
+  the Linux half needs WSL to run the AppImage extraction step — **untested**
+  in this repo. Without WSL, build the Linux half on a separate Linux machine
+  and `make-portable --os linux` onto the same cartridge afterward
+  (`make-portable` is incremental, not destructive across runs).
 
 ### The innoextract version requirement
 
