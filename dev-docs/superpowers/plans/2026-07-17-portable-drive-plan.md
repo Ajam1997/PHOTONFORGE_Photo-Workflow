@@ -433,14 +433,49 @@ Version-controlled: per-OS `version`, `url`, `sha256`, `archive_type` (`zip`/`po
 - [ ] `tests/lua/test_runner_selflocate.lua` run via `lua5.4` in CI: stub the global `darktable` table and assert `cli()`, `models_dir()`, and `M.preview_cmd("score")` yield drive-relative paths under `<root>/runtime/...` and `<root>/models`. (`preview_cmd` already resolves `build_cmd` without executing — the natural seam.)
 - [ ] Per-OS CI smoke of the frozen CLI (models external): `--help`, `dedup`/`ingest` on fixtures, then `score --model-dir models ...` (onnxruntime — #1 freeze risk) and `name --model-dir models/florence2_int8 <RAW fixture>` (Florence-2 + tokenizers + rawpy — #2).
 
-### Task 9 — Docs (per docs-impact convention; do NOT hand-edit AUTO files — post NFR evidence via `sf-comment`)
-- [ ] New `docs/portable-drive-setup.md` (end-user build + plug-and-run guide; exFAT + AppImage/FUSE caveats; dev-mode `preview_cmd` verification checklist).
-- [ ] New `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md` (filesystem decision).
-- [ ] Update `docs/install-yoga-linux.md` §5/§6 (dt-config-on-drive, `--configdir`, declare Layout B canonical, exFAT note); `dev-docs/dev-machine-setup.md` (build scripts + make-portable); `CLAUDE.md` Project Layout (`apps/`, `runtime/`, `dt-config/`, `config/portable-manifest.yml`, new scripts); `dev-docs/architecture/module-bdd.md:150` (Layout A → reconciled); `dev-docs/glossary.md` + `house-style/glossary.yml` ("PHOTON cartridge" = self-contained bundle); `system-architecture-contracts.md` (NFR-2.3 spans CLI+models+Darktable; reaffirm NFR-2.1). Add the **"Docs impact"** line to the PR; flag @systems_lead that a new UN/FR for "cross-OS self-contained drive" may be warranted.
+### Task 9 — Docs (per docs-impact convention; do NOT hand-edit AUTO files — post NFR evidence via `sf-comment`) — **DONE**
+
+> Landed 2026-08-21. `docs/portable-drive-setup.md` pulled forward with Task
+> 7 (had to — the innoextract error message points at it). `ADR-008` written
+> against the ADR-007 template (Status/Context/Decision/Alternatives/
+> Consequences/Related), folding in the Android continuity note per the
+> plan's own instruction, and cross-referencing the real Task 7 findings
+> (Windows ships no zip; the packaged innoextract is too old) as a
+> *consequence* of bundling Darktable rather than of exFAT itself.
+>
+> `dev-docs/glossary.md` between the `<!-- AUTO:glossary -->` markers is
+> **not** hand-edited — only `house-style/glossary.yml` (the source `sf-docs`
+> regenerates it from) was touched: widened the `PHOTON cartridge` entry to
+> cover the self-contained-bundle meaning and added `aliases: [portable
+> drive, portable cartridge]`, plus a new `Layout B` entry.
+>
+> `system-architecture-contracts.md` got a new **Portable Drive Builder**
+> module row (parallel to how Backup got its own row for ADR-007) alongside
+> the NFR-2.1/NFR-2.3 wording updates the plan asked for.
+>
+> `CLAUDE.md`'s Project Layout deliberately does **not** literally list
+> `apps/`, `runtime/`, `dt-config/` as the plan's task line names them —
+> those are **drive-layout** directories `make-portable` writes onto a
+> cartridge, never present in this repo's tree, so listing them under a
+> repo-tree heading would be wrong. Added a one-line note pointing at where
+> they're actually documented (`deploy/portable/*.tmpl`,
+> `docs/portable-drive-setup.md`) instead of the dirs themselves.
+>
+> **The "flag @systems_lead" instruction could not be carried out as
+> written** — `sf-comment` (the tool the write-back protocol requires for
+> posting to GitHub Issues) is not available in the environment that did
+> this work. Noting it here and in the PR description instead: a new UN/FR
+> for "cross-OS self-contained drive" may be warranted given the scope of
+> what Tasks 1–7 actually built; @systems_lead should assess when picking
+> this back up.
+
+- [x] New `docs/portable-drive-setup.md` (end-user build + plug-and-run guide; exFAT + AppImage/FUSE caveats; dev-mode `preview_cmd` verification checklist).
+- [x] New `dev-docs/architecture/adr/ADR-008-exfat-cross-os-cartridge.md` (filesystem decision).
+- [x] Update `docs/install-yoga-linux.md` §5/§6 (dt-config-on-drive, `--configdir`, declare Layout B canonical, exFAT note); `dev-docs/dev-machine-setup.md` (build scripts + make-portable); `CLAUDE.md` Project Layout (`apps/`, `runtime/`, `dt-config/`, `config/portable-manifest.yml`, new scripts); `dev-docs/architecture/module-bdd.md:150` (Layout A → reconciled); `dev-docs/glossary.md` + `house-style/glossary.yml` ("PHOTON cartridge" = self-contained bundle); `system-architecture-contracts.md` (NFR-2.3 spans CLI+models+Darktable; reaffirm NFR-2.1). Add the **"Docs impact"** line to the PR; flag @systems_lead that a new UN/FR for "cross-OS self-contained drive" may be warranted.
 
 ## Files at a glance
 
-**Create:** ~~`config/portable-manifest.yml`~~ DONE (darktable 5.6.0, both OSes, locally-verified hashes), ~~`src/photo_workflow/portable.py`~~ DONE, ~~`scripts/build_portable_cli.{sh,ps1}`~~ DONE, ~~`scripts/photonforge.spec`~~ DONE (plus `scripts/portable/freeze_entry_photo_{workflow,cartridge}.py` and `tests/test_portable_build.py`, not originally listed), ~~`deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`~~ DONE, ~~`tests/test_portable.py`~~ DONE (plus `tests/test_cartridge_make_portable_cli.py`, not originally listed), `tests/lua/test_runner_selflocate.lua` (superseded by `tests/lua/test_runner_cartridge.lua`, landed with Task 1), `docs/portable-drive-setup.md`, `dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`.
+**Create:** ~~`config/portable-manifest.yml`~~ DONE (darktable 5.6.0, both OSes, locally-verified hashes), ~~`src/photo_workflow/portable.py`~~ DONE, ~~`scripts/build_portable_cli.{sh,ps1}`~~ DONE, ~~`scripts/photonforge.spec`~~ DONE (plus `scripts/portable/freeze_entry_photo_{workflow,cartridge}.py` and `tests/test_portable_build.py`, not originally listed), ~~`deploy/portable/PHOTONForge.{ps1,bat,sh}.tmpl`~~ DONE, ~~`tests/test_portable.py`~~ DONE (plus `tests/test_cartridge_make_portable_cli.py`, not originally listed), `tests/lua/test_runner_selflocate.lua` (superseded by `tests/lua/test_runner_cartridge.lua`, landed with Task 1), ~~`docs/portable-drive-setup.md`~~ DONE, ~~`dev-docs/architecture/adr/ADR-00X-exfat-cross-os-cartridge.md`~~ DONE (filed as `ADR-008`, ADR-007 was the highest number in use).
 
 **Modify:** `lua/photonforge/runner.lua`, `lua/photonforge/config.lua`, ~~`src/photo_workflow/cartridge.py`~~ DONE (`make-portable` + `init` deprecation notice), `src/photo_workflow/provision.py`, ~~`src/photo_workflow/pipeline.py`~~ DONE, ~~`src/photo_workflow/naming.py`~~ DONE, ~~`pyproject.toml`~~ DONE (added `provision` extra: PyYAML; `build`/pyinstaller landed with Task 6), `scripts/deploy_lua.ps1` + `deploy/entrypoint.sh` (delegate to shared `_deploy_plugin` — **not done**: `_deploy_plugin` is Python, and wiring a PowerShell dev-machine script through it would add a runtime dependency beyond what Task 2/3 needed; left as explicit future work rather than silently dropped), plus the docs above.
 
@@ -460,9 +495,9 @@ pipeline + a cull/review/export UI when the drive or an SD card plugs straight i
 phone. Points of contact with this plan:
 
 - **The exFAT decision above is load-bearing for Android too** — Android mounts
-  exFAT/FAT32 only, never ext4. Fold Android into the ADR's justification
-  (`ADR-00X-exfat-cross-os-cartridge`): one filesystem unblocks Windows, macOS, *and*
-  the phone.
+  exFAT/FAT32 only, never ext4. Folded into the ADR's justification
+  ([`ADR-008-exfat-cross-os-cartridge`](../../architecture/adr/ADR-008-exfat-cross-os-cartridge.md)):
+  one filesystem unblocks Windows, macOS, *and* the phone.
 - **KPM-1.4 re-validation on exFAT** should include the phone as a host (SAF-mediated
   writes count toward the 50 safe-eject cycles).
 - **Layout compatibility:** the Android app reads shoot folders at root, `models/`

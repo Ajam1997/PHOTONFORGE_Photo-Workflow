@@ -146,7 +146,52 @@ portable drive) with a backup destination on a second drive. The Linux-only
 pieces are `detect_cartridges` (lsblk) and provisioning. See the
 [backup runbook](backup-and-restore-guide.md).
 
-## 6. Sanity checklist
+## 6. Portable drive builds (this machine, Windows side)
+
+Building the self-contained portable cartridge (the [portable-drive
+plan](superpowers/plans/2026-07-17-portable-drive-plan.md); full guide:
+[docs/portable-drive-setup.md](../docs/portable-drive-setup.md)):
+
+```powershell
+# 1. Freeze the CLI for this OS (writes runtime\win\)
+.\scripts\build_portable_cli.ps1
+
+# 2. Assemble onto a mounted, provisioned PHOTON-XXX cartridge
+photo-cartridge make-portable E:\ `
+    --os win `
+    --manifest config\portable-manifest.yml `
+    --models-src models `
+    --cli-src runtime `
+    --cache C:\Users\Alexa\AppData\Local\photonforge-portable-cache
+```
+
+**From this machine you can only bundle the Windows half of Darktable
+natively.** Bundling the *Linux* half runs the downloaded AppImage itself
+(`--appimage-extract`), which needs something that can execute a Linux ELF
+binary — WSL (untested here) or a separate Linux machine. The Yoga 910
+already is that machine, and it can build **both** halves in one
+`make-portable` run since `innoextract` never executes the Windows
+installer either — see `docs/portable-drive-setup.md`'s "Prerequisites on
+the build machine" section. Practically: run `--os linux` on the Yoga,
+`--os win` here (or both on the Yoga and skip this machine entirely for
+portable builds).
+
+**`--os win` needs innoextract with Inno Setup 6.7+ support**, same
+constraint as Linux — Darktable ships no Windows zip, only an Inno Setup
+installer, and the widely-distributed innoextract release is too old for
+it. `docs/portable-drive-setup.md` has the build-from-source procedure (the
+same MSYS2 patch series also produces a native Windows `innoextract.exe`,
+not just a Linux binary).
+
+> **Status:** `scripts\build_portable_cli.ps1` and `make-portable --os win`
+> have never been run on a real Windows box in the environment that
+> developed this feature (no Windows host was available there) — they are
+> parse-clean and logic-mirror the Linux path, which *was* verified for
+> real, but this machine is where that gap actually gets closed. Report
+> back on `docs/portable-drive-setup.md` (or the portable-drive plan) once
+> you have.
+
+## 7. Sanity checklist
 
 - [ ] `python -m pytest -m "not slow"` green
 - [ ] `.\scripts\update_install.ps1 -VerifyOnly` reports "Install is up to date"

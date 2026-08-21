@@ -147,7 +147,7 @@ classDiagram
     class library_db {
         SQLite
         on cartridge
-        /mnt/photon_ssd/XXX/darktable/library.db
+        /media/$USER/PHOTON-XXX/dt-config/library.db
     }
     class xmp_sidecar {
         per-photo .xmp file

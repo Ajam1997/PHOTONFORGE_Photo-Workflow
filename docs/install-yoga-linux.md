@@ -88,6 +88,17 @@ via `pkexec` in a visible terminal.
 
 ## 5. Darktable Lua plugin
 
+> **This section installs the plugin into a host-installed Darktable**
+> (`~/.config/darktable`, the apt package from step 1) — the R1 path for the
+> Yoga, which already has Darktable installed. The alternative is a
+> **portable drive**: instead of installing anything here, `photo-cartridge
+> make-portable` bundles Darktable itself onto the cartridge and the plugin
+> is launched with `--configdir <DRIVE>/dt-config` instead of
+> `~/.config/darktable` — nothing to install on any host, at the cost of a
+> larger cartridge. See [docs/portable-drive-setup.md](portable-drive-setup.md).
+> Both paths use the exact same plugin files; only the `--configdir` target
+> changes.
+
 There is no Linux deploy script yet (the Windows one is
 `scripts/deploy_lua.ps1`); the equivalent by hand:
 
@@ -174,13 +185,18 @@ macOS and Android as well as Linux — ext4 is Linux-only. Pass `fs="ext4"` for 
 drive that will never leave Linux. The partition is typed **Microsoft Basic
 Data**, which Windows requires before it will assign a drive letter; a
 Linux-typed partition holding an exFAT filesystem may not mount there at all.
+Full rationale: [ADR-008](../dev-docs/architecture/adr/ADR-008-exfat-cross-os-cartridge.md).
 
 exFAT volume labels are capped at **11 characters**, which `PHOTON-001` fits
 with one to spare. Provisioning refuses a longer label up front rather than
 failing at `mkfs` after the partition table has already been rewritten.
 
 Data layout — the shoot folder's **parent (the cartridge root)** holds the
-state, so the library travels with the drive (NFR-2.3):
+state, so the library travels with the drive (NFR-2.3). This is **Layout B**,
+the canonical cartridge layout — it superseded the legacy Layout A
+(`<mount>/<id>/darktable/library.db` + `photos/`), which `cartridge.py`'s
+`init` command still writes but now prints a deprecation notice pointing back
+here:
 
 ```
 /media/alex/PHOTON-001/
