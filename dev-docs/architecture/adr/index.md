@@ -15,3 +15,4 @@ diff (see the docs-impact matrix in
 | [ADR-005](ADR-005-r2-captioner-lfm2.md) | R2 captioner: LFM2-VL-450M grounded; Florence-2 until then; NIMA deleted; no depth model | Accepted (R2) |
 | [ADR-006](ADR-006-per-type-weights-vs-scenerecord.md) | Per-Type weight calibration vs R2 SceneRecord per-region scoring | **OPEN** |
 | [ADR-007](ADR-007-cartridge-backup-tiers.md) | Cartridge backup in three tiers, ordered by dependency-freedom | Accepted (Tier 3 not built) |
+| [ADR-008](ADR-008-exfat-cross-os-cartridge.md) | exFAT as the cartridge filesystem; Layout B canonical | Accepted |

@@ -74,22 +74,32 @@ stack rationale (most of it — EE/ME — is N/A for this project).
 - Documentation conventions (docs-impact matrix, supersession banner, glossary, templates) are data-driven and enforced by `sf-style` — see `dev-docs/house-style/`
 
 ## Project Layout
-src/photo_workflow/  (23 modules)
+src/photo_workflow/  (24 modules)
   pipeline.py, ingest.py, grouping.py, dedup.py,
   sharpness.py, composition.py, exposure.py,
   score_fusion.py, scoring_types.py, subject_context.py,
   genre_router.py, genre_adapter.py, genre_trainer.py,
   active_learning.py, training_weights_db.py,
   naming.py, raw_loader.py, darktable_bridge.py,
-  photondb.py, cartridge.py, volume.py, provision.py, backup.py
+  photondb.py, cartridge.py, volume.py, provision.py, backup.py,
+  portable.py -- self-contained portable-drive assembly (make-portable); see ADR-008
 lua/photonforge/ -- Darktable Lua plugin (panel, runner, tag_manager, applicator, json, config)
-scripts/   -- safe_eject.sh, manage_ssd.sh, install_polkit.sh, remote_test.sh (doc machinery now in the systems-first package, sf-* CLIs)
-deploy/    -- Dockerfile, docker-compose.yml
+scripts/   -- safe_eject.sh, manage_ssd.sh, install_polkit.sh, remote_test.sh,
+              build_portable_cli.{sh,ps1} + photonforge.spec (PyInstaller onedir freeze),
+              portable/freeze_entry_photo_{workflow,cartridge}.py
+              (doc machinery now in the systems-first package, sf-* CLIs)
+deploy/    -- Dockerfile, docker-compose.yml, portable/PHOTONForge.{ps1,bat,sh}.tmpl (drive launchers)
+config/    -- portable-manifest.yml (pinned per-OS Darktable downloads, sha256-verified, no TOFU)
 tests/     -- fixtures/, test_*.py
 models/    -- florence2_int8/ (vendored, not downloaded)
 dev-docs/  -- developer documentation (markdown source for the GitHub Wiki)
-docs/      -- placeholder for future end-user documentation (currently empty)
+docs/      -- end-user documentation: install-yoga-linux.md, portable-drive-setup.md
 .github/workflows/ -- CI: tests.yml (pytest -m "not slow" + ruff), docs-integrity.yml, regen-docs, wiki-publish
+
+Note: `apps/`, `runtime/`, `dt-config/` are **drive-layout** directories
+`make-portable` writes onto a portable cartridge (see ADR-008) — they are
+never present in this repo tree, only in `deploy/portable/*.tmpl` (source)
+and `docs/portable-drive-setup.md` (the layout diagram).
 
 ## Build Sequence
 1. Scaffold (@systems_lead): pyproject.toml, directory structure, empty modules ✓

@@ -2,7 +2,7 @@
 
 **Owner:** @systems_lead
 **Status:** living
-**Last updated:** 2026-07-10
+**Last updated:** 2026-08-21
 **Companion ICDs:** see `requirements/interfaces/IF-*.md` (filed in Phase 6)
 **Format spec:** [architecture-contracts-format.md](architecture-contracts-format.md)
 
@@ -39,6 +39,7 @@ access at runtime and the results visible as Darktable tags.
 | **Darktable Bridge** (`darktable_bridge.py`) | Writes scores + Subject/Type tags to XMP sidecars and the Darktable SQLite library; the sync-tags stage. | `FusionResult` + `GenreResult` + filename from state DB (`IF-3.2`) | XMP sidecars + Darktable `library.db` rows (`IF-1.1` result store) | @software_lead | FR-1.8, UN-021; NFR-2.3 DB portability |
 | **State DB** (`photondb.py`) | Per-photo processing state across stages (PHOTON SQLite `photos` table, `stages` column); resume bookkeeping via `get_pending` on the missing stage. | Stage results from every module | Persisted per-photo state | @software_lead | UN-051 state DB, UN-052 resume, UN-053 progress |
 | **Backup** (`backup.py`) | Cartridge disaster recovery, in three tiers ordered by dependency-freedom: Tier 1 `VACUUM INTO` catalog snapshots on the cartridge, Tier 2 verified whole-cartridge mirrors to a second drive (plain tree + sha256 manifest; the tier `migrate-fs` consumes), Tier 3 restic archives. Maintenance-time only — never called from a pipeline stage. | Cartridge root (`IF-4.1`); backup destination | Timestamped snapshot dirs + `snapshot-manifest.json`; restic repo (Tier 3) | @software_lead | NFR-2.1 (maintenance-time only, Tiers 1–2 fully offline), NFR-2.2 streaming copies/hashes, NFR-2.3 SSD-resident state; KPM-1.4 data integrity |
+| **Portable Drive Builder** (`portable.py`) | Assembles a self-contained PHOTON cartridge: bundled Darktable (per-OS, pinned + sha256-verified via `config/portable-manifest.yml`), the frozen `photo-workflow`/`photo-cartridge` CLI, ONNX models, the Lua plugin, and drive-relative launchers. Maintenance-time only, invoked via `photo-cartridge make-portable`; never called from a pipeline stage — the only network access in the whole system outside initial provisioning happens here. | `config/portable-manifest.yml`; local `models/` + `runtime/{win,linux}/` (frozen CLI) + `lua/photonforge/` | `<DRIVE>/apps/darktable-{win,linux}/`, `runtime/`, `models/`, `dt-config/` (plugin + baseline `darktablerc`), launchers, `.photonforge/manifest.lock.json` | @software_lead | NFR-2.1 (downloads confined to `make-portable`, never at pipeline runtime), NFR-2.3 (now spans the CLI + models + Darktable itself, not just `library.db`); see ADR-008 |
 | **Darktable Lua Plugin** (`lua/photonforge/*`) | Operator-facing UI inside Darktable: panel, run/stop controls, genre-correction buttons, tag applicator, reads result store. | Operator clicks; result store (XMP + `library.db`) | `photo-workflow` subprocess invocations + stop via PID sentinel (`IF-1.1`); Darktable tags applied | @software_lead | NFR-2.4 interactive prompts; surfaces all UN outputs to the user |
 
 ## Cross-cutting concerns
@@ -46,9 +47,13 @@ access at runtime and the results visible as Darktable tags.
 ### Offline at runtime (NFR-2.1)
 No module may make a network call during a pipeline run. All models
 (MobileCLIP, YOLO, Florence-2 INT8) are vendored under `models/` and
-loaded from disk. Provisioning (`provision.py`) is the *only* code
-permitted internet access, and only during initial machine setup —
-never during `ingest`/`scan`/`dedup`/`score`/`name`/`sync-tags`.
+loaded from disk. `provision.py` and `portable.py` are the *only* code
+permitted internet access, and only during initial machine setup or
+`make-portable`'s one-time drive assembly — never during
+`ingest`/`scan`/`dedup`/`score`/`name`/`sync-tags`. This still holds on a
+portable drive: nothing in `runtime/`, the drive-root launchers, or
+`runner.lua` ever touches the network — reaffirmed by the portable-drive
+plan (see ADR-008).
 
 ### Resource budget (NFR-2.2)
 The score stage is the binding constraint: CLIP + YOLO + Florence-2
@@ -64,6 +69,16 @@ The Darktable `library.db` and user config live on the external SSD
 cartridge, not the host filesystem — the cartridge IS the portable
 library. The Ingest & Cartridge and Darktable Bridge modules both
 honor this; the host machine stays stateless.
+
+**Widened by the portable-drive work:** NFR-2.3 no longer stops at
+`library.db` + config. A drive built by `make-portable` also carries the
+Darktable *binary* itself (`apps/darktable-{win,linux}/`) and the frozen
+CLI (`runtime/{win,linux}/`), so the cartridge is a fully self-contained
+bundle — Darktable + CLI + models + state — portable across Windows and
+Linux hosts with nothing installed on either. See ADR-008 for the
+filesystem decision (exFAT) this depends on and Layout B (the canonical
+drive-root layout, superseding the legacy `<mount>/<id>/darktable/`
+layout this doc's persistence diagram used to show).
 
 ### Interactive prompts (NFR-2.4 / NFR-2.5)
 zenity dialogs surface two operator-facing conditions: SD inserted
@@ -106,6 +121,7 @@ carry a real contract worth an ICD. Phase 6 files each as an
 ## See also
 
 - [architecture-contracts-format.md](architecture-contracts-format.md) — the spec this doc follows
+- [ADR-008](adr/ADR-008-exfat-cross-os-cartridge.md) — exFAT filesystem + Layout B for the portable drive
 - [scoring-module-contracts.md](../Archive/architecture/scoring-module-contracts.md) — the original Stage-6 five-module design (**superseded**; kept for history)
 - [system-state-machine.md](system-state-machine.md) — pipeline stage state machine
 - [pipeline-activity.md](pipeline-activity.md) — stage activity flow
