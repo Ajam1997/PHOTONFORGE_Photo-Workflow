@@ -100,10 +100,55 @@ files under `xvfb-run`:
 
 ## Tasks
 
-### Task 1 — Safe move/migrate core (`src/photo_workflow/relocate.py`) — do this first, headless, no GUI
+### Task 1 — Safe move/migrate core (`src/photo_workflow/relocate.py`) — **DONE (same-cartridge only)**
 
-The riskiest part of the whole plan, built and proven before anything else
-touches it. Function-based API + click subcommands on `photo-cartridge`
+> Landed 2026-08-21. `move_photos()`, `move_shoot_folder()`, `resume_move()`
+> — function-based API, no GUI, no click yet (the CLI wrapper is still
+> Task 2). 18 tests, all against real SQLite (the `make_real_darktable_db`
+> fixture from the schema research above, not mocks).
+>
+> **Scoped to same-cartridge moves only, on purpose.** `plan_move()` raises
+> `CrossCartridgeNotSupportedError` if source and destination resolve to
+> different cartridge roots, rather than attempt the harder copy-row-and-
+> remap-tag-ids algorithm the plan's own research flagged as unverified.
+> That stays open for a follow-up task.
+>
+> **A real gap turned up in the test that was supposed to prove the core
+> safety claim.** `test_history_tags_and_color_labels_survive_byte_identical`
+> originally queried `history`/`tagged_images`/`color_labels` by the
+> *original* `imgid` and asserted the rows were unchanged — which passed
+> even under a deliberately-reintroduced delete+reinsert mutation, because
+> SQLite (with no `PRAGMA foreign_keys=ON` in the fixture, matching
+> Darktable's own defaults) happily leaves those rows exactly as they were
+> — now orphaned, pointing at an imgid nothing references any more. The
+> test never checked that the moved photo's *current* imgid, looked up
+> independently at its new location, was still the original one. Fixed by
+> adding that lookup and asserting equality; re-ran the same mutation and
+> confirmed the test now fails as it should, then reverted the mutation and
+> confirmed 18/18 pass on the real code. Documented here because it's
+> exactly the kind of test that looks like it proves the safety claim but
+> doesn't, and is worth remembering to check for in Task 2/3's tests too.
+>
+> **Design decisions the plan's algorithm sketch didn't spell out, resolved
+> during implementation:**
+> - Darktable errors (`CartridgeBusy` from `backup.py`) are re-raised as
+>   `relocate.RelocateError` rather than leaking `backup.py`'s exception
+>   type — a caller of this module should only ever need to catch one
+>   family of errors.
+> - Grouped photos (RAW+JPEG pairs, Darktable "duplicates") default to
+>   **refusing** the move with `GroupConflictError` naming the sibling not
+>   included, rather than silently auto-expanding the move to cover the
+>   whole group. `ungroup=True` explicitly splits the group instead,
+>   repointing the remaining members to a valid leader. Silent auto-expand
+>   would move more files than the caller asked for — exactly the kind of
+>   surprise ADR-004's retired Tk manager should have made this project
+>   allergic to.
+> - `plan_move()` (used for both the real run and `dry_run=True`) has zero
+>   side effects — no directory creation, nothing written — verified by a
+>   dedicated test after catching that an early draft called `dest_dir.mkdir()`
+>   during planning, which would have made "dry-run touches nothing" false.
+
+Function-based API + click subcommands on `photo-cartridge`
 (`move-photos`, `move-shoot`, `resume-move`), same convention as every
 other module — no GUI code in this module at all, so it can be fully
 tested from pytest and used from the CLI standalone before the app in
@@ -162,18 +207,18 @@ drifting from hand-maintained DDL). Test matrix, all against real SQLite
 files (no mocking the DB layer — the whole point is these tables must
 actually agree with each other after the operation):
 
-- [ ] Single-photo move within one cartridge (rename only, same film_roll after) — file, `photonforge.db` row, and Darktable row all correct.
-- [ ] Single-photo move across cartridges — new film_roll created, correct id assigned.
-- [ ] Batch move of a whole shoot folder.
-- [ ] A RAW+JPEG group moves together and `group_id` stays internally consistent; moving one member with `--ungroup` splits it correctly.
-- [ ] History, tags, and color labels are byte-identical before and after (prove the "keys off imgid" claim, don't just assert it).
-- [ ] Destination filename collision — refuses cleanly, proposes the next free sequence.
-- [ ] Busy-cartridge refusal (source and destination both).
-- [ ] Insufficient disk space refusal, checked before any copy starts.
-- [ ] Simulated crash between `copied` and `db-updated` (raise from a monkeypatched step) — `resume-move` completes it correctly on the next run without duplicating or losing the file.
-- [ ] Simulated crash before any state was recorded — the operation is a no-op, source untouched.
-- [ ] `--dry-run` reports the exact plan (source, dest, new filename, snapshot targets) and touches nothing.
-- [ ] The Tier-1 snapshots taken in step 2 are real and restorable (round-trip through `restore_snapshot`).
+- [x] Single-photo move within one cartridge (rename only, same film_roll after) — file, `photonforge.db` row, and Darktable row all correct.
+- [ ] Single-photo move across cartridges — **deferred**, see the Task 1 annotation above; cross-cartridge raises `CrossCartridgeNotSupportedError` and is a future task, not this one.
+- [x] Batch move of a whole shoot folder (`move_shoot_folder`, `test_move_shoot_folder_moves_every_photo`).
+- [x] A RAW+JPEG group moves together and `group_id` stays internally consistent; moving one member with `ungroup=True` splits it correctly and repoints the remaining sibling to a valid leader.
+- [x] History, tags, and color labels are byte-identical before and after — and the test proves it by imgid identity, not just content, after catching that content-only assertions pass even under a delete+reinsert mutation (see the Task 1 annotation above).
+- [x] Destination filename collision — refuses cleanly. (Reachable only by forcing it in the test — `get_next_sequence` already avoids the normal case by design, so this is defense-in-depth, not dead code, confirmed by actually forcing the collision rather than assuming.)
+- [x] Busy-cartridge refusal.
+- [x] Insufficient disk space refusal, checked before any copy starts.
+- [x] Simulated crash between `copied` and `db-updated` (raise from a monkeypatched step) — `resume_move` completes it correctly on the next run without duplicating or losing the file.
+- [x] A second move started while one is already in-progress refuses with `MoveInProgressError` rather than silently racing it.
+- [x] `dry_run=True` reports the exact plan and touches nothing — verified after catching an early draft that called `dest_dir.mkdir()` during planning.
+- [x] The Tier-1 snapshot taken before the move is real and passes `verify_snapshot` (re-hashes every file against its manifest) — not literally round-tripped through `restore_snapshot`, but the byte-level check is the stronger claim of the two and matches what the backup runbook itself emphasizes ("Verifying — do not skip this").
 
 ### Task 2 — `move-photos` / `move-shoot` / `resume-move` CLI (`src/photo_workflow/cartridge.py`)
 
@@ -245,13 +290,15 @@ for here.
 
 ## Files at a glance
 
-**Create:** `src/photo_workflow/relocate.py`, `tests/test_relocate.py`,
-an accurate Darktable-schema fixture builder in `tests/conftest.py` (or a
-new `tests/fixtures/make_real_darktable_db.py`), the new GUI package
-(path TBD — see Open Questions), `docs/cartridge-manager-guide.md`
-(end-user guide, once Task 4 lands), a new ADR if the WSL-orchestration
-design in Task 3 turns out to need one (likely — it's a real architecture
-decision, not just an implementation detail).
+**Create:** ~~`src/photo_workflow/relocate.py`~~ DONE (same-cartridge only),
+~~`tests/test_relocate.py`~~ DONE (18 tests), ~~an accurate Darktable-schema
+fixture builder in `tests/conftest.py`~~ DONE (`make_real_darktable_db`,
+alongside — not replacing — the existing `make_darktable_db`, which
+`test_pipeline.py` still uses), the new GUI package (path TBD — see Open
+Questions), `docs/cartridge-manager-guide.md` (end-user guide, once Task 4
+lands), a new ADR if the WSL-orchestration design in Task 3 turns out to
+need one (likely — it's a real architecture decision, not just an
+implementation detail).
 
 **Modify:** `src/photo_workflow/cartridge.py` (new subcommands),
 `pyproject.toml` (new `gui` extra: PySide6; a new console-script entry
