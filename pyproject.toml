@@ -30,6 +30,9 @@ dev = [
     "memory-profiler>=0.61",
     "ruff>=0.4",
     "mypy>=1.10",
+    # Widget/signal tests for cartridge_manager (Cartridge Manager plan Task 4);
+    # needs a Qt binding present too — install alongside the `gui` extra.
+    "pytest-qt>=4.4",
 ]
 train = [
     "scikit-learn>=1.4",
@@ -50,10 +53,17 @@ docs = [
     "mkdocs-material>=9.5",
     "responses>=0.25",
 ]
+gui = [
+    # Cartridge Manager desktop app (Cartridge Manager plan Task 4) — this
+    # extra is Windows-target-facing, but the shell itself runs anywhere Qt
+    # runs, which is what lets it be developed/tested on Linux.
+    "PySide6>=6.6",
+]
 
 [project.scripts]
 photo-workflow = "photo_workflow.pipeline:main"
 photo-cartridge = "photo_workflow.cartridge:main"
+cartridge-manager = "cartridge_manager.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

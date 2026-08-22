@@ -330,10 +330,15 @@ for here.
 > `MANIFEST_LOCK_NAME`/`apps/darktable-<os>` layout in `portable.py`
 > before accepting) all clean.
 
-### Task 4 — PySide6 app shell (new package, layout TBD — see below)
+### Task 4 — PySide6 app shell (`src/cartridge_manager/` — layout settled, see Open Questions) — **IN PROGRESS, sliced**
 
-- [ ] Cartridge list / detail view (label, id, free space, busy state —
-      reuses `volume.py`/`backup.cartridge_layout`).
+Being delivered as separate vertical slices (same reasoning as Tasks 1-3:
+one real, fully-tested thing per PR rather than one giant GUI drop), not
+as a single Task 4 PR.
+
+- [x] **Slice 4a — DONE.** Cartridge list / detail view (label, id, free
+      space, busy state — reuses `photo_workflow.backup.describe_cartridge`
+      / `cartridge_busy_reason` / `cartridge_layout`, not reimplemented).
 - [ ] Move UI over Task 2: select photos or a whole shoot folder, pick a
       destination cartridge/folder, dry-run preview before commit.
 - [ ] Backup / Restore / Verify / (Archive, once Tier 3 exists) as real
@@ -343,7 +348,39 @@ for here.
 - [ ] Progress/cancel for anything long-running (batch moves, mirrors) —
       these functions already report progress via callback (`backup.py`'s
       `progress` parameter, `portable.py`'s `progress`), so this is wiring,
-      not new plumbing.
+      not new plumbing. **Deliberately not built in slice 4a** — nothing in
+      the cartridge-list view does long-running work (describe/layout/busy
+      checks are all fast filesystem/sqlite calls), so a `QThread` worker
+      would have been unused scaffolding ahead of its first real caller.
+      Build it in the same slice as whichever of Move/Backup/Provision
+      lands next, against a real long-running call, not speculatively.
+
+> **Slice 4a built as:** `src/cartridge_manager/` — `cartridges.py`
+> (`CartridgeInfo` dataclass + `describe(root)`, pure Python, no Qt import,
+> composes existing `backup.py` functions rather than reimplementing them),
+> `cartridge_list_widget.py` (`CartridgeListWidget(QWidget)`: table + detail
+> panel + Add/Remove/Refresh, `QSettings`-backed persistence of cartridge
+> roots, dependency-injectable settings object so tests never touch a real
+> user's settings file), `main_window.py`, `app.py` (the `cartridge-manager`
+> console-script entry point — `QApplication` created only inside `main()`,
+> never at import time, so tests can own their own `QApplication`/`qtbot`).
+> 11 new tests (5 backend, no PySide6 import at all so they always run even
+> without the `gui` extra; 6 widget tests via `pytest-qt`'s `qtbot`) —
+> genuinely instantiate real widgets and assert on real table/label state,
+> not mocked. Tested headlessly via `QT_QPA_PLATFORM=offscreen` (works in
+> this sandbox once `libegl1` is installed;
+> `tests/conftest.py` sets it via `os.environ.setdefault` so it's automatic
+> for any contributor without a real display) and wired into CI's
+> `tests.yml` (`gui` extra installed, `libegl1` apt-installed, env var set
+> for the pytest step). Manually smoke-tested the actual `cartridge-manager`
+> console script end-to-end (launches, shows the right window title and
+> central widget, quits cleanly) — not just unit tests in isolation.
+> Implementation drafted by a Haiku-class agent per current cost guidance,
+> reviewed line-by-line against `backup.py`'s real function signatures and
+> `cartridge_layout`'s real dict keys before accepting, then independently
+> re-verified (full suite, ruff, doc-reference check, and the console-script
+> smoke test) before commit. Full suite: 498 passed, 1 skipped, 2
+> deselected.
 
 ### Task 5 — Lightweight viewer
 
@@ -367,11 +404,16 @@ fixture builder in `tests/conftest.py`~~ DONE (`make_real_darktable_db`,
 alongside — not replacing — the existing `make_darktable_db`, which
 `test_pipeline.py` still uses), ~~`src/photo_workflow/wsl_bridge.py`~~ DONE
 (see the Task 3 annotation above), ~~`tests/test_wsl_bridge.py`~~ DONE (24
-tests), the new GUI package (path TBD — see Open Questions),
-`docs/cartridge-manager-guide.md` (end-user guide, once Task 4 lands), a
-new ADR if the WSL-orchestration design in Task 3 turns out to need one on
-reflection after real-Windows verification — not written yet; the design
-is documented in the Task 3 annotation and `docs/portable-drive-setup.md`
+tests), ~~`src/cartridge_manager/`~~ slice 4a DONE (`cartridges.py`,
+`cartridge_list_widget.py`, `main_window.py`, `app.py` — see the Task 4
+annotation above; Move/Backup/Provision views still to come as later
+slices), ~~`tests/test_cartridge_manager_cartridges.py`~~ DONE (5 tests),
+~~`tests/test_cartridge_manager_widget.py`~~ DONE (6 tests),
+`docs/cartridge-manager-guide.md` (end-user guide, once Task 4 is further
+along — a one-view app doesn't need one yet), a new ADR if the
+WSL-orchestration design in Task 3 turns out to need one on reflection
+after real-Windows verification — not written yet; the design is
+documented in the Task 3 annotation and `docs/portable-drive-setup.md`
 instead, and can graduate to an ADR later if it proves durable.
 
 **Modify:** ~~`src/photo_workflow/cartridge.py` (new subcommands)~~ DONE
@@ -379,22 +421,30 @@ instead, and can graduate to an ADR later if it proves durable.
 `make_portable_cmd` — Task 3), ~~`tests/test_cartridge_move_cli.py`~~ DONE
 (9 tests), ~~`tests/test_cartridge_make_portable_cli.py`~~ DONE (5 new WSL
 tests), ~~`docs/portable-drive-setup.md`~~ DONE (Task 3's "From Windows
-only" section), `pyproject.toml` (new `gui` extra: PySide6; a new
-console-script entry point once Task 4's package layout is decided),
-`CLAUDE.md` (new component, once it exists for real — don't pre-announce
-it), `tests/conftest.py`.
+only" section), ~~`pyproject.toml`~~ DONE (`gui` extra: `PySide6>=6.6`;
+`pytest-qt` in `dev`; `cartridge-manager` console-script entry point),
+~~`CLAUDE.md`~~ DONE (new `src/cartridge_manager/` layout entry; also
+caught and fixed `relocate.py`/`wsl_bridge.py` missing from the
+`src/photo_workflow/` module list and the stale "24 modules" count — now
+26), ~~`tests/conftest.py`~~ DONE (`QT_QPA_PLATFORM=offscreen` default),
+~~`.github/workflows/tests.yml`~~ DONE (`gui` extra + `libegl1` install for
+headless Qt tests).
 
 ## Open questions (deliberately not decided here)
 
-1. **GUI package layout.** Leaning `src/cartridge_manager/` (auto-discovered
-   by the existing `[tool.setuptools.packages.find] where = ["src"]`, one
-   venv, one repo, satisfies "entirely separate" as a real module/package
-   boundary with its own entry point) over a second top-level
-   `pyproject.toml`/repo. Worth confirming before Task 4 starts, since it's
-   annoying to move later.
-2. **WSL bootstrap UX** (Task 3) — one-time manual `pip install` inside WSL
-   vs. an automated first-run bootstrap. Affects how much Task 3 has to
-   build vs. document.
+1. ~~**GUI package layout.**~~ **Settled: `src/cartridge_manager/`** —
+   auto-discovered by the existing `[tool.setuptools.packages.find] where =
+   ["src"]`, its own `gui` optional-dependency extra (`PySide6>=6.6`) and
+   its own `cartridge-manager` console-script entry point in
+   `pyproject.toml`. Went with the plan's own leaning rather than a second
+   top-level repo — one venv, one repo, and the package boundary alone
+   already satisfies "entirely separate" (it imports `photo_workflow`,
+   `photo_workflow` never imports it). Tested headlessly via
+   `QT_QPA_PLATFORM=offscreen` (works in this sandbox once `libegl1` is
+   installed) with `pytest-qt`, wired into CI's `tests.yml`.
+2. ~~**WSL bootstrap UX** (Task 3)~~ **Settled — see the Task 3 annotation
+   above:** one-time manual `pip install -e .` inside WSL, not an automated
+   bootstrap.
 3. **Whether Task 3's design is ADR-worthy.** Probably yes — "how does a
    Windows-only app orchestrate a Linux subsystem for a build step" is
    exactly the kind of non-obvious decision ADRs exist for. Write it when
