@@ -262,7 +262,7 @@ the GUI shells out to it.
 > meant the implementation was wrong. Full suite (459 tests), ruff, and
 > `check_doc_references` all clean after the fixes.
 
-### Task 3 — WSL-orchestrated dual-OS provisioning
+### Task 3 — WSL-orchestrated dual-OS provisioning — **DONE (code + tests; real-Windows verification still pending)**
 
 Extends `make-portable` usage from a Windows host: the Windows half
 bundles natively (innoextract has real Windows builds — see
@@ -270,27 +270,65 @@ bundles natively (innoextract has real Windows builds — see
 needs something that can execute a Linux ELF binary, which is what WSL is
 for here.
 
-- [ ] Detect WSL2 + a usable distro (`wsl.exe -l -v`); a clear, actionable
-      error (not a stack trace) when WSL isn't installed or has no distro,
-      since this app must not assume a dev-machine-grade WSL setup.
-- [ ] Do **not** assume the distro has this repo checked out. The
-      cleanest path: the Windows app calls `wsl.exe -d <distro> --
-      python3 -m photo_workflow.cartridge make-portable --os linux ...`
-      against a `photo_workflow` installed inside WSL (documented
-      one-time setup step — `pip install` from a path Windows-side files
-      are reachable at via `/mnt/c/...`), rather than trying to freeze a
-      second Linux CLI build specifically for this. Open question to
-      settle during implementation, not assumed here: whether to require
-      a one-time `pip install` inside WSL, or have the Windows app ship a
-      small bootstrap script that does it on first use.
-- [ ] The Windows half (`--os win`) runs directly in the Windows app
-      process (no WSL needed) using the same `portable.py` already built.
+- [x] Detect WSL2 + a usable distro (`wsl.exe --list --verbose`); a clear,
+      actionable error (not a stack trace) when WSL isn't installed or has
+      no distro, since this app must not assume a dev-machine-grade WSL
+      setup.
+- [x] Do **not** assume the distro has this repo checked out. Settled the
+      open question the way the plan's default leaned: the Windows app
+      calls `wsl.exe -d <distro> -- python3 -m photo_workflow.cartridge
+      make-portable --os linux ...` against a `photo_workflow` installed
+      inside WSL, and **requires the one-time `pip install -e .`** rather
+      than auto-bootstrapping it — silently running `pip install` inside a
+      user's WSL distro on their behalf is exactly the kind of
+      hard-to-reverse, unrequested action CLAUDE.md's execution-care
+      section says to avoid, so a missing install surfaces as an
+      actionable `WslError` naming the exact command to run, not a
+      background side effect.
+- [x] The Windows half (`--os win`) runs directly in the Windows app
+      process (no WSL needed) using the same `portable.py` already built —
+      unchanged; `make_portable_cmd` only splits `--os linux` out to WSL
+      when `sys.platform == "win32"`, so non-Windows behavior (including
+      every existing test) is untouched.
 - [ ] Real end-to-end test: build a full dual-OS drive from a Windows-style
-      driver of this feature — this repo's CI has no Windows+WSL runner,
-      so this is manually verified on the dev machine and the result
-      written up in `docs/portable-drive-setup.md`, the same honesty
-      `scripts/build_portable_cli.ps1` already has about being
-      Windows-unverified from this environment.
+      driver of this feature — **still not done**. This repo's CI has no
+      Windows+WSL runner, and this agentic session itself runs inside a
+      Linux sandbox with no Windows or WSL access either, so "manually
+      verified on the dev machine" from the original plan text has not
+      actually happened yet — it needs a human with a real Windows+WSL2
+      machine. `docs/portable-drive-setup.md` is written to describe the
+      new automated path honestly as unit-tested-but-not-yet-verified, the
+      same pattern `scripts/build_portable_cli.ps1` already uses.
+
+> **Built as:** `src/photo_workflow/wsl_bridge.py` (`detect_wsl`,
+> `windows_path_to_wsl`, `run_make_portable_linux`, `WslError`) — pure
+> function-based API, every `subprocess.run`/`shutil.which` call mockable,
+> so all 24 `tests/test_wsl_bridge.py` tests run without any real `wsl.exe`
+> present (this sandbox has none). Real `wsl.exe --list --verbose` output
+> is UTF-16LE with a BOM (Windows console output through a pipe) —
+> `_decode_wsl_output` handles that with a UTF-8 fallback, tested against
+> actual UTF-16LE-encoded sample bytes, not just plain strings. 5 more
+> tests added to `tests/test_cartridge_make_portable_cli.py` covering the
+> `make_portable_cmd` split (win half in-process, linux half dispatched to
+> a monkeypatched `wsl_bridge.run_make_portable_linux`, `WslError` surfacing
+> as a clean `ClickException`, and the `--json` output's `linux_via_wsl`
+> marker), plus a same-as-before-on-Linux regression test.
+>
+> **A known, accepted rough edge, not a bug:** when the Linux half is
+> built purely via WSL (no `--os win` in the same run), the CLI's
+> human/JSON output for that half is reconstructed by re-reading
+> `.photonforge/manifest.lock.json` after the WSL call returns, rather
+> than getting a real `PortableBuildResult` back from the WSL-side
+> process — so fields like `plugin`/`launchers`/`models_copied` are
+> reported as empty/false in that output even though the actual files
+> those describe were genuinely written to the drive by the WSL-side
+> `build_portable_layout` call (only the *local* process's view of them
+> is incomplete). This affects reporting only, not the drive's contents.
+> Full suite (487 tests), ruff, and manual review of the diff (this was
+> implemented by a Haiku-class agent; reviewed line-by-line against the
+> real `PortableBuildResult` field names and the real
+> `MANIFEST_LOCK_NAME`/`apps/darktable-<os>` layout in `portable.py`
+> before accepting) all clean.
 
 ### Task 4 — PySide6 app shell (new package, layout TBD — see below)
 
@@ -327,18 +365,24 @@ for here.
 ~~`tests/test_relocate.py`~~ DONE (18 tests), ~~an accurate Darktable-schema
 fixture builder in `tests/conftest.py`~~ DONE (`make_real_darktable_db`,
 alongside — not replacing — the existing `make_darktable_db`, which
-`test_pipeline.py` still uses), the new GUI package (path TBD — see Open
-Questions), `docs/cartridge-manager-guide.md` (end-user guide, once Task 4
-lands), a new ADR if the WSL-orchestration design in Task 3 turns out to
-need one (likely — it's a real architecture decision, not just an
-implementation detail).
+`test_pipeline.py` still uses), ~~`src/photo_workflow/wsl_bridge.py`~~ DONE
+(see the Task 3 annotation above), ~~`tests/test_wsl_bridge.py`~~ DONE (24
+tests), the new GUI package (path TBD — see Open Questions),
+`docs/cartridge-manager-guide.md` (end-user guide, once Task 4 lands), a
+new ADR if the WSL-orchestration design in Task 3 turns out to need one on
+reflection after real-Windows verification — not written yet; the design
+is documented in the Task 3 annotation and `docs/portable-drive-setup.md`
+instead, and can graduate to an ADR later if it proves durable.
 
 **Modify:** ~~`src/photo_workflow/cartridge.py` (new subcommands)~~ DONE
-(`move-photos`/`move-shoot`/`resume-move`; see the Task 2 annotation
-above), ~~`tests/test_cartridge_move_cli.py`~~ DONE (9 tests),
-`pyproject.toml` (new `gui` extra: PySide6; a new console-script entry
-point once Task 4's package layout is decided), `CLAUDE.md` (new
-component, once it exists for real — don't pre-announce it), `tests/conftest.py`.
+(`move-photos`/`move-shoot`/`resume-move` — Task 2; WSL dispatch wiring in
+`make_portable_cmd` — Task 3), ~~`tests/test_cartridge_move_cli.py`~~ DONE
+(9 tests), ~~`tests/test_cartridge_make_portable_cli.py`~~ DONE (5 new WSL
+tests), ~~`docs/portable-drive-setup.md`~~ DONE (Task 3's "From Windows
+only" section), `pyproject.toml` (new `gui` extra: PySide6; a new
+console-script entry point once Task 4's package layout is decided),
+`CLAUDE.md` (new component, once it exists for real — don't pre-announce
+it), `tests/conftest.py`.
 
 ## Open questions (deliberately not decided here)
 

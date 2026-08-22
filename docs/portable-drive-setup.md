@@ -70,10 +70,25 @@ So the asymmetry runs one way:
   This is also the primary target machine (the Yoga 910 runs Ubuntu 24.04),
   so the common case needs nothing special.
 - **From Windows only:** you can bundle the **Windows** half (innoextract has
-  native Windows builds too, via the same MSYS2 patch series used below), but
-  the Linux half needs WSL to run the AppImage extraction step — **untested**
-  in this repo. Without WSL, build the Linux half on a separate Linux machine
-  and `make-portable --os linux` onto the same cartridge afterward
+  native Windows builds too, via the same MSYS2 patch series used below).
+  For the Linux half, `make-portable` automatically shells out to WSL2 via
+  `wsl.exe` (see `src/photo_workflow/wsl_bridge.py`): it detects a
+  registered WSL2 distro, translates the drive's Windows path to its
+  `/mnt/<letter>/...` mount point, and re-invokes
+  `photo_workflow.cartridge make-portable --os linux` inside that distro,
+  where the AppImage extraction step can actually execute a Linux ELF
+  binary. This needs a **one-time setup step inside WSL**: `photo_workflow`
+  must be installed into the distro's Python (`pip install -e .` from this
+  repo, reachable inside WSL at `/mnt/c/...` or wherever it's checked out
+  on the Windows side) — if it isn't, the error message says so and gives
+  the exact command to run. **The WSL bridge itself is unit-tested (all
+  subprocess calls mocked) but not yet end-to-end verified on a real
+  Windows+WSL machine** — this repo's CI has no Windows+WSL runner, the
+  same honesty `scripts/build_portable_cli.ps1` already carries about being
+  Windows-unverified from this environment. Without WSL2 installed at all
+  (`make-portable` reports a clear, actionable error rather than a
+  traceback), fall back to building the Linux half on a separate Linux
+  machine and `make-portable --os linux` onto the same cartridge afterward
   (`make-portable` is incremental, not destructive across runs).
 
 ### The innoextract version requirement

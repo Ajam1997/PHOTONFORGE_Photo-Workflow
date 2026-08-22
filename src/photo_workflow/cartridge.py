@@ -281,8 +281,11 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
     DRIVE must already be a mounted, provisioned PHOTON-XXX cartridge (see
     `provision`). Runs unelevated; partitioning/formatting stays in
     provision.py.
+
+    On Windows with --os linux, the Linux half is built via WSL (wsl.exe).
     """
     from . import portable as portable_mod
+    from . import wsl_bridge
     from .volume import extract_cartridge_id, get_volume_label
 
     label = get_volume_label(drive)
@@ -302,19 +305,77 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
         if not as_json:
             click.echo(msg)
 
+    # On Windows, split the OS set: build non-linux locally via build_portable_layout,
+    # dispatch linux to WSL via wsl_bridge.
+    in_process_oses = list(oses)
+    wsl_linux_via_wsl = False
+
+    if sys.platform == "win32" and "linux" in oses:
+        in_process_oses = [o for o in oses if o != "linux"]
+        wsl_linux_via_wsl = True
+
     try:
-        result = portable_mod.build_portable_layout(
-            drive, oses=list(oses), manifest=loaded_manifest,
-            templates_dir=templates_dir, repo_lua_dir=lua_src,
-            models_src=models_src, cli_src=cli_src, cache_dir=cache_dir,
-            offline=offline, progress=_progress, volume_label=label,
-        )
+        # Build the non-linux half (or everything if not on Windows)
+        if in_process_oses:
+            result = portable_mod.build_portable_layout(
+                drive, oses=in_process_oses, manifest=loaded_manifest,
+                templates_dir=templates_dir, repo_lua_dir=lua_src,
+                models_src=models_src, cli_src=cli_src, cache_dir=cache_dir,
+                offline=offline, progress=_progress, volume_label=label,
+            )
+        else:
+            # No in-process work; bootstrap the result from scratch for JSON output
+            result = None
+
+        # Build the Linux half via WSL if needed
+        if wsl_linux_via_wsl:
+            wsl_bridge.run_make_portable_linux(
+                drive, cart_id=cart_id, manifest=manifest, cache_dir=cache_dir,
+                offline=offline, progress=_progress,
+            )
+
+    except wsl_bridge.WslError as exc:
+        raise click.ClickException(str(exc)) from exc
     except (portable_mod.DownloadError, FileNotFoundError, ValueError, RuntimeError) as exc:
         raise click.ClickException(str(exc)) from exc
 
+    # For JSON output, we need to re-read the manifest lock to see what was built
+    if result is None or wsl_linux_via_wsl:
+        # Re-read the manifest lock to pick up what was built
+        manifest_lock_path = drive / ".photonforge" / "manifest.lock.json"
+        if manifest_lock_path.exists():
+            import json as _json
+
+            manifest_lock_data = _json.loads(manifest_lock_path.read_text(encoding="utf-8"))
+            # Reconstruct apps dict from manifest lock for JSON output
+            apps_from_lock: dict[str, Path] = {}
+            for os_name in manifest_lock_data.get("darktable", {}):
+                app_path = drive / "apps" / f"darktable-{os_name}"
+                if app_path.exists():
+                    apps_from_lock[os_name] = app_path
+
+            if result is None:
+                # No in-process result; build a minimal one for output
+                result = portable_mod.PortableBuildResult(
+                    drive_root=drive,
+                    dt_config=drive / "dt-config",
+                    plugin={"copied": [], "up_to_date": []},
+                    apps=apps_from_lock,
+                    runtimes={},
+                    models_copied=False,
+                    launchers=[],
+                    readme=drive / "!README.txt",
+                    autorun_inf=drive / "autorun.inf",
+                    manifest_lock=manifest_lock_path,
+                )
+            elif wsl_linux_via_wsl:
+                # Merge WSL-built apps into the in-process result
+                result.apps.update(apps_from_lock)
+
     if as_json:
         import json as _json
-        click.echo(_json.dumps({
+
+        output = {
             "step": "make-portable", "status": "ok", "drive": str(drive),
             "apps": {k: str(v) for k, v in result.apps.items()},
             "runtimes": {k: str(v) for k, v in result.runtimes.items()},
@@ -322,7 +383,10 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
             "readme": str(result.readme),
             "autorun_inf": str(result.autorun_inf),
             "manifest_lock": str(result.manifest_lock),
-        }))
+        }
+        if wsl_linux_via_wsl:
+            output["linux_via_wsl"] = True
+        click.echo(_json.dumps(output))
     else:
         click.echo(f"Portable drive assembled at {drive}")
         click.echo(
@@ -340,6 +404,8 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
         click.echo(f"  readme: {result.readme.name}")
         click.echo(f"  drive icon/label: {result.autorun_inf.name}")
         click.echo(f"  manifest lock: {result.manifest_lock}")
+        if wsl_linux_via_wsl:
+            click.echo("  Linux half: built via WSL")
 
 
 def _resolve_cart_id(dest: Path, cart_id: str | None) -> str:
