@@ -342,6 +342,145 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
         click.echo(f"  manifest lock: {result.manifest_lock}")
 
 
+def _resolve_cart_id(dest: Path, cart_id: str | None) -> str:
+    from .volume import extract_cartridge_id, get_volume_label
+
+    if cart_id is not None:
+        return cart_id.zfill(3)[:3]
+    label = get_volume_label(dest)
+    if not label:
+        raise click.ClickException(
+            f"Could not read a volume label for {dest} — pass --cart-id explicitly."
+        )
+    return extract_cartridge_id(label)
+
+
+def _report_relocate_result(result, *, as_json: bool, step: str) -> None:
+    import json as _json
+
+    if as_json:
+        click.echo(_json.dumps({
+            "step": step, "status": "ok",
+            "moved": [[str(a), str(b)] for a, b in result.moved],
+            "dry_run": result.dry_run,
+            "snapshot": str(result.snapshot) if result.snapshot else None,
+        }))
+        return
+    if result.dry_run:
+        click.echo(f"Dry run — would move {len(result.moved)} photo(s):")
+    else:
+        click.echo(f"Moved {len(result.moved)} photo(s).")
+    for src, dest in result.moved:
+        click.echo(f"  {src.name} -> {dest}")
+    if result.snapshot is not None:
+        click.echo(f"  snapshot: {result.snapshot}")
+
+
+@main.command("move-photos")
+@click.argument("photos", nargs=-1, required=True,
+                type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--dest", "dest_dir", required=True, type=click.Path(path_type=Path),
+              help="Destination shoot folder (a subfolder of the cartridge root)")
+@click.option("--cart-id", default=None,
+              help="Destination cartridge id for renaming; auto-detected from the "
+                   "destination's volume label if omitted")
+@click.option("--trip-code", default=None,
+              help="3-char trip code for renaming; derived from the destination "
+                   "folder name if omitted")
+@click.option("--ungroup", is_flag=True,
+              help="Split a Darktable-grouped photo from its siblings instead of "
+                   "refusing when they are not all included in the move")
+@click.option("--dry-run", is_flag=True, help="Report the plan without moving anything")
+@click.option("--force", is_flag=True, help="Proceed even if the cartridge looks busy")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def move_photos_cmd(photos: tuple, dest_dir: Path, cart_id: str | None,
+                    trip_code: str | None, ungroup: bool, dry_run: bool,
+                    force: bool, as_json: bool) -> None:
+    """Move PHOTOS (files, all from one shoot folder) to --dest, same cartridge only.
+
+    Renames to the destination's naming convention and migrates the
+    photonforge.db row and the Darktable library.db row (if either exists),
+    keeping edits, tags, and color labels intact. Cross-cartridge moves are
+    not supported yet — see the cartridge-manager plan.
+    """
+    from . import relocate
+    from .volume import derive_trip_code
+
+    resolved_cart_id = _resolve_cart_id(dest_dir, cart_id)
+    resolved_trip_code = trip_code or derive_trip_code(dest_dir.name)
+
+    def _progress(index: int, total: int, path: Path) -> None:
+        if not as_json:
+            click.echo(f"  [{index}/{total}] {path.name}")
+
+    try:
+        result = relocate.move_photos(
+            list(photos), dest_dir, resolved_cart_id, resolved_trip_code,
+            ungroup=ungroup, dry_run=dry_run, force=force,
+            progress=None if dry_run else _progress,
+        )
+    except relocate.RelocateError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    _report_relocate_result(result, as_json=as_json, step="move-photos")
+
+
+@main.command("move-shoot")
+@click.argument("source_dir", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument("dest_root", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--dest-folder-name", default=None,
+              help="Destination folder name; defaults to SOURCE_DIR's own name")
+@click.option("--cart-id", default=None,
+              help="Destination cartridge id for renaming; auto-detected from "
+                   "DEST_ROOT's volume label if omitted")
+@click.option("--ungroup", is_flag=True,
+              help="Split Darktable-grouped photos from siblings left behind")
+@click.option("--dry-run", is_flag=True, help="Report the plan without moving anything")
+@click.option("--force", is_flag=True, help="Proceed even if the cartridge looks busy")
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def move_shoot_cmd(source_dir: Path, dest_root: Path, dest_folder_name: str | None,
+                   cart_id: str | None, ungroup: bool, dry_run: bool,
+                   force: bool, as_json: bool) -> None:
+    """Move every photo in SOURCE_DIR into DEST_ROOT/<folder>, same cartridge only."""
+    from . import relocate
+
+    resolved_cart_id = _resolve_cart_id(dest_root, cart_id)
+
+    def _progress(index: int, total: int, path: Path) -> None:
+        if not as_json:
+            click.echo(f"  [{index}/{total}] {path.name}")
+
+    try:
+        result = relocate.move_shoot_folder(
+            source_dir, dest_root, resolved_cart_id,
+            dest_folder_name=dest_folder_name, ungroup=ungroup, dry_run=dry_run,
+            force=force, progress=None if dry_run else _progress,
+        )
+    except relocate.RelocateError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    _report_relocate_result(result, as_json=as_json, step="move-shoot")
+
+
+@main.command("resume-move")
+@click.argument("intent_log", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--json", "as_json", is_flag=True, help="Machine-readable output")
+def resume_move_cmd(intent_log: Path, as_json: bool) -> None:
+    """Complete a move interrupted mid-operation (.photonforge/move-in-progress.json)."""
+    from . import relocate
+
+    def _progress(index: int, total: int, path: Path) -> None:
+        if not as_json:
+            click.echo(f"  [{index}/{total}] {path.name}")
+
+    try:
+        result = relocate.resume_move(intent_log, progress=_progress)
+    except relocate.RelocateError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    _report_relocate_result(result, as_json=as_json, step="resume-move")
+
+
 @main.command("init")
 @click.argument("mount_path", type=click.Path(path_type=Path))
 def init_cartridge(mount_path: Path) -> None:
