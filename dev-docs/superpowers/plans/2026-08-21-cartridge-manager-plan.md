@@ -220,7 +220,7 @@ actually agree with each other after the operation):
 - [x] `dry_run=True` reports the exact plan and touches nothing — verified after catching an early draft that called `dest_dir.mkdir()` during planning.
 - [x] The Tier-1 snapshot taken before the move is real and passes `verify_snapshot` (re-hashes every file against its manifest) — not literally round-tripped through `restore_snapshot`, but the byte-level check is the stronger claim of the two and matches what the backup runbook itself emphasizes ("Verifying — do not skip this").
 
-### Task 2 — `move-photos` / `move-shoot` / `resume-move` CLI (`src/photo_workflow/cartridge.py`)
+### Task 2 — `move-photos` / `move-shoot` / `resume-move` CLI (`src/photo_workflow/cartridge.py`) — **DONE**
 
 Thin click wrappers over Task 1, matching the existing `snapshot`/`backup`
 command style (`--json` output, clean `ClickException` on failure, a
@@ -228,6 +228,39 @@ progress callback for batches). This is the CLI surface Task 4's GUI calls
 into directly as a Python function — the CLI wrapper exists for headless
 use and so the logic can be exercised without the GUI at all, not because
 the GUI shells out to it.
+
+> **Built as:** three new `cartridge.py` subcommands (`move-photos`,
+> `move-shoot`, `resume-move`), all thin — they resolve `--cart-id` (falls
+> back to the volume label via `_resolve_cart_id`, a clean `ClickException`
+> if neither is given and no label exists) and the trip code (falls back to
+> `derive_trip_code(dest_dir.name)`), call straight into `relocate.py`, and
+> format the result via a shared `_report_relocate_result` (human or
+> `--json`). Every `relocate.RelocateError` is caught and re-raised as a
+> `ClickException` — no tracebacks leak to the terminal. 9 CLI tests in
+> `tests/test_cartridge_move_cli.py`, `click.testing.CliRunner` throughout.
+>
+> Three of the nine tests were wrong on the first pass, in a pattern worth
+> flagging for Task 3/4's tests too: **a test that doesn't set up the
+> condition it claims to exercise passes for the wrong reason.**
+> `test_move_photos_json_output` asserted `snapshot is not None` against a
+> bare fixture cartridge with no `photonforge.db` — there was nothing to
+> snapshot, so `snapshot` was correctly `None` and the assertion was simply
+> testing the wrong thing; fixed by pre-creating a real `photonforge.db` row
+> so a snapshot actually happens. `test_move_photos_group_conflict_is_a_clean_error`
+> moved a single ungrouped `.jpg` (no Darktable DB in the fixture at all) and
+> asserted a "collision" error that came from an unrelated pre-existing
+> destination file, not from `GroupConflictError` — fixed by building a real
+> RAW+JPEG group via `make_real_darktable_db`/`_darktable`, matching the
+> Task 1 fixture pattern, so the group-conflict path is what's actually
+> under test. `test_resume_move_completes_an_interrupted_move` asserted the
+> renamed destination filename without passing `--trip-code`, so the CLI's
+> `derive_trip_code(dest_dir.name)` fallback produced a different (correct,
+> but unexpected-by-the-test) name — fixed by passing `--trip-code IC2`
+> explicitly, matching the other rename-asserting tests. None of these were
+> bugs in `cartridge.py` — all three were caught by actually running the
+> tests and reading *why* they failed rather than assuming a red first run
+> meant the implementation was wrong. Full suite (459 tests), ruff, and
+> `check_doc_references` all clean after the fixes.
 
 ### Task 3 — WSL-orchestrated dual-OS provisioning
 
@@ -300,7 +333,9 @@ lands), a new ADR if the WSL-orchestration design in Task 3 turns out to
 need one (likely — it's a real architecture decision, not just an
 implementation detail).
 
-**Modify:** `src/photo_workflow/cartridge.py` (new subcommands),
+**Modify:** ~~`src/photo_workflow/cartridge.py` (new subcommands)~~ DONE
+(`move-photos`/`move-shoot`/`resume-move`; see the Task 2 annotation
+above), ~~`tests/test_cartridge_move_cli.py`~~ DONE (9 tests),
 `pyproject.toml` (new `gui` extra: PySide6; a new console-script entry
 point once Task 4's package layout is decided), `CLAUDE.md` (new
 component, once it exists for real — don't pre-announce it), `tests/conftest.py`.
