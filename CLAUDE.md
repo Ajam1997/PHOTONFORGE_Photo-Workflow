@@ -74,7 +74,7 @@ stack rationale (most of it — EE/ME — is N/A for this project).
 - Documentation conventions (docs-impact matrix, supersession banner, glossary, templates) are data-driven and enforced by `sf-style` — see `dev-docs/house-style/`
 
 ## Project Layout
-src/photo_workflow/  (24 modules)
+src/photo_workflow/  (26 modules)
   pipeline.py, ingest.py, grouping.py, dedup.py,
   sharpness.py, composition.py, exposure.py,
   score_fusion.py, scoring_types.py, subject_context.py,
@@ -83,6 +83,18 @@ src/photo_workflow/  (24 modules)
   naming.py, raw_loader.py, darktable_bridge.py,
   photondb.py, cartridge.py, volume.py, provision.py, backup.py,
   portable.py -- self-contained portable-drive assembly (make-portable); see ADR-008
+  relocate.py -- safe move/migrate of ingested photos between shoot folders/cartridges
+  (same-cartridge only; UPDATE-in-place on photonforge.db + Darktable's library.db,
+  never delete+reinsert); CLI: `photo-cartridge move-photos`/`move-shoot`/`resume-move`
+  wsl_bridge.py -- WSL2 orchestration for make-portable --os linux from a native
+  Windows host (AppImage extraction needs a Linux ELF-execution capability)
+src/cartridge_manager/ -- standalone PySide6 desktop app for cartridge management
+  (list/detail, move, backup/restore/provision, a lightweight viewer) -- entirely
+  separate from the Darktable Lua plugin and the portable-drive build; imports
+  photo_workflow directly (not a second implementation, not a CLI-shelling wrapper);
+  Windows-only target, developed/tested headlessly via QT_QPA_PLATFORM=offscreen;
+  console script: `cartridge-manager`. See
+  dev-docs/superpowers/plans/2026-08-21-cartridge-manager-plan.md.
 lua/photonforge/ -- Darktable Lua plugin (panel, runner, tag_manager, applicator, json, config)
 scripts/   -- safe_eject.sh, manage_ssd.sh, install_polkit.sh, remote_test.sh,
               build_portable_cli.{sh,ps1} + photonforge.spec (PyInstaller onedir freeze),

@@ -15,10 +15,17 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install package with dev + docs extras
-        run: pip install -e ".[dev,docs]"
+      - name: Install package with dev + docs + gui extras
+        run: pip install -e ".[dev,docs,gui]"
+      # cartridge_manager (PySide6) tests run headless via QT_QPA_PLATFORM=offscreen
+      # (set in tests/conftest.py too, belt-and-suspenders) — needs libEGL even
+      # without a real display.
+      - name: Install Qt runtime deps (offscreen rendering)
+        run: sudo apt-get update && sudo apt-get install -y libegl1
       - name: Run test suite
         run: python -m pytest -m "not slow"
+        env:
+          QT_QPA_PLATFORM: offscreen
       # The Lua plugin builds photo-cartridge command strings by hand; this
       # loads runner.lua against a stubbed darktable and asserts them, so a
       # panel button can't silently drift from the CLI it invokes.

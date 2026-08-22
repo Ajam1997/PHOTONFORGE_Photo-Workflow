@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
+
+# Set PySide6 platform before any Qt imports; use setdefault so local displays
+# are not overridden by developers who have a real X11/Wayland available.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import numpy as np
 import pytest
