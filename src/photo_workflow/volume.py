@@ -97,6 +97,24 @@ def extract_cartridge_id(label: str) -> str:
     return "000"
 
 
+def resolve_cart_id(dest: Path, cart_id: str | None) -> str:
+    """Resolve a 3-char cartridge id: explicit cart_id, or auto-detect from
+    dest's volume label.
+
+    Framework-agnostic (raises ValueError, not a click exception) so both
+    the CLI and cartridge_manager's GUI can share this instead of each
+    reimplementing the auto-detect-or-explicit fallback.
+    """
+    if cart_id is not None:
+        return cart_id.zfill(3)[:3]
+    label = get_volume_label(dest)
+    if not label:
+        raise ValueError(
+            f"Could not read a volume label for {dest} — pass an explicit cartridge id."
+        )
+    return extract_cartridge_id(label)
+
+
 def derive_trip_code(folder_name: str) -> str:
     """Derive 3-char trip code from folder name.
 

@@ -409,16 +409,12 @@ def make_portable_cmd(drive: Path, oses: tuple, manifest: Path | None,
 
 
 def _resolve_cart_id(dest: Path, cart_id: str | None) -> str:
-    from .volume import extract_cartridge_id, get_volume_label
+    from .volume import resolve_cart_id
 
-    if cart_id is not None:
-        return cart_id.zfill(3)[:3]
-    label = get_volume_label(dest)
-    if not label:
-        raise click.ClickException(
-            f"Could not read a volume label for {dest} — pass --cart-id explicitly."
-        )
-    return extract_cartridge_id(label)
+    try:
+        return resolve_cart_id(dest, cart_id)
+    except ValueError as exc:
+        raise click.ClickException(f"{exc} (--cart-id)") from exc
 
 
 def _report_relocate_result(result, *, as_json: bool, step: str) -> None:
