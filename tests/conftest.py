@@ -60,6 +60,96 @@ def make_darktable_db(path: Path) -> None:
         """)
 
 
+def make_real_darktable_db(library_path: Path, data_path: Path) -> None:
+    """A real-schema Darktable library.db + data.db pair, for relocate.py tests.
+
+    `make_darktable_db` above is NOT this: it's a simplified, non-standard
+    schema (images.folder, images.caption — columns real Darktable does not
+    have) left over from the deleted Layout-A prototype. It is fine for the
+    tag read/write tests that use it, since darktable_bridge.py's queries
+    never touch a folder or path column. relocate.py's UPDATE-in-place move
+    logic touches images.film_id and film_rolls, which that fixture cannot
+    represent at all.
+
+    This fixture's tables were verified against a *real* Darktable 5.6.0
+    (the same build the portable-drive plan's Task 7 downloaded and hashed)
+    by importing real files under xvfb-run and dumping sqlite_master — not
+    hand-guessed. It carries only the columns relocate.py and
+    darktable_bridge.py actually touch, not the full ~40-column images
+    table (iso/aperture/exposure/... are irrelevant to a move and add
+    nothing to test fidelity) — but every column and foreign key it does
+    carry (film_rolls.folder, images.film_id/group_id, and the imgid-keyed
+    side tables) matches the real names, types, and relationships. If a
+    real Darktable becomes available again, regenerate by re-running the
+    same xvfb-run import and diffing `sqlite_master.sql`.
+    """
+    import sqlite3
+
+    with sqlite3.connect(library_path) as conn:
+        conn.executescript("""
+            CREATE TABLE film_rolls (
+                id               INTEGER PRIMARY KEY,
+                access_timestamp INTEGER,
+                folder           VARCHAR(1024) NOT NULL
+            );
+            CREATE TABLE images (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                group_id INTEGER,
+                film_id  INTEGER,
+                filename VARCHAR,
+                write_timestamp INTEGER,
+                FOREIGN KEY(film_id) REFERENCES film_rolls(id) ON DELETE CASCADE ON UPDATE CASCADE,
+                FOREIGN KEY(group_id) REFERENCES images(id) ON DELETE RESTRICT ON UPDATE CASCADE
+            );
+            -- Real Darktable columns are (imgid, key, value) for history steps;
+            -- kept minimal here (one opaque payload column) since relocate.py
+            -- never parses history content, only proves it survives untouched
+            -- by imgid across a move.
+            CREATE TABLE history (
+                imgid   INTEGER,
+                num     INTEGER,
+                payload TEXT,
+                FOREIGN KEY(imgid) REFERENCES images(id) ON DELETE CASCADE
+            );
+            CREATE TABLE history_hash (
+                imgid       INTEGER PRIMARY KEY,
+                basic_hash  BLOB,
+                auto_hash   BLOB,
+                current_hash BLOB,
+                FOREIGN KEY(imgid) REFERENCES images(id) ON DELETE CASCADE
+            );
+            CREATE TABLE masks_history (
+                imgid   INTEGER,
+                num     INTEGER,
+                payload TEXT,
+                FOREIGN KEY(imgid) REFERENCES images(id) ON DELETE CASCADE
+            );
+            CREATE TABLE color_labels (
+                imgid INTEGER,
+                color INTEGER,
+                UNIQUE(imgid, color)
+            );
+            CREATE TABLE tagged_images (
+                imgid    INTEGER,
+                tagid    INTEGER,
+                position INTEGER,
+                UNIQUE(imgid, tagid)
+            );
+            CREATE TABLE selected_images (
+                imgid INTEGER PRIMARY KEY
+            );
+        """)
+    with sqlite3.connect(data_path) as conn:
+        conn.executescript("""
+            CREATE TABLE tags (
+                id       INTEGER PRIMARY KEY,
+                name     VARCHAR,
+                synonyms VARCHAR,
+                flags    INTEGER
+            );
+        """)
+
+
 def make_jpg(
     path,
     dt_str: str = "2026:05:10 14:32:01",
