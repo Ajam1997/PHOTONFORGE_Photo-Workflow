@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 
+from photo_workflow import volume
 from photo_workflow.volume import (
-    extract_cartridge_id,
     derive_trip_code,
+    extract_cartridge_id,
     format_photo_name,
     get_next_sequence,
+    resolve_cart_id,
 )
 
 
@@ -27,6 +30,26 @@ def test_extract_cartridge_id_no_match():
 
 def test_extract_cartridge_id_empty():
     assert extract_cartridge_id("") == "000"
+
+
+def test_resolve_cart_id_uses_explicit_value(tmp_path, monkeypatch):
+    monkeypatch.setattr(volume, "get_volume_label", lambda _p: "")
+    assert resolve_cart_id(tmp_path, "7") == "007"
+
+
+def test_resolve_cart_id_zfills_and_truncates_explicit_value(tmp_path):
+    assert resolve_cart_id(tmp_path, "12345") == "123"
+
+
+def test_resolve_cart_id_auto_detects_from_volume_label(tmp_path, monkeypatch):
+    monkeypatch.setattr(volume, "get_volume_label", lambda _p: "PHOTONFORGE-042")
+    assert resolve_cart_id(tmp_path, None) == "042"
+
+
+def test_resolve_cart_id_raises_when_no_label_and_no_explicit_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(volume, "get_volume_label", lambda _p: "")
+    with pytest.raises(ValueError, match="volume label"):
+        resolve_cart_id(tmp_path, None)
 
 
 def test_derive_trip_code_standard():

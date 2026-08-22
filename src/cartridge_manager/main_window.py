@@ -2,16 +2,28 @@
 
 from __future__ import annotations
 
-from PySide6.QtWidgets import QMainWindow
+from PySide6.QtWidgets import QMainWindow, QTabWidget
 
 from .cartridge_list_widget import CartridgeListWidget
+from .move_view import MoveView
 
 
 class MainWindow(QMainWindow):
-    """Top-level window hosting the cartridge list widget."""
+    """Top-level window hosting cartridge management and move views."""
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("PhotonForge Cartridge Manager")
+
+        # Create tab widget
+        tabs = QTabWidget()
+
+        # Cartridges tab
         self.cartridge_list = CartridgeListWidget(parent=self)
-        self.setCentralWidget(self.cartridge_list)
+        tabs.addTab(self.cartridge_list, "Cartridges")
+
+        # Move tab
+        self.move_view = MoveView(parent=self)
+        tabs.addTab(self.move_view, "Move")
+
+        self.setCentralWidget(tabs)

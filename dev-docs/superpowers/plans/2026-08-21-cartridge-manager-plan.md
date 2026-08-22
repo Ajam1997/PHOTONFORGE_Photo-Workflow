@@ -339,21 +339,30 @@ as a single Task 4 PR.
 - [x] **Slice 4a — DONE.** Cartridge list / detail view (label, id, free
       space, busy state — reuses `photo_workflow.backup.describe_cartridge`
       / `cartridge_busy_reason` / `cartridge_layout`, not reimplemented).
-- [ ] Move UI over Task 2: select photos or a whole shoot folder, pick a
-      destination cartridge/folder, dry-run preview before commit.
+- [x] **Slice 4b — DONE.** Move UI over Task 2: select photos or a whole
+      shoot folder, pick a destination cartridge/folder, dry-run preview
+      required before Move is even enabled.
 - [ ] Backup / Restore / Verify / (Archive, once Tier 3 exists) as real
       buttons over the existing `backup.py` functions — not launching a
       terminal, unlike the Lua plugin's current guarded buttons.
 - [ ] Provision + the WSL-based make-portable from Task 3.
-- [ ] Progress/cancel for anything long-running (batch moves, mirrors) —
-      these functions already report progress via callback (`backup.py`'s
-      `progress` parameter, `portable.py`'s `progress`), so this is wiring,
-      not new plumbing. **Deliberately not built in slice 4a** — nothing in
-      the cartridge-list view does long-running work (describe/layout/busy
-      checks are all fast filesystem/sqlite calls), so a `QThread` worker
-      would have been unused scaffolding ahead of its first real caller.
-      Build it in the same slice as whichever of Move/Backup/Provision
-      lands next, against a real long-running call, not speculatively.
+- [x] **Progress — DONE (as part of slice 4b).** `src/cartridge_manager/workers.py`:
+      a `QThread` wrapper (`Worker`/`WorkerSignals`) that runs one
+      `photo_workflow` call off the GUI thread and normalizes whatever
+      shape its `progress` callback receives into one `(index, total,
+      label)` Qt signal — genuinely wired to `relocate.move_photos`/
+      `move_shoot_folder`'s existing `progress` parameter, exactly the
+      "wiring, not new plumbing" the plan predicted. **Cancel is
+      deliberately NOT built** — `relocate.py` has no cooperative-
+      cancellation hook, and hard-killing a `QThread` mid-copy
+      (`terminate()`) can leave a partial file or an open sqlite
+      connection in an inconsistent state, which conflicts directly with
+      this plan's own "build in safety checks to prevent data corruption"
+      mandate. Progress display works today; true cancel needs a
+      cooperative-cancellation hook added to `relocate.py` itself first —
+      that's core-safety-module work deserving Task 1's level of rigor
+      (tests, careful review), not something to bolt on inside a GUI
+      slice. Tracked here as still open, not silently dropped.
 
 > **Slice 4a built as:** `src/cartridge_manager/` — `cartridges.py`
 > (`CartridgeInfo` dataclass + `describe(root)`, pure Python, no Qt import,
@@ -382,6 +391,46 @@ as a single Task 4 PR.
 > smoke test) before commit. Full suite: 498 passed, 1 skipped, 2
 > deselected.
 
+> **Slice 4b built as:** `src/cartridge_manager/workers.py`
+> (`Worker`/`WorkerSignals` — see the "Progress" checklist item above for
+> the design) and `src/cartridge_manager/move_view.py` (`MoveView(QWidget)`:
+> photos-vs-shoot-folder mode toggle, source/destination pickers with
+> test-friendly setters bypassing the file dialogs, `Ungroup`/`Force`
+> checkboxes at parity with the CLI, a preview table, and a **safety
+> property enforced in code**: the Move button is disabled until a
+> successful dry-run preview has just run, and disabled again the instant
+> source/destination/mode changes — you cannot move something you have not
+> just previewed). **No `QMessageBox` anywhere** — all status/error text
+> goes to an inline `status_label` instead, both because a modal `.exec()`
+> would hang this project's headless (`QT_QPA_PLATFORM=offscreen`) test
+> environment forever, and because it keeps every error path directly
+> assertable in a test rather than needing dialog-interaction machinery.
+> Wired into `main_window.py` as a `QTabWidget` ("Cartridges" / "Move").
+> Along the way, factored the CLI's `_resolve_cart_id` helper into a
+> reusable `photo_workflow.volume.resolve_cart_id(dest, cart_id) ->
+> str` (raises `ValueError`, no click dependency) so the GUI and the CLI
+> share one implementation instead of the GUI reimplementing the
+> auto-detect-from-volume-label fallback — `cartridge.py`'s CLI wrapper now
+> just catches `ValueError` and re-raises as `ClickException`, identical
+> user-facing behavior, verified against the existing CLI test suite (no
+> regressions) plus 4 new direct unit tests for `resolve_cart_id` itself.
+> 13 new tests (3 for the worker's signal normalization and exception
+> handling, 10 for the Move view against real fixtures — including a real
+> RAW+JPEG Darktable group to prove the `GroupConflictError`/`ungroup`
+> safety path actually works end-to-end through the GUI, not mocked).
+> Manually re-verified one test the agent wrote too weakly before
+> accepting: the original progress-bar test only checked that the move
+> finished, not that the bar's value ever actually moved — rewrote it to
+> record every `progress_bar.valueChanged` emission and assert it reaches
+> the real photo count, which would have caught a broken progress wire-up
+> that the original version could not. Implementation drafted by a
+> Haiku-class agent per current cost guidance, reviewed line-by-line
+> (worker thread-affinity pattern, `move_photos`/`move_shoot_folder`
+> argument wiring against `relocate.py`'s real signatures) before
+> accepting, then independently re-verified (full suite: 515 passed, 1
+> skipped; ruff; doc-reference check; a manual smoke test launching the
+> full two-tab app shell headlessly) before commit.
+
 ### Task 5 — Lightweight viewer
 
 - [ ] Thumbnail grid over a shoot folder or cartridge, RAW decode via the
@@ -404,13 +453,15 @@ fixture builder in `tests/conftest.py`~~ DONE (`make_real_darktable_db`,
 alongside — not replacing — the existing `make_darktable_db`, which
 `test_pipeline.py` still uses), ~~`src/photo_workflow/wsl_bridge.py`~~ DONE
 (see the Task 3 annotation above), ~~`tests/test_wsl_bridge.py`~~ DONE (24
-tests), ~~`src/cartridge_manager/`~~ slice 4a DONE (`cartridges.py`,
-`cartridge_list_widget.py`, `main_window.py`, `app.py` — see the Task 4
-annotation above; Move/Backup/Provision views still to come as later
-slices), ~~`tests/test_cartridge_manager_cartridges.py`~~ DONE (5 tests),
-~~`tests/test_cartridge_manager_widget.py`~~ DONE (6 tests),
+tests), ~~`src/cartridge_manager/`~~ slices 4a+4b DONE (`cartridges.py`,
+`cartridge_list_widget.py`, `workers.py`, `move_view.py`, `main_window.py`,
+`app.py` — see the Task 4 annotations above; Backup/Restore/Verify and
+Provision views still to come as later slices), ~~`tests/test_cartridge_manager_cartridges.py`~~
+DONE (5 tests), ~~`tests/test_cartridge_manager_widget.py`~~ DONE (6
+tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (3 tests),
+~~`tests/test_cartridge_manager_move_view.py`~~ DONE (10 tests),
 `docs/cartridge-manager-guide.md` (end-user guide, once Task 4 is further
-along — a one-view app doesn't need one yet), a new ADR if the
+along — a two-view app still doesn't need one yet), a new ADR if the
 WSL-orchestration design in Task 3 turns out to need one on reflection
 after real-Windows verification — not written yet; the design is
 documented in the Task 3 annotation and `docs/portable-drive-setup.md`
@@ -418,7 +469,11 @@ instead, and can graduate to an ADR later if it proves durable.
 
 **Modify:** ~~`src/photo_workflow/cartridge.py` (new subcommands)~~ DONE
 (`move-photos`/`move-shoot`/`resume-move` — Task 2; WSL dispatch wiring in
-`make_portable_cmd` — Task 3), ~~`tests/test_cartridge_move_cli.py`~~ DONE
+`make_portable_cmd` — Task 3; `_resolve_cart_id` now delegates to
+`volume.resolve_cart_id` — Task 4b), ~~`src/photo_workflow/volume.py`~~
+DONE (new `resolve_cart_id(dest, cart_id)`, shared by the CLI and
+`cartridge_manager`; 4 new direct tests in `tests/test_volume.py`),
+~~`tests/test_cartridge_move_cli.py`~~ DONE
 (9 tests), ~~`tests/test_cartridge_make_portable_cli.py`~~ DONE (5 new WSL
 tests), ~~`docs/portable-drive-setup.md`~~ DONE (Task 3's "From Windows
 only" section), ~~`pyproject.toml`~~ DONE (`gui` extra: `PySide6>=6.6`;
