@@ -306,3 +306,40 @@ def test_missing_destination_shows_error_in_preview(tmp_path: Path, qtbot) -> No
 
     assert "No destination selected" in widget.status_label.text()
     assert widget.move_button.isEnabled() is False
+
+
+def test_worker_is_joined_before_being_released(tmp_path: Path, qtbot, monkeypatch) -> None:
+    """Regression test for a real PySide6 crash: garbage-collecting a QThread
+    before its OS thread has actually joined aborts the whole process
+    ("QThread: Destroyed while thread is still running"), reproduced by
+    running the full test suite (flaky — a race, not deterministic). The fix
+    is calling Worker.wait() before dropping the reference in _on_finished/
+    _on_failed; this test proves that call actually happens rather than
+    relying on timing luck to catch a regression.
+    """
+    from cartridge_manager.workers import Worker
+
+    root = _cartridge(tmp_path)
+    src = _shoot_folder(root, "ICELAND", ["P001ICE0000001.jpg"])
+    dest = root / "ICELAND2"
+
+    widget = MoveView()
+    qtbot.addWidget(widget)
+    widget.set_source_photos([src / "P001ICE0000001.jpg"])
+    widget.set_destination(dest)
+    widget.cart_id_edit.setText("001")
+    widget.run_preview()
+
+    wait_calls = []
+    original_wait = Worker.wait
+
+    def _spy_wait(self, *args, **kwargs):
+        wait_calls.append(self)
+        return original_wait(self, *args, **kwargs)
+
+    monkeypatch.setattr(Worker, "wait", _spy_wait)
+
+    with qtbot.waitSignal(widget.move_finished, timeout=5000):
+        widget.run_move()
+
+    assert len(wait_calls) == 1, "Worker.wait() was not called before the worker was released"

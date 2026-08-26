@@ -30,6 +30,11 @@ def failing_function(*, progress=None):
     raise RuntimeError("boom")
 
 
+def no_progress_function(snapshot, target, *, force=False):
+    """A function with no `progress` parameter at all (like restore_snapshot)."""
+    return f"restored {snapshot} into {target} (force={force})"
+
+
 def test_worker_calls_progress_twice_and_returns(qtbot):
     """Worker wraps a function, calls progress twice, returns result."""
     worker = Worker(simple_function)
@@ -76,3 +81,13 @@ def test_worker_normalizes_single_string_progress(qtbot):
 
     assert len(progress_signals) == 1
     assert progress_signals[0] == (0, 0, "processing...")
+
+
+def test_worker_does_not_pass_progress_to_a_function_without_it(qtbot):
+    """A function with no `progress` parameter must not raise TypeError."""
+    worker = Worker(no_progress_function, "snap.tar", "target/", force=True)
+
+    with qtbot.waitSignal(worker.signals.finished, timeout=2000) as blocker:
+        worker.start()
+
+    assert blocker.args[0] == "restored snap.tar into target/ (force=True)"

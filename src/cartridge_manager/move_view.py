@@ -376,6 +376,7 @@ class MoveView(QWidget):
         self._source_button.setEnabled(True)
         self._dest_button.setEnabled(True)
         self.progress_bar.hide()
+        self._worker.wait()  # ensure the OS thread has actually joined before releasing it
         self._worker = None
 
         # Emit signal
@@ -390,6 +391,7 @@ class MoveView(QWidget):
         self._source_button.setEnabled(True)
         self._dest_button.setEnabled(True)
         self.progress_bar.hide()
+        self._worker.wait()  # ensure the OS thread has actually joined before releasing it
         self._worker = None
 
         # Emit signal

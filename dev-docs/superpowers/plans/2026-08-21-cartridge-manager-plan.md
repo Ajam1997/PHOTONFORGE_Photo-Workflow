@@ -342,9 +342,10 @@ as a single Task 4 PR.
 - [x] **Slice 4b — DONE.** Move UI over Task 2: select photos or a whole
       shoot folder, pick a destination cartridge/folder, dry-run preview
       required before Move is even enabled.
-- [ ] Backup / Restore / Verify / (Archive, once Tier 3 exists) as real
-      buttons over the existing `backup.py` functions — not launching a
-      terminal, unlike the Lua plugin's current guarded buttons.
+- [x] **Slice 4c — DONE.** Backup / Restore / Verify / (Archive, once
+      Tier 3 exists) as real buttons over the existing `backup.py`
+      functions — not launching a terminal, unlike the Lua plugin's
+      current guarded buttons.
 - [ ] Provision + the WSL-based make-portable from Task 3.
 - [x] **Progress — DONE (as part of slice 4b).** `src/cartridge_manager/workers.py`:
       a `QThread` wrapper (`Worker`/`WorkerSignals`) that runs one
@@ -431,6 +432,66 @@ as a single Task 4 PR.
 > skipped; ruff; doc-reference check; a manual smoke test launching the
 > full two-tab app shell headlessly) before commit.
 
+> **Slice 4c built as:** `src/cartridge_manager/backup_view.py`
+> (`BackupView(QWidget)`: four sections — Snapshot, Backup, Verify,
+> Restore — each a thin wrapper over one `backup.py` function
+> (`snapshot_databases`, `mirror_cartridge`, `verify_snapshot`,
+> `restore_snapshot`), matching the CLI's `snapshot`/`backup`/
+> `verify-backup`/`restore-backup` commands one-to-one, including the
+> "newest snapshot under `--dest`, scoped to `--root`" fallback Verify
+> uses when no explicit snapshot path is given. Snapshot runs synchronously
+> on the GUI thread (it's a couple of sqlite VACUUM-copies, not a
+> whole-cartridge mirror); Backup/Verify/Restore go through `Worker`, and
+> only one operation can run at a time (a shared `is_running()` guard —
+> you can't mirror and restore the same drive simultaneously). 17 new
+> tests, all against real filesystem/sqlite state — including a real
+> busy-cartridge refusal (a live-PID `.pid` lock file, not mocked) and a
+> real corrupted-mirror detection (a byte actually flipped on disk inside
+> a real Tier-2 mirror, then re-verified for real).
+>
+> **A real bug found and fixed during review, not by the agent:**
+> `restore_snapshot` has no `progress` parameter at all (unlike the other
+> three functions), and the original `Worker` unconditionally passed
+> `progress=`, which would have raised `TypeError` the first time Restore
+> was ever clicked. Fixed in `workers.py` itself (inspects the wrapped
+> function's signature and only forwards `progress` if it's actually
+> declared) before delegating this slice, so the agent built against a
+> `Worker` that already handled it — covered by a new
+> `test_worker_does_not_pass_progress_to_a_function_without_it` test.
+>
+> **A second, more serious bug found only by running the full suite
+> repeatedly, not by running this slice's own tests in isolation:** a real
+> PySide6 crash — `Fatal Python error: Aborted` — reproduced once in 3 full
+> `pytest -m "not slow"` runs (this slice's tests alone, and even the full
+> suite, passed clean most of the time; it's a race, not a deterministic
+> failure). Root cause: `move_view.py`'s and `backup_view.py`'s
+> `_on_finished`/`_on_failed` slots dropped the last Python reference to
+> the `Worker` (`self._worker = None`) without confirming the underlying
+> OS thread had actually joined — garbage-collecting a `QThread` while
+> it's still technically running is a fatal, uncatchable abort in
+> PySide6 ("QThread: Destroyed while thread is still running"), not a
+> Python exception. This bug was already present in the merged Task 4b
+> code, not something this slice introduced — it just took enough
+> `QThread` churn across a larger test run to hit the race window. Fixed
+> by calling `self._worker.wait()` immediately before releasing the
+> reference in both files' `_on_finished`/`_on_failed`, documented as a
+> hard caller contract in `Worker`'s own docstring so the Provision slice
+> doesn't reintroduce it, and covered by a
+> `test_worker_is_joined_before_being_released` regression test in each
+> view's test file that spies on `Worker.wait` and asserts it's actually
+> called — a test that can catch a regression deterministically, unlike
+> the crash itself. Re-ran the full suite 5 times clean after the fix
+> (534 passed each time) to build confidence the race is actually gone,
+> not just less likely to show up in one run.
+>
+> Implementation drafted by a Haiku-class agent per current cost guidance;
+> the `Worker` progress-kwarg fix and the QThread-lifecycle fix (plus their
+> tests) were both done directly, not delegated — the first because it was
+> a prerequisite the agent needed to build on, the second because it's a
+> genuine crash bug in shared thread-safety plumbing found during
+> verification, exactly the kind of thing "trust but verify" exists to
+> catch rather than something to hand back for a re-delegation round trip.
+
 ### Task 5 — Lightweight viewer
 
 - [ ] Thumbnail grid over a shoot folder or cartridge, RAW decode via the
@@ -453,15 +514,16 @@ fixture builder in `tests/conftest.py`~~ DONE (`make_real_darktable_db`,
 alongside — not replacing — the existing `make_darktable_db`, which
 `test_pipeline.py` still uses), ~~`src/photo_workflow/wsl_bridge.py`~~ DONE
 (see the Task 3 annotation above), ~~`tests/test_wsl_bridge.py`~~ DONE (24
-tests), ~~`src/cartridge_manager/`~~ slices 4a+4b DONE (`cartridges.py`,
-`cartridge_list_widget.py`, `workers.py`, `move_view.py`, `main_window.py`,
-`app.py` — see the Task 4 annotations above; Backup/Restore/Verify and
-Provision views still to come as later slices), ~~`tests/test_cartridge_manager_cartridges.py`~~
+tests), ~~`src/cartridge_manager/`~~ slices 4a+4b+4c DONE (`cartridges.py`,
+`cartridge_list_widget.py`, `workers.py`, `move_view.py`, `backup_view.py`,
+`main_window.py`, `app.py` — see the Task 4 annotations above; Provision
+still to come as a later slice), ~~`tests/test_cartridge_manager_cartridges.py`~~
 DONE (5 tests), ~~`tests/test_cartridge_manager_widget.py`~~ DONE (6
-tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (3 tests),
-~~`tests/test_cartridge_manager_move_view.py`~~ DONE (10 tests),
+tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (4 tests),
+~~`tests/test_cartridge_manager_move_view.py`~~ DONE (11 tests),
+~~`tests/test_cartridge_manager_backup_view.py`~~ DONE (17 tests),
 `docs/cartridge-manager-guide.md` (end-user guide, once Task 4 is further
-along — a two-view app still doesn't need one yet), a new ADR if the
+along — a three-view app still doesn't need one yet), a new ADR if the
 WSL-orchestration design in Task 3 turns out to need one on reflection
 after real-Windows verification — not written yet; the design is
 documented in the Task 3 annotation and `docs/portable-drive-setup.md`

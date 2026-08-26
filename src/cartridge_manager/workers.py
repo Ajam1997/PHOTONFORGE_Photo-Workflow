@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable
 from typing import Any
 
@@ -28,6 +29,23 @@ class Worker(QThread):
     trip_code, ungroup=..., force=...) — do NOT pass `dry_run=True` calls
     through this (those are fast, synchronous, and belong on the GUI
     thread directly, not threaded).
+
+    Not every wrapped function accepts a `progress` kwarg (e.g.
+    `backup.restore_snapshot` doesn't) — `progress` is only forwarded when
+    `fn`'s signature actually declares it (or accepts **kwargs), so wrapping
+    a progress-less function doesn't raise a TypeError.
+
+    Caller contract: in your `finished`/`failed` slot, call `self._worker.wait()`
+    before dropping the last Python reference to this Worker (e.g. before
+    `self._worker = None`). `finished`/`failed` are emitted from inside
+    run(), on the worker thread, via a queued connection — by the time the
+    main-thread slot runs, run() is *about* to return, but there is a real
+    race where the underlying OS thread has not fully joined yet. Garbage-
+    collecting (or deleting) a QThread while it is still technically running
+    is a fatal error in PySide6 ("QThread: Destroyed while thread is still
+    running"), which aborts the whole process — not a Python exception you
+    can catch. `wait()` blocks only briefly (the thread is already
+    finishing) and makes the teardown safe.
     """
 
     def __init__(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
@@ -36,6 +54,16 @@ class Worker(QThread):
         self._args = args
         self._kwargs = kwargs
         self.signals = WorkerSignals()
+        try:
+            params = inspect.signature(fn).parameters
+            self._accepts_progress = "progress" in params or any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+            )
+        except (TypeError, ValueError):
+            # Signature couldn't be introspected (e.g. some builtins/C
+            # callables) — assume it doesn't take progress rather than risk
+            # a TypeError from an unexpected kwarg.
+            self._accepts_progress = False
 
     def run(self) -> None:
         def _progress(*cb_args: Any) -> None:
@@ -53,7 +81,10 @@ class Worker(QThread):
             self.signals.progress.emit(int(index), int(total), str(label))
 
         try:
-            result = self._fn(*self._args, progress=_progress, **self._kwargs)
+            kwargs = dict(self._kwargs)
+            if self._accepts_progress:
+                kwargs["progress"] = _progress
+            result = self._fn(*self._args, **kwargs)
             self.signals.finished.emit(result)
         except Exception as exc:  # noqa: BLE001 - must convert to a signal, not crash the worker thread silently
             self.signals.failed.emit(str(exc))

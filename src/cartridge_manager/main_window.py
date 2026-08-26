@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QMainWindow, QTabWidget
 
+from .backup_view import BackupView
 from .cartridge_list_widget import CartridgeListWidget
 from .move_view import MoveView
 
@@ -25,5 +26,9 @@ class MainWindow(QMainWindow):
         # Move tab
         self.move_view = MoveView(parent=self)
         tabs.addTab(self.move_view, "Move")
+
+        # Backup tab
+        self.backup_view = BackupView(parent=self)
+        tabs.addTab(self.backup_view, "Backup")
 
         self.setCentralWidget(tabs)
