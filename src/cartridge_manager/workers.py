@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QCoreApplication, QObject, QThread, Signal
 
 
 class WorkerSignals(QObject):
@@ -35,17 +35,9 @@ class Worker(QThread):
     `fn`'s signature actually declares it (or accepts **kwargs), so wrapping
     a progress-less function doesn't raise a TypeError.
 
-    Caller contract: in your `finished`/`failed` slot, call `self._worker.wait()`
-    before dropping the last Python reference to this Worker (e.g. before
-    `self._worker = None`). `finished`/`failed` are emitted from inside
-    run(), on the worker thread, via a queued connection — by the time the
-    main-thread slot runs, run() is *about* to return, but there is a real
-    race where the underlying OS thread has not fully joined yet. Garbage-
-    collecting (or deleting) a QThread while it is still technically running
-    is a fatal error in PySide6 ("QThread: Destroyed while thread is still
-    running"), which aborts the whole process — not a Python exception you
-    can catch. `wait()` blocks only briefly (the thread is already
-    finishing) and makes the teardown safe.
+    Call `.settle()` (not bare `.wait()`) in your `finished`/`failed` slot
+    before dropping the last Python reference — see `settle()` below for
+    why a plain `wait()` is not quite enough on its own.
     """
 
     def __init__(self, fn: Callable[..., Any], *args: Any, **kwargs: Any) -> None:
@@ -54,6 +46,17 @@ class Worker(QThread):
         self._args = args
         self._kwargs = kwargs
         self.signals = WorkerSignals()
+        # QThread's own native `finished` signal (distinct from
+        # `self.signals.finished` above) is guaranteed by Qt itself to fire
+        # only once the OS thread has genuinely, fully terminated — unlike
+        # our custom signal, which is emitted from inside run() just before
+        # it returns. Connecting it to deleteLater() lets Qt's own event
+        # loop delete the underlying C++ object at a Qt-determined safe
+        # point, independent of Python's reference counting/GC timing
+        # entirely, which is the standard, most robust fix for QThread
+        # lifetime bugs (the __del__ safety net above and callers' own
+        # `.wait()` calls remain as defense in depth, not the primary fix).
+        self.finished.connect(self.deleteLater)
         try:
             params = inspect.signature(fn).parameters
             self._accepts_progress = "progress" in params or any(
@@ -64,6 +67,52 @@ class Worker(QThread):
             # callables) — assume it doesn't take progress rather than risk
             # a TypeError from an unexpected kwarg.
             self._accepts_progress = False
+
+    def __del__(self) -> None:
+        # `finished`/`failed` are emitted from inside run(), on the worker
+        # thread itself, via a queued connection — by the time a receiver on
+        # the main thread acts on one, run() is *about* to return, but there
+        # is a real race where the underlying OS thread has not fully
+        # joined yet. Garbage-collecting (or otherwise deleting) a QThread
+        # while it is still technically running is a fatal error in
+        # PySide6 ("QThread: Destroyed while thread is still running"),
+        # which aborts the whole process — not a Python exception any
+        # caller could catch. Guaranteeing that here, in the one place
+        # every caller's reference eventually funnels through, means no
+        # caller (view code, tests, anything future) has to remember a
+        # wait()-before-drop contract to be safe. wait() is a documented
+        # no-op if the thread has already finished.
+        try:
+            if self.isRunning():
+                self.wait()
+        except RuntimeError:
+            pass  # underlying C++ object already gone; nothing to wait on
+
+    def settle(self) -> None:
+        """Block until this worker's thread and Qt-level teardown are both
+        fully done — call this, not bare `.wait()`, before dropping your
+        reference or reusing this worker's slot for something else.
+
+        `wait()` alone only guarantees the OS thread has joined; it does not
+        guarantee that Qt has finished *processing* the native `finished`
+        signal this class connects to `deleteLater()` in `__init__` (see
+        there for why that connection exists). If that queued deletion is
+        still sitting unprocessed when this method returns, it lingers in
+        the event queue and can end up being processed much later — inside
+        a completely unrelated later `QEventLoop.exec()` (e.g. some other
+        widget's next `qtbot.waitSignal()`), by which point the surrounding
+        conditions are no longer whatever they were when the deletion was
+        scheduled. That "stale queued event fires at an unrelated later
+        moment" pattern is exactly what made this class of bug so hard to
+        pin down empirically — a race reproduced this way only rarely,
+        never on the same test twice. Pumping the event loop here, right
+        after wait(), forces that queued deletion to actually happen now,
+        while conditions are still exactly what this method's caller
+        expects, rather than deferring it to an unpredictable later moment.
+        """
+        self.wait()
+        QCoreApplication.processEvents()
+        QCoreApplication.processEvents()
 
     def run(self) -> None:
         def _progress(*cb_args: Any) -> None:

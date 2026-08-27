@@ -459,30 +459,63 @@ as a single Task 4 PR.
 > `Worker` that already handled it — covered by a new
 > `test_worker_does_not_pass_progress_to_a_function_without_it` test.
 >
-> **A second, more serious bug found only by running the full suite
-> repeatedly, not by running this slice's own tests in isolation:** a real
-> PySide6 crash — `Fatal Python error: Aborted` — reproduced once in 3 full
-> `pytest -m "not slow"` runs (this slice's tests alone, and even the full
-> suite, passed clean most of the time; it's a race, not a deterministic
-> failure). Root cause: `move_view.py`'s and `backup_view.py`'s
-> `_on_finished`/`_on_failed` slots dropped the last Python reference to
-> the `Worker` (`self._worker = None`) without confirming the underlying
-> OS thread had actually joined — garbage-collecting a `QThread` while
-> it's still technically running is a fatal, uncatchable abort in
-> PySide6 ("QThread: Destroyed while thread is still running"), not a
-> Python exception. This bug was already present in the merged Task 4b
-> code, not something this slice introduced — it just took enough
-> `QThread` churn across a larger test run to hit the race window. Fixed
-> by calling `self._worker.wait()` immediately before releasing the
-> reference in both files' `_on_finished`/`_on_failed`, documented as a
-> hard caller contract in `Worker`'s own docstring so the Provision slice
-> doesn't reintroduce it, and covered by a
-> `test_worker_is_joined_before_being_released` regression test in each
-> view's test file that spies on `Worker.wait` and asserts it's actually
-> called — a test that can catch a regression deterministically, unlike
-> the crash itself. Re-ran the full suite 5 times clean after the fix
-> (534 passed each time) to build confidence the race is actually gone,
-> not just less likely to show up in one run.
+> **A second, more serious bug — and three attempts before it was actually
+> fixed, not one.** Found only by running the full suite repeatedly, never
+> by this slice's own tests in isolation: a real PySide6 crash —
+> `Fatal Python error: Aborted`, and on later attempts a segfault —
+> reproduced first in 3 `pytest -m "not slow"` runs, "QThread: Destroyed
+> while thread is still running", the same fatal, uncatchable-in-Python
+> abort described below. This bug was already present in the merged
+> Task 4b code, not something this slice introduced — it just took enough
+> `QThread` churn across a larger test run to hit the race window.
+>
+> *Attempt 1:* theorized the cause was `_on_finished`/`_on_failed` dropping
+> the last Python reference to a `Worker` (`self._worker = None`) without
+> confirming the OS thread had actually joined. Fixed by calling
+> `self._worker.wait()` first, documented as a caller contract in
+> `Worker`'s docstring, covered by a `test_worker_is_joined_before_being_released`
+> regression test that spies on `Worker.wait`, and "verified" by re-running
+> the full suite 5 times clean — **which was not enough runs to catch that
+> this fix was incomplete.** Pushed anyway; CI caught it on the very next
+> run, crashing inside `test_worker_does_not_pass_progress_to_a_function_without_it`
+> — a test that creates a bare `Worker` directly, not through a view's
+> `_on_finished` at all, proving the bug wasn't only reachable through the
+> code path the first fix addressed.
+>
+> *Attempt 2:* `Worker.signals` holds a strong reference to the connected
+> bound slot (`self._on_finished`), whose `self` is the view, which holds
+> `self._worker` back — a genuine reference cycle, which Python's cyclic
+> GC (not simple refcounting) collects at an unpredictable later time,
+> explaining why the crash's stack trace kept showing an unrelated later
+> test as the "current" thread. Fixed by explicitly disconnecting the
+> worker's signals before dropping the reference. This surfaced a second,
+> smaller bug immediately in local testing (not CI): PySide6's
+> `QObject.disconnect()` has no zero-argument "disconnect everything" form
+> — that's PyQt-only — so the first version of this fix raised `TypeError`
+> inside every `_on_finished`/`_on_failed` call, caught locally before
+> ever pushing. Fixed to disconnect each bound signal individually. Stress
+> ran 40 iterations of the isolated GUI test files: still crashed twice.
+>
+> *Attempt 3 (the one that actually held):* switched from relying on
+> Python object lifetime at all to Qt's own: `Worker.__init__` now connects
+> `QThread`'s *native* `finished` signal (distinct from the custom
+> `WorkerSignals.finished` used for the wrapped call's result — the native
+> one is guaranteed by Qt to fire only once the OS thread has truly
+> terminated) to `self.deleteLater()`, so Qt's own event loop deletes the
+> underlying C++ object at a Qt-determined safe point, independent of
+> Python refcounting/GC entirely — the standard, most-cited fix for this
+> class of bug. Even this needed one more piece: a queued `deleteLater()`
+> call left unprocessed can still fire much later, inside a *completely
+> unrelated* test's own event loop — which is exactly the "stale event"
+> pattern attempt 2's stack traces kept showing. Added `Worker.settle()`
+> (`wait()` plus two explicit `QCoreApplication.processEvents()` calls) as
+> the one method every caller — views and bare-`Worker` tests alike — now
+> calls instead of bare `wait()`, forcing that teardown to happen
+> immediately rather than being deferred to an unpredictable moment. Only
+> *this* attempt was actually stress-tested at a scale that means
+> something: 100 consecutive full-suite runs (535 passed each time), zero
+> failures — not 3, not 5. The first two "fixes" also looked clean at 3-5
+> runs; that was the actual lesson here, not the specific Qt mechanism.
 >
 > Implementation drafted by a Haiku-class agent per current cost guidance;
 > the `Worker` progress-kwarg fix and the QThread-lifecycle fix (plus their
@@ -519,7 +552,9 @@ tests), ~~`src/cartridge_manager/`~~ slices 4a+4b+4c DONE (`cartridges.py`,
 `main_window.py`, `app.py` — see the Task 4 annotations above; Provision
 still to come as a later slice), ~~`tests/test_cartridge_manager_cartridges.py`~~
 DONE (5 tests), ~~`tests/test_cartridge_manager_widget.py`~~ DONE (6
-tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (4 tests),
+tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (5 tests —
+including `test_dropping_a_worker_right_after_finished_does_not_crash`, a
+25-iteration stress test for the QThread-lifecycle bug documented above),
 ~~`tests/test_cartridge_manager_move_view.py`~~ DONE (11 tests),
 ~~`tests/test_cartridge_manager_backup_view.py`~~ DONE (17 tests),
 `docs/cartridge-manager-guide.md` (end-user guide, once Task 4 is further

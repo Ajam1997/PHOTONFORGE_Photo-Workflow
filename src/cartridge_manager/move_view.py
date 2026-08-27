@@ -376,7 +376,14 @@ class MoveView(QWidget):
         self._source_button.setEnabled(True)
         self._dest_button.setEnabled(True)
         self.progress_bar.hide()
-        self._worker.wait()  # ensure the OS thread has actually joined before releasing it
+        self._worker.settle()  # wait() + flush Qt event queue — see Worker.settle() docstring
+        # break the Worker <-> self reference cycle (signals hold the connected
+        # bound slot, whose self is this view, which holds self._worker back) —
+        # PySide6's QObject.disconnect() has no zero-arg "disconnect everything"
+        # form (that's PyQt-only), so disconnect each bound signal individually.
+        self._worker.signals.progress.disconnect()
+        self._worker.signals.finished.disconnect()
+        self._worker.signals.failed.disconnect()
         self._worker = None
 
         # Emit signal
@@ -391,7 +398,14 @@ class MoveView(QWidget):
         self._source_button.setEnabled(True)
         self._dest_button.setEnabled(True)
         self.progress_bar.hide()
-        self._worker.wait()  # ensure the OS thread has actually joined before releasing it
+        self._worker.settle()  # wait() + flush Qt event queue — see Worker.settle() docstring
+        # break the Worker <-> self reference cycle (signals hold the connected
+        # bound slot, whose self is this view, which holds self._worker back) —
+        # PySide6's QObject.disconnect() has no zero-arg "disconnect everything"
+        # form (that's PyQt-only), so disconnect each bound signal individually.
+        self._worker.signals.progress.disconnect()
+        self._worker.signals.finished.disconnect()
+        self._worker.signals.failed.disconnect()
         self._worker = None
 
         # Emit signal
