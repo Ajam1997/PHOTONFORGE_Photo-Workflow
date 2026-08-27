@@ -342,9 +342,10 @@ as a single Task 4 PR.
 - [x] **Slice 4b — DONE.** Move UI over Task 2: select photos or a whole
       shoot folder, pick a destination cartridge/folder, dry-run preview
       required before Move is even enabled.
-- [ ] Backup / Restore / Verify / (Archive, once Tier 3 exists) as real
-      buttons over the existing `backup.py` functions — not launching a
-      terminal, unlike the Lua plugin's current guarded buttons.
+- [x] **Slice 4c — DONE.** Backup / Restore / Verify / (Archive, once
+      Tier 3 exists) as real buttons over the existing `backup.py`
+      functions — not launching a terminal, unlike the Lua plugin's
+      current guarded buttons.
 - [ ] Provision + the WSL-based make-portable from Task 3.
 - [x] **Progress — DONE (as part of slice 4b).** `src/cartridge_manager/workers.py`:
       a `QThread` wrapper (`Worker`/`WorkerSignals`) that runs one
@@ -431,6 +432,99 @@ as a single Task 4 PR.
 > skipped; ruff; doc-reference check; a manual smoke test launching the
 > full two-tab app shell headlessly) before commit.
 
+> **Slice 4c built as:** `src/cartridge_manager/backup_view.py`
+> (`BackupView(QWidget)`: four sections — Snapshot, Backup, Verify,
+> Restore — each a thin wrapper over one `backup.py` function
+> (`snapshot_databases`, `mirror_cartridge`, `verify_snapshot`,
+> `restore_snapshot`), matching the CLI's `snapshot`/`backup`/
+> `verify-backup`/`restore-backup` commands one-to-one, including the
+> "newest snapshot under `--dest`, scoped to `--root`" fallback Verify
+> uses when no explicit snapshot path is given. Snapshot runs synchronously
+> on the GUI thread (it's a couple of sqlite VACUUM-copies, not a
+> whole-cartridge mirror); Backup/Verify/Restore go through `Worker`, and
+> only one operation can run at a time (a shared `is_running()` guard —
+> you can't mirror and restore the same drive simultaneously). 17 new
+> tests, all against real filesystem/sqlite state — including a real
+> busy-cartridge refusal (a live-PID `.pid` lock file, not mocked) and a
+> real corrupted-mirror detection (a byte actually flipped on disk inside
+> a real Tier-2 mirror, then re-verified for real).
+>
+> **A real bug found and fixed during review, not by the agent:**
+> `restore_snapshot` has no `progress` parameter at all (unlike the other
+> three functions), and the original `Worker` unconditionally passed
+> `progress=`, which would have raised `TypeError` the first time Restore
+> was ever clicked. Fixed in `workers.py` itself (inspects the wrapped
+> function's signature and only forwards `progress` if it's actually
+> declared) before delegating this slice, so the agent built against a
+> `Worker` that already handled it — covered by a new
+> `test_worker_does_not_pass_progress_to_a_function_without_it` test.
+>
+> **A second, more serious bug — and three attempts before it was actually
+> fixed, not one.** Found only by running the full suite repeatedly, never
+> by this slice's own tests in isolation: a real PySide6 crash —
+> `Fatal Python error: Aborted`, and on later attempts a segfault —
+> reproduced first in 3 `pytest -m "not slow"` runs, "QThread: Destroyed
+> while thread is still running", the same fatal, uncatchable-in-Python
+> abort described below. This bug was already present in the merged
+> Task 4b code, not something this slice introduced — it just took enough
+> `QThread` churn across a larger test run to hit the race window.
+>
+> *Attempt 1:* theorized the cause was `_on_finished`/`_on_failed` dropping
+> the last Python reference to a `Worker` (`self._worker = None`) without
+> confirming the OS thread had actually joined. Fixed by calling
+> `self._worker.wait()` first, documented as a caller contract in
+> `Worker`'s docstring, covered by a `test_worker_is_joined_before_being_released`
+> regression test that spies on `Worker.wait`, and "verified" by re-running
+> the full suite 5 times clean — **which was not enough runs to catch that
+> this fix was incomplete.** Pushed anyway; CI caught it on the very next
+> run, crashing inside `test_worker_does_not_pass_progress_to_a_function_without_it`
+> — a test that creates a bare `Worker` directly, not through a view's
+> `_on_finished` at all, proving the bug wasn't only reachable through the
+> code path the first fix addressed.
+>
+> *Attempt 2:* `Worker.signals` holds a strong reference to the connected
+> bound slot (`self._on_finished`), whose `self` is the view, which holds
+> `self._worker` back — a genuine reference cycle, which Python's cyclic
+> GC (not simple refcounting) collects at an unpredictable later time,
+> explaining why the crash's stack trace kept showing an unrelated later
+> test as the "current" thread. Fixed by explicitly disconnecting the
+> worker's signals before dropping the reference. This surfaced a second,
+> smaller bug immediately in local testing (not CI): PySide6's
+> `QObject.disconnect()` has no zero-argument "disconnect everything" form
+> — that's PyQt-only — so the first version of this fix raised `TypeError`
+> inside every `_on_finished`/`_on_failed` call, caught locally before
+> ever pushing. Fixed to disconnect each bound signal individually. Stress
+> ran 40 iterations of the isolated GUI test files: still crashed twice.
+>
+> *Attempt 3 (the one that actually held):* switched from relying on
+> Python object lifetime at all to Qt's own: `Worker.__init__` now connects
+> `QThread`'s *native* `finished` signal (distinct from the custom
+> `WorkerSignals.finished` used for the wrapped call's result — the native
+> one is guaranteed by Qt to fire only once the OS thread has truly
+> terminated) to `self.deleteLater()`, so Qt's own event loop deletes the
+> underlying C++ object at a Qt-determined safe point, independent of
+> Python refcounting/GC entirely — the standard, most-cited fix for this
+> class of bug. Even this needed one more piece: a queued `deleteLater()`
+> call left unprocessed can still fire much later, inside a *completely
+> unrelated* test's own event loop — which is exactly the "stale event"
+> pattern attempt 2's stack traces kept showing. Added `Worker.settle()`
+> (`wait()` plus two explicit `QCoreApplication.processEvents()` calls) as
+> the one method every caller — views and bare-`Worker` tests alike — now
+> calls instead of bare `wait()`, forcing that teardown to happen
+> immediately rather than being deferred to an unpredictable moment. Only
+> *this* attempt was actually stress-tested at a scale that means
+> something: 100 consecutive full-suite runs (535 passed each time), zero
+> failures — not 3, not 5. The first two "fixes" also looked clean at 3-5
+> runs; that was the actual lesson here, not the specific Qt mechanism.
+>
+> Implementation drafted by a Haiku-class agent per current cost guidance;
+> the `Worker` progress-kwarg fix and the QThread-lifecycle fix (plus their
+> tests) were both done directly, not delegated — the first because it was
+> a prerequisite the agent needed to build on, the second because it's a
+> genuine crash bug in shared thread-safety plumbing found during
+> verification, exactly the kind of thing "trust but verify" exists to
+> catch rather than something to hand back for a re-delegation round trip.
+
 ### Task 5 — Lightweight viewer
 
 - [ ] Thumbnail grid over a shoot folder or cartridge, RAW decode via the
@@ -453,15 +547,18 @@ fixture builder in `tests/conftest.py`~~ DONE (`make_real_darktable_db`,
 alongside — not replacing — the existing `make_darktable_db`, which
 `test_pipeline.py` still uses), ~~`src/photo_workflow/wsl_bridge.py`~~ DONE
 (see the Task 3 annotation above), ~~`tests/test_wsl_bridge.py`~~ DONE (24
-tests), ~~`src/cartridge_manager/`~~ slices 4a+4b DONE (`cartridges.py`,
-`cartridge_list_widget.py`, `workers.py`, `move_view.py`, `main_window.py`,
-`app.py` — see the Task 4 annotations above; Backup/Restore/Verify and
-Provision views still to come as later slices), ~~`tests/test_cartridge_manager_cartridges.py`~~
+tests), ~~`src/cartridge_manager/`~~ slices 4a+4b+4c DONE (`cartridges.py`,
+`cartridge_list_widget.py`, `workers.py`, `move_view.py`, `backup_view.py`,
+`main_window.py`, `app.py` — see the Task 4 annotations above; Provision
+still to come as a later slice), ~~`tests/test_cartridge_manager_cartridges.py`~~
 DONE (5 tests), ~~`tests/test_cartridge_manager_widget.py`~~ DONE (6
-tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (3 tests),
-~~`tests/test_cartridge_manager_move_view.py`~~ DONE (10 tests),
+tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (5 tests —
+including `test_dropping_a_worker_right_after_finished_does_not_crash`, a
+25-iteration stress test for the QThread-lifecycle bug documented above),
+~~`tests/test_cartridge_manager_move_view.py`~~ DONE (11 tests),
+~~`tests/test_cartridge_manager_backup_view.py`~~ DONE (17 tests),
 `docs/cartridge-manager-guide.md` (end-user guide, once Task 4 is further
-along — a two-view app still doesn't need one yet), a new ADR if the
+along — a three-view app still doesn't need one yet), a new ADR if the
 WSL-orchestration design in Task 3 turns out to need one on reflection
 after real-Windows verification — not written yet; the design is
 documented in the Task 3 annotation and `docs/portable-drive-setup.md`
