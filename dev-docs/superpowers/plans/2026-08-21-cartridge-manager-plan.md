@@ -578,19 +578,84 @@ as a single Task 4 PR.
 > Portable" rather than "Provision" so the UI itself doesn't imply the
 > partition/format capability that isn't there.
 
-### Task 5 — Lightweight viewer
+### Task 5 — Lightweight viewer — **DONE**
 
-- [ ] Thumbnail grid over a shoot folder or cartridge, RAW decode via the
+- [x] Thumbnail grid over a shoot folder or cartridge, RAW decode via the
       existing `raw_loader.py` (rawpy), cached thumbnails so re-opening a
       folder is fast.
-- [ ] Shows `photonforge.db` state per photo (stars/score, stage, genre)
+- [x] Shows `photonforge.db` state per photo (stars/score, stage, genre)
       and Darktable state (tags, color label) side by side — read-only in
       v1; this is a viewer, not a second editor. No history-stack
       rendering, no edits — Darktable stays the only place that edits.
-- [ ] Explicit non-goal, worth stating so it doesn't creep: this is not a
+- [x] Explicit non-goal, worth stating so it doesn't creep: this is not a
       culling app and not a Darktable replacement. If that's ever wanted,
       ADR-004 says it plainly — that would be "a new decision, not a
       revival of the retired code," and not something this plan does.
+
+> **Built as:** `src/cartridge_manager/photo_state.py` (pure Python, no Qt
+> import — `PhotoInfo` dataclass, `list_photos`/`describe_photo`/
+> `get_cached_thumbnail`/`build_gallery`) and `src/cartridge_manager/
+> viewer_view.py` (`ViewerView(QWidget)`: folder picker, `Worker`-backed
+> gallery load, `QListWidget` icon-mode thumbnail grid, a detail panel
+> showing score/genre/stages/needs-review/Darktable tags/color label for
+> the selected photo). `describe_photo` degrades gracefully when
+> `photonforge.db` has no row for a photo or the cartridge has no synced
+> Darktable `library.db` at all — both are "nothing to show," not errors.
+> Thumbnails cache to `<folder>/.photonforge/thumb-cache/` keyed by
+> `{filename}.{mtime}.jpg`, so a changed source file naturally invalidates
+> its own cached thumbnail with no explicit cleanup logic. Deliberately
+> shows the real, persisted `master_score` rather than deriving a "stars"
+> number — no stars column exists, and computing one would need the
+> shoot-wide percentile context `score_fusion.hybrid_star` uses internally,
+> which isn't this viewer's job to reach into.
+>
+> Required one new backend function first: `darktable_bridge.
+> read_darktable_color_label(library_db_path, filename) -> int | None`,
+> added mirroring the existing `read_darktable_keywords`'s exact shape
+> (same `_open_dt`/lookup-by-filename/graceful-degrade pattern), with 3
+> new direct tests in `tests/test_darktable.py`.
+>
+> 30 new tests (15 in `tests/test_cartridge_manager_photo_state.py`
+> against real fixtures — recursive folder listing, `.xmp` exclusion,
+> `photonforge.db`/Darktable state with and without rows, thumbnail
+> cache hit/miss/mtime-invalidation/corrupt-file handling, end-to-end
+> gallery build with progress tracking; 15 in
+> `tests/test_cartridge_manager_viewer_view.py` — validation, real
+> end-to-end load, selection updates the detail panel, signal emission
+> on success/failure, progress bar visibility, and a regression test for
+> the bug below). Wired into `main_window.py` as a fifth tab ("Viewer").
+>
+> **A real bug found during review, not by the agent's own tests:**
+> `_on_finished` re-disabled the Browse button instead of re-enabling it
+> (`setEnabled(False)` where the parallel `_on_failed` correctly had
+> `setEnabled(True)`), leaving Browse permanently disabled after the very
+> first successful load. None of the agent's tests checked
+> `_browse_button`'s state after success, only `load_button`'s. Fixed
+> directly and covered with a new
+> `test_browse_button_reenabled_after_successful_load` regression test.
+>
+> **An incident worth recording, not a code bug:** mid-slice, this
+> session's own uncommitted `darktable_bridge.py`/`test_darktable.py`
+> edits (the `read_darktable_color_label` addition above) were silently
+> discarded from the working tree — `git status` showed a clean diff
+> against HEAD with no stash or reflog trace — most likely because the
+> background agent building this slice ran a destructive git command in
+> the same shared working tree despite not being asked to touch those
+> files. Recovered by recreating the identical function and tests from
+> the conversation record and re-verifying. Lesson for future slices:
+> commit small prerequisite edits before dispatching a background agent
+> that shares the working tree, rather than leaving them uncommitted.
+>
+> Implementation drafted by a Haiku-class agent per current cost guidance;
+> `photo_state.py` reviewed correct as-is, `viewer_view.py` reviewed and
+> the Browse-button bug fixed before accepting. Given this slice's new
+> `Worker` usage and the Task 4c QThread history, independently
+> stress-tested: 60 consecutive runs of the isolated slice test files,
+> zero failures. Full suite (586 passed, 1 skipped, 2 deselected), ruff
+> (clean on every file touched by this slice — findings elsewhere in
+> `darktable_bridge.py`/`test_darktable.py` are pre-existing and predate
+> this slice), and `check_doc_references` (clean) all verified before
+> commit.
 
 ## Files at a glance
 
@@ -600,11 +665,12 @@ fixture builder in `tests/conftest.py`~~ DONE (`make_real_darktable_db`,
 alongside — not replacing — the existing `make_darktable_db`, which
 `test_pipeline.py` still uses), ~~`src/photo_workflow/wsl_bridge.py`~~ DONE
 (see the Task 3 annotation above), ~~`tests/test_wsl_bridge.py`~~ DONE (24
-tests), ~~`src/cartridge_manager/`~~ slices 4a+4b+4c+4d DONE
+tests), ~~`src/cartridge_manager/`~~ slices 4a+4b+4c+4d+Task 5 DONE
 (`cartridges.py`, `cartridge_list_widget.py`, `workers.py`, `move_view.py`,
-`backup_view.py`, `provision_view.py`, `main_window.py`, `app.py` — see the
-Task 4 annotations above; raw drive provisioning is a known, documented
-gap, not a later slice of this plan — see the slice 4d annotation),
+`backup_view.py`, `provision_view.py`, `photo_state.py`, `viewer_view.py`,
+`main_window.py`, `app.py` — see the Task 4 and Task 5 annotations above;
+raw drive provisioning is a known, documented gap, not a later slice of
+this plan — see the slice 4d annotation),
 ~~`tests/test_cartridge_manager_cartridges.py`~~
 DONE (5 tests), ~~`tests/test_cartridge_manager_widget.py`~~ DONE (6
 tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (5 tests —
@@ -613,6 +679,8 @@ including `test_dropping_a_worker_right_after_finished_does_not_crash`, a
 ~~`tests/test_cartridge_manager_move_view.py`~~ DONE (11 tests),
 ~~`tests/test_cartridge_manager_backup_view.py`~~ DONE (17 tests),
 ~~`tests/test_cartridge_manager_provision_view.py`~~ DONE (18 tests),
+~~`tests/test_cartridge_manager_photo_state.py`~~ DONE (15 tests),
+~~`tests/test_cartridge_manager_viewer_view.py`~~ DONE (15 tests),
 `docs/cartridge-manager-guide.md` (end-user guide, once Task 4 is further
 along — a four-view app still doesn't need one yet), a new ADR if the
 WSL-orchestration design in Task 3 turns out to need one on reflection
@@ -637,7 +705,10 @@ caught and fixed `relocate.py`/`wsl_bridge.py` missing from the
 `src/photo_workflow/` module list and the stale "24 modules" count — now
 26), ~~`tests/conftest.py`~~ DONE (`QT_QPA_PLATFORM=offscreen` default),
 ~~`.github/workflows/tests.yml`~~ DONE (`gui` extra + `libegl1` install for
-headless Qt tests).
+headless Qt tests), ~~`src/photo_workflow/darktable_bridge.py`~~ DONE (new
+`read_darktable_color_label` — Task 5), ~~`tests/test_darktable.py`~~ DONE
+(3 new tests for it — Task 5), ~~`src/cartridge_manager/main_window.py`~~
+DONE (fifth "Viewer" tab — Task 5).
 
 ## Open questions (deliberately not decided here)
 

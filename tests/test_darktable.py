@@ -3,21 +3,20 @@
 from __future__ import annotations
 
 import inspect
+import sqlite3
 from pathlib import Path
 
-
 from photo_workflow.darktable_bridge import (
-    xmp_sidecar_path,
+    _write_xmp,
+    purge_orphan_photon_tags,
+    read_darktable_color_label,
+    read_darktable_keywords,
     sync_to_darktable,
     validate_xmp,
-    _write_xmp,
     write_darktable_keywords,
-    purge_orphan_photon_tags,
-    read_darktable_keywords,
+    xmp_sidecar_path,
 )
 from photo_workflow.pipeline import PhotoRecord
-import sqlite3
-
 
 _SAMPLE_SUB_SCORES = {
     "eye_sharpness": 0.85,
@@ -190,6 +189,7 @@ def _make_dt5_dbs(tmp_path: Path) -> tuple[Path, Path]:
     conn.execute(
         "CREATE TABLE tagged_images (imgid INTEGER, tagid INTEGER, position INTEGER)"
     )
+    conn.execute("CREATE TABLE color_labels (imgid INTEGER, color INTEGER)")
     conn.commit()
     conn.close()
 
@@ -296,6 +296,37 @@ def test_read_darktable_keywords_nonexistent_image(tmp_path: Path) -> None:
     lib, _ = _make_dt5_dbs(tmp_path)
     keywords = read_darktable_keywords(lib, "nonexistent.jpg")
     assert keywords == []
+
+
+def test_read_darktable_color_label_retrieves_label(tmp_path: Path) -> None:
+    """read_darktable_color_label returns the real color int for a labeled image."""
+    lib, _ = _make_dt5_dbs(tmp_path)
+
+    conn = sqlite3.connect(str(lib))
+    conn.execute("INSERT INTO images (id, filename) VALUES (1, 'test.jpg')")
+    conn.execute("INSERT INTO color_labels (imgid, color) VALUES (1, 3)")
+    conn.commit()
+    conn.close()
+
+    assert read_darktable_color_label(lib, "test.jpg") == 3
+
+
+def test_read_darktable_color_label_no_label(tmp_path: Path) -> None:
+    """read_darktable_color_label returns None for an image with no color label."""
+    lib, _ = _make_dt5_dbs(tmp_path)
+
+    conn = sqlite3.connect(str(lib))
+    conn.execute("INSERT INTO images (id, filename) VALUES (1, 'test.jpg')")
+    conn.commit()
+    conn.close()
+
+    assert read_darktable_color_label(lib, "test.jpg") is None
+
+
+def test_read_darktable_color_label_nonexistent_image(tmp_path: Path) -> None:
+    """read_darktable_color_label returns None for a missing image, not an error."""
+    lib, _ = _make_dt5_dbs(tmp_path)
+    assert read_darktable_color_label(lib, "nonexistent.jpg") is None
 
 
 def test_keywords_round_trip(tmp_path: Path) -> None:

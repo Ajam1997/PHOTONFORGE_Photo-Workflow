@@ -484,6 +484,45 @@ def read_darktable_keywords(
     return keywords
 
 
+def read_darktable_color_label(
+    library_db_path: Path,
+    filename: str,
+) -> int | None:
+    """Read an image's Darktable color label (0-5, Darktable's own color-label
+    ints — see score_fusion.stars_to_color_label for what PhotonForge writes
+    into them) for a given file.
+
+    Args:
+        library_db_path: Path to Darktable's library.db
+        filename: Image filename (basename only)
+
+    Returns:
+        The color label int if the image is found and has one, else None
+        (image not found in the catalog, or found but has no color label —
+        both are "nothing to show", not errors).
+    """
+    try:
+        # Reading concurrently with a running Darktable is safe; skip the
+        # lockfile check writers use.
+        conn = _open_dt(library_db_path, check_lock=False)
+        try:
+            image_row = conn.execute(
+                "SELECT id FROM images WHERE filename=?", (filename,)
+            ).fetchone()
+            if not image_row:
+                logger.warning("Image not found in Darktable library: %s", filename)
+                return None
+            label_row = conn.execute(
+                "SELECT color FROM color_labels WHERE imgid=?", (image_row["id"],)
+            ).fetchone()
+            return label_row["color"] if label_row else None
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error("Failed to read Darktable color label for %s: %s", filename, e)
+        return None
+
+
 def sync_to_darktable(records: list["PhotoRecord"], verbose: bool = False) -> int:
     """Write XMP sidecars for all non-duplicate records. Returns count written."""
     xmp_count = 0
