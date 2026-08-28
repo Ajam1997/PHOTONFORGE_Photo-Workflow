@@ -346,7 +346,21 @@ as a single Task 4 PR.
       Tier 3 exists) as real buttons over the existing `backup.py`
       functions — not launching a terminal, unlike the Lua plugin's
       current guarded buttons.
-- [ ] Provision + the WSL-based make-portable from Task 3.
+- [x] **Slice 4d — DONE, partially.** The WSL-based make-portable from
+      Task 3, as a real GUI view. **Raw drive provisioning (partition/
+      format) is explicitly NOT built** — `provision.py`'s only
+      implementation (`provision_cartridge`) shells out to `sudo`/
+      `wipefs`/`parted`/`mkfs.<fs>`/`udevadm`, all Linux-only, and this
+      app's target platform is Windows (a standing decision from earlier
+      in this plan). No Windows-equivalent exists anywhere in this
+      codebase yet. Rather than build a disabled stub button or silently
+      skip mentioning it, this is called out here as a known gap: a
+      real Windows partitioning implementation is its own future task,
+      not something this slice papered over. What *is* buildable and
+      genuinely useful today — assembling Darktable + CLI + models onto
+      an already-provisioned drive — is what got built, named "Make
+      Portable" in the UI (not "Provision") so it doesn't imply a
+      capability that isn't there.
 - [x] **Progress — DONE (as part of slice 4b).** `src/cartridge_manager/workers.py`:
       a `QThread` wrapper (`Worker`/`WorkerSignals`) that runs one
       `photo_workflow` call off the GUI thread and normalizes whatever
@@ -525,6 +539,45 @@ as a single Task 4 PR.
 > verification, exactly the kind of thing "trust but verify" exists to
 > catch rather than something to hand back for a re-delegation round trip.
 
+> **Slice 4d built as:** first, a small refactor of
+> `src/photo_workflow/cartridge.py` — extracted the click-agnostic core of
+> the existing `make-portable` CLI command into a new public
+> `run_make_portable(drive, oses, *, ...)` function (raises plain
+> `ValueError`/`RuntimeError`/`DownloadError`/`WslError`, no click
+> dependency; returns `(PortableBuildResult, linux_via_wsl: bool)`), so the
+> GUI and the CLI share one implementation of the WSL-splitting/
+> result-merging logic instead of the GUI reimplementing it — the same
+> pattern already used for `volume.resolve_cart_id` in slice 4b. Caught and
+> fixed a real bug in this refactor myself before it went anywhere: the
+> click decorators stayed attached to the wrong function after the edit
+> (the newly-extracted `run_make_portable` inherited `@main.command(...)`
+> and every `@click.option(...)`, while `make_portable_cmd` got none),
+> which surfaced immediately as every CLI test failing with `TypeError:
+> run_make_portable() got an unexpected keyword argument 'as_json'` —
+> caught by running `tests/test_cartridge_make_portable_cli.py` right
+> after the refactor, before ever handing the slice to an agent.
+>
+> `src/cartridge_manager/provision_view.py` (`ProvisionView(QWidget)`):
+> every field from the CLI's real `make-portable` options (drive, win/linux
+> checkboxes, manifest, templates dir, lua src, models src, cli src, cache
+> dir, offline, cart-id override), a `Worker`-backed `Build` button, and —
+> critically — the exact `settle()` → disconnect-each-signal →
+> `self._worker = None` teardown sequence from slices 4b/4c's `_on_finished`/
+> `_on_failed`, copied verbatim per an explicit instruction in the
+> delegation prompt not to improvise a different-but-"equivalent" sequence.
+> It didn't deviate. 18 new tests, all against real fixtures (a real
+> manifest-less build exercising `build_portable_layout`'s plugin-copy and
+> launcher-write paths against this repo's actual `deploy/portable`/
+> `lua/photonforge` directories — no network, no mocked `run_make_portable`
+> — plus real cart-id-mismatch and non-PHOTON-label failures surfacing the
+> real `ValueError` text). Given the Task 4c QThread saga, this slice's
+> `Worker` usage was independently stress-tested the same way before being
+> trusted: 40 consecutive full-suite runs, zero failures.
+>
+> Wired into `main_window.py` as a fourth tab, deliberately labeled "Make
+> Portable" rather than "Provision" so the UI itself doesn't imply the
+> partition/format capability that isn't there.
+
 ### Task 5 — Lightweight viewer
 
 - [ ] Thumbnail grid over a shoot folder or cartridge, RAW decode via the
@@ -547,18 +600,21 @@ fixture builder in `tests/conftest.py`~~ DONE (`make_real_darktable_db`,
 alongside — not replacing — the existing `make_darktable_db`, which
 `test_pipeline.py` still uses), ~~`src/photo_workflow/wsl_bridge.py`~~ DONE
 (see the Task 3 annotation above), ~~`tests/test_wsl_bridge.py`~~ DONE (24
-tests), ~~`src/cartridge_manager/`~~ slices 4a+4b+4c DONE (`cartridges.py`,
-`cartridge_list_widget.py`, `workers.py`, `move_view.py`, `backup_view.py`,
-`main_window.py`, `app.py` — see the Task 4 annotations above; Provision
-still to come as a later slice), ~~`tests/test_cartridge_manager_cartridges.py`~~
+tests), ~~`src/cartridge_manager/`~~ slices 4a+4b+4c+4d DONE
+(`cartridges.py`, `cartridge_list_widget.py`, `workers.py`, `move_view.py`,
+`backup_view.py`, `provision_view.py`, `main_window.py`, `app.py` — see the
+Task 4 annotations above; raw drive provisioning is a known, documented
+gap, not a later slice of this plan — see the slice 4d annotation),
+~~`tests/test_cartridge_manager_cartridges.py`~~
 DONE (5 tests), ~~`tests/test_cartridge_manager_widget.py`~~ DONE (6
 tests), ~~`tests/test_cartridge_manager_workers.py`~~ DONE (5 tests —
 including `test_dropping_a_worker_right_after_finished_does_not_crash`, a
 25-iteration stress test for the QThread-lifecycle bug documented above),
 ~~`tests/test_cartridge_manager_move_view.py`~~ DONE (11 tests),
 ~~`tests/test_cartridge_manager_backup_view.py`~~ DONE (17 tests),
+~~`tests/test_cartridge_manager_provision_view.py`~~ DONE (18 tests),
 `docs/cartridge-manager-guide.md` (end-user guide, once Task 4 is further
-along — a three-view app still doesn't need one yet), a new ADR if the
+along — a four-view app still doesn't need one yet), a new ADR if the
 WSL-orchestration design in Task 3 turns out to need one on reflection
 after real-Windows verification — not written yet; the design is
 documented in the Task 3 annotation and `docs/portable-drive-setup.md`
@@ -567,7 +623,8 @@ instead, and can graduate to an ADR later if it proves durable.
 **Modify:** ~~`src/photo_workflow/cartridge.py` (new subcommands)~~ DONE
 (`move-photos`/`move-shoot`/`resume-move` — Task 2; WSL dispatch wiring in
 `make_portable_cmd` — Task 3; `_resolve_cart_id` now delegates to
-`volume.resolve_cart_id` — Task 4b), ~~`src/photo_workflow/volume.py`~~
+`volume.resolve_cart_id` — Task 4b; `run_make_portable` extracted as a
+reusable, click-agnostic core — Task 4d), ~~`src/photo_workflow/volume.py`~~
 DONE (new `resolve_cart_id(dest, cart_id)`, shared by the CLI and
 `cartridge_manager`; 4 new direct tests in `tests/test_volume.py`),
 ~~`tests/test_cartridge_move_cli.py`~~ DONE

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QMainWindow, QTabWidget
 from .backup_view import BackupView
 from .cartridge_list_widget import CartridgeListWidget
 from .move_view import MoveView
+from .provision_view import ProvisionView
 
 
 class MainWindow(QMainWindow):
@@ -30,5 +31,9 @@ class MainWindow(QMainWindow):
         # Backup tab
         self.backup_view = BackupView(parent=self)
         tabs.addTab(self.backup_view, "Backup")
+
+        # Make Portable tab
+        self.provision_view = ProvisionView(parent=self)
+        tabs.addTab(self.provision_view, "Make Portable")
 
         self.setCentralWidget(tabs)
