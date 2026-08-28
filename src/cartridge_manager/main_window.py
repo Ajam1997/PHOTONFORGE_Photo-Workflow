@@ -8,6 +8,7 @@ from .backup_view import BackupView
 from .cartridge_list_widget import CartridgeListWidget
 from .move_view import MoveView
 from .provision_view import ProvisionView
+from .viewer_view import ViewerView
 
 
 class MainWindow(QMainWindow):
@@ -35,5 +36,9 @@ class MainWindow(QMainWindow):
         # Make Portable tab
         self.provision_view = ProvisionView(parent=self)
         tabs.addTab(self.provision_view, "Make Portable")
+
+        # Viewer tab
+        self.viewer_view = ViewerView(parent=self)
+        tabs.addTab(self.viewer_view, "Viewer")
 
         self.setCentralWidget(tabs)
