@@ -312,7 +312,60 @@ single most common way to mis-spec an "AI laptop" for this use case.
 
 ---
 
-## 7. Open Questions (carry-forward, in priority order)
+## 7. Pixel-Engine Selection (R2 software decision)
+
+R2's GUI/edit layer (`gui-layer-handoff-brief.md`) currently assumes **darktable-cli** as
+the pixel engine. That assumption is worth revisiting: darktable-cli is a **batch renderer**
+(raw + sidecar → output file), and its edit parameters are **opaque, version-specific binary
+XMP blobs** (the GUI brief's highest-risk item, GUI-7). It cannot expose live, fine-grained
+pipeline control to a custom GUI. The real axis is **which integration model**, not which app.
+
+### 7.1 RapidRAW — evaluated, REJECTED as the engine
+
+[RapidRAW](https://github.com/CyberTimon/RapidRAW) (Rust + Tauri + WGPU, AGPL-3.0) is an
+impressive modern GPU raw editor, but it does **not fit as PHOTONForge's pixel engine**:
+
+- **No CLI / headless / library API** — it is exclusively a GUI app. Its Rust core is not
+  published as a standalone library, so it **cannot be subprocess-orchestrated** the way
+  darktable-cli is. Using it means *forking its GUI and injecting our AI layer* — abandoning
+  the DearPyGui plan and the Python stack — not "swapping the pixel engine."
+- **AGPL-3.0** — any fork/embed makes the combined work AGPL, and AGPL's **network clause**
+  bites directly on R2's mobile/remote-edit ambitions (serving processing over the network
+  would obligate source release to network users).
+- **Solo-dev, ~1yr, v1.5.x; `.rrdata` sidecar undocumented.** Foundational-dependency
+  bus-factor risk that compounds our own solo-dev risk, plus an unstable edit format.
+
+Useful takeaway: RapidRAW (WGPU + WGSL, ~30MB, one developer) is *evidence that a modern
+from-scratch GPU pipeline is achievable solo* — a vote for Path C below, not for adopting it.
+
+### 7.2 The three integration paths
+
+| Path | What it is | Gives "full GUI control"? | Cost |
+|---|---|---|---|
+| **A. Keep darktable-cli** | batch render + binary XMP | No — opaque, batch-only | none |
+| **B. RawTherapee-cli / ART** | batch render + **PP3 text profiles** | *Partly* — transparent, scriptable params | moderate (swap sidecar contract) |
+| **C. Own the pipeline** (GUI brief Phase 2/3) | rawpy decode + GPU/numpy + ONNX modules | **Yes** — the only path that fully does | high (build it) |
+
+### 7.3 Recommendation
+
+- **MVP fix for the stated pain (opaque params):** move to **RawTherapee-cli / ART**. Same
+  subprocess-orchestration model already designed, but **PP3 sidecars are human-readable
+  INI** — directly solving "I can't control darktable's params from my GUI," without betting
+  on a young project. Mature (15+ yrs, GPL), broad camera support incl. the a6700 ARW.
+- **Endgame:** "full control through the custom GUI" is ultimately only delivered by
+  **owning the pipeline** (GUI brief Phase 2: rawpy + GPU/numpy; Phase 3: ONNX edit modules).
+  No external editor-CLI will ever expose its pipeline that granularly. RawTherapee buys time
+  and quality; owning it is where the AI-native vision (and Phase 3) has to land. (Reference
+  for a modern GPU pipeline: **vkdt**, the darktable author's node-graph Vulkan successor —
+  has a CLI + readable graph configs; experimental, needs a real GPU = Profile 2's Arc.)
+- **Keep it swappable, don't touch R1.** `renderer_bridge` stays the single seam hiding the
+  engine + sidecar format, so darktable → RawTherapee → own-pipeline is a bounded swap, not a
+  rewrite — the same engine-agnostic discipline as §2.3. This is an R2 decision; it does not
+  affect the R1 headless pipeline.
+
+---
+
+## 8. Open Questions (carry-forward, in priority order)
 
 These are *decided-to-defer*, not undecided. Nothing below blocks recording the hardware
 direction; each is the next concrete step toward making R2 buildable.
@@ -335,3 +388,21 @@ direction; each is the next concrete step toward making R2 buildable.
      not a rewrite.
    - **RP2040 firmware** language (MicroPython recommended) + host↔MCU serial protocol —
      needs a **@systems_lead scope sign-off** (§3.7) before any firmware work begins.
+
+4. **Pixel-engine path (§7).** Validate **RawTherapee-cli / ART (PP3)** as the MVP engine vs
+   committing earlier to the own-pipeline endgame (Phase 2/3). Either way, keep
+   `renderer_bridge` engine-agnostic so the choice stays reversible. RapidRAW is already
+   evaluated and rejected as the engine (§7.1).
+
+5. **Profile 3 — Direct-Attach Mobile (Android).** A Kotlin Android app hosting the
+   pipeline + a cull/review/export UI when a card or cartridge plugs straight into the
+   phone — see `android-port-brief.md`. It extends (does not replace) Profile 1's
+   "phone = remote viewer" role, and is orthogonal to the pixel-engine choice above:
+   darktable does not run on Android, the phone renders embedded previews only and never
+   edits. Two continuity items it raises for this brief:
+   - **FR-1.9 cartridge filesystem**: ext4 cartridges are unreadable on Android; the
+     Android brief recommends migrating cartridges to **exFAT** (needs @systems_lead
+     sign-off — see `android-port-brief.md` §9.2).
+   - Cull results travel as **standard XMP** (`xmp:Rating`, `xmp:Label`,
+     `lr:hierarchicalSubject`) written parse-modify-write, a superset of the desktop
+     `photon:*`-only sidecars, so desktop darktable ingests them with no bridge code.
