@@ -82,6 +82,21 @@ if (Test-Path $cssSrc) {
     Write-Host "[copy]  photonforge.css"
 }
 
+# --- Copy the full darktable theme(s) ---------------------------------------
+# Themes live in <darktable config>/themes/ and appear in Preferences -> theme.
+$themeSrcDir = Join-Path $srcDir "themes"
+if (Test-Path $themeSrcDir) {
+    $themeDstDir = Join-Path $DarktableDir "themes"
+    if (-not (Test-Path $themeDstDir)) {
+        New-Item -ItemType Directory -Force -Path $themeDstDir | Out-Null
+        Write-Host "[create] $themeDstDir"
+    }
+    foreach ($t in Get-ChildItem -Path $themeSrcDir -Filter "*.css") {
+        Copy-Item $t.FullName (Join-Path $themeDstDir $t.Name) -Force
+        Write-Host "[theme] $($t.Name)"
+    }
+}
+
 # --- Ensure luarc has the require line ---------------------------------------
 $requireLine = 'require "photonforge/main"'
 $luarcOk = $false
@@ -166,6 +181,7 @@ if ($copied -gt 0) {
     Write-Host "All $upToDate file(s) already up to date - nothing to do."
 }
 Write-Host ""
-Write-Host "Optional polish: paste lua\photonforge\photonforge.css into"
-Write-Host "  Darktable -> Preferences -> 'user.css' -> Save and apply, then restart."
-Write-Host "The panel works without it; the CSS adds accent fills and status colors."
+Write-Host "Full theme: Preferences -> General -> theme = 'PHOTONForge', then restart"
+Write-Host "  Darktable. Re-tints the whole UI dark-maroon to match the plugin."
+Write-Host "Panel-only alt: paste lua\photonforge\photonforge.css into"
+Write-Host "  Preferences -> 'user.css' -> Save and apply (no full theme needed)."
